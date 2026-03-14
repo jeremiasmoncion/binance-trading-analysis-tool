@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - codex/add-1d-timeframe
   workflow_dispatch:
 
 permissions:

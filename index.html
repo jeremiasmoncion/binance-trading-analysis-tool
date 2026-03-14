@@ -65,6 +65,45 @@
        ============================================ */
     .view-panel { display: none; padding: 24px; }
     .view-panel.active { display: block; }
+    .dashboard-shell { display: grid; gap: 20px; }
+    .dashboard-hero { position: relative; overflow: hidden; background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 32%),
+      radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 28%),
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 52%, #eef4ff 100%);
+      border: 1px solid #dbe7ff;
+      border-radius: 22px;
+      padding: 28px;
+      box-shadow: 0 16px 50px rgba(37, 99, 235, 0.10);
+    }
+    .dashboard-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -10% -42% auto;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.16), transparent 62%);
+      pointer-events: none;
+    }
+    .dashboard-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; }
+    .dashboard-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(37, 99, 235, 0.08); color: #1d4ed8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .dashboard-headline { font-size: 34px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; color: #0f172a; max-width: 540px; }
+    .dashboard-subcopy { margin-top: 12px; max-width: 620px; color: #475569; font-size: 14px; line-height: 1.7; }
+    .dashboard-pulse { min-width: 220px; padding: 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(148, 163, 184, 0.18); backdrop-filter: blur(10px); }
+    .dashboard-pulse-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 10px; }
+    .dashboard-pulse-value { font-size: 30px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    .dashboard-pulse-note { font-size: 13px; color: #475569; line-height: 1.5; }
+    .dashboard-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .dashboard-mini-card { background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 18px; padding: 16px 18px; }
+    .dashboard-mini-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; }
+    .dashboard-mini-value { font-size: 24px; font-weight: 800; color: #0f172a; }
+    .dashboard-mini-note { margin-top: 6px; font-size: 12px; color: #64748b; }
+    .dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr); gap: 20px; align-items: start; }
+    .dashboard-stack { display: grid; gap: 20px; }
+    .signal-spotlight { padding: 24px; border-radius: 20px; }
+    .signal-spotlight .decision-title { font-size: 34px; }
+    .signal-spotlight .decision-desc { max-width: 640px; }
+    .plan-chip { font-size: 11px; background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; }
     
     /* Card Styles */
     .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -223,10 +262,33 @@
     body.dark-theme .decision-banner.sell { background: linear-gradient(135deg, #3a1718 0%, #2b1213 100%); border-color: #ef4444; }
     body.dark-theme .theme-toggle .sun-icon { display: none; }
     body.dark-theme .theme-toggle .moon-icon { display: block; }
+    body.dark-theme .dashboard-hero {
+      background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 32%),
+        radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #0d1628 52%, #111c31 100%);
+      border-color: #23314d;
+      box-shadow: 0 16px 50px rgba(2, 6, 23, 0.35);
+    }
+    body.dark-theme .dashboard-eyebrow { background: rgba(37, 99, 235, 0.18); color: #93c5fd; }
+    body.dark-theme .dashboard-headline,
+    body.dark-theme .dashboard-pulse-value,
+    body.dark-theme .dashboard-mini-value { color: #f8fafc; }
+    body.dark-theme .dashboard-subcopy,
+    body.dark-theme .dashboard-pulse-note { color: #cbd5e1; }
+    body.dark-theme .dashboard-pulse,
+    body.dark-theme .dashboard-mini-card { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+    body.dark-theme .dashboard-mini-label,
+    body.dark-theme .dashboard-mini-note,
+    body.dark-theme .dashboard-pulse-label { color: #94a3b8; }
+    body.dark-theme .plan-chip { background: #172554; color: #bfdbfe; }
     
     /* Responsive */
     @media (max-width: 1024px) {
       .calculator-grid, .profile-grid { grid-template-columns: 1fr; }
+      .dashboard-hero-top,
+      .dashboard-main-grid { display: grid; grid-template-columns: 1fr; }
+      .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 768px) {
       .sidebar { width: 70px; }
@@ -237,6 +299,10 @@
       .search-coin input { width: 120px; }
       .decision-stats { flex-direction: column; }
       .stat-box { min-width: 100%; }
+      .dashboard-hero { padding: 20px; }
+      .dashboard-headline { font-size: 28px; }
+      .dashboard-summary-grid { grid-template-columns: 1fr; }
+      .signal-spotlight .decision-title { font-size: 28px; }
     }
     
     /* Login Overlay */
@@ -385,89 +451,108 @@
 
       <!-- DASHBOARD VIEW -->
       <div id="dashboardView" class="view-panel active">
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Dashboard principal</div>
-              <div class="card-subtitle">Accede primero a lo más importante y abre lo demás solo cuando lo necesites.</div>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero">
+            <div class="dashboard-hero-top">
+              <div>
+                <div class="dashboard-eyebrow">Radar operativo</div>
+                <h1 class="dashboard-headline">Lee el mercado, define el plan y ejecuta con más claridad.</h1>
+                <p class="dashboard-subcopy">Este panel está pensado para que en segundos tengas contexto, señal y niveles operativos antes de pasar a Binance o a la calculadora.</p>
+              </div>
+              <div class="dashboard-pulse">
+                <div class="dashboard-pulse-label">Activo en seguimiento</div>
+                <div class="dashboard-pulse-value" id="currentPrice">$0.00</div>
+                <div class="dashboard-pulse-note">Precio actual del par seleccionado con la temporalidad que tienes activa.</div>
+              </div>
             </div>
-          </div>
-        </div>
+            <div class="dashboard-summary-grid">
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Señal dominante</div>
+                <div class="dashboard-mini-value" id="decisionTitle">Esperar, pero con sesgo alcista</div>
+                <div class="dashboard-mini-note">Lectura principal del mercado ahora mismo.</div>
+              </div>
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Fuerza</div>
+                <div class="dashboard-mini-value" id="signalStrength">0%</div>
+                <div class="dashboard-mini-note">Convicción de la lectura actual.</div>
+              </div>
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Tendencia</div>
+                <div class="dashboard-mini-value" id="trendText">Neutral</div>
+                <div class="dashboard-mini-note">Sesgo técnico dominante.</div>
+              </div>
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Marco activo</div>
+                <div class="dashboard-mini-value" id="activeTimeframeLabel">15m</div>
+                <div class="dashboard-mini-note">Temporalidad desde la que se calcula el plan.</div>
+              </div>
+            </div>
+          </section>
 
-        <!-- Decision Banner -->
-        <div id="decisionBanner" class="decision-banner wait">
-          <span class="decision-label">Esperar</span>
-          <div class="decision-title" id="decisionTitle">Esperar, pero con sesgo alcista</div>
-          <div class="decision-desc" id="decisionDesc">Hay señales positivas, pero todavía sería mejor esperar una confirmación más limpia.</div>
-          <div class="decision-stats">
-            <div class="stat-box">
-              <div class="stat-label">Precio Actual</div>
-              <div class="stat-value" id="currentPrice">$0.00</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Fuerza</div>
-              <div class="stat-value" id="signalStrength">0%</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Tendencia</div>
-              <div class="stat-value" id="trendText">Neutral</div>
-            </div>
-          </div>
-        </div>
+          <div class="dashboard-main-grid">
+            <div class="dashboard-stack">
+              <div id="decisionBanner" class="decision-banner signal-spotlight wait">
+                <span class="decision-label">Esperar</span>
+                <div class="decision-title" id="decisionTitleSecondary">Esperar, pero con sesgo alcista</div>
+                <div class="decision-desc" id="decisionDesc">Hay señales positivas, pero todavía sería mejor esperar una confirmación más limpia.</div>
+              </div>
 
-        <!-- Quick Plan -->
-        <div class="quick-plan">
-          <div class="quick-plan-header">
-            <div>
-              <div class="quick-plan-title">Plan rápido sugerido</div>
-              <div class="card-subtitle">Para copiar más fácil en Binance</div>
+              <div class="chart-container">
+                <div class="chart-header">
+                  <div>
+                    <div class="chart-title" id="dashboardChartTitle">Gráfico de velas BTC/USDT</div>
+                    <div class="card-subtitle">Te ayuda a ver si el precio está empujando al alza, frenándose o cayendo.</div>
+                  </div>
+                  <div class="chart-legend">
+                    <div class="legend-item"><span class="legend-dot green"></span>Vela alcista</div>
+                    <div class="legend-item"><span class="legend-dot red"></span>Vela bajista</div>
+                    <div class="legend-item"><span class="legend-dot blue"></span>Media corta</div>
+                    <div class="legend-item"><span class="legend-dot orange"></span>Media larga</div>
+                  </div>
+                </div>
+                <canvas id="candleChart"></canvas>
+              </div>
             </div>
-            <span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:20px;">Basado en señal + temporalidad + comisión</span>
-          </div>
-          <div class="quick-plan-grid">
-            <div class="plan-item">
-              <div class="plan-label">Entrada sugerida</div>
-              <div class="plan-value" id="planEntry">$0.00</div>
-              <div class="plan-note">Referencia técnica</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Take profit</div>
-              <div class="plan-value" id="planTP">$0.00</div>
-              <div class="plan-note" id="planTPNote">Objetivo prudente</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Stop loss</div>
-              <div class="plan-value" id="planSL">$0.00</div>
-              <div class="plan-note">Protección sugerida</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Riesgo</div>
-              <div class="plan-value" id="planRisk">0.00%</div>
-              <div class="plan-note" id="planRiskNote">Aprox. $0.00</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Beneficio posible</div>
-              <div class="plan-value" id="planBenefit">0.00%</div>
-              <div class="plan-note" id="planBenefitNote">Posible neto aprox. $0.00</div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Chart -->
-        <div class="chart-container">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title">Gráfico de velas BTC/USDT</div>
-              <div class="card-subtitle">Te ayuda a ver si el precio está empujando al alza, frenándose o cayendo.</div>
-            </div>
-            <div class="chart-legend">
-              <div class="legend-item"><span class="legend-dot green"></span>Vela alcista</div>
-              <div class="legend-item"><span class="legend-dot red"></span>Vela bajista</div>
-              <div class="legend-item"><span class="legend-dot blue"></span>Media corta</div>
-              <div class="legend-item"><span class="legend-dot orange"></span>Media larga</div>
-            </div>
+            <aside class="dashboard-stack">
+              <div class="quick-plan">
+                <div class="quick-plan-header">
+                  <div>
+                    <div class="quick-plan-title">Plan rápido sugerido</div>
+                    <div class="card-subtitle">Para copiar más fácil en Binance</div>
+                  </div>
+                  <span class="plan-chip">Basado en señal + temporalidad + comisión</span>
+                </div>
+                <div class="quick-plan-grid">
+                  <div class="plan-item">
+                    <div class="plan-label">Entrada sugerida</div>
+                    <div class="plan-value" id="planEntry">$0.00</div>
+                    <div class="plan-note">Referencia técnica</div>
+                  </div>
+                  <div class="plan-item">
+                    <div class="plan-label">Take profit</div>
+                    <div class="plan-value" id="planTP">$0.00</div>
+                    <div class="plan-note" id="planTPNote">Objetivo prudente</div>
+                  </div>
+                  <div class="plan-item">
+                    <div class="plan-label">Stop loss</div>
+                    <div class="plan-value" id="planSL">$0.00</div>
+                    <div class="plan-note">Protección sugerida</div>
+                  </div>
+                  <div class="plan-item">
+                    <div class="plan-label">Riesgo</div>
+                    <div class="plan-value" id="planRisk">0.00%</div>
+                    <div class="plan-note" id="planRiskNote">Aprox. $0.00</div>
+                  </div>
+                  <div class="plan-item">
+                    <div class="plan-label">Beneficio posible</div>
+                    <div class="plan-value" id="planBenefit">0.00%</div>
+                    <div class="plan-note" id="planBenefitNote">Posible neto aprox. $0.00</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
-          <canvas id="candleChart"></canvas>
         </div>
       </div>
 
@@ -1586,10 +1671,13 @@
       banner.className = 'decision-banner ' + (label === 'Comprar' ? 'buy' : label === 'Vender' ? 'sell' : 'wait');
       banner.querySelector('.decision-label').textContent = label;
       $('decisionTitle').textContent = title;
+      $('decisionTitleSecondary').textContent = title;
       $('decisionDesc').textContent = reasons[0] || 'Análisis en progreso.';
       $('currentPrice').textContent = formatPrice(state.indicators.current);
       $('signalStrength').textContent = score + '%';
       $('trendText').textContent = trend;
+      $('activeTimeframeLabel').textContent = state.timeframe;
+      $('dashboardChartTitle').textContent = 'Gráfico de velas ' + state.currentCoin;
       
       // Plan
       $('planEntry').textContent = formatPrice(entry);

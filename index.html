@@ -65,6 +65,91 @@
        ============================================ */
     .view-panel { display: none; padding: 24px; }
     .view-panel.active { display: block; }
+    .dashboard-shell { display: grid; gap: 20px; }
+    .dashboard-hero { position: relative; overflow: hidden; background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 32%),
+      radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 28%),
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 52%, #eef4ff 100%);
+      border: 1px solid #dbe7ff;
+      border-radius: 22px;
+      padding: 28px;
+      box-shadow: 0 16px 50px rgba(37, 99, 235, 0.10);
+    }
+    .dashboard-hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -10% -42% auto;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.16), transparent 62%);
+      pointer-events: none;
+    }
+    .dashboard-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; }
+    .dashboard-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(37, 99, 235, 0.08); color: #1d4ed8; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .dashboard-eyebrow.buy { background: rgba(34, 197, 94, 0.16); color: #15803d; }
+    .dashboard-eyebrow.sell { background: rgba(239, 68, 68, 0.18); color: #dc2626; }
+    .dashboard-eyebrow.wait { background: rgba(245, 158, 11, 0.18); color: #d97706; }
+    .dashboard-headline { font-size: 34px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; color: #0f172a; max-width: 540px; }
+    .dashboard-subcopy { margin-top: 12px; max-width: 620px; color: #475569; font-size: 14px; line-height: 1.7; }
+    .dashboard-pulse { min-width: 220px; padding: 18px; border-radius: 18px; background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(148, 163, 184, 0.18); backdrop-filter: blur(10px); }
+    .dashboard-pulse-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 10px; }
+    .dashboard-pulse-value { font-size: 30px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+    .dashboard-pulse-note { font-size: 13px; color: #475569; line-height: 1.5; }
+    .dashboard-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+    .dashboard-mini-card { background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 18px; padding: 16px 18px; }
+    .dashboard-mini-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; }
+    .dashboard-mini-value { font-size: 24px; font-weight: 800; color: #0f172a; }
+    .dashboard-mini-note { margin-top: 6px; font-size: 12px; color: #64748b; }
+    .dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr); gap: 20px; align-items: start; }
+    .dashboard-stack { display: grid; gap: 20px; }
+    .signal-spotlight { padding: 24px; border-radius: 20px; }
+    .signal-spotlight .decision-title { font-size: 34px; }
+    .signal-spotlight .decision-desc { max-width: 640px; }
+    .plan-chip { font-size: 11px; background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; }
+    .timeframe-map { background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 18px; padding: 18px; }
+    .timeframe-map-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+    .timeframe-map-title { font-size: 15px; font-weight: 800; color: #0f172a; }
+    .timeframe-map-subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .timeframe-map-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .timeframe-chip { border-radius: 14px; padding: 14px 12px; border: 1px solid #dbe7ff; background: #fff; min-height: 92px; }
+    .timeframe-chip-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .timeframe-chip-label { font-size: 12px; font-weight: 800; color: #475569; letter-spacing: 0.04em; text-transform: uppercase; }
+    .timeframe-chip-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.14); }
+    .timeframe-chip-value { font-size: 18px; font-weight: 800; color: #0f172a; }
+    .timeframe-chip-note { margin-top: 4px; font-size: 11px; color: #64748b; }
+    .timeframe-chip.buy { border-color: rgba(34, 197, 94, 0.30); background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); }
+    .timeframe-chip.buy .timeframe-chip-dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.16); }
+    .timeframe-chip.buy .timeframe-chip-value { color: #15803d; }
+    .timeframe-chip.wait { border-color: rgba(245, 158, 11, 0.30); background: linear-gradient(135deg, #fffbeb 0%, #fefce8 100%); }
+    .timeframe-chip.wait .timeframe-chip-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16); }
+    .timeframe-chip.wait .timeframe-chip-value { color: #b45309; }
+    .timeframe-chip.sell { border-color: rgba(239, 68, 68, 0.30); background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); }
+    .timeframe-chip.sell .timeframe-chip-dot { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16); }
+    .timeframe-chip.sell .timeframe-chip-value { color: #dc2626; }
+    .dashboard-hero.buy {
+      background:
+        radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #f3fff8 52%, #e8fff1 100%);
+      border-color: #bbf7d0;
+      box-shadow: 0 16px 50px rgba(34, 197, 94, 0.12);
+    }
+    .dashboard-hero.sell {
+      background:
+        radial-gradient(circle at top left, rgba(239, 68, 68, 0.16), transparent 32%),
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.12), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #fff5f5 52%, #fff0f0 100%);
+      border-color: #fecaca;
+      box-shadow: 0 16px 50px rgba(239, 68, 68, 0.10);
+    }
+    .dashboard-hero.wait {
+      background:
+        radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #fffaf0 52%, #eef4ff 100%);
+      border-color: #fde68a;
+    }
     
     /* Card Styles */
     .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -89,14 +174,26 @@
     .stat-value { font-size: 18px; font-weight: 700; color: #1a233a; }
     
     /* Quick Plan */
-    .quick-plan { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
-    .quick-plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .quick-plan-title { font-size: 16px; font-weight: 700; color: #1a233a; }
-    .quick-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
-    .plan-item { background: #fff; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
-    .plan-label { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
-    .plan-value { font-size: 16px; font-weight: 700; color: #1a233a; }
-    .plan-note { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+    .quick-plan { background: linear-gradient(160deg, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%); border: 1px solid #dbe7ff; border-radius: 22px; padding: 22px; margin-bottom: 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 18px 40px rgba(37, 99, 235, 0.10); }
+    .quick-plan-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+    .quick-plan-title { font-size: 17px; font-weight: 800; color: #0f172a; }
+    .quick-plan .card-subtitle { color: #64748b; }
+    .quick-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .plan-item { background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%); padding: 16px; border-radius: 18px; border: 1px solid #d9e4f5; min-height: 122px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9); }
+    .plan-item.wide { grid-column: 1 / -1; }
+    .plan-item.entry { border-color: rgba(148, 163, 184, 0.28); }
+    .plan-item.tp { border-color: rgba(34, 197, 94, 0.30); background: linear-gradient(160deg, #effcf5 0%, #e8fff1 100%); }
+    .plan-item.sl { border-color: rgba(239, 68, 68, 0.26); background: linear-gradient(160deg, #fff2f4 0%, #ffeef2 100%); }
+    .plan-item.risk { border-color: rgba(245, 158, 11, 0.26); background: linear-gradient(160deg, #fff9eb 0%, #fff6e1 100%); }
+    .plan-item.benefit { border-color: rgba(59, 130, 246, 0.28); background: linear-gradient(160deg, #eef5ff 0%, #e8f0ff 100%); }
+    .plan-label { font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.16em; }
+    .plan-value { font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
+    .plan-note { font-size: 12px; color: #64748b; margin-top: 8px; line-height: 1.5; }
+    .plan-signal-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+    .plan-signal-pill::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgba(255,255,255,0.08); }
+    .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.14); color: #15803d; }
+    .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+    .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.16); color: #d97706; }
     
     /* Chart Container */
     .chart-container { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -212,8 +309,22 @@
     body.dark-theme .search-dropdown { background: #0f172a; border-color: #23314d; }
     body.dark-theme .search-item:hover { background: #17233a; }
     body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
-    body.dark-theme .quick-plan,
+    body.dark-theme .quick-plan {
+      background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%);
+      border-color: #253657;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(2, 6, 23, 0.26);
+    }
     body.dark-theme .calc-results { background: linear-gradient(135deg, #0f172a 0%, #162338 100%); border-color: #23314d; }
+    body.dark-theme .quick-plan-title { color: #f8fafc; }
+    body.dark-theme .quick-plan .card-subtitle,
+    body.dark-theme .plan-label,
+    body.dark-theme .plan-note { color: #94a3b8; }
+    body.dark-theme .plan-item { background: linear-gradient(160deg, #182338 0%, #162033 100%); border-color: #334155; box-shadow: none; }
+    body.dark-theme .plan-item.tp { background: linear-gradient(160deg, #0d2a2d 0%, #103239 100%); border-color: rgba(34, 197, 94, 0.30); }
+    body.dark-theme .plan-item.sl { background: linear-gradient(160deg, #2b1624 0%, #31192a 100%); border-color: rgba(239, 68, 68, 0.26); }
+    body.dark-theme .plan-item.risk { background: linear-gradient(160deg, #2f2617 0%, #352a18 100%); border-color: rgba(245, 158, 11, 0.26); }
+    body.dark-theme .plan-item.benefit { background: linear-gradient(160deg, #16253c 0%, #182a46 100%); border-color: rgba(59, 130, 246, 0.28); }
+    body.dark-theme .plan-value { color: #f8fafc; }
     body.dark-theme .result-row,
     body.dark-theme .user-item { border-color: #1e293b; }
     body.dark-theme .coin-card { border-color: #23314d; }
@@ -223,10 +334,76 @@
     body.dark-theme .decision-banner.sell { background: linear-gradient(135deg, #3a1718 0%, #2b1213 100%); border-color: #ef4444; }
     body.dark-theme .theme-toggle .sun-icon { display: none; }
     body.dark-theme .theme-toggle .moon-icon { display: block; }
+    body.dark-theme .dashboard-hero {
+      background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 32%),
+        radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #0d1628 52%, #111c31 100%);
+      border-color: #23314d;
+      box-shadow: 0 16px 50px rgba(2, 6, 23, 0.35);
+    }
+    body.dark-theme .dashboard-eyebrow { background: rgba(37, 99, 235, 0.18); color: #93c5fd; }
+    body.dark-theme .dashboard-eyebrow.buy { background: rgba(34, 197, 94, 0.22); color: #86efac; }
+    body.dark-theme .dashboard-eyebrow.sell { background: rgba(239, 68, 68, 0.24); color: #fca5a5; }
+    body.dark-theme .dashboard-eyebrow.wait { background: rgba(245, 158, 11, 0.22); color: #fcd34d; }
+    body.dark-theme .dashboard-headline,
+    body.dark-theme .dashboard-pulse-value,
+    body.dark-theme .dashboard-mini-value { color: #f8fafc; }
+    body.dark-theme .dashboard-subcopy,
+    body.dark-theme .dashboard-pulse-note { color: #cbd5e1; }
+    body.dark-theme .dashboard-pulse,
+    body.dark-theme .dashboard-mini-card { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+    body.dark-theme .timeframe-map { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+    body.dark-theme .dashboard-mini-label,
+    body.dark-theme .dashboard-mini-note,
+    body.dark-theme .dashboard-pulse-label { color: #94a3b8; }
+    body.dark-theme .timeframe-map-title,
+    body.dark-theme .timeframe-chip-value { color: #f8fafc; }
+    body.dark-theme .timeframe-map-subtitle,
+    body.dark-theme .timeframe-chip-note,
+    body.dark-theme .timeframe-chip-label { color: #94a3b8; }
+    body.dark-theme .plan-chip { background: #172554; color: #bfdbfe; }
+    body.dark-theme .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+    body.dark-theme .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+    body.dark-theme .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+    body.dark-theme .result-value.positive { color: #22c55e; }
+    body.dark-theme .result-value.negative { color: #f87171; }
+    body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }
+    body.dark-theme .timeframe-chip.buy { background: linear-gradient(135deg, #0d2017 0%, #10261b 100%); border-color: #166534; }
+    body.dark-theme .timeframe-chip.buy .timeframe-chip-value { color: #86efac; }
+    body.dark-theme .timeframe-chip.wait { background: linear-gradient(135deg, #261d0c 0%, #2b220d 100%); border-color: #854d0e; }
+    body.dark-theme .timeframe-chip.wait .timeframe-chip-value { color: #fcd34d; }
+    body.dark-theme .timeframe-chip.sell { background: linear-gradient(135deg, #2a1113 0%, #331517 100%); border-color: #7f1d1d; }
+    body.dark-theme .timeframe-chip.sell .timeframe-chip-value { color: #fca5a5; }
+    body.dark-theme .dashboard-hero.buy {
+      background:
+        radial-gradient(circle at top left, rgba(34, 197, 94, 0.20), transparent 32%),
+        radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #0b1b19 52%, #10211c 100%);
+      border-color: #166534;
+    }
+    body.dark-theme .dashboard-hero.sell {
+      background:
+        radial-gradient(circle at top left, rgba(239, 68, 68, 0.20), transparent 32%),
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.12), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #221112 52%, #291416 100%);
+      border-color: #7f1d1d;
+    }
+    body.dark-theme .dashboard-hero.wait {
+      background:
+        radial-gradient(circle at top left, rgba(245, 158, 11, 0.20), transparent 32%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #20180d 52%, #111c31 100%);
+      border-color: #854d0e;
+    }
     
     /* Responsive */
     @media (max-width: 1024px) {
       .calculator-grid, .profile-grid { grid-template-columns: 1fr; }
+      .dashboard-hero-top,
+      .dashboard-main-grid { display: grid; grid-template-columns: 1fr; }
+      .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .timeframe-map-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 768px) {
       .sidebar { width: 70px; }
@@ -237,6 +414,11 @@
       .search-coin input { width: 120px; }
       .decision-stats { flex-direction: column; }
       .stat-box { min-width: 100%; }
+      .dashboard-hero { padding: 20px; }
+      .dashboard-headline { font-size: 28px; }
+      .dashboard-summary-grid { grid-template-columns: 1fr; }
+      .signal-spotlight .decision-title { font-size: 28px; }
+      .timeframe-map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     
     /* Login Overlay */
@@ -250,6 +432,10 @@
     .login-form input:focus { outline: none; border-color: #2563eb; }
     .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
     .login-error { background: #fef2f2; color: #ef4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+    .login-subtitle { color:#64748b;font-size:13px;margin-top:4px; }
+    .login-switch { margin-top: 14px; text-align:center; font-size:13px; color:#64748b; }
+    .login-switch button { background:none; border:none; color:#2563eb; font-weight:700; cursor:pointer; padding:0; }
+    .login-hint { margin-top:12px; text-align:center; font-size:12px; color:#94a3b8; }
     
     /* Hidden helper */
     .hidden { display: none !important; }
@@ -271,15 +457,25 @@
       <div class="login-logo">
         <div class="logo-icon">C</div>
         <h2>CRYPE</h2>
-        <p style="color:#64748b;font-size:13px;margin-top:4px;">Radar Inteligente de Trading</p>
+        <p class="login-subtitle" id="loginSubtitle">Radar Inteligente de Trading</p>
       </div>
       <div id="loginError" class="login-error"></div>
       <form class="login-form" id="loginForm">
-        <input type="text" id="loginUser" placeholder="Usuario" required>
+        <input type="text" id="loginUser" placeholder="Usuario o correo" required>
         <input type="password" id="loginPass" placeholder="Contraseña" required>
         <button type="submit" class="btn-login">Iniciar Sesión</button>
       </form>
-      <p style="text-align:center;margin-top:16px;font-size:12px;color:#94a3b8;">Usuario por defecto: admin / 1212</p>
+      <form class="login-form hidden" id="registerForm">
+        <input type="text" id="registerName" placeholder="Nombre completo" required>
+        <input type="email" id="registerEmail" placeholder="Correo" required>
+        <input type="password" id="registerPass" placeholder="Contraseña" required>
+        <button type="submit" class="btn-login">Crear cuenta</button>
+      </form>
+      <div class="login-switch" id="loginSwitch">
+        <span id="loginSwitchText">¿No tienes usuario?</span>
+        <button type="button" id="toggleAuthMode">Crear cuenta</button>
+      </div>
+      <div class="login-hint" id="loginHint">Los usuarios nuevos entran como cuenta genérica.</div>
     </div>
   </div>
 
@@ -349,9 +545,9 @@
             <option value="1m">1 minuto</option>
             <option value="3m">3 minutos</option>
             <option value="5m">5 minutos</option>
-            <option value="15m" selected>15 minutos</option>
+            <option value="15m">15 minutos</option>
             <option value="30m">30 minutos</option>
-            <option value="1h">1 hora</option>
+            <option value="1h" selected>1 hora</option>
             <option value="2h">2 horas</option>
             <option value="4h">4 horas</option>
             <option value="6h">6 horas</option>
@@ -385,89 +581,129 @@
 
       <!-- DASHBOARD VIEW -->
       <div id="dashboardView" class="view-panel active">
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <div class="card-title">Dashboard principal</div>
-              <div class="card-subtitle">Accede primero a lo más importante y abre lo demás solo cuando lo necesites.</div>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero">
+            <div class="dashboard-hero-top">
+              <div>
+                <div class="dashboard-eyebrow" id="heroSignalLabel">Esperar</div>
+                <h1 class="dashboard-headline" id="decisionTitle">Comprar ahora</h1>
+                <p class="dashboard-subcopy" id="decisionDesc">Precio sobre medias: tendencia alcista.</p>
+              </div>
+              <div class="dashboard-pulse">
+                <div class="dashboard-pulse-label">Activo en seguimiento</div>
+                <div class="dashboard-pulse-value" id="currentPrice">$0.00</div>
+                <div class="dashboard-pulse-note">Precio actual del par seleccionado con la temporalidad que tienes activa.</div>
+              </div>
             </div>
-          </div>
-        </div>
+            <div class="dashboard-summary-grid">
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Señal dominante</div>
+                <div class="dashboard-mini-value" id="summarySignalTitle">Esperar, pero con sesgo alcista</div>
+                <div class="dashboard-mini-note">Lectura principal del mercado ahora mismo.</div>
+              </div>
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Fuerza</div>
+                <div class="dashboard-mini-value" id="signalStrength">0%</div>
+                <div class="dashboard-mini-note">Convicción de la lectura actual.</div>
+              </div>
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Tendencia</div>
+                <div class="dashboard-mini-value" id="trendText">Neutral</div>
+                <div class="dashboard-mini-note">Sesgo técnico dominante.</div>
+              </div>
+              <div class="dashboard-mini-card">
+                <div class="dashboard-mini-label">Marco activo</div>
+                <div class="dashboard-mini-value" id="activeTimeframeLabel">1h</div>
+                <div class="dashboard-mini-note">Temporalidad desde la que se calcula el plan.</div>
+              </div>
+            </div>
+          </section>
 
-        <!-- Decision Banner -->
-        <div id="decisionBanner" class="decision-banner wait">
-          <span class="decision-label">Esperar</span>
-          <div class="decision-title" id="decisionTitle">Esperar, pero con sesgo alcista</div>
-          <div class="decision-desc" id="decisionDesc">Hay señales positivas, pero todavía sería mejor esperar una confirmación más limpia.</div>
-          <div class="decision-stats">
-            <div class="stat-box">
-              <div class="stat-label">Precio Actual</div>
-              <div class="stat-value" id="currentPrice">$0.00</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Fuerza</div>
-              <div class="stat-value" id="signalStrength">0%</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Tendencia</div>
-              <div class="stat-value" id="trendText">Neutral</div>
-            </div>
-          </div>
-        </div>
+          <div class="dashboard-main-grid">
+            <div class="dashboard-stack">
+              <div class="timeframe-map">
+                <div class="timeframe-map-header">
+                  <div>
+                    <div class="timeframe-map-title">Mapa de temporalidades</div>
+                    <div class="timeframe-map-subtitle">Confirma si el impulso está alineado antes de entrar.</div>
+                  </div>
+                </div>
+                <div class="timeframe-map-grid" id="timeframeMapGrid">
+                  <div class="timeframe-chip wait">
+                    <div class="timeframe-chip-head">
+                      <span class="timeframe-chip-label">5m</span>
+                      <span class="timeframe-chip-dot"></span>
+                    </div>
+                    <div class="timeframe-chip-value">Esperar</div>
+                    <div class="timeframe-chip-note">Sin datos</div>
+                  </div>
+                </div>
+              </div>
 
-        <!-- Quick Plan -->
-        <div class="quick-plan">
-          <div class="quick-plan-header">
-            <div>
-              <div class="quick-plan-title">Plan rápido sugerido</div>
-              <div class="card-subtitle">Para copiar más fácil en Binance</div>
+              <div class="chart-container">
+                <div class="chart-header">
+                  <div>
+                    <div class="chart-title" id="dashboardChartTitle">Gráfico de velas BTC/USDT</div>
+                    <div class="card-subtitle">Te ayuda a ver si el precio está empujando al alza, frenándose o cayendo.</div>
+                  </div>
+                  <div class="chart-legend">
+                    <div class="legend-item"><span class="legend-dot green"></span>Vela alcista</div>
+                    <div class="legend-item"><span class="legend-dot red"></span>Vela bajista</div>
+                    <div class="legend-item"><span class="legend-dot blue"></span>Media corta</div>
+                    <div class="legend-item"><span class="legend-dot orange"></span>Media larga</div>
+                  </div>
+                </div>
+                <canvas id="candleChart"></canvas>
+              </div>
             </div>
-            <span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:20px;">Basado en señal + temporalidad + comisión</span>
-          </div>
-          <div class="quick-plan-grid">
-            <div class="plan-item">
-              <div class="plan-label">Entrada sugerida</div>
-              <div class="plan-value" id="planEntry">$0.00</div>
-              <div class="plan-note">Referencia técnica</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Take profit</div>
-              <div class="plan-value" id="planTP">$0.00</div>
-              <div class="plan-note" id="planTPNote">Objetivo prudente</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Stop loss</div>
-              <div class="plan-value" id="planSL">$0.00</div>
-              <div class="plan-note">Protección sugerida</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Riesgo</div>
-              <div class="plan-value" id="planRisk">0.00%</div>
-              <div class="plan-note" id="planRiskNote">Aprox. $0.00</div>
-            </div>
-            <div class="plan-item">
-              <div class="plan-label">Beneficio posible</div>
-              <div class="plan-value" id="planBenefit">0.00%</div>
-              <div class="plan-note" id="planBenefitNote">Posible neto aprox. $0.00</div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Chart -->
-        <div class="chart-container">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title">Gráfico de velas BTC/USDT</div>
-              <div class="card-subtitle">Te ayuda a ver si el precio está empujando al alza, frenándose o cayendo.</div>
-            </div>
-            <div class="chart-legend">
-              <div class="legend-item"><span class="legend-dot green"></span>Vela alcista</div>
-              <div class="legend-item"><span class="legend-dot red"></span>Vela bajista</div>
-              <div class="legend-item"><span class="legend-dot blue"></span>Media corta</div>
-              <div class="legend-item"><span class="legend-dot orange"></span>Media larga</div>
-            </div>
+            <aside class="dashboard-stack">
+              <div class="quick-plan">
+                <div class="quick-plan-header">
+                  <div>
+                    <div class="quick-plan-title">Plan rápido sugerido</div>
+                    <div class="card-subtitle">Solo se priorizan señales de alta probabilidad.</div>
+                  </div>
+                  <span class="plan-chip">Basado en señal + temporalidad + comisión</span>
+                </div>
+                <div style="margin-bottom:18px;">
+                  <span class="plan-signal-pill wait" id="planSignalPill">Señal: Esperar</span>
+                </div>
+                <div class="quick-plan-grid">
+                  <div class="plan-item entry">
+                    <div class="plan-label">Entrada sugerida</div>
+                    <div class="plan-value" id="planEntry">$0.00</div>
+                    <div class="plan-note">Referencia técnica</div>
+                  </div>
+                  <div class="plan-item risk">
+                    <div class="plan-label">Confianza</div>
+                    <div class="plan-value" id="planConfidence">0%</div>
+                    <div class="plan-note" id="planConfidenceNote">Lectura en desarrollo</div>
+                  </div>
+                  <div class="plan-item tp">
+                    <div class="plan-label">Take profit</div>
+                    <div class="plan-value" id="planTP">$0.00</div>
+                    <div class="plan-note" id="planTPNote">Objetivo prudente</div>
+                  </div>
+                  <div class="plan-item sl">
+                    <div class="plan-label">Stop loss</div>
+                    <div class="plan-value" id="planSL">$0.00</div>
+                    <div class="plan-note">Protección sugerida</div>
+                  </div>
+                  <div class="plan-item benefit">
+                    <div class="plan-label">Riesgo</div>
+                    <div class="plan-value" id="planRisk">0.00%</div>
+                    <div class="plan-note" id="planRiskNote">Aprox. $0.00</div>
+                  </div>
+                  <div class="plan-item benefit wide">
+                    <div class="plan-label">Beneficio posible</div>
+                    <div class="plan-value" id="planBenefit">0.00%</div>
+                    <div class="plan-note" id="planBenefitNote">Posible neto aprox. $0.00</div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
-          <canvas id="candleChart"></canvas>
         </div>
       </div>
 
@@ -925,36 +1161,20 @@
             </div>
             <div class="calc-input-group">
               <label>Nombre visible</label>
-              <input type="text" id="profileDisplayName" placeholder="Tu nombre">
+              <input type="text" id="profileDisplayName" placeholder="Tu nombre" readonly>
             </div>
             <div class="calc-input-group">
               <label>Nueva contraseña</label>
-              <input type="password" id="profileNewPassword" placeholder="Dejar vacío si no cambia">
+              <input type="password" id="profileNewPassword" placeholder="Disponible en la siguiente fase" disabled>
             </div>
-            <button class="btn-primary" id="btnSaveProfile" style="width:100%;margin-top:10px;">Guardar cambios</button>
+            <p style="font-size:12px;color:#94a3b8;margin-top:8px;">Fase 1 del backend: login y sesiones reales. La edición de perfil y contraseñas llegará cuando agreguemos persistencia.</p>
+            <button class="btn-primary" id="btnSaveProfile" style="width:100%;margin-top:10px;" disabled>Disponible próximamente</button>
           </div>
 
           <div class="profile-section" id="adminSection" style="display:none;">
             <h3>Administración de usuarios</h3>
-            <div style="margin-bottom:16px;">
-              <div class="calc-input-group">
-                <label>Nuevo usuario</label>
-                <input type="text" id="newUsername" placeholder="Nombre de usuario">
-              </div>
-              <div class="calc-input-group">
-                <label>Contraseña</label>
-                <input type="password" id="newUserPassword" placeholder="Contraseña">
-              </div>
-              <div class="calc-input-group">
-                <label>Rol</label>
-                <select id="newUserRole">
-                  <option value="user">Usuario</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              </div>
-              <button class="btn-primary" id="btnCreateUser" style="width:100%;">Crear usuario</button>
-            </div>
-            <h4 style="margin:16px 0 10px;font-size:14px;">Usuarios existentes</h4>
+            <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">La app ya está preparada para usuarios en base de datos externa. Mientras Supabase no esté configurado en Vercel, seguirá usando un fallback sembrado.</p>
+            <h4 style="margin:16px 0 10px;font-size:14px;">Usuarios disponibles</h4>
             <div class="user-list" id="userList"></div>
           </div>
         </div>
@@ -970,12 +1190,15 @@
     const state = {
       currentUser: null,
       currentView: 'dashboard',
+      authMode: 'login',
       currentCoin: 'BTC/USDT',
-      timeframe: '15m',
+      timeframe: '1h',
       candles: [],
       indicators: {},
       signal: null,
       plan: null,
+      multiTimeframes: [],
+      availableUsers: [],
       comparison: [],
       liveInterval: null,
       manualMode: false,
@@ -985,72 +1208,42 @@
     // ============================================
     // CONTROL DE ACCESO SEGURO
     // ============================================
+    async function apiRequest(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+      const response = await fetch(path, { credentials: 'same-origin', ...options, headers });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || 'No se pudo completar la solicitud');
+      return payload;
+    }
+
     const Auth = {
-      hash(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-          const char = str.charCodeAt(i);
-          hash = ((hash << 5) - hash) + char;
-          hash = hash & hash;
+      async login(username, password) {
+        return apiRequest('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ username, password })
+        });
+      },
+      async register(displayName, email, password) {
+        return apiRequest('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ displayName, email, password })
+        });
+      },
+      async logout() {
+        return apiRequest('/api/auth/logout', { method: 'POST' });
+      },
+      async getSession() {
+        try {
+          const payload = await apiRequest('/api/auth/session');
+          return payload.user;
+        } catch (_) {
+          return null;
         }
-        return hash.toString(16);
       },
-      getUsers() {
-        const stored = localStorage.getItem('crype_users');
-        if (stored) return JSON.parse(stored);
-        const defaults = [{ username: 'admin', password: this.hash('1212'), role: 'admin', displayName: 'Administrador', active: true, locked: false }];
-        localStorage.setItem('crype_users', JSON.stringify(defaults));
-        return defaults;
-      },
-      saveUsers(users) { localStorage.setItem('crype_users', JSON.stringify(users)); },
-      login(username, password) {
-        const users = this.getUsers();
-        const user = users.find(u => u.username === username && u.password === this.hash(password));
-        if (!user) return { success: false, message: 'Usuario o contraseña incorrectos' };
-        if (!user.active) return { success: false, message: 'Cuenta desactivada. Contacta al admin.' };
-        if (user.locked) return { success: false, message: 'Cuenta bloqueada por intentos fallidos.' };
-        localStorage.setItem('crype_session', JSON.stringify({ username: user.username, role: user.role, loginTime: Date.now() }));
-        return { success: true, user };
-      },
-      logout() { localStorage.removeItem('crype_session'); },
-      getSession() {
-        const stored = localStorage.getItem('crype_session');
-        if (!stored) return null;
-        const session = JSON.parse(stored);
-        if (Date.now() - session.loginTime > 8 * 60 * 60 * 1000) { this.logout(); return null; }
-        return session;
-      },
-      isAdmin() { const s = this.getSession(); return s && s.role === 'admin'; },
-      changePassword(username, newPassword) {
-        const users = this.getUsers();
-        const idx = users.findIndex(u => u.username === username);
-        if (idx === -1) return false;
-        users[idx].password = this.hash(newPassword);
-        this.saveUsers(users);
-        return true;
-      },
-      createUser(username, password, role) {
-        const users = this.getUsers();
-        if (users.find(u => u.username === username)) return { success: false, message: 'El usuario ya existe' };
-        users.push({ username, password: this.hash(password), role, displayName: username, active: true, locked: false });
-        this.saveUsers(users);
-        return { success: true };
-      },
-      deleteUser(username) {
-        if (username === 'admin') return { success: false, message: 'No se puede eliminar el admin principal' };
-        let users = this.getUsers();
-        users = users.filter(u => u.username !== username);
-        this.saveUsers(users);
-        return { success: true };
-      },
-      updateUserRole(username, newRole) {
-        if (username === 'admin' && newRole !== 'admin') return { success: false, message: 'No se puede cambiar el rol del admin principal' };
-        const users = this.getUsers();
-        const idx = users.findIndex(u => u.username === username);
-        if (idx === -1) return { success: false };
-        users[idx].role = newRole;
-        this.saveUsers(users);
-        return { success: true };
+      async getUsers() {
+        const payload = await apiRequest('/api/users');
+        return payload.users;
       }
     };
 
@@ -1158,7 +1351,29 @@
     // UTILIDADES
     // ============================================
     const $ = id => document.getElementById(id);
-    const formatPrice = p => '$' + (p || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function setAuthMode(mode) {
+      state.authMode = mode;
+      const loginMode = mode === 'login';
+      $('loginForm').classList.toggle('hidden', !loginMode);
+      $('registerForm').classList.toggle('hidden', loginMode);
+      $('loginSubtitle').textContent = loginMode ? 'Radar Inteligente de Trading' : 'Crea tu acceso para empezar';
+      $('toggleAuthMode').textContent = loginMode ? 'Crear cuenta' : 'Volver al login';
+      $('loginSwitchText').textContent = loginMode ? '¿No tienes usuario?' : '¿Ya tienes cuenta?';
+      $('loginHint').textContent = loginMode ? 'Los usuarios nuevos entran como cuenta genérica.' : 'Usa tu correo como acceso al crear la cuenta.';
+      $('loginError').style.display = 'none';
+      $('loginError').textContent = '';
+    }
+    function formatPrice(p) {
+      const value = Number(p || 0);
+      let decimals = 2;
+      if (value !== 0 && Math.abs(value) < 1) decimals = 6;
+      if (value !== 0 && Math.abs(value) < 0.01) decimals = 8;
+      if (value !== 0 && Math.abs(value) < 0.0001) decimals = 10;
+      return '$' + value.toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      });
+    }
     const formatPct = p => (p || 0).toFixed(2) + '%';
     const nowTime = () => new Date().toLocaleTimeString('es-ES');
 
@@ -1181,8 +1396,8 @@
     // ============================================
     // LOGIN / LOGOUT
     // ============================================
-    function checkSession() {
-      const session = Auth.getSession();
+    async function checkSession() {
+      const session = await Auth.getSession();
       if (!session) {
         $('loginOverlay').classList.remove('hidden');
         $('appShell').classList.add('hidden');
@@ -1198,22 +1413,20 @@
     }
 
     function updateUserInfo(session) {
-      const users = Auth.getUsers();
-      const user = users.find(u => u.username === session.username);
-      const displayName = user?.displayName || session.username;
+      const displayName = session.displayName || session.username;
       $('sidebarUserName').textContent = displayName;
-      $('sidebarUserRole').textContent = 'Rol: ' + (session.role === 'admin' ? 'Administrador' : 'Usuario');
+      $('sidebarUserRole').textContent = 'Rol: ' + (session.role === 'admin' ? 'Administrador' : 'Genérico');
       $('topUserName').textContent = displayName;
       $('profileUsername').value = session.username;
-      $('profileRole').value = session.role === 'admin' ? 'Administrador' : 'Usuario';
-      $('profileDisplayName').value = user?.displayName || '';
+      $('profileRole').value = session.role === 'admin' ? 'Administrador' : 'Genérico';
+      $('profileDisplayName').value = displayName;
       $('adminSection').style.display = session.role === 'admin' ? 'block' : 'none';
     }
 
-    function doLogout() {
-      Auth.logout();
+    async function doLogout() {
+      await Auth.logout();
       state.currentUser = null;
-      checkSession();
+      await checkSession();
     }
 
     // ============================================
@@ -1484,6 +1697,10 @@
       const container = canvas.parentElement;
       canvas.width = container.clientWidth - 40;
       canvas.height = 380;
+      const isDark = document.body.classList.contains('dark-theme');
+      const chartBg = isDark ? '#0b1220' : '#fafafa';
+      const gridColor = isDark ? '#243041' : '#e5e7eb';
+      const labelColor = isDark ? '#94a3b8' : '#6b7280';
       
       const candles = state.candles;
       if (!candles || candles.length === 0) return;
@@ -1500,11 +1717,11 @@
       const candleW = Math.max(4, w / candles.length - 2);
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#fafafa';
+      ctx.fillStyle = chartBg;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       // Grid
-      ctx.strokeStyle = '#e5e7eb';
+      ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = padding.top + (h / 4) * i;
@@ -1563,7 +1780,7 @@
       ctx.stroke();
       
       // Price labels
-      ctx.fillStyle = '#6b7280';
+      ctx.fillStyle = labelColor;
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'left';
       for (let i = 0; i <= 4; i++) {
@@ -1581,20 +1798,29 @@
       const { score, trend, label, title, reasons } = state.signal;
       const { entry, tp, sl, riskPct, benefitPct, riskAmt, benefitAmt } = state.plan;
       
-      // Banner
-      const banner = $('decisionBanner');
-      banner.className = 'decision-banner ' + (label === 'Comprar' ? 'buy' : label === 'Vender' ? 'sell' : 'wait');
-      banner.querySelector('.decision-label').textContent = label;
+      // Dashboard hero
+      const hero = document.querySelector('.dashboard-hero');
+      const signalTone = label === 'Comprar' ? 'buy' : label === 'Vender' ? 'sell' : 'wait';
+      hero.className = 'dashboard-hero ' + signalTone;
+      $('heroSignalLabel').className = 'dashboard-eyebrow ' + signalTone;
+      $('heroSignalLabel').textContent = label;
       $('decisionTitle').textContent = title;
       $('decisionDesc').textContent = reasons[0] || 'Análisis en progreso.';
+      $('summarySignalTitle').textContent = title;
       $('currentPrice').textContent = formatPrice(state.indicators.current);
       $('signalStrength').textContent = score + '%';
       $('trendText').textContent = trend;
+      $('activeTimeframeLabel').textContent = state.timeframe;
+      $('dashboardChartTitle').textContent = 'Gráfico de velas ' + state.currentCoin;
+      $('planSignalPill').className = 'plan-signal-pill ' + signalTone;
+      $('planSignalPill').textContent = 'Señal: ' + label;
       
       // Plan
       $('planEntry').textContent = formatPrice(entry);
       $('planTP').textContent = formatPrice(tp);
       $('planSL').textContent = formatPrice(sl);
+      $('planConfidence').textContent = score + '%';
+      $('planConfidenceNote').textContent = trend === 'Neutral' ? 'Mercado sin sesgo claro' : 'Sesgo ' + trend.toLowerCase();
       $('planRisk').textContent = formatPct(riskPct);
       $('planRiskNote').textContent = 'Aprox. ' + formatPrice(riskAmt);
       $('planBenefit').textContent = formatPct(benefitPct);
@@ -1638,21 +1864,46 @@
       `).join('');
     }
 
-    function renderProfilePanel() {
-      if (state.currentUser?.role === 'admin') renderUserList();
+    function renderTimeframeMap() {
+      const grid = $('timeframeMapGrid');
+      if (!state.multiTimeframes || state.multiTimeframes.length === 0) {
+        grid.innerHTML = '<div class="timeframe-chip wait"><div class="timeframe-chip-head"><span class="timeframe-chip-label">--</span><span class="timeframe-chip-dot"></span></div><div class="timeframe-chip-value">Esperar</div><div class="timeframe-chip-note">Cargando contexto</div></div>';
+        return;
+      }
+      grid.innerHTML = state.multiTimeframes.map(item => {
+        const tone = item.label === 'Comprar' ? 'buy' : item.label === 'Vender' ? 'sell' : 'wait';
+        return `
+          <div class="timeframe-chip ${tone}">
+            <div class="timeframe-chip-head">
+              <span class="timeframe-chip-label">${item.timeframe}</span>
+              <span class="timeframe-chip-dot"></span>
+            </div>
+            <div class="timeframe-chip-value">${item.label}</div>
+            <div class="timeframe-chip-note">${item.note}</div>
+          </div>
+        `;
+      }).join('');
     }
 
-    function renderUserList() {
-      const users = Auth.getUsers();
-      $('userList').innerHTML = users.map(u => `
+    async function renderProfilePanel() {
+      if (state.currentUser?.role === 'admin') await renderUserList();
+    }
+
+    async function renderUserList() {
+      try {
+        state.availableUsers = await Auth.getUsers();
+      } catch (error) {
+        $('userList').innerHTML = `<div style="color:#94a3b8;font-size:12px;">${error.message}</div>`;
+        return;
+      }
+      $('userList').innerHTML = state.availableUsers.map(u => `
         <div class="user-item">
           <div>
             <div style="font-weight:600;">${u.username}</div>
-            <div style="font-size:11px;color:#64748b;">${u.role === 'admin' ? 'Administrador' : 'Usuario'} ${!u.active ? '(Inactivo)' : ''}</div>
+            <div style="font-size:11px;color:#64748b;">${u.role === 'admin' ? 'Administrador' : 'Genérico'}</div>
           </div>
-          <div class="user-actions">
-            ${u.username !== 'admin' ? `<button class="btn-sm btn-delete" onclick="deleteUser('${u.username}')">Eliminar</button>` : ''}
-            <button class="btn-sm btn-edit" onclick="toggleUserActive('${u.username}')">${u.active ? 'Desactivar' : 'Activar'}</button>
+          <div class="user-actions" style="color:#94a3b8;font-size:11px;">
+            Backend fase 1
           </div>
         </div>
       `).join('');
@@ -1715,20 +1966,12 @@
       fetchData();
     }
 
-    function deleteUser(username) {
-      if (!confirm('¿Eliminar usuario ' + username + '?')) return;
-      const result = Auth.deleteUser(username);
-      if (result.success) renderUserList();
-      else alert(result.message);
+    function deleteUser() {
+      alert('La eliminación de usuarios llegará cuando conectemos una base de datos.');
     }
 
-    function toggleUserActive(username) {
-      const users = Auth.getUsers();
-      const idx = users.findIndex(u => u.username === username);
-      if (idx === -1) return;
-      users[idx].active = !users[idx].active;
-      Auth.saveUsers(users);
-      renderUserList();
+    function toggleUserActive() {
+      alert('La activación y desactivación de usuarios llegará cuando conectemos una base de datos.');
     }
 
     // ============================================
@@ -1739,6 +1982,19 @@
       state.candles = await fetchCandles(state.currentCoin, state.timeframe);
       state.indicators = calcIndicators(state.candles);
       state.signal = generateSignal(state.indicators);
+      const mapTimeframes = ['5m', '15m', '1h', '4h', '1d'];
+      state.multiTimeframes = await Promise.all(
+        mapTimeframes.map(async timeframe => {
+          const candles = await fetchCandles(state.currentCoin, timeframe);
+          const indicators = calcIndicators(candles);
+          const signal = generateSignal(indicators);
+          return {
+            timeframe,
+            label: signal.label,
+            note: signal.trend === 'Neutral' ? 'Sin sesgo claro' : signal.trend
+          };
+        })
+      );
       const capital = +$('calcCapital').value || 0;
       state.plan = getOperationPlan(state.indicators, state.signal, capital);
       
@@ -1750,6 +2006,7 @@
       $('marketLastUpdate').textContent = nowTime();
       
       renderSignal();
+      renderTimeframeMap();
       drawChart();
       updateCalculator();
       
@@ -1787,6 +2044,7 @@
       document.body.classList.toggle('dark-theme', theme === 'dark');
       $('themeToggle').setAttribute('aria-label', theme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro');
       localStorage.setItem('crype_theme', theme);
+      if (state.candles && state.candles.length) drawChart();
     }
 
     function toggleTheme() {
@@ -1797,14 +2055,46 @@
     // EVENTOS
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
-      applyTheme(localStorage.getItem('crype_theme') || 'light');
+      applyTheme(localStorage.getItem('crype_theme') || 'dark');
+      setAuthMode('login');
 
       // Login
-      $('loginForm').addEventListener('submit', e => {
+      $('loginForm').addEventListener('submit', async e => {
         e.preventDefault();
-        const result = Auth.login($('loginUser').value, $('loginPass').value);
-        if (result.success) { checkSession(); fetchData(); startLiveUpdates(); }
-        else { $('loginError').textContent = result.message; $('loginError').style.display = 'block'; }
+        $('loginError').style.display = 'none';
+        try {
+          await Auth.login($('loginUser').value.trim(), $('loginPass').value);
+          if (await checkSession()) {
+            fetchData();
+            startLiveUpdates();
+          }
+        } catch (error) {
+          $('loginError').textContent = error.message;
+          $('loginError').style.display = 'block';
+        }
+      });
+
+      $('registerForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        $('loginError').style.display = 'none';
+        try {
+          await Auth.register(
+            $('registerName').value.trim(),
+            $('registerEmail').value.trim(),
+            $('registerPass').value
+          );
+          if (await checkSession()) {
+            fetchData();
+            startLiveUpdates();
+          }
+        } catch (error) {
+          $('loginError').textContent = error.message;
+          $('loginError').style.display = 'block';
+        }
+      });
+
+      $('toggleAuthMode').addEventListener('click', () => {
+        setAuthMode(state.authMode === 'login' ? 'register' : 'login');
       });
 
       // Navigation
@@ -1813,8 +2103,8 @@
       });
 
       // Logout
-      $('sidebarLogout').addEventListener('click', doLogout);
-      $('topLogoutBtn').addEventListener('click', doLogout);
+      $('sidebarLogout').addEventListener('click', () => { doLogout(); });
+      $('topLogoutBtn').addEventListener('click', () => { doLogout(); });
 
       // Coin search
       $('coinSearch').addEventListener('focus', () => {
@@ -1841,30 +2131,10 @@
 
       // Profile
       $('btnSaveProfile').addEventListener('click', () => {
-        const displayName = $('profileDisplayName').value;
-        const newPassword = $('profileNewPassword').value;
-        const users = Auth.getUsers();
-        const idx = users.findIndex(u => u.username === state.currentUser.username);
-        if (idx !== -1) {
-          if (displayName) users[idx].displayName = displayName;
-          if (newPassword) users[idx].password = Auth.hash(newPassword);
-          Auth.saveUsers(users);
-          alert('Perfil actualizado');
-          updateUserInfo(state.currentUser);
-        }
+        alert('La edición de perfil se habilitará en la siguiente fase del backend.');
       });
 
-      // Admin
       $('topAdminBtn').addEventListener('click', () => switchView('profile'));
-      $('btnCreateUser').addEventListener('click', () => {
-        const username = $('newUsername').value.trim();
-        const password = $('newUserPassword').value;
-        const role = $('newUserRole').value;
-        if (!username || !password) { alert('Completa usuario y contraseña'); return; }
-        const result = Auth.createUser(username, password, role);
-        if (result.success) { alert('Usuario creado'); renderUserList(); $('newUsername').value = ''; $('newUserPassword').value = ''; }
-        else alert(result.message);
-      });
 
       // Journal - Registro de Operaciones
       if ($('btnSaveOperation')) $('btnSaveOperation').addEventListener('click', saveOperation);
@@ -1885,7 +2155,13 @@
       }
 
       // Init
-      if (checkSession()) { fetchData(); startLiveUpdates(); switchView('dashboard'); }
+      (async () => {
+        if (await checkSession()) {
+          fetchData();
+          startLiveUpdates();
+          switchView('dashboard');
+        }
+      })();
     });
   </script>
 </body>

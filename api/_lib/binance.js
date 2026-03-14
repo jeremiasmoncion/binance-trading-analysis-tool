@@ -83,10 +83,32 @@ async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}) {
   return payload;
 }
 
+async function fetchBinancePublic(path, params = {}) {
+  const search = new URLSearchParams(
+    Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)]))
+  );
+  const response = await fetch(`${BINANCE_TESTNET_API_URL}${path}${search.toString() ? `?${search.toString()}` : ""}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.msg || "No se pudo consultar Binance Demo Spot");
+  return payload;
+}
+
 async function getAuthenticatedSession(req) {
   const session = getSession(req);
   if (!session) throw new Error("Sesión no válida o vencida");
   return session;
+}
+
+async function getCredentialsForSession(req) {
+  const session = await getAuthenticatedSession(req);
+  const row = await getStoredConnection(session.username);
+  if (!row) throw new Error("Primero conecta Binance Demo Spot desde Perfil");
+  return {
+    session,
+    row,
+    apiKey: decryptValue(row.api_key_encrypted),
+    apiSecret: decryptValue(row.api_secret_encrypted),
+  };
 }
 
 async function getStoredConnection(username) {
@@ -219,10 +241,200 @@ async function disconnectBinanceTestnet(req) {
   return { success: true };
 }
 
+function getSymbolForAsset(asset) {
+  if (!asset || asset === "USDT") return null;
+  return `${asset}USDT`;
+}
+
+async function fetchReferencePrice(symbol, period) {
+  if (!symbol || !period) return null;
+  const days = period === "30d" ? 30 : period === "7d" ? 7 : 1;
+  const klines = await fetchBinancePublic("/api/v3/klines", {
+    symbol,
+    interval: "1d",
+    limit: days + 1,
+  });
+  const candle = Array.isArray(klines) && klines.length ? klines[0] : null;
+  return candle ? Number(candle[4] || candle[1] || 0) : null;
+}
+
+function normalizeTrade(trade) {
+  const qty = Number(trade.qty || 0);
+  const price = Number(trade.price || 0);
+  const commission = Number(trade.commission || 0);
+  const commissionAsset = String(trade.commissionAsset || "");
+  return {
+    isBuyer: Boolean(trade.isBuyer),
+    qty,
+    price,
+    value: qty * price,
+    commission,
+    commissionAsset,
+    time: Number(trade.time || 0),
+  };
+}
+
+function calculatePositionFromTrades(trades, asset) {
+  let quantityHeld = 0;
+  let costHeld = 0;
+  let realizedPnl = 0;
+
+  for (const rawTrade of trades.sort((a, b) => a.time - b.time)) {
+    const trade = normalizeTrade(rawTrade);
+    const quoteCommission = trade.commissionAsset === "USDT" ? trade.commission : 0;
+    const baseCommission = trade.commissionAsset === asset ? trade.commission : 0;
+    if (trade.isBuyer) {
+      const netQty = Math.max(0, trade.qty - baseCommission);
+      quantityHeld += netQty;
+      costHeld += trade.value + quoteCommission;
+      continue;
+    }
+
+    const grossSellQty = trade.qty;
+    const qtyLeaving = grossSellQty;
+    const avgCost = quantityHeld > 0 ? costHeld / quantityHeld : 0;
+    const removedCost = avgCost * Math.min(quantityHeld, qtyLeaving);
+    quantityHeld = Math.max(0, quantityHeld - qtyLeaving);
+    costHeld = Math.max(0, costHeld - removedCost);
+    realizedPnl += trade.value - removedCost - quoteCommission;
+  }
+
+  const avgEntryPrice = quantityHeld > 0 ? costHeld / quantityHeld : 0;
+  return {
+    quantityHeld,
+    costHeld,
+    avgEntryPrice,
+    realizedPnl,
+  };
+}
+
+function formatMoneyNumber(value) {
+  return Number((value || 0).toFixed(8));
+}
+
+async function getPortfolioSnapshot(req, period = "1d") {
+  const { session, row, apiKey, apiSecret } = await getCredentialsForSession(req);
+  const account = await fetchBinanceSigned("/api/v3/account", apiKey, apiSecret, { omitZeroBalances: true });
+  const balances = (account.balances || [])
+    .map((balance) => {
+      const free = Number(balance.free || 0);
+      const locked = Number(balance.locked || 0);
+      return { asset: balance.asset, free, locked, total: free + locked };
+    })
+    .filter((balance) => balance.total > 0);
+
+  const assets = await Promise.all(
+    balances.map(async (balance) => {
+      if (balance.asset === "USDT") {
+        return {
+          asset: "USDT",
+          symbol: "USDT",
+          quantity: balance.total,
+          free: balance.free,
+          locked: balance.locked,
+          currentPrice: 1,
+          referencePrice: 1,
+          marketValue: balance.total,
+          investedValue: balance.total,
+          pnlValue: 0,
+          pnlPct: 0,
+          periodChangeValue: 0,
+          periodChangePct: 0,
+          avgEntryPrice: 1,
+          realizedPnl: 0,
+          tradeCount: 0,
+        };
+      }
+
+      const symbol = getSymbolForAsset(balance.asset);
+      if (!symbol) return null;
+
+      const [priceTicker, dayTicker, referencePrice, trades] = await Promise.all([
+        fetchBinancePublic("/api/v3/ticker/price", { symbol }).catch(() => ({ price: "0" })),
+        fetchBinancePublic("/api/v3/ticker/24hr", { symbol }).catch(() => ({ priceChangePercent: "0" })),
+        fetchReferencePrice(symbol, period).catch(() => null),
+        fetchBinanceSigned("/api/v3/myTrades", apiKey, apiSecret, { symbol, limit: 200 }).catch(() => []),
+      ]);
+
+      const position = calculatePositionFromTrades(Array.isArray(trades) ? trades : [], balance.asset);
+      const currentPrice = Number(priceTicker.price || 0);
+      const marketValue = balance.total * currentPrice;
+      const investedValue = position.quantityHeld > 0
+        ? balance.total * position.avgEntryPrice
+        : marketValue;
+      const pnlValue = marketValue - investedValue;
+      const pnlPct = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
+      const refPrice = Number(referencePrice || 0) || currentPrice;
+      const periodChangeValue = balance.total * (currentPrice - refPrice);
+      const periodChangePct = refPrice > 0 ? ((currentPrice - refPrice) / refPrice) * 100 : Number(dayTicker.priceChangePercent || 0);
+
+      return {
+        asset: balance.asset,
+        symbol,
+        quantity: balance.total,
+        free: balance.free,
+        locked: balance.locked,
+        currentPrice: formatMoneyNumber(currentPrice),
+        referencePrice: formatMoneyNumber(refPrice),
+        marketValue: formatMoneyNumber(marketValue),
+        investedValue: formatMoneyNumber(investedValue),
+        pnlValue: formatMoneyNumber(pnlValue),
+        pnlPct: Number(pnlPct.toFixed(2)),
+        periodChangeValue: formatMoneyNumber(periodChangeValue),
+        periodChangePct: Number(periodChangePct.toFixed(2)),
+        avgEntryPrice: formatMoneyNumber(position.avgEntryPrice),
+        realizedPnl: formatMoneyNumber(position.realizedPnl),
+        tradeCount: Array.isArray(trades) ? trades.length : 0,
+      };
+    })
+  );
+
+  const cleanAssets = assets.filter(Boolean).sort((a, b) => b.marketValue - a.marketValue);
+  const totalValue = cleanAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+  const investedValue = cleanAssets.reduce((sum, asset) => sum + asset.investedValue, 0);
+  const unrealizedPnl = cleanAssets.reduce((sum, asset) => sum + asset.pnlValue, 0);
+  const periodChangeValue = cleanAssets.reduce((sum, asset) => sum + asset.periodChangeValue, 0);
+  const periodBaseValue = totalValue - periodChangeValue;
+  const periodChangePct = periodBaseValue > 0 ? (periodChangeValue / periodBaseValue) * 100 : 0;
+  const cashAsset = cleanAssets.find((asset) => asset.asset === "USDT");
+  const openPositions = cleanAssets.filter((asset) => asset.asset !== "USDT" && asset.quantity > 0);
+
+  return {
+    connected: true,
+    username: session.username,
+    accountAlias: row.account_alias || "",
+    maskedApiKey: maskApiKey(apiKey),
+    summary: {
+      uid: account.uid || null,
+      accountType: account.accountType || "SPOT",
+      permissions: Array.isArray(account.permissions) ? account.permissions : [],
+      canTrade: Boolean(account.canTrade),
+      canWithdraw: Boolean(account.canWithdraw),
+      canDeposit: Boolean(account.canDeposit),
+    },
+    portfolio: {
+      period,
+      totalValue: formatMoneyNumber(totalValue),
+      investedValue: formatMoneyNumber(investedValue),
+      unrealizedPnl: formatMoneyNumber(unrealizedPnl),
+      unrealizedPnlPct: investedValue > 0 ? Number(((unrealizedPnl / investedValue) * 100).toFixed(2)) : 0,
+      periodChangeValue: formatMoneyNumber(periodChangeValue),
+      periodChangePct: Number(periodChangePct.toFixed(2)),
+      cashValue: formatMoneyNumber(cashAsset?.marketValue || 0),
+      positionsValue: formatMoneyNumber(totalValue - (cashAsset?.marketValue || 0)),
+      openPositionsCount: openPositions.length,
+      winnersCount: openPositions.filter((asset) => asset.pnlValue > 0).length,
+      updatedAt: new Date().toISOString(),
+    },
+    assets: cleanAssets,
+  };
+}
+
 export {
   BINANCE_TESTNET_API_URL,
   connectBinanceTestnet,
   disconnectBinanceTestnet,
+  getPortfolioSnapshot,
   getBinanceConnectionState,
   sendJson,
 };

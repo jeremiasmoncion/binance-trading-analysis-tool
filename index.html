@@ -107,6 +107,26 @@
     .signal-spotlight .decision-title { font-size: 34px; }
     .signal-spotlight .decision-desc { max-width: 640px; }
     .plan-chip { font-size: 11px; background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; }
+    .timeframe-map { background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 18px; padding: 18px; }
+    .timeframe-map-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
+    .timeframe-map-title { font-size: 15px; font-weight: 800; color: #0f172a; }
+    .timeframe-map-subtitle { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .timeframe-map-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .timeframe-chip { border-radius: 14px; padding: 14px 12px; border: 1px solid #dbe7ff; background: #fff; min-height: 92px; }
+    .timeframe-chip-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .timeframe-chip-label { font-size: 12px; font-weight: 800; color: #475569; letter-spacing: 0.04em; text-transform: uppercase; }
+    .timeframe-chip-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.14); }
+    .timeframe-chip-value { font-size: 18px; font-weight: 800; color: #0f172a; }
+    .timeframe-chip-note { margin-top: 4px; font-size: 11px; color: #64748b; }
+    .timeframe-chip.buy { border-color: rgba(34, 197, 94, 0.30); background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); }
+    .timeframe-chip.buy .timeframe-chip-dot { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.16); }
+    .timeframe-chip.buy .timeframe-chip-value { color: #15803d; }
+    .timeframe-chip.wait { border-color: rgba(245, 158, 11, 0.30); background: linear-gradient(135deg, #fffbeb 0%, #fefce8 100%); }
+    .timeframe-chip.wait .timeframe-chip-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16); }
+    .timeframe-chip.wait .timeframe-chip-value { color: #b45309; }
+    .timeframe-chip.sell { border-color: rgba(239, 68, 68, 0.30); background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); }
+    .timeframe-chip.sell .timeframe-chip-dot { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16); }
+    .timeframe-chip.sell .timeframe-chip-value { color: #dc2626; }
     .dashboard-hero.buy {
       background:
         radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 32%),
@@ -307,12 +327,25 @@
     body.dark-theme .dashboard-pulse-note { color: #cbd5e1; }
     body.dark-theme .dashboard-pulse,
     body.dark-theme .dashboard-mini-card { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+    body.dark-theme .timeframe-map { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
     body.dark-theme .dashboard-mini-label,
     body.dark-theme .dashboard-mini-note,
     body.dark-theme .dashboard-pulse-label { color: #94a3b8; }
+    body.dark-theme .timeframe-map-title,
+    body.dark-theme .timeframe-chip-value { color: #f8fafc; }
+    body.dark-theme .timeframe-map-subtitle,
+    body.dark-theme .timeframe-chip-note,
+    body.dark-theme .timeframe-chip-label { color: #94a3b8; }
     body.dark-theme .plan-chip { background: #172554; color: #bfdbfe; }
     body.dark-theme .result-value.positive { color: #22c55e; }
     body.dark-theme .result-value.negative { color: #f87171; }
+    body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }
+    body.dark-theme .timeframe-chip.buy { background: linear-gradient(135deg, #0d2017 0%, #10261b 100%); border-color: #166534; }
+    body.dark-theme .timeframe-chip.buy .timeframe-chip-value { color: #86efac; }
+    body.dark-theme .timeframe-chip.wait { background: linear-gradient(135deg, #261d0c 0%, #2b220d 100%); border-color: #854d0e; }
+    body.dark-theme .timeframe-chip.wait .timeframe-chip-value { color: #fcd34d; }
+    body.dark-theme .timeframe-chip.sell { background: linear-gradient(135deg, #2a1113 0%, #331517 100%); border-color: #7f1d1d; }
+    body.dark-theme .timeframe-chip.sell .timeframe-chip-value { color: #fca5a5; }
     body.dark-theme .dashboard-hero.buy {
       background:
         radial-gradient(circle at top left, rgba(34, 197, 94, 0.20), transparent 32%),
@@ -341,6 +374,7 @@
       .dashboard-hero-top,
       .dashboard-main-grid { display: grid; grid-template-columns: 1fr; }
       .dashboard-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .timeframe-map-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 768px) {
       .sidebar { width: 70px; }
@@ -355,6 +389,7 @@
       .dashboard-headline { font-size: 28px; }
       .dashboard-summary-grid { grid-template-columns: 1fr; }
       .signal-spotlight .decision-title { font-size: 28px; }
+      .timeframe-map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     
     /* Login Overlay */
@@ -543,6 +578,25 @@
 
           <div class="dashboard-main-grid">
             <div class="dashboard-stack">
+              <div class="timeframe-map">
+                <div class="timeframe-map-header">
+                  <div>
+                    <div class="timeframe-map-title">Mapa de temporalidades</div>
+                    <div class="timeframe-map-subtitle">Confirma si el impulso está alineado antes de entrar.</div>
+                  </div>
+                </div>
+                <div class="timeframe-map-grid" id="timeframeMapGrid">
+                  <div class="timeframe-chip wait">
+                    <div class="timeframe-chip-head">
+                      <span class="timeframe-chip-label">5m</span>
+                      <span class="timeframe-chip-dot"></span>
+                    </div>
+                    <div class="timeframe-chip-value">Esperar</div>
+                    <div class="timeframe-chip-note">Sin datos</div>
+                  </div>
+                </div>
+              </div>
+
               <div class="chart-container">
                 <div class="chart-header">
                   <div>
@@ -1107,6 +1161,7 @@
       indicators: {},
       signal: null,
       plan: null,
+      multiTimeframes: [],
       comparison: [],
       liveInterval: null,
       manualMode: false,
@@ -1784,6 +1839,27 @@
       `).join('');
     }
 
+    function renderTimeframeMap() {
+      const grid = $('timeframeMapGrid');
+      if (!state.multiTimeframes || state.multiTimeframes.length === 0) {
+        grid.innerHTML = '<div class="timeframe-chip wait"><div class="timeframe-chip-head"><span class="timeframe-chip-label">--</span><span class="timeframe-chip-dot"></span></div><div class="timeframe-chip-value">Esperar</div><div class="timeframe-chip-note">Cargando contexto</div></div>';
+        return;
+      }
+      grid.innerHTML = state.multiTimeframes.map(item => {
+        const tone = item.label === 'Comprar' ? 'buy' : item.label === 'Vender' ? 'sell' : 'wait';
+        return `
+          <div class="timeframe-chip ${tone}">
+            <div class="timeframe-chip-head">
+              <span class="timeframe-chip-label">${item.timeframe}</span>
+              <span class="timeframe-chip-dot"></span>
+            </div>
+            <div class="timeframe-chip-value">${item.label}</div>
+            <div class="timeframe-chip-note">${item.note}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
     function renderProfilePanel() {
       if (state.currentUser?.role === 'admin') renderUserList();
     }
@@ -1885,6 +1961,19 @@
       state.candles = await fetchCandles(state.currentCoin, state.timeframe);
       state.indicators = calcIndicators(state.candles);
       state.signal = generateSignal(state.indicators);
+      const mapTimeframes = ['5m', '15m', '1h', '4h', '1d'];
+      state.multiTimeframes = await Promise.all(
+        mapTimeframes.map(async timeframe => {
+          const candles = await fetchCandles(state.currentCoin, timeframe);
+          const indicators = calcIndicators(candles);
+          const signal = generateSignal(indicators);
+          return {
+            timeframe,
+            label: signal.label,
+            note: signal.trend === 'Neutral' ? 'Sin sesgo claro' : signal.trend
+          };
+        })
+      );
       const capital = +$('calcCapital').value || 0;
       state.plan = getOperationPlan(state.indicators, state.signal, capital);
       
@@ -1896,6 +1985,7 @@
       $('marketLastUpdate').textContent = nowTime();
       
       renderSignal();
+      renderTimeframeMap();
       drawChart();
       updateCalculator();
       

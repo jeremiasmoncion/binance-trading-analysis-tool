@@ -131,6 +131,8 @@
     .result-row:last-child { border-bottom: none; }
     .result-label { font-size: 13px; color: #64748b; }
     .result-value { font-size: 14px; font-weight: 700; color: #1a233a; }
+    .result-value.positive { color: #16a34a; }
+    .result-value.negative { color: #ef4444; }
     .result-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
     
     /* Comparison */
@@ -1619,6 +1621,8 @@
       $('resBreakEven').textContent = formatPrice(breakEven);
       $('resStopPrice').textContent = formatPrice(stopPrice);
       $('resStopLoss').textContent = formatPrice(stopLoss);
+      $('resNet').className = 'result-value ' + (net >= 0 ? 'positive' : 'negative');
+      $('resNetPct').className = 'result-value ' + (netPct >= 0 ? 'positive' : 'negative');
     }
 
     function suggestFromAnalysis() {

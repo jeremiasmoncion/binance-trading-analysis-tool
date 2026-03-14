@@ -33,6 +33,14 @@ function publicUser(user) {
   };
 }
 
+function sessionUser(user) {
+  return {
+    username: user.username,
+    role: user.role,
+    displayName: user.displayName || user.display_name,
+  };
+}
+
 function getStorageMode() {
   return SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY ? "supabase" : "seed";
 }
@@ -109,11 +117,12 @@ function sign(value) {
 }
 
 function encodeSession(user) {
+  const normalizedUser = sessionUser(user);
   const payload = Buffer.from(
     JSON.stringify({
-      username: user.username,
-      role: user.role,
-      displayName: user.displayName,
+      username: normalizedUser.username,
+      role: normalizedUser.role,
+      displayName: normalizedUser.displayName,
       exp: Date.now() + SESSION_TTL_SECONDS * 1000,
     }),
   ).toString("base64url");

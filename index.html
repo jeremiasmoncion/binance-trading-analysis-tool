@@ -174,14 +174,26 @@
     .stat-value { font-size: 18px; font-weight: 700; color: #1a233a; }
     
     /* Quick Plan */
-    .quick-plan { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
-    .quick-plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .quick-plan-title { font-size: 16px; font-weight: 700; color: #1a233a; }
-    .quick-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
-    .plan-item { background: #fff; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
-    .plan-label { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
-    .plan-value { font-size: 16px; font-weight: 700; color: #1a233a; }
-    .plan-note { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+    .quick-plan { background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%); border: 1px solid #253657; border-radius: 22px; padding: 22px; margin-bottom: 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(2, 6, 23, 0.26); }
+    .quick-plan-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+    .quick-plan-title { font-size: 17px; font-weight: 800; color: #f8fafc; }
+    .quick-plan .card-subtitle { color: #94a3b8; }
+    .quick-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .plan-item { background: linear-gradient(160deg, #182338 0%, #162033 100%); padding: 16px; border-radius: 18px; border: 1px solid #334155; min-height: 122px; }
+    .plan-item.wide { grid-column: 1 / -1; }
+    .plan-item.entry { border-color: rgba(148, 163, 184, 0.32); }
+    .plan-item.tp { border-color: rgba(34, 197, 94, 0.30); background: linear-gradient(160deg, #0d2a2d 0%, #103239 100%); }
+    .plan-item.sl { border-color: rgba(239, 68, 68, 0.26); background: linear-gradient(160deg, #2b1624 0%, #31192a 100%); }
+    .plan-item.risk { border-color: rgba(245, 158, 11, 0.26); background: linear-gradient(160deg, #2f2617 0%, #352a18 100%); }
+    .plan-item.benefit { border-color: rgba(59, 130, 246, 0.28); background: linear-gradient(160deg, #16253c 0%, #182a46 100%); }
+    .plan-label { font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.16em; }
+    .plan-value { font-size: 22px; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; }
+    .plan-note { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.5; }
+    .plan-signal-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-size: 12px; font-weight: 800; }
+    .plan-signal-pill::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgba(255,255,255,0.08); }
+    .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+    .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+    .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
     
     /* Chart Container */
     .chart-container { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -619,32 +631,40 @@
                 <div class="quick-plan-header">
                   <div>
                     <div class="quick-plan-title">Plan rápido sugerido</div>
-                    <div class="card-subtitle">Para copiar más fácil en Binance</div>
+                    <div class="card-subtitle">Solo se priorizan señales de alta probabilidad.</div>
                   </div>
                   <span class="plan-chip">Basado en señal + temporalidad + comisión</span>
                 </div>
+                <div style="margin-bottom:18px;">
+                  <span class="plan-signal-pill wait" id="planSignalPill">Señal: Esperar</span>
+                </div>
                 <div class="quick-plan-grid">
-                  <div class="plan-item">
+                  <div class="plan-item entry">
                     <div class="plan-label">Entrada sugerida</div>
                     <div class="plan-value" id="planEntry">$0.00</div>
                     <div class="plan-note">Referencia técnica</div>
                   </div>
-                  <div class="plan-item">
+                  <div class="plan-item risk">
+                    <div class="plan-label">Confianza</div>
+                    <div class="plan-value" id="planConfidence">0%</div>
+                    <div class="plan-note" id="planConfidenceNote">Lectura en desarrollo</div>
+                  </div>
+                  <div class="plan-item tp">
                     <div class="plan-label">Take profit</div>
                     <div class="plan-value" id="planTP">$0.00</div>
                     <div class="plan-note" id="planTPNote">Objetivo prudente</div>
                   </div>
-                  <div class="plan-item">
+                  <div class="plan-item sl">
                     <div class="plan-label">Stop loss</div>
                     <div class="plan-value" id="planSL">$0.00</div>
                     <div class="plan-note">Protección sugerida</div>
                   </div>
-                  <div class="plan-item">
+                  <div class="plan-item benefit">
                     <div class="plan-label">Riesgo</div>
                     <div class="plan-value" id="planRisk">0.00%</div>
                     <div class="plan-note" id="planRiskNote">Aprox. $0.00</div>
                   </div>
-                  <div class="plan-item">
+                  <div class="plan-item benefit wide">
                     <div class="plan-label">Beneficio posible</div>
                     <div class="plan-value" id="planBenefit">0.00%</div>
                     <div class="plan-note" id="planBenefitNote">Posible neto aprox. $0.00</div>
@@ -1795,11 +1815,15 @@
       $('trendText').textContent = trend;
       $('activeTimeframeLabel').textContent = state.timeframe;
       $('dashboardChartTitle').textContent = 'Gráfico de velas ' + state.currentCoin;
+      $('planSignalPill').className = 'plan-signal-pill ' + signalTone;
+      $('planSignalPill').textContent = 'Señal: ' + label;
       
       // Plan
       $('planEntry').textContent = formatPrice(entry);
       $('planTP').textContent = formatPrice(tp);
       $('planSL').textContent = formatPrice(sl);
+      $('planConfidence').textContent = score + '%';
+      $('planConfidenceNote').textContent = trend === 'Neutral' ? 'Mercado sin sesgo claro' : 'Sesgo ' + trend.toLowerCase();
       $('planRisk').textContent = formatPct(riskPct);
       $('planRiskNote').textContent = 'Aprox. ' + formatPrice(riskAmt);
       $('planBenefit').textContent = formatPct(benefitPct);

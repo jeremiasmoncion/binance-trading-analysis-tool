@@ -1,4 +1,4 @@
-import { createHmac, pbkdf2Sync, timingSafeEqual } from "node:crypto";
+import { createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypto";
 
 const SESSION_COOKIE = "crype_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -89,11 +89,25 @@ async function findSupabaseUser(username) {
   return users.find((user) => user.is_active !== false) || null;
 }
 
+function hashPassword(password, salt = randomBytes(16).toString("hex"), iterations = DEFAULT_PASSWORD_ITERATIONS) {
+  const passwordHash = pbkdf2Sync(password, salt, iterations, 32, "sha256").toString("hex");
+  return {
+    passwordHash,
+    passwordSalt: salt,
+    passwordIterations: iterations,
+  };
+}
+
+function normalizeIdentifier(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 async function getUser(username, password) {
+  const normalizedIdentifier = normalizeIdentifier(username);
   const sourceUser =
     getStorageMode() === "supabase"
-      ? await findSupabaseUser(username)
-      : USERS.find((user) => user.username === username && user.isActive !== false) || null;
+      ? await findSupabaseUser(normalizedIdentifier)
+      : USERS.find((user) => user.username === normalizedIdentifier && user.isActive !== false) || null;
 
   if (!sourceUser || !verifyPassword(password, sourceUser)) return null;
   return sourceUser;
@@ -110,6 +124,40 @@ async function listUsers() {
   }
 
   return USERS.filter((user) => user.isActive !== false).map(publicUser);
+}
+
+async function createUser({ displayName, email, password }) {
+  if (getStorageMode() !== "supabase") {
+    throw new Error("El registro de usuarios requiere una base de datos externa activa");
+  }
+
+  const normalizedEmail = normalizeIdentifier(email);
+  const cleanName = String(displayName || "").trim();
+  const cleanPassword = String(password || "");
+
+  if (cleanName.length < 2) throw new Error("El nombre debe tener al menos 2 caracteres");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) throw new Error("Debes usar un correo valido");
+  if (cleanPassword.length < 4) throw new Error("La contraseña debe tener al menos 4 caracteres");
+
+  const existingUser = await findSupabaseUser(normalizedEmail);
+  if (existingUser) throw new Error("Ya existe un usuario con ese correo");
+
+  const { passwordHash, passwordSalt, passwordIterations } = hashPassword(cleanPassword);
+  const created = await supabaseRequest(SUPABASE_USERS_TABLE, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: {
+      username: normalizedEmail,
+      display_name: cleanName,
+      role: "generic",
+      password_hash: passwordHash,
+      password_salt: passwordSalt,
+      password_iterations: passwordIterations,
+      is_active: true,
+    },
+  });
+
+  return created?.[0] || null;
 }
 
 function sign(value) {
@@ -178,6 +226,7 @@ function sendJson(res, status, body) {
 
 export {
   clearSessionCookie,
+  createUser,
   getSession,
   getStorageMode,
   getUser,

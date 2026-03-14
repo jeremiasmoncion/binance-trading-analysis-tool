@@ -432,6 +432,10 @@
     .login-form input:focus { outline: none; border-color: #2563eb; }
     .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
     .login-error { background: #fef2f2; color: #ef4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+    .login-subtitle { color:#64748b;font-size:13px;margin-top:4px; }
+    .login-switch { margin-top: 14px; text-align:center; font-size:13px; color:#64748b; }
+    .login-switch button { background:none; border:none; color:#2563eb; font-weight:700; cursor:pointer; padding:0; }
+    .login-hint { margin-top:12px; text-align:center; font-size:12px; color:#94a3b8; }
     
     /* Hidden helper */
     .hidden { display: none !important; }
@@ -453,14 +457,25 @@
       <div class="login-logo">
         <div class="logo-icon">C</div>
         <h2>CRYPE</h2>
-        <p style="color:#64748b;font-size:13px;margin-top:4px;">Radar Inteligente de Trading</p>
+        <p class="login-subtitle" id="loginSubtitle">Radar Inteligente de Trading</p>
       </div>
       <div id="loginError" class="login-error"></div>
       <form class="login-form" id="loginForm">
-        <input type="text" id="loginUser" placeholder="Usuario" required>
+        <input type="text" id="loginUser" placeholder="Usuario o correo" required>
         <input type="password" id="loginPass" placeholder="Contraseña" required>
         <button type="submit" class="btn-login">Iniciar Sesión</button>
       </form>
+      <form class="login-form hidden" id="registerForm">
+        <input type="text" id="registerName" placeholder="Nombre completo" required>
+        <input type="email" id="registerEmail" placeholder="Correo" required>
+        <input type="password" id="registerPass" placeholder="Contraseña" required>
+        <button type="submit" class="btn-login">Crear cuenta</button>
+      </form>
+      <div class="login-switch" id="loginSwitch">
+        <span id="loginSwitchText">¿No tienes usuario?</span>
+        <button type="button" id="toggleAuthMode">Crear cuenta</button>
+      </div>
+      <div class="login-hint" id="loginHint">Los usuarios nuevos entran como cuenta genérica.</div>
     </div>
   </div>
 
@@ -1175,6 +1190,7 @@
     const state = {
       currentUser: null,
       currentView: 'dashboard',
+      authMode: 'login',
       currentCoin: 'BTC/USDT',
       timeframe: '1h',
       candles: [],
@@ -1206,6 +1222,12 @@
         return apiRequest('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({ username, password })
+        });
+      },
+      async register(displayName, email, password) {
+        return apiRequest('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ displayName, email, password })
         });
       },
       async logout() {
@@ -1329,6 +1351,18 @@
     // UTILIDADES
     // ============================================
     const $ = id => document.getElementById(id);
+    function setAuthMode(mode) {
+      state.authMode = mode;
+      const loginMode = mode === 'login';
+      $('loginForm').classList.toggle('hidden', !loginMode);
+      $('registerForm').classList.toggle('hidden', loginMode);
+      $('loginSubtitle').textContent = loginMode ? 'Radar Inteligente de Trading' : 'Crea tu acceso para empezar';
+      $('toggleAuthMode').textContent = loginMode ? 'Crear cuenta' : 'Volver al login';
+      $('loginSwitchText').textContent = loginMode ? '¿No tienes usuario?' : '¿Ya tienes cuenta?';
+      $('loginHint').textContent = loginMode ? 'Los usuarios nuevos entran como cuenta genérica.' : 'Usa tu correo como acceso al crear la cuenta.';
+      $('loginError').style.display = 'none';
+      $('loginError').textContent = '';
+    }
     function formatPrice(p) {
       const value = Number(p || 0);
       let decimals = 2;
@@ -2022,6 +2056,7 @@
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
       applyTheme(localStorage.getItem('crype_theme') || 'dark');
+      setAuthMode('login');
 
       // Login
       $('loginForm').addEventListener('submit', async e => {
@@ -2037,6 +2072,29 @@
           $('loginError').textContent = error.message;
           $('loginError').style.display = 'block';
         }
+      });
+
+      $('registerForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        $('loginError').style.display = 'none';
+        try {
+          await Auth.register(
+            $('registerName').value.trim(),
+            $('registerEmail').value.trim(),
+            $('registerPass').value
+          );
+          if (await checkSession()) {
+            fetchData();
+            startLiveUpdates();
+          }
+        } catch (error) {
+          $('loginError').textContent = error.message;
+          $('loginError').style.display = 'block';
+        }
+      });
+
+      $('toggleAuthMode').addEventListener('click', () => {
+        setAuthMode(state.authMode === 'login' ? 'register' : 'login');
       });
 
       // Navigation

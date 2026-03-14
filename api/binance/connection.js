@@ -7,6 +7,6 @@ export default async function handler(req, res) {
     if (req.method === "DELETE") return sendJson(res, 200, await disconnectBinanceTestnet(req));
     return sendJson(res, 405, { message: "Método no permitido" });
   } catch (error) {
-    return sendJson(res, 400, { message: error.message || "No se pudo procesar la conexión con Binance Testnet" });
+    return sendJson(res, 400, { message: error.message || "No se pudo procesar la conexión con Binance Demo Spot" });
   }
 }

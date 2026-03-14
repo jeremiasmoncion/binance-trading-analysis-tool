@@ -1183,23 +1183,23 @@
           </div>
 
           <div class="profile-section">
-            <h3>Binance Testnet</h3>
-            <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Conecta tu cuenta de prueba de Binance Spot Testnet en modo solo lectura. Tus claves se guardan cifradas en el backend.</p>
+            <h3>Binance Demo Spot</h3>
+            <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Conecta tu cuenta de prueba de Binance Demo Spot en modo solo lectura. Tus claves se guardan cifradas en el backend.</p>
             <div class="binance-status-card" id="binanceStatusCard">
               <div class="binance-status-title" id="binanceStatusTitle">Sin conexión</div>
-              <div class="binance-status-note" id="binanceStatusNote">Agrega tu API Key y Secret de prueba para ver balances y órdenes abiertas.</div>
+              <div class="binance-status-note" id="binanceStatusNote">Agrega tu API Key y Secret de Binance Demo Spot para ver balances y órdenes abiertas.</div>
             </div>
             <div class="calc-input-group">
-              <label>API Key Testnet</label>
-              <input type="text" id="binanceApiKey" placeholder="Pega tu API Key de Binance Testnet">
+              <label>API Key Demo Spot</label>
+              <input type="text" id="binanceApiKey" placeholder="Pega tu API Key de Binance Demo Spot">
             </div>
             <div class="calc-input-group">
-              <label>API Secret Testnet</label>
-              <input type="password" id="binanceApiSecret" placeholder="Pega tu API Secret de Binance Testnet">
+              <label>API Secret Demo Spot</label>
+              <input type="password" id="binanceApiSecret" placeholder="Pega tu API Secret de Binance Demo Spot">
             </div>
-            <button class="btn-primary" id="btnBinanceConnect" style="width:100%;">Conectar Binance Testnet</button>
+            <button class="btn-primary" id="btnBinanceConnect" style="width:100%;">Conectar Binance Demo Spot</button>
             <button class="btn-secondary-soft" id="btnBinanceRefresh" type="button">Actualizar resumen</button>
-            <button class="btn-secondary-soft" id="btnBinanceDisconnect" type="button">Desconectar Binance Testnet</button>
+            <button class="btn-secondary-soft" id="btnBinanceDisconnect" type="button">Desconectar Binance Demo Spot</button>
             <div class="binance-balance-list" id="binanceBalanceList">
               <div class="binance-status-note">Todavía no hay balances para mostrar.</div>
             </div>
@@ -1946,15 +1946,15 @@
         const payload = await Binance.getConnection();
         state.binanceConnection = payload;
       } catch (error) {
-        $('binanceStatusTitle').textContent = 'Binance Testnet no disponible';
+        $('binanceStatusTitle').textContent = 'Binance Demo Spot no disponible';
         $('binanceStatusNote').textContent = error.message;
-        list.innerHTML = '<div class="binance-status-note">Revisa que la tabla de Binance Testnet exista en Supabase.</div>';
+        list.innerHTML = '<div class="binance-status-note">Revisa que la tabla de Binance Demo Spot exista en Supabase.</div>';
         return;
       }
 
       if (!state.binanceConnection.connected) {
         $('binanceStatusTitle').textContent = 'Sin conexión';
-        $('binanceStatusNote').textContent = 'Conecta tu API Key y Secret de prueba para habilitar lectura de cuenta.';
+        $('binanceStatusNote').textContent = 'Conecta tu API Key y Secret de Binance Demo Spot para habilitar lectura de cuenta.';
         list.innerHTML = '<div class="binance-status-note">Todavía no hay balances para mostrar.</div>';
         return;
       }

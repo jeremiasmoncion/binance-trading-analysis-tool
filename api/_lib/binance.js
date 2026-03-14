@@ -5,7 +5,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "crype-dev-session-secret";
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const BINANCE_CONNECTIONS_TABLE = process.env.SUPABASE_BINANCE_TABLE || "binance_testnet_connections";
-const BINANCE_TESTNET_API_URL = "https://testnet.binance.vision";
+const BINANCE_TESTNET_API_URL = "https://demo-api.binance.com";
 
 function getEncryptionKey() {
   return createHash("sha256").update(SESSION_SECRET).digest();
@@ -30,7 +30,7 @@ function decryptValue(payload) {
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("Supabase no está configurado para Binance Testnet");
+    throw new Error("Supabase no está configurado para Binance Demo Spot");
   }
 
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -74,7 +74,7 @@ async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}) {
   });
 
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.msg || "No se pudo consultar Binance Testnet");
+  if (!response.ok) throw new Error(payload.msg || "No se pudo consultar Binance Demo Spot");
   return payload;
 }
 
@@ -163,7 +163,7 @@ async function connectBinanceTestnet(req) {
   const body = req.body && typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
   const apiKey = String(body.apiKey || "").trim();
   const apiSecret = String(body.apiSecret || "").trim();
-  if (!apiKey || !apiSecret) throw new Error("Debes indicar API Key y Secret de Binance Testnet");
+  if (!apiKey || !apiSecret) throw new Error("Debes indicar API Key y Secret de Binance Demo Spot");
 
   const summary = await readOnlyAccountSummary(apiKey, apiSecret);
   const row = await saveConnectionForUser(session.username, apiKey, apiSecret);

@@ -1680,6 +1680,10 @@
       const container = canvas.parentElement;
       canvas.width = container.clientWidth - 40;
       canvas.height = 380;
+      const isDark = document.body.classList.contains('dark-theme');
+      const chartBg = isDark ? '#0b1220' : '#fafafa';
+      const gridColor = isDark ? '#243041' : '#e5e7eb';
+      const labelColor = isDark ? '#94a3b8' : '#6b7280';
       
       const candles = state.candles;
       if (!candles || candles.length === 0) return;
@@ -1696,11 +1700,11 @@
       const candleW = Math.max(4, w / candles.length - 2);
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#fafafa';
+      ctx.fillStyle = chartBg;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       // Grid
-      ctx.strokeStyle = '#e5e7eb';
+      ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = padding.top + (h / 4) * i;
@@ -1759,7 +1763,7 @@
       ctx.stroke();
       
       // Price labels
-      ctx.fillStyle = '#6b7280';
+      ctx.fillStyle = labelColor;
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'left';
       for (let i = 0; i <= 4; i++) {
@@ -2023,6 +2027,7 @@
       document.body.classList.toggle('dark-theme', theme === 'dark');
       $('themeToggle').setAttribute('aria-label', theme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro');
       localStorage.setItem('crype_theme', theme);
+      if (state.candles && state.candles.length) drawChart();
     }
 
     function toggleTheme() {

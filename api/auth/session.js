@@ -1,4 +1,4 @@
-import { getSession, sendJson } from "../_lib/auth.js";
+import { getSession, getStorageMode, sendJson } from "../_lib/auth.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -10,5 +10,5 @@ export default async function handler(req, res) {
     return sendJson(res, 401, { message: "Sesión no válida o vencida" });
   }
 
-  return sendJson(res, 200, { user: session });
+  return sendJson(res, 200, { user: session, storageMode: getStorageMode() });
 }

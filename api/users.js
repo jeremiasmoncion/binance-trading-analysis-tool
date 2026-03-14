@@ -1,4 +1,4 @@
-import { getSession, listUsers, sendJson } from "./_lib/auth.js";
+import { getSession, getStorageMode, listUsers, sendJson } from "./_lib/auth.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -10,5 +10,9 @@ export default async function handler(req, res) {
     return sendJson(res, 401, { message: "Sesión no válida o vencida" });
   }
 
-  return sendJson(res, 200, { users: listUsers() });
+  try {
+    return sendJson(res, 200, { users: await listUsers(), storageMode: getStorageMode() });
+  } catch (error) {
+    return sendJson(res, 503, { message: "No se pudo consultar la base de datos de usuarios", detail: error.message });
+  }
 }

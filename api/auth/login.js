@@ -5,13 +5,17 @@ export default async function handler(req, res) {
     return sendJson(res, 405, { message: "Método no permitido" });
   }
 
-  const { username, password } = parseJsonBody(req);
-  const user = getUser(String(username || "").trim(), String(password || ""));
+  try {
+    const { username, password } = parseJsonBody(req);
+    const user = await getUser(String(username || "").trim(), String(password || ""));
 
-  if (!user) {
-    return sendJson(res, 401, { message: "Usuario o contraseña incorrectos" });
+    if (!user) {
+      return sendJson(res, 401, { message: "Usuario o contraseña incorrectos" });
+    }
+
+    setSessionCookie(res, user);
+    return sendJson(res, 200, { success: true, user: publicUser(user) });
+  } catch (error) {
+    return sendJson(res, 503, { message: "No se pudo validar el usuario contra la base de datos", detail: error.message });
   }
-
-  setSessionCookie(res, user);
-  return sendJson(res, 200, { success: true, user: publicUser(user) });
 }

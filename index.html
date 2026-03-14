@@ -174,26 +174,26 @@
     .stat-value { font-size: 18px; font-weight: 700; color: #1a233a; }
     
     /* Quick Plan */
-    .quick-plan { background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%); border: 1px solid #253657; border-radius: 22px; padding: 22px; margin-bottom: 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(2, 6, 23, 0.26); }
+    .quick-plan { background: linear-gradient(160deg, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%); border: 1px solid #dbe7ff; border-radius: 22px; padding: 22px; margin-bottom: 20px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 18px 40px rgba(37, 99, 235, 0.10); }
     .quick-plan-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
-    .quick-plan-title { font-size: 17px; font-weight: 800; color: #f8fafc; }
-    .quick-plan .card-subtitle { color: #94a3b8; }
+    .quick-plan-title { font-size: 17px; font-weight: 800; color: #0f172a; }
+    .quick-plan .card-subtitle { color: #64748b; }
     .quick-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-    .plan-item { background: linear-gradient(160deg, #182338 0%, #162033 100%); padding: 16px; border-radius: 18px; border: 1px solid #334155; min-height: 122px; }
+    .plan-item { background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%); padding: 16px; border-radius: 18px; border: 1px solid #d9e4f5; min-height: 122px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9); }
     .plan-item.wide { grid-column: 1 / -1; }
-    .plan-item.entry { border-color: rgba(148, 163, 184, 0.32); }
-    .plan-item.tp { border-color: rgba(34, 197, 94, 0.30); background: linear-gradient(160deg, #0d2a2d 0%, #103239 100%); }
-    .plan-item.sl { border-color: rgba(239, 68, 68, 0.26); background: linear-gradient(160deg, #2b1624 0%, #31192a 100%); }
-    .plan-item.risk { border-color: rgba(245, 158, 11, 0.26); background: linear-gradient(160deg, #2f2617 0%, #352a18 100%); }
-    .plan-item.benefit { border-color: rgba(59, 130, 246, 0.28); background: linear-gradient(160deg, #16253c 0%, #182a46 100%); }
-    .plan-label { font-size: 12px; font-weight: 700; color: #94a3b8; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.16em; }
-    .plan-value { font-size: 22px; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em; }
-    .plan-note { font-size: 12px; color: #94a3b8; margin-top: 8px; line-height: 1.5; }
+    .plan-item.entry { border-color: rgba(148, 163, 184, 0.28); }
+    .plan-item.tp { border-color: rgba(34, 197, 94, 0.30); background: linear-gradient(160deg, #effcf5 0%, #e8fff1 100%); }
+    .plan-item.sl { border-color: rgba(239, 68, 68, 0.26); background: linear-gradient(160deg, #fff2f4 0%, #ffeef2 100%); }
+    .plan-item.risk { border-color: rgba(245, 158, 11, 0.26); background: linear-gradient(160deg, #fff9eb 0%, #fff6e1 100%); }
+    .plan-item.benefit { border-color: rgba(59, 130, 246, 0.28); background: linear-gradient(160deg, #eef5ff 0%, #e8f0ff 100%); }
+    .plan-label { font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.16em; }
+    .plan-value { font-size: 22px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em; }
+    .plan-note { font-size: 12px; color: #64748b; margin-top: 8px; line-height: 1.5; }
     .plan-signal-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; font-size: 12px; font-weight: 800; }
     .plan-signal-pill::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgba(255,255,255,0.08); }
-    .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.16); color: #86efac; }
-    .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
-    .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+    .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.14); color: #15803d; }
+    .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+    .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.16); color: #d97706; }
     
     /* Chart Container */
     .chart-container { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -309,8 +309,22 @@
     body.dark-theme .search-dropdown { background: #0f172a; border-color: #23314d; }
     body.dark-theme .search-item:hover { background: #17233a; }
     body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
-    body.dark-theme .quick-plan,
+    body.dark-theme .quick-plan {
+      background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%);
+      border-color: #253657;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 18px 40px rgba(2, 6, 23, 0.26);
+    }
     body.dark-theme .calc-results { background: linear-gradient(135deg, #0f172a 0%, #162338 100%); border-color: #23314d; }
+    body.dark-theme .quick-plan-title { color: #f8fafc; }
+    body.dark-theme .quick-plan .card-subtitle,
+    body.dark-theme .plan-label,
+    body.dark-theme .plan-note { color: #94a3b8; }
+    body.dark-theme .plan-item { background: linear-gradient(160deg, #182338 0%, #162033 100%); border-color: #334155; box-shadow: none; }
+    body.dark-theme .plan-item.tp { background: linear-gradient(160deg, #0d2a2d 0%, #103239 100%); border-color: rgba(34, 197, 94, 0.30); }
+    body.dark-theme .plan-item.sl { background: linear-gradient(160deg, #2b1624 0%, #31192a 100%); border-color: rgba(239, 68, 68, 0.26); }
+    body.dark-theme .plan-item.risk { background: linear-gradient(160deg, #2f2617 0%, #352a18 100%); border-color: rgba(245, 158, 11, 0.26); }
+    body.dark-theme .plan-item.benefit { background: linear-gradient(160deg, #16253c 0%, #182a46 100%); border-color: rgba(59, 130, 246, 0.28); }
+    body.dark-theme .plan-value { color: #f8fafc; }
     body.dark-theme .result-row,
     body.dark-theme .user-item { border-color: #1e293b; }
     body.dark-theme .coin-card { border-color: #23314d; }
@@ -349,6 +363,9 @@
     body.dark-theme .timeframe-chip-note,
     body.dark-theme .timeframe-chip-label { color: #94a3b8; }
     body.dark-theme .plan-chip { background: #172554; color: #bfdbfe; }
+    body.dark-theme .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.16); color: #86efac; }
+    body.dark-theme .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
+    body.dark-theme .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
     body.dark-theme .result-value.positive { color: #22c55e; }
     body.dark-theme .result-value.negative { color: #f87171; }
     body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }

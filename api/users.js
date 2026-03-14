@@ -1,6 +1,6 @@
-const { getSession, listUsers, sendJson } = require("./_lib/auth");
+import { getSession, listUsers, sendJson } from "./_lib/auth.js";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "GET") {
     return sendJson(res, 405, { message: "Método no permitido" });
   }
@@ -11,4 +11,4 @@ module.exports = async function handler(req, res) {
   }
 
   return sendJson(res, 200, { users: listUsers() });
-};
+}

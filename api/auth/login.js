@@ -1,6 +1,6 @@
-const { getUser, parseJsonBody, publicUser, sendJson, setSessionCookie } = require("../_lib/auth");
+import { getUser, parseJsonBody, publicUser, sendJson, setSessionCookie } from "../_lib/auth.js";
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return sendJson(res, 405, { message: "Método no permitido" });
   }
@@ -14,4 +14,4 @@ module.exports = async function handler(req, res) {
 
   setSessionCookie(res, user);
   return sendJson(res, 200, { success: true, user: publicUser(user) });
-};
+}

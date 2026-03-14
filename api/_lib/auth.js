@@ -1,4 +1,4 @@
-const crypto = require("crypto");
+import { createHmac } from "node:crypto";
 
 const SESSION_COOKIE = "crype_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -38,7 +38,7 @@ function listUsers() {
 }
 
 function sign(value) {
-  return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("hex");
+  return createHmac("sha256", SESSION_SECRET).update(value).digest("hex");
 }
 
 function encodeSession(user) {
@@ -100,7 +100,7 @@ function sendJson(res, status, body) {
   res.status(status).json(body);
 }
 
-module.exports = {
+export {
   clearSessionCookie,
   getSession,
   getUser,

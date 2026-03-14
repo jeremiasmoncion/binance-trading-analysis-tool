@@ -9,7 +9,7 @@
        ESTILOS GENERALES - CRYPE
        ============================================ */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%); min-height: 100vh; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%); min-height: 100vh; transition: background 0.25s ease, color 0.25s ease; }
     
     /* ============================================
        LAYOUT PRINCIPAL
@@ -53,6 +53,9 @@
     .btn-primary { padding: 10px 20px; background: #1a233a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
     .btn-primary:hover { background: #0f1525; }
     .user-pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #f0f4ff; border-radius: 20px; font-size: 13px; }
+    .theme-toggle { width: 42px; height: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .theme-toggle svg { width: 18px; height: 18px; }
+    .theme-toggle .moon-icon { display: none; }
     .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
     .status-indicator.loading { background: #f59e0b; }
     .status-indicator.error { background: #ef4444; }
@@ -131,6 +134,8 @@
     .result-row:last-child { border-bottom: none; }
     .result-label { font-size: 13px; color: #64748b; }
     .result-value { font-size: 14px; font-weight: 700; color: #1a233a; }
+    .result-value.positive { color: #16a34a; }
+    .result-value.negative { color: #ef4444; }
     .result-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
     
     /* Comparison */
@@ -167,6 +172,57 @@
     /* Tooltip */
     [data-tooltip] { position: relative; }
     [data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1a233a; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 200; margin-bottom: 6px; }
+
+    /* Dark Theme */
+    body.dark-theme { background: linear-gradient(135deg, #07111f 0%, #0b172a 100%); color: #e2e8f0; }
+    body.dark-theme .top-bar,
+    body.dark-theme .card,
+    body.dark-theme .chart-container,
+    body.dark-theme .stat-card,
+    body.dark-theme .coin-card,
+    body.dark-theme .learn-card,
+    body.dark-theme .profile-section,
+    body.dark-theme .plan-item,
+    body.dark-theme .stat-box { background: #0f172a; color: #e2e8f0; box-shadow: 0 10px 30px rgba(2, 6, 23, 0.35); }
+    body.dark-theme .top-bar { border-bottom: 1px solid rgba(148, 163, 184, 0.14); }
+    body.dark-theme .card-title,
+    body.dark-theme .chart-title,
+    body.dark-theme .quick-plan-title,
+    body.dark-theme .decision-title,
+    body.dark-theme .stat-card .value,
+    body.dark-theme .plan-value,
+    body.dark-theme .stat-value,
+    body.dark-theme .coin-name,
+    body.dark-theme .learn-card h3,
+    body.dark-theme .profile-section h3,
+    body.dark-theme .result-value { color: #f8fafc; }
+    body.dark-theme .card-subtitle,
+    body.dark-theme .decision-desc,
+    body.dark-theme .stat-card .sub,
+    body.dark-theme .plan-label,
+    body.dark-theme .stat-label,
+    body.dark-theme .coin-impulse,
+    body.dark-theme .learn-card p,
+    body.dark-theme .result-label,
+    body.dark-theme .result-note { color: #94a3b8; }
+    body.dark-theme .search-coin input,
+    body.dark-theme .timeframe-select,
+    body.dark-theme .calc-input-group input,
+    body.dark-theme .calc-input-group select { background: #111c31; color: #e2e8f0; border-color: #23314d; }
+    body.dark-theme .search-dropdown { background: #0f172a; border-color: #23314d; }
+    body.dark-theme .search-item:hover { background: #17233a; }
+    body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
+    body.dark-theme .quick-plan,
+    body.dark-theme .calc-results { background: linear-gradient(135deg, #0f172a 0%, #162338 100%); border-color: #23314d; }
+    body.dark-theme .result-row,
+    body.dark-theme .user-item { border-color: #1e293b; }
+    body.dark-theme .coin-card { border-color: #23314d; }
+    body.dark-theme .coin-card.active { background: linear-gradient(135deg, #172554 0%, #1d4ed8 100%); border-color: #3b82f6; }
+    body.dark-theme .decision-banner.wait { background: linear-gradient(135deg, #3b2f10 0%, #2b220d 100%); border-color: #d97706; }
+    body.dark-theme .decision-banner.buy { background: linear-gradient(135deg, #123026 0%, #0f241d 100%); border-color: #22c55e; }
+    body.dark-theme .decision-banner.sell { background: linear-gradient(135deg, #3a1718 0%, #2b1213 100%); border-color: #ef4444; }
+    body.dark-theme .theme-toggle .sun-icon { display: none; }
+    body.dark-theme .theme-toggle .moon-icon { display: block; }
     
     /* Responsive */
     @media (max-width: 1024px) {
@@ -302,13 +358,19 @@
             <option value="8h">8 horas</option>
             <option value="12h">12 horas</option>
             <option value="1d">1 día</option>
-            <option value="3d">3 días</option>
-            <option value="1w">1 semana</option>
-            <option value="1M">1 mes</option>
           </select>
           <button class="btn-primary" id="btnRefresh">Actualizar análisis</button>
         </div>
         <div class="top-right">
+          <button class="btn-primary theme-toggle" id="themeToggle" type="button" data-tooltip="Cambiar tema" aria-label="Cambiar tema">
+            <svg class="sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v2m0 16v2m10-10h-2M4 12H2m17.07 7.07-1.41-1.41M6.34 6.34 4.93 4.93m14.14 0-1.41 1.41M6.34 17.66l-1.41 1.41"></path>
+            </svg>
+            <svg class="moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+            </svg>
+          </button>
           <div class="user-pill">
             <span class="status-indicator" id="statusIndicator"></span>
             <span id="statusText">Datos correctos</span>
@@ -1288,7 +1350,21 @@
       const candles = [];
       let price = base + Math.random() * 1000;
       const now = Date.now();
-      const tfMs = { '5m': 5*60*1000, '15m': 15*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000 }[tf] || 15*60*1000;
+      const tfMs = {
+        '1s': 1000,
+        '1m': 60*1000,
+        '3m': 3*60*1000,
+        '5m': 5*60*1000,
+        '15m': 15*60*1000,
+        '30m': 30*60*1000,
+        '1h': 60*60*1000,
+        '2h': 2*60*60*1000,
+        '4h': 4*60*60*1000,
+        '6h': 6*60*60*1000,
+        '8h': 8*60*60*1000,
+        '12h': 12*60*60*1000,
+        '1d': 24*60*60*1000
+      }[tf] || 15*60*1000;
       for (let i = 80; i > 0; i--) {
         const t = now - i * tfMs;
         const change = (Math.random() - 0.5) * 100;
@@ -1368,7 +1444,21 @@
     function getOperationPlan(ind, signal, capital) {
       const { current, sma20, sma50 } = ind;
       const refCapital = capital > 0 ? capital : 100;
-      const basePct = state.timeframe === '5m' ? 0.5 : state.timeframe === '15m' ? 0.8 : state.timeframe === '1h' ? 1.2 : 1.8;
+      const basePct = {
+        '1s': 0.2,
+        '1m': 0.3,
+        '3m': 0.4,
+        '5m': 0.5,
+        '15m': 0.8,
+        '30m': 1.0,
+        '1h': 1.2,
+        '2h': 1.4,
+        '4h': 1.8,
+        '6h': 2.0,
+        '8h': 2.2,
+        '12h': 2.5,
+        '1d': 3.0
+      }[state.timeframe] || 0.8;
       const strengthFactor = Math.max(0.5, signal.score / 50);
       const tpPct = basePct * strengthFactor;
       const slPct = tpPct * 0.6;
@@ -1594,6 +1684,8 @@
       $('resBreakEven').textContent = formatPrice(breakEven);
       $('resStopPrice').textContent = formatPrice(stopPrice);
       $('resStopLoss').textContent = formatPrice(stopLoss);
+      $('resNet').className = 'result-value ' + (net >= 0 ? 'positive' : 'negative');
+      $('resNetPct').className = 'result-value ' + (netPct >= 0 ? 'positive' : 'negative');
     }
 
     function suggestFromAnalysis() {
@@ -1691,10 +1783,22 @@
       if (state.liveInterval) { clearInterval(state.liveInterval); state.liveInterval = null; }
     }
 
+    function applyTheme(theme) {
+      document.body.classList.toggle('dark-theme', theme === 'dark');
+      $('themeToggle').setAttribute('aria-label', theme === 'dark' ? 'Activar modo claro' : 'Activar modo oscuro');
+      localStorage.setItem('crype_theme', theme);
+    }
+
+    function toggleTheme() {
+      applyTheme(document.body.classList.contains('dark-theme') ? 'light' : 'dark');
+    }
+
     // ============================================
     // EVENTOS
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
+      applyTheme(localStorage.getItem('crype_theme') || 'light');
+
       // Login
       $('loginForm').addEventListener('submit', e => {
         e.preventDefault();
@@ -1725,6 +1829,7 @@
 
       // Refresh
       $('btnRefresh').addEventListener('click', fetchData);
+      $('themeToggle').addEventListener('click', toggleTheme);
 
       // Calculator
       $('calcCapital').addEventListener('input', updateCalculator);

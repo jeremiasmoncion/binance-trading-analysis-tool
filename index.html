@@ -302,9 +302,6 @@
             <option value="8h">8 horas</option>
             <option value="12h">12 horas</option>
             <option value="1d">1 día</option>
-            <option value="3d">3 días</option>
-            <option value="1w">1 semana</option>
-            <option value="1M">1 mes</option>
           </select>
           <button class="btn-primary" id="btnRefresh">Actualizar análisis</button>
         </div>
@@ -1288,7 +1285,21 @@
       const candles = [];
       let price = base + Math.random() * 1000;
       const now = Date.now();
-      const tfMs = { '5m': 5*60*1000, '15m': 15*60*1000, '1h': 60*60*1000, '4h': 4*60*60*1000 }[tf] || 15*60*1000;
+      const tfMs = {
+        '1s': 1000,
+        '1m': 60*1000,
+        '3m': 3*60*1000,
+        '5m': 5*60*1000,
+        '15m': 15*60*1000,
+        '30m': 30*60*1000,
+        '1h': 60*60*1000,
+        '2h': 2*60*60*1000,
+        '4h': 4*60*60*1000,
+        '6h': 6*60*60*1000,
+        '8h': 8*60*60*1000,
+        '12h': 12*60*60*1000,
+        '1d': 24*60*60*1000
+      }[tf] || 15*60*1000;
       for (let i = 80; i > 0; i--) {
         const t = now - i * tfMs;
         const change = (Math.random() - 0.5) * 100;
@@ -1368,7 +1379,21 @@
     function getOperationPlan(ind, signal, capital) {
       const { current, sma20, sma50 } = ind;
       const refCapital = capital > 0 ? capital : 100;
-      const basePct = state.timeframe === '5m' ? 0.5 : state.timeframe === '15m' ? 0.8 : state.timeframe === '1h' ? 1.2 : 1.8;
+      const basePct = {
+        '1s': 0.2,
+        '1m': 0.3,
+        '3m': 0.4,
+        '5m': 0.5,
+        '15m': 0.8,
+        '30m': 1.0,
+        '1h': 1.2,
+        '2h': 1.4,
+        '4h': 1.8,
+        '6h': 2.0,
+        '8h': 2.2,
+        '12h': 2.5,
+        '1d': 3.0
+      }[state.timeframe] || 0.8;
       const strengthFactor = Math.max(0.5, signal.score / 50);
       const tpPct = basePct * strengthFactor;
       const slPct = tpPct * 0.6;

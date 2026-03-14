@@ -86,7 +86,7 @@ async function getAuthenticatedSession(req) {
 
 async function getStoredConnection(username) {
   const params = new URLSearchParams({
-    select: "username,api_key_encrypted,api_secret_encrypted,updated_at",
+    select: "username,api_key_encrypted,api_secret_encrypted,account_alias,updated_at",
     username: `eq.${username}`,
     limit: "1",
   });
@@ -94,7 +94,7 @@ async function getStoredConnection(username) {
   return rows[0] || null;
 }
 
-async function saveConnectionForUser(username, apiKey, apiSecret) {
+async function saveConnectionForUser(username, apiKey, apiSecret, accountAlias = "") {
   const rows = await supabaseRequest(BINANCE_CONNECTIONS_TABLE, {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -102,6 +102,7 @@ async function saveConnectionForUser(username, apiKey, apiSecret) {
       username,
       api_key_encrypted: encryptValue(apiKey),
       api_secret_encrypted: encryptValue(apiSecret),
+      account_alias: accountAlias || null,
     },
   });
   return rows?.[0] || null;
@@ -132,6 +133,9 @@ async function readOnlyAccountSummary(apiKey, apiSecret) {
     .slice(0, 8);
 
   return {
+    uid: account.uid || null,
+    accountType: account.accountType || "SPOT",
+    permissions: Array.isArray(account.permissions) ? account.permissions : [],
     canTrade: Boolean(account.canTrade),
     canWithdraw: Boolean(account.canWithdraw),
     canDeposit: Boolean(account.canDeposit),
@@ -152,6 +156,7 @@ async function getBinanceConnectionState(req) {
   return {
     connected: true,
     username: session.username,
+    accountAlias: row.account_alias || "",
     maskedApiKey: maskApiKey(apiKey),
     updatedAt: row.updated_at || summary.updatedAt,
     summary,
@@ -163,13 +168,15 @@ async function connectBinanceTestnet(req) {
   const body = req.body && typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
   const apiKey = String(body.apiKey || "").trim();
   const apiSecret = String(body.apiSecret || "").trim();
+  const accountAlias = String(body.accountAlias || "").trim();
   if (!apiKey || !apiSecret) throw new Error("Debes indicar API Key y Secret de Binance Demo Spot");
 
   const summary = await readOnlyAccountSummary(apiKey, apiSecret);
-  const row = await saveConnectionForUser(session.username, apiKey, apiSecret);
+  const row = await saveConnectionForUser(session.username, apiKey, apiSecret, accountAlias);
   return {
     connected: true,
     username: session.username,
+    accountAlias: row?.account_alias || accountAlias,
     maskedApiKey: maskApiKey(apiKey),
     updatedAt: row?.updated_at || summary.updatedAt,
     summary,

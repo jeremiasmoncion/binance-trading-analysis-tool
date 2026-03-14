@@ -1190,6 +1190,10 @@
               <div class="binance-status-note" id="binanceStatusNote">Agrega tu API Key y Secret de Binance Demo Spot para ver balances y órdenes abiertas.</div>
             </div>
             <div class="calc-input-group">
+              <label>Alias de la cuenta</label>
+              <input type="text" id="binanceAccountAlias" placeholder="Ej: Demo principal Jeremias">
+            </div>
+            <div class="calc-input-group">
               <label>API Key Demo Spot</label>
               <input type="text" id="binanceApiKey" placeholder="Pega tu API Key de Binance Demo Spot">
             </div>
@@ -1289,7 +1293,7 @@
       async connect(apiKey, apiSecret) {
         return apiRequest('/api/binance/connection', {
           method: 'POST',
-          body: JSON.stringify({ apiKey, apiSecret })
+          body: JSON.stringify({ apiKey, apiSecret, accountAlias: $('binanceAccountAlias').value.trim() })
         });
       },
       async disconnect() {
@@ -1955,13 +1959,20 @@
       if (!state.binanceConnection.connected) {
         $('binanceStatusTitle').textContent = 'Sin conexión';
         $('binanceStatusNote').textContent = 'Conecta tu API Key y Secret de Binance Demo Spot para habilitar lectura de cuenta.';
+        $('binanceAccountAlias').value = '';
         list.innerHTML = '<div class="binance-status-note">Todavía no hay balances para mostrar.</div>';
         return;
       }
 
       const summary = state.binanceConnection.summary || {};
-      $('binanceStatusTitle').textContent = `Conectado: ${state.binanceConnection.maskedApiKey || 'API activa'}`;
-      $('binanceStatusNote').textContent = `Solo lectura. Órdenes abiertas: ${summary.openOrdersCount || 0}. Trading: ${summary.canTrade ? 'habilitado' : 'bloqueado'}.`;
+      $('binanceAccountAlias').value = state.binanceConnection.accountAlias || '';
+      const identityParts = [
+        state.binanceConnection.accountAlias || null,
+        summary.uid ? `UID ${summary.uid}` : null,
+        summary.accountType || null
+      ].filter(Boolean);
+      $('binanceStatusTitle').textContent = identityParts.length ? identityParts.join(' · ') : `Conectado: ${state.binanceConnection.maskedApiKey || 'API activa'}`;
+      $('binanceStatusNote').textContent = `API ${state.binanceConnection.maskedApiKey || 'activa'} · Permisos: ${(summary.permissions || []).join(', ') || 'Sin permisos'} · Órdenes abiertas: ${summary.openOrdersCount || 0}.`;
       const balances = summary.balances || [];
       list.innerHTML = balances.length
         ? balances.map(balance => `

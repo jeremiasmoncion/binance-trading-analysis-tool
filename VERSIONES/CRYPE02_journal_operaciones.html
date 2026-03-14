@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRYPE - Radar Inteligente BTC/USDT</title>
+  <style>
+    /* ============================================
+       ESTILOS GENERALES - CRYPE
+       ============================================ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%); min-height: 100vh; }
+    
+    /* ============================================
+       LAYOUT PRINCIPAL
+       ============================================ */
+    .app-shell { display: flex; min-height: 100vh; }
+    
+    /* Sidebar */
+    .sidebar { width: 260px; background: linear-gradient(180deg, #1a233a 0%, #0f1525 100%); color: #fff; position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon { width: 44px; height: 44px; background: linear-gradient(135deg, #ff9500 0%, #ff6b00 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
+    .logo-text h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    .logo-text p { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+    .sidebar-nav { flex: 1; padding: 15px 10px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: 4px 0; border-radius: 10px; cursor: pointer; transition: all 0.2s; color: #b8c5d6; font-weight: 500; }
+    .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .nav-item.active { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
+    .nav-item svg { width: 20px; height: 20px; }
+    .sidebar-user { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .user-info { background: rgba(255,255,255,0.08); padding: 14px; border-radius: 10px; margin-bottom: 12px; }
+    .user-info .name { font-weight: 600; font-size: 14px; }
+    .user-info .role { font-size: 11px; opacity: 0.7; margin-top: 3px; }
+    .btn-logout { width: 100%; padding: 12px; background: #fff; color: #1a233a; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-logout:hover { background: #f0f4ff; }
+    
+    /* Main Content */
+    .main-content { flex: 1; margin-left: 260px; }
+    
+    /* Top Bar */
+    .top-bar { background: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.04); position: sticky; top: 0; z-index: 50; }
+    .top-left { display: flex; align-items: center; gap: 16px; }
+    .top-right { display: flex; align-items: center; gap: 12px; }
+    .search-coin { position: relative; }
+    .search-coin input { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; width: 180px; font-size: 14px; }
+    .search-coin input:focus { outline: none; border-color: #2563eb; }
+    .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; max-height: 280px; overflow-y: auto; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 100; }
+    .search-dropdown.show { display: block; }
+    .search-item { padding: 10px 14px; cursor: pointer; transition: background 0.15s; }
+    .search-item:hover { background: #f0f4ff; }
+    .timeframe-select { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer; }
+    .btn-primary { padding: 10px 20px; background: #1a233a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary:hover { background: #0f1525; }
+    .user-pill { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #f0f4ff; border-radius: 20px; font-size: 13px; }
+    .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+    .status-indicator.loading { background: #f59e0b; }
+    .status-indicator.error { background: #ef4444; }
+    
+    /* VISTAS / SESIONES */
+    .view-panel { display: none; padding: 24px; }
+    .view-panel.active { display: block; }
+    
+    /* Card Styles */
+    .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .card-title { font-size: 18px; font-weight: 700; color: #1a233a; }
+    .card-subtitle { font-size: 13px; color: #64748b; margin-top: 4px; }
+    
+    /* Decision Banner */
+    .decision-banner { background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%); border: 1px solid #fcd34d; border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+    .decision-banner.buy { background: linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%); border-color: #6ee7b7; }
+    .decision-banner.sell { background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%); border-color: #fca5a5; }
+    .decision-banner.wait { background: linear-gradient(135deg, #fef3c7 0%, #fef9e7 100%); border-color: #fcd34d; }
+    .decision-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 10px; border-radius: 20px; display: inline-block; margin-bottom: 8px; }
+    .decision-banner.buy .decision-label { background: #22c55e; color: #fff; }
+    .decision-banner.sell .decision-label { background: #ef4444; color: #fff; }
+    .decision-banner.wait .decision-label { background: #f59e0b; color: #fff; }
+    .decision-title { font-size: 28px; font-weight: 800; color: #1a233a; margin-bottom: 8px; }
+    .decision-desc { font-size: 14px; color: #475569; margin-bottom: 16px; }
+    .decision-stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .stat-box { background: #fff; padding: 14px 18px; border-radius: 10px; min-width: 140px; }
+    .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+    .stat-value { font-size: 18px; font-weight: 700; color: #1a233a; }
+    
+    /* Quick Plan */
+    .quick-plan { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+    .quick-plan-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .quick-plan-title { font-size: 16px; font-weight: 700; color: #1a233a; }
+    .quick-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+    .plan-item { background: #fff; padding: 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .plan-label { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 6px; }
+    .plan-value { font-size: 16px; font-weight: 700; color: #1a233a; }
+    .plan-note { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+    
+    /* Chart Container */
+    .chart-container { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .chart-title { font-size: 16px; font-weight: 700; color: #1a233a; }
+    .chart-legend { display: flex; gap: 16px; font-size: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .legend-dot.green { background: #22c55e; }
+    .legend-dot.red { background: #ef4444; }
+    .legend-dot.blue { background: #3b82f6; }
+    .legend-dot.orange { background: #f97316; }
+    #candleChart { width: 100%; height: 380px; }
+    
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: #fff; padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .stat-card .label { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 8px; }
+    .stat-card .value { font-size: 20px; font-weight: 700; color: #1a233a; }
+    .stat-card .sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+    .stat-card .positive { color: #22c55e; }
+    .stat-card .negative { color: #ef4444; }
+    
+    /* Calculator */
+    .calculator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .calc-input-group { margin-bottom: 16px; }
+    .calc-input-group label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    .calc-input-group input, .calc-input-group select { width: 100%; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+    .calc-input-group input:focus { outline: none; border-color: #2563eb; }
+    .btn-calc { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: all 0.2s; }
+    .btn-suggest { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; }
+    .btn-current { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #fff; }
+    .calc-results { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 18px; }
+    .result-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+    .result-row:last-child { border-bottom: none; }
+    .result-label { font-size: 13px; color: #64748b; }
+    .result-value { font-size: 14px; font-weight: 700; color: #1a233a; }
+    .result-note { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    
+    /* Comparison */
+    .comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .coin-card { background: #fff; padding: 18px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
+    .coin-card:hover { border-color: #2563eb; box-shadow: 0 4px 12px rgba(37,99,235,0.15); }
+    .coin-card.active { border-color: #2563eb; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
+    .coin-name { font-size: 15px; font-weight: 700; color: #1a233a; margin-bottom: 4px; }
+    .coin-price { font-size: 18px; font-weight: 700; color: #2563eb; margin-bottom: 8px; }
+    .coin-change { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .coin-change.positive { color: #22c55e; }
+    .coin-change.negative { color: #ef4444; }
+    .coin-impulse { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+    
+    /* Learn Section */
+    .learn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .learn-card { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .learn-card h3 { font-size: 16px; font-weight: 700; color: #1a233a; margin-bottom: 10px; }
+    .learn-card p { font-size: 13px; color: #64748b; line-height: 1.6; }
+    .learn-card .tag { display: inline-block; background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-bottom: 10px; }
+    
+    /* Profile */
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .profile-section { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .profile-section h3 { font-size: 16px; font-weight: 700; color: #1a233a; margin-bottom: 16px; }
+    .user-list { max-height: 300px; overflow-y: auto; }
+    .user-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+    .user-item:last-child { border-bottom: none; }
+    .user-actions { display: flex; gap: 6px; }
+    .btn-sm { padding: 6px 10px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; }
+    .btn-edit { background: #eff6ff; color: #2563eb; }
+    .btn-delete { background: #fef2f2; color: #ef4444; }
+    
+    /* Tooltip */
+    [data-tooltip] { position: relative; }
+    [data-tooltip]:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1a233a; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 200; margin-bottom: 6px; }
+    
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .calculator-grid, .profile-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { width: 70px; }
+      .sidebar-header, .sidebar-user .user-info, .nav-item span { display: none; }
+      .main-content { margin-left: 70px; }
+      .nav-item { justify-content: center; padding: 14px; }
+      .top-bar { padding: 12px 16px; }
+      .search-coin input { width: 120px; }
+      .decision-stats { flex-direction: column; }
+      .stat-box { min-width: 100%; }
+    }
+    
+    /* Login Overlay */
+    .login-overlay { position: fixed; inset: 0; background: linear-gradient(135deg, #1a233a 0%, #0f1525 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .login-overlay.hidden { display: none; }
+    .login-box { background: #fff; padding: 40px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .login-logo { text-align: center; margin-bottom: 24px; }
+    .login-logo .logo-icon { width: 60px; height: 60px; font-size: 28px; margin: 0 auto 12px; }
+    .login-logo h2 { font-size: 24px; font-weight: 800; color: #1a233a; }
+    .login-form input { width: 100%; padding: 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; }
+    .login-form input:focus { outline: none; border-color: #2563eb; }
+    .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
+    .login-error { background: #fef2f2; color: #ef4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+    
+    /* Hidden helper */
+    .hidden { display: none !important; }
+    
+    /* Journal Styles */
+    .journal-badge { display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600; }
+    .journal-badge.compra { background:#d1fae5;color:#065f46; }
+    .journal-badge.venta { background:#fee2e2;color:#991b1b; }
+    .journal-profit { color:#22c55e;font-weight:700; }
+    .journal-loss { color:#ef4444;font-weight:700; }
+    .btn-sm-edit { background:#eff6ff;color:#2563eb;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;font-size:12px; }
+    .btn-sm-delete { background:#fef2f2;color:#ef4444;padding:6px 10px;border:none;border-radius:6px;cursor:pointer;font-size:12px; }
+  </style>
+</head>
+<body>
+  <!-- Login Overlay -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="logo-icon">C</div>
+        <h2>CRYPE</h2>
+        <p style="color:#64748b;font-size:13px;margin-top:4px;">Radar Inteligente de Trading</p>
+      </div>
+      <div id="loginError" class="login-error"></div>
+      <form class="login-form" id="loginForm">
+        <input type="text" id="loginUser" placeholder="Usuario" required>
+        <input type="password" id="loginPass" placeholder="Contraseña" required>
+        <button type="submit" class="btn-login">Iniciar Sesión</button>
+      </form>
+      <p style="text-align:center;margin-top:16px;font-size:12px;color:#94a3b8;">Usuario por defecto: admin / 1212</p>
+    </div>
+  </div>
+
+  <!-- App Shell -->
+  <div id="appShell" class="app-shell hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="logo-icon">C</div>
+          <div class="logo-text">
+            <h1>CRYPE</h1>
+            <p>Trading simple con identidad propia</p>
+          </div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-view="dashboard">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          <span>Inicio</span>
+        </div>
+        <div class="nav-item" data-view="market">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+          <span>Mercado</span>
+        </div>
+        <div class="nav-item" data-view="calculator">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          <span>Calculadora</span>
+        </div>
+        <div class="nav-item" data-view="compare">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          <span>Comparar monedas</span>
+        </div>
+        <div class="nav-item" data-view="learn">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+          <span>Aprender</span>
+        </div>
+        <div class="nav-item" data-view="journal">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+          <span>Operaciones</span>
+        </div>
+        <div class="nav-item" data-view="profile">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <span>Perfil</span>
+        </div>
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-info">
+          <div class="name" id="sidebarUserName">admin</div>
+          <div class="role" id="sidebarUserRole">Rol: Administrador</div>
+        </div>
+        <button class="btn-logout" id="sidebarLogout">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <div class="top-left">
+          <div class="search-coin">
+            <input type="text" id="coinSearch" value="BTC/USDT" placeholder="Buscar moneda">
+            <div class="search-dropdown" id="coinDropdown"></div>
+          </div>
+          <select class="timeframe-select" id="timeframeSelect">
+            <option value="1s">1 segundo</option>
+            <option value="1m">1 minuto</option>
+            <option value="3m">3 minutos</option>
+            <option value="5m">5 minutos</option>
+            <option value="15m" selected>15 minutos</option>
+            <option value="30m">30 minutos</option>
+            <option value="1h">1 hora</option>
+            <option value="2h">2 horas</option>
+            <option value="4h">4 horas</option>
+            <option value="6h">6 horas</option>
+            <option value="8h">8 horas</option>
+            <option value="12h">12 horas</option>
+            <option value="1d">1 día</option>
+            <option value="3d">3 días</option>
+            <option value="1w">1 semana</option>
+            <option value="1M">1 mes</option>
+          </select>
+          <button class="btn-primary" id="btnRefresh">Actualizar análisis</button>
+        </div>
+        <div class="top-right">
+          <div class="user-pill">
+            <span class="status-indicator" id="statusIndicator"></span>
+            <span id="statusText">Datos correctos</span>
+          </div>
+          <div class="user-pill">
+            <span>Usuario: <strong id="topUserName">admin</strong></span>
+          </div>
+          <button class="btn-primary" id="topAdminBtn" style="display:none;">Admin</button>
+          <button class="btn-primary" id="topLogoutBtn">Salir</button>
+        </div>
+      </header>
+
+      <!-- DASHBOARD VIEW -->
+      <div id="dashboardView" class="view-panel active">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Dashboard principal</div>
+              <div class="card-subtitle">Accede primero a lo más importante y abre lo demás solo cuando lo necesites.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Decision Banner -->
+        <div id="decisionBanner" class="decision-banner wait">
+          <span class="decision-label">Esperar</span>
+          <div class="decision-title" id="decisionTitle">Esperar, pero con sesgo alcista</div>
+          <div class="decision-desc" id="decisionDesc">Hay señales positivas, pero todavía sería mejor esperar una confirmación más limpia.</div>
+          <div class="decision-stats">
+            <div class="stat-box">
+              <div class="stat-label">Precio Actual</div>
+              <div class="stat-value" id="currentPrice">$0.00</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Fuerza</div>
+              <div class="stat-value" id="signalStrength">0%</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Tendencia</div>
+              <div class="stat-value" id="trendText">Neutral</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Plan -->
+        <div class="quick-plan">
+          <div class="quick-plan-header">
+            <div>
+              <div class="quick-plan-title">Plan rápido sugerido</div>
+              <div class="card-subtitle">Para copiar más fácil en Binance</div>
+            </div>
+            <span style="font-size:11px;background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:20px;">Basado en señal + temporalidad + comisión</span>
+          </div>
+          <div class="quick-plan-grid">
+            <div class="plan-item">
+              <div class="plan-label">Entrada sugerida</div>
+              <div class="plan-value" id="planEntry">$0.00</div>
+              <div class="plan-note">Referencia técnica</div>
+            </div>
+            <div class="plan-item">
+              <div class="plan-label">Take profit</div>
+              <div class="plan-value" id="planTP">$0.00</div>
+              <div class="plan-note" id="planTPNote">Objetivo prudente</div>
+            </div>
+            <div class="plan-item">
+              <div class="plan-label">Stop loss</div>
+              <div class="plan-value" id="planSL">$0.00</div>
+              <div class="plan-note">Protección sugerida</div>
+            </div>
+            <div class="plan-item">
+              <div class="plan-label">Riesgo</div>
+              <div class="plan-value" id="planRisk">0.00%</div>
+              <div class="plan-note" id="planRiskNote">Aprox. $0.00</div>
+            </div>
+            <div class="plan-item">
+              <div class="plan-label">Beneficio posible</div>
+              <div class="plan-value" id="planBenefit">0.00%</div>
+              <div class="plan-note" id="planBenefitNote">Posible neto aprox. $0.00</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-container">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Gráfico de velas BTC/USDT</div>
+              <div class="card-subtitle">Te ayuda a ver si el precio está empujando al alza, frenándose o cayendo.</div>
+            </div>
+            <div class="chart-legend">
+              <div class="legend-item"><span class="legend-dot green"></span>Vela alcista</div>
+              <div class="legend-item"><span class="legend-dot red"></span>Vela bajista</div>
+              <div class="legend-item"><span class="legend-dot blue"></span>Media corta</div>
+              <div class="legend-item"><span class="legend-dot orange"></span>Media larga</div>
+            </div>
+          </div>
+          <canvas id="candleChart"></canvas>
+        </div>
+      </div>
+
+      <!-- MARKET VIEW -->
+      <div id="marketView" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Lectura de mercado</div>
+              <div class="card-subtitle">Señal principal, indicadores y contexto técnico del activo seleccionado.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Cambio 24h</div>
+            <div class="value" id="marketChange24h">-1.00%</div>
+            <div class="sub">Variación del día</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Máximo / Mínimo 24h</div>
+            <div class="value" id="marketHighLow">$0 / $0</div>
+            <div class="sub">Rango donde se ha movido hoy</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Volumen 24h</div>
+            <div class="value" id="marketVolume">0 BTC</div>
+            <div class="sub">Entre más volumen, más participación</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Última actualización</div>
+            <div class="value" id="marketLastUpdate">00:00:00</div>
+            <div class="sub">Datos en vivo</div>
+          </div>
+        </div>
+
+        <!-- Signal Panel -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Señal principal</div>
+              <div class="card-subtitle">La idea es ayudarte a decidir antes de tocar el botón de compra o venta.</div>
+            </div>
+          </div>
+          <div id="signalContent">
+            <span class="decision-label" id="signalLabel">Esperar</span>
+            <h3 style="font-size:22px;margin:10px 0;" id="signalTitle">Esperar, pero con sesgo alcista</h3>
+            <p style="color:#64748b;margin-bottom:16px;" id="signalDesc">Hay señales positivas, pero todavía sería mejor esperar una confirmación más limpia.</p>
+            <div style="display:flex;gap:10px;margin-bottom:16px;">
+              <span style="font-size:12px;background:#eff6ff;color:#2563eb;padding:4px 10px;border-radius:20px;" id="signalPair">BTC/USDT</span>
+            </div>
+            <div style="margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">
+                <span>Fuerza de la lectura</span>
+                <span id="signalStrengthPercent">32%</span>
+              </div>
+              <div style="background:#e2e8f0;height:8px;border-radius:4px;overflow:hidden;">
+                <div id="signalBar" style="width:32%;background:linear-gradient(90deg,#f59e0b,#d97706);height:100%;border-radius:4px;"></div>
+              </div>
+            </div>
+            <ul style="color:#475569;font-size:13px;line-height:1.8;" id="signalReasons">
+              <li>El precio está por encima de la media corta y la media larga: tendencia alcista.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Indicators -->
+        <details class="card" style="cursor:pointer;">
+          <summary style="font-weight:700;font-size:16px;margin-bottom:12px;">Indicadores técnicos (clic para ver)</summary>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="label">RSI (14)</div>
+              <div class="value" id="indRSI">52.3</div>
+              <div class="sub" id="indRSINote">Neutral</div>
+            </div>
+            <div class="stat-card">
+              <div class="label">MACD</div>
+              <div class="value" id="indMACD">Neutral</div>
+              <div class="sub">Cruce de líneas</div>
+            </div>
+            <div class="stat-card">
+              <div class="label">Media Corta (SMA 20)</div>
+              <div class="value" id="indSMA20">$0.00</div>
+              <div class="sub">Tendencia corto plazo</div>
+            </div>
+            <div class="stat-card">
+              <div class="label">Media Larga (SMA 50)</div>
+              <div class="value" id="indSMA50">$0.00</div>
+              <div class="sub">Tendencia medio plazo</div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Support/Resistance -->
+        <details class="card" style="cursor:pointer;">
+          <summary style="font-weight:700;font-size:16px;margin-bottom:12px;">Soporte y resistencia (clic para ver)</summary>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="label">Soporte</div>
+              <div class="value" id="supLevel">$0.00</div>
+              <div class="sub">Nivel donde podría rebotar al bajar</div>
+            </div>
+            <div class="stat-card">
+              <div class="label">Resistencia</div>
+              <div class="value" id="resLevel">$0.00</div>
+              <div class="sub">Nivel donde podría frenarse al subir</div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- CALCULATOR VIEW -->
+      <div id="calculatorView" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Calculadora de operación</div>
+              <div class="card-subtitle">Mantén el control manual de tu objetivo y tu stop o pide una sugerencia cuando quieras.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="calculator-grid">
+          <!-- Inputs -->
+          <div>
+            <div class="calc-input-group">
+              <label>Capital (USDT)</label>
+              <input type="number" id="calcCapital" value="0" min="0" step="1">
+            </div>
+            <div class="calc-input-group">
+              <label>Precio de entrada (USDT)</label>
+              <input type="number" id="calcEntry" placeholder="Ej: 70000" step="0.01">
+            </div>
+            <div class="calc-input-group">
+              <label>Porcentaje de ganancia (%)</label>
+              <input type="number" id="calcPercent" placeholder="Ej: 1.5" step="0.1">
+            </div>
+            <div class="calc-input-group">
+              <label>Stop loss (%)</label>
+              <input type="number" id="calcStopPct" placeholder="Ej: 0.8" step="0.1">
+            </div>
+            <button class="btn-calc btn-suggest" id="btnSuggest">💡 Sugerir según análisis</button>
+            <button class="btn-calc btn-current" id="btnCurrentPrice">⚡ Usar precio actual</button>
+            <p style="font-size:12px;color:#64748b;margin-top:10px;">💡 Capital mínimo recomendado: $15-20 USDT para que la comisión no se coma tu ganancia.</p>
+          </div>
+
+          <!-- Results -->
+          <div class="calc-results">
+            <div class="result-row">
+              <span class="result-label">Precio de salida</span>
+              <span class="result-value" id="resExitPrice">$0.00</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Ganancia bruta</span>
+              <span class="result-value" id="resGross">$0.00</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Comisión Binance (0.2%)</span>
+              <span class="result-value" id="resCommission">$0.00</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Ganancia neta</span>
+              <span class="result-value" id="resNet">$0.00</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Retorno neto</span>
+              <span class="result-value" id="resNetPct">0.00%</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Punto de equilibrio</span>
+              <span class="result-value" id="resBreakEven">$0.00</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Precio stop loss</span>
+              <span class="result-value" id="resStopPrice">$0.00</span>
+            </div>
+            <div class="result-row">
+              <span class="result-label">Pérdida si toca stop</span>
+              <span class="result-value" id="resStopLoss">$0.00</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPARE VIEW -->
+      <div id="compareView" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Comparar monedas</div>
+              <div class="card-subtitle">Compara impulso, tendencia y lectura general entre distintos pares.</div>
+            </div>
+          </div>
+        </div>
+        <div class="comparison-grid" id="comparisonGrid">
+          <p style="color:#64748b;">Cargando comparación...</p>
+        </div>
+      </div>
+
+      <!-- LEARN VIEW -->
+      <div id="learnView" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Aprender</div>
+              <div class="card-subtitle">Glosario práctico y consejos para principiantes antes de operar en Binance.</div>
+            </div>
+          </div>
+        </div>
+        <div class="learn-grid">
+          <div class="learn-card">
+            <span class="tag">Protección</span>
+            <h3>Stop Loss</h3>
+            <p>Orden automática que vende tu posición si el precio baja hasta cierto nivel. Sirve para limitar pérdidas. Ejemplo: compras a $70,000 y pones stop en $69,500. Si baja, vendes automáticamente y solo pierdes $500 en vez de esperar a que baje más.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Ejecución</span>
+            <h3>Orden Market</h3>
+            <p>Compra o venta inmediata al precio actual del mercado. Es rápida pero no controlas el precio exacto. Úsala cuando quieras entrar o salir rápido de una operación.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Ejecución</span>
+            <h3>Orden Limit</h3>
+            <p>Compra o venta a un precio específico que tú eliges. La orden se ejecuta solo si el mercado llega a ese precio. Úsala cuando quieras entrar en un nivel específico.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Protección</span>
+            <h3>Stop-Limit</h3>
+            <p>Combina stop y limit. Cuando el precio llega a tu stop, se activa una orden limit. Ejemplo: stop en $69,500 y limit en $69,400. Si toca $69,500, intenta vender a $69,400 o mejor.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Protección</span>
+            <h3>Trailing Stop</h3>
+            <p>Stop dinámico que sigue al precio cuando sube. Si compras a $70,000 y sube a $71,000, el stop también sube. Protege ganancias sin tener que ajustar manualmente.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Objetivo</span>
+            <h3>Take Profit</h3>
+            <p>Orden automática que vende cuando el precio llega a tu objetivo de ganancia. Ejemplo: compras a $70,000 y pones take profit en $71,000. Cuando llega, vendes automáticamente y aseguras la ganancia.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Gestión</span>
+            <h3>Gestión de Riesgo</h3>
+            <p>Nunca arriesgues más del 1-2% de tu capital en una operación. Si tienes $100, no pierdas más de $1-2 por operación. Esto te permite sobrevivir a rachas malas y seguir operando.</p>
+          </div>
+          <div class="learn-card">
+            <span class="tag">Consejo</span>
+            <h3>Capital Mínimo</h3>
+            <p>Para que la comisión de Binance (0.1% compra + 0.1% venta = 0.2% total) no se coma tu ganancia, se recomienda operar con al menos $15-20 USDT por operación. Con menos, es muy difícil ganar después de comisiones.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- JOURNAL VIEW -->
+      <div id="journalView" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Registro de Operaciones</div>
+              <div class="card-subtitle">Guarda tus operaciones y analiza tu rendimiento con estadísticas automáticas.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="label">Ganancia Total</div>
+            <div class="value journal-profit" id="journalTotalProfit">$0.00</div>
+            <div class="sub">Suma de operaciones ganadoras</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Pérdida Total</div>
+            <div class="value journal-loss" id="journalTotalLoss">$0.00</div>
+            <div class="sub">Suma de operaciones perdedoras</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Balance Actual</div>
+            <div class="value" id="journalBalance">$0.00</div>
+            <div class="sub">Ganancia - Pérdida</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Operaciones Ganadoras</div>
+            <div class="value" id="journalWinRate">0%</div>
+            <div class="sub" id="journalWinCount">0 de 0 operaciones</div>
+          </div>
+        </div>
+
+        <!-- Reportes -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Reportes por Período</div>
+              <div class="card-subtitle">Filtra tus operaciones por fecha para ver tu rendimiento.</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end;">
+            <div class="calc-input-group" style="margin:0;min-width:150px;">
+              <label>Desde</label>
+              <input type="date" id="reportFrom">
+            </div>
+            <div class="calc-input-group" style="margin:0;min-width:150px;">
+              <label>Hasta</label>
+              <input type="date" id="reportTo">
+            </div>
+            <button class="btn-primary" id="btnApplyReport" style="padding:11px 20px;">Filtrar</button>
+            <button class="btn-primary" id="btnExportCSV" style="padding:11px 20px;background:#22c55e;">📥 Exportar CSV</button>
+            <button class="btn-primary" id="btnClearAll" style="padding:11px 20px;background:#ef4444;">🗑️ Borrar Todo</button>
+          </div>
+          <div id="reportSummary" style="margin-top:16px;padding:16px;background:#f8fafc;border-radius:10px;display:none;">
+            <div class="stats-grid" style="margin:0;">
+              <div class="stat-card"><div class="label">Operaciones</div><div class="value" id="reportOps">0</div></div>
+              <div class="stat-card"><div class="label">Invertido</div><div class="value" id="reportInvested">$0</div></div>
+              <div class="stat-card"><div class="label">Ganancia</div><div class="value journal-profit" id="reportGain">$0</div></div>
+              <div class="stat-card"><div class="label">Pérdida</div><div class="value journal-loss" id="reportLoss">$0</div></div>
+              <div class="stat-card"><div class="label">Profit Neto</div><div class="value" id="reportNet">$0</div></div>
+              <div class="stat-card"><div class="label">Aciertos</div><div class="value" id="reportWinRate">0%</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Formulario -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Nueva Operación</div>
+              <div class="card-subtitle">Registra manualmente cada operación que hagas en Binance.</div>
+            </div>
+          </div>
+          <div class="calculator-grid">
+            <div>
+              <div class="calc-input-group">
+                <label>Fecha</label>
+                <input type="datetime-local" id="opDate">
+              </div>
+              <div class="calc-input-group">
+                <label>Par de Trading</label>
+                <select id="opPair">
+                  <option value="BTC/USDT">BTC/USDT</option>
+                  <option value="ETH/USDT">ETH/USDT</option>
+                  <option value="BNB/USDT">BNB/USDT</option>
+                  <option value="SOL/USDT">SOL/USDT</option>
+                  <option value="XRP/USDT">XRP/USDT</option>
+                  <option value="ADA/USDT">ADA/USDT</option>
+                  <option value="DOGE/USDT">DOGE/USDT</option>
+                  <option value="MATIC/USDT">MATIC/USDT</option>
+                </select>
+              </div>
+              <div class="calc-input-group">
+                <label>Tipo de Operación</label>
+                <select id="opType">
+                  <option value="COMPRA">Compra (Long)</option>
+                  <option value="VENTA">Venta (Short)</option>
+                </select>
+              </div>
+              <div class="calc-input-group">
+                <label>Precio de Entrada (USDT)</label>
+                <input type="number" id="opEntry" placeholder="Ej: 70000" step="0.01">
+              </div>
+            </div>
+            <div>
+              <div class="calc-input-group">
+                <label>Precio de Salida (USDT)</label>
+                <input type="number" id="opExit" placeholder="Ej: 71000" step="0.01">
+              </div>
+              <div class="calc-input-group">
+                <label>Cantidad Invertida (USDT)</label>
+                <input type="number" id="opAmount" placeholder="Ej: 50" step="1">
+              </div>
+              <div class="calc-input-group">
+                <label>Comisión (USDT)</label>
+                <input type="number" id="opFee" placeholder="Ej: 0.10" step="0.01" value="0">
+              </div>
+              <div class="calc-input-group">
+                <label>Notas</label>
+                <input type="text" id="opNotes" placeholder="Opcional: estrategia, emociones, etc.">
+              </div>
+            </div>
+          </div>
+          <button class="btn-primary" id="btnSaveOperation" style="width:100%;margin-top:16px;padding:14px;">💾 Guardar Operación</button>
+        </div>
+
+        <!-- Historial -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Historial de Operaciones</div>
+              <div class="card-subtitle">Todas tus operaciones registradas.</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="background:#f8fafc;text-align:left;">
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Fecha</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Par</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Tipo</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Entrada</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Salida</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Inversión</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Ganancia/Pérdida</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">ROI</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Balance</th>
+                  <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="journalTableBody">
+                <tr><td colspan="10" style="padding:20px;text-align:center;color:#64748b;">No hay operaciones registradas</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFILE VIEW -->
+      <div id="profileView" class="view-panel">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Perfil y acceso</div>
+              <div class="card-subtitle">Gestiona tu perfil, tu contraseña y, si eres admin, la administración de usuarios.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-grid">
+          <!-- Mi Perfil -->
+          <div class="profile-section">
+            <h3>Mi Perfil</h3>
+            <div class="calc-input-group">
+              <label>Usuario</label>
+              <input type="text" id="profileUsername" disabled style="background:#f1f5f9;">
+            </div>
+            <div class="calc-input-group">
+              <label>Rol</label>
+              <input type="text" id="profileRole" disabled style="background:#f1f5f9;">
+            </div>
+            <div class="calc-input-group">
+              <label>Nombre Visible</label>
+              <input type="text" id="profileDisplayName" placeholder="Tu nombre">
+            </div>
+            <div class="calc-input-group">
+              <label>Nueva Contraseña</label>
+              <input type="password" id="profileNewPassword" placeholder="Dejar vacío si no quieres cambiar">
+            </div>
+            <button class="btn-primary" id="btnSaveProfile" style="width:100%;">Guardar Cambios</button>
+          </div>
+
+          <!-- Administración (solo admin) -->
+          <div class="profile-section" id="adminSection" style="display:none;">
+            <h3>Administración de Usuarios</h3>
+            <div class="calc-input-group">
+              <label>Nuevo Usuario</label>
+              <input type="text" id="newUsername" placeholder="Nombre de usuario">
+            </div>
+            <div class="calc-input-group">
+              <label>Contraseña</label>
+              <input type="password" id="newUserPassword" placeholder="Contraseña">
+            </div>
+            <div class="calc-input-group">
+              <label>Rol</label>
+              <select id="newUserRole">
+                <option value="user">Usuario</option>
+                <option value="admin">Administrador</option>
+              </select>
+            </div>
+            <button class="btn-primary" id="btnCreateUser" style="width:100%;background:#22c55e;">Crear Usuario</button>
+            <div class="user-list" id="userList" style="margin-top:16px;"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ============================================
+    // CONSTANTES
+    // ============================================
+    const COINS = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT', 'ADA/USDT', 'DOGE/USDT', 'MATIC/USDT'];
+
+    // ============================================
+    // UTILIDADES
+    // ============================================
+    function $(id) { return document.getElementById(id); }
+    function formatPrice(p) { return '$' + p.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function formatPct(p) { return (p >= 0 ? '+' : '') + p.toFixed(2) + '%'; }
+    function nowTime() { const d = new Date(); return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0'); }
+
+    // ============================================
+    // ESTADO
+    // ============================================
+    const state = {
+      currentUser: null,
+      currentView: 'dashboard',
+      currentCoin: 'BTC/USDT',
+      timeframe: '15m',
+      candles: [],
+      indicators: { current: 0, rsi: 50, macd: 'Neutral', sma20: 0, sma50: 0 },
+      signal: null,
+      plan: null,
+      comparison: [],
+      liveInterval: null
+    };
+
+    // ============================================
+    // AUTENTICACIÓN
+    // ============================================
+    const Auth = {
+      hash: (str) => { let h = 0; for (let i = 0; i < str.length; i++) h = ((h << 5) - h) + str.charCodeAt(i); return (h >>> 0).toString(16); },
+      getUsers: () => { const u = localStorage.getItem('crype_users'); return u ? JSON.parse(u) : [{ username: 'admin', password: Auth.hash('1212'), role: 'admin', displayName: 'Administrador', active: true }]; },
+      saveUsers: (users) => localStorage.setItem('crype_users', JSON.stringify(users)),
+      login: (user, pass) => { const users = Auth.getUsers(); const u = users.find(x => x.username === user && x.password === Auth.hash(pass) && x.active); if (u) { localStorage.setItem('crype_session', JSON.stringify({ username: u.username, role: u.role, displayName: u.displayName || u.username, login: Date.now() })); return { success: true, user: u }; } return { success: false, message: 'Usuario o contraseña incorrectos, o cuenta inactiva.' }; },
+      logout: () => localStorage.removeItem('crype_session'),
+      getSession: () => { const s = localStorage.getItem('crype_session'); if (!s) return null; const sess = JSON.parse(s); if (Date.now() - sess.login > 8 * 3600 * 1000) { Auth.logout(); return null; } return sess; },
+      createUser: (username, password, role) => { const users = Auth.getUsers(); if (users.find(u => u.username === username)) return { success: false, message: 'El usuario ya existe' }; users.push({ username, password: Auth.hash(password), role, displayName: username, active: true }); Auth.saveUsers(users); return { success: true }; },
+      deleteUser: (username) => { if (username === 'admin') return { success: false, message: 'No se puede eliminar el admin principal' }; let users = Auth.getUsers(); users = users.filter(u => u.username !== username); Auth.saveUsers(users); return { success: true }; }
+    };
+
+    // ============================================
+    // JOURNAL DE OPERACIONES
+    // ============================================
+    const Journal = {
+      getAll: () => JSON.parse(localStorage.getItem('crype_journal') || '[]'),
+      save: (ops) => localStorage.setItem('crype_journal', JSON.stringify(ops)),
+      add: (op) => { const ops = Journal.getAll(); op.id = Date.now(); ops.push(op); Journal.save(ops); },
+      delete: (id) => { let ops = Journal.getAll(); ops = ops.filter(o => o.id !== id); Journal.save(ops); },
+      clearAll: () => localStorage.removeItem('crype_journal'),
+      exportToCSV: () => {
+        const ops = Journal.getAll();
+        if (ops.length === 0) { alert('No hay operaciones para exportar'); return; }
+        let csv = 'Fecha,Par,Tipo,Entrada,Salida,Cantidad,Comision,Ganancia,ROI,Notas\n';
+        ops.forEach(o => { csv += `${o.date},${o.pair},${o.type},${o.entry},${o.exit},${o.amount},${o.fee},${o.profit},${o.roi},"${o.notes || ''}"\n`; });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'crype_operaciones_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+      }
+    };
+
+    function saveOperation() {
+      const date = $('opDate').value;
+      const pair = $('opPair').value;
+      const type = $('opType').value;
+      const entry = parseFloat($('opEntry').value);
+      const exit = parseFloat($('opExit').value);
+      const amount = parseFloat($('opAmount').value);
+      const fee = parseFloat($('opFee').value) || 0;
+      const notes = $('opNotes').value;
+
+      if (!date || !entry || !exit || !amount) { alert('Completa los campos obligatorios'); return; }
+
+      let profit = 0;
+      if (type === 'COMPRA') profit = ((exit - entry) / entry) * amount - fee;
+      else profit = ((entry - exit) / entry) * amount - fee;
+
+      const roi = (profit / amount) * 100;
+
+      Journal.add({ date, pair, type, entry, exit, amount, fee, profit, roi: roi.toFixed(2), notes });
+      alert('Operación guardada');
+      renderJournal();
+
+      $('opEntry').value = '';
+      $('opExit').value = '';
+      $('opAmount').value = '';
+      $('opFee').value = '0';
+      $('opNotes').value = '';
+    }
+
+    function renderJournal() {
+      const ops = Journal.getAll();
+      const tbody = $('journalTableBody');
+
+      if (ops.length === 0) { tbody.innerHTML = '<tr><td colspan="10" style="padding:20px;text-align:center;color:#64748b;">No hay operaciones registradas</td></tr>'; return; }
+
+      ops.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+      let balance = 0;
+      let totalProfit = 0, totalLoss = 0, wins = 0;
+
+      tbody.innerHTML = ops.map((o, idx) => {
+        balance += o.profit;
+        if (o.profit > 0) { totalProfit += o.profit; wins++; } else { totalLoss += Math.abs(o.profit); }
+        const badgeClass = o.type === 'COMPRA' ? 'compra' : 'venta';
+        const profitClass = o.profit >= 0 ? 'journal-profit' : 'journal-loss';
+        const profitSign = o.profit >= 0 ? '+' : '';
+        return `<tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:12px;">${new Date(o.date).toLocaleString()}</td>
+          <td style="padding:12px;">${o.pair}</td>
+          <td style="padding:12px;"><span class="journal-badge ${badgeClass}">${o.type}</span></td>
+          <td style="padding:12px;">${formatPrice(o.entry)}</td>
+          <td style="padding:12px;">${formatPrice(o.exit)}</td>
+          <td style="padding:12px;">${formatPrice(o.amount)}</td>
+          <td style="padding:12px;" class="${profitClass}">${profitSign}${formatPrice(o.profit)}</td>
+          <td style="padding:12px;" class="${profitClass}">${profitSign}${o.roi}%</td>
+          <td style="padding:12px;">${formatPrice(balance)}</td>
+          <td style="padding:12px;"><button class="btn-sm-delete" onclick="Journal.delete(${o.id});renderJournal();">Eliminar</button></td>
+        </tr>`;
+      }).join('');
+
+      const totalOps = ops.length;
+      const winRate = totalOps > 0 ? ((wins / totalOps) * 100).toFixed(1) : 0;
+
+      $('journalTotalProfit').textContent = formatPrice(totalProfit);
+      $('journalTotalLoss').textContent = formatPrice(totalLoss);
+      $('journalBalance').textContent = formatPrice(balance);
+      $('journalWinRate').textContent = winRate + '%';
+      $('journalWinCount').textContent = wins + ' de ' + totalOps + ' operaciones';
+    }
+
+    function applyReportFilter() {
+      const from = $('reportFrom').value;
+      const to = $('reportTo').value;
+      if (!from || !to) { alert('Selecciona fecha desde y hasta'); return; }
+
+      const ops = Journal.getAll().filter(o => {
+        const d = o.date.slice(0,10);
+        return d >= from && d <= to;
+      });
+
+      if (ops.length === 0) { alert('No hay operaciones en ese período'); $('reportSummary').style.display = 'none'; return; }
+
+      let invested = 0, gain = 0, loss = 0, wins = 0;
+      ops.forEach(o => {
+        invested += o.amount;
+        if (o.profit > 0) { gain += o.profit; wins++; } else { loss += Math.abs(o.profit); }
+      });
+
+      const net = gain - loss;
+      const winRate = ((wins / ops.length) * 100).toFixed(1);
+
+      $('reportOps').textContent = ops.length;
+      $('reportInvested').textContent = formatPrice(invested);
+      $('reportGain').textContent = formatPrice(gain);
+      $('reportLoss').textContent = formatPrice(loss);
+      $('reportNet').textContent = formatPrice(net);
+      $('reportWinRate').textContent = winRate + '%';
+      $('reportSummary').style.display = 'block';
+    }
+
+    // ============================================
+    // API BINANCE
+    // ============================================
+    async function fetchCandles(symbol, interval) {
+      try {
+        const r = await fetch('https://api.binance.com/api/v3/klines?symbol=' + symbol.replace('/','') + '&interval=' + interval + '&limit=80');
+        const data = await r.json();
+        return data.map(d => ({ time: d[0], open: +d[1], high: +d[2], low: +d[3], close: +d[4], volume: +d[5] }));
+      } catch (e) {
+        console.error('Error velas:', e);
+        return buildFallbackCandles();
+      }
+    }
+
+    async function fetch24h(symbol) {
+      try {
+        const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=' + symbol.replace('/',''));
+        return await r.json();
+      } catch (e) {
+        return { lastPrice: state.indicators.current || 70000, priceChangePercent: '0', highPrice: 71000, lowPrice: 69000, volume: '10000' };
+      }
+    }
+
+    function buildFallbackCandles() {
+      const base = state.indicators.current || 70000;
+      const candles = [];
+      let price = base;
+      for (let i = 80; i > 0; i--) {
+        const change = (Math.random() - 0.5) * base * 0.02;
+        const open = price;
+        const close = price + change;
+        const high = Math.max(open, close) + Math.random() * base * 0.005;
+        const low = Math.min(open, close) - Math.random() * base * 0.005;
+        candles.push({ time: Date.now() - i * 900000, open, high, low, close, volume: Math.random() * 1000 });
+        price = close;
+      }
+      return candles;
+    }
+
+    // ============================================
+    // INDICADORES
+    // ============================================
+    function calcIndicators(candles) {
+      if (!candles || candles.length === 0) return { current: 0, rsi: 50, macd: 'Neutral', sma20: 0, sma50: 0 };
+      const closes = candles.map(c => c.close);
+      const current = closes[closes.length - 1];
+      const rsi = calcRSI(closes, 14);
+      const sma20 = calcSMA(closes, 20);
+      const sma50 = calcSMA(closes, 50);
+      const macd = calcMACD(closes);
+      return { current, rsi, macd, sma20, sma50 };
+    }
+
+    function calcRSI(closes, period) {
+      if (closes.length < period + 1) return 50;
+      let gains = 0, losses = 0;
+      for (let i = closes.length - period; i < closes.length; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff >= 0) gains += diff; else losses -= diff;
+      }
+      const rs = losses === 0 ? 100 : gains / losses;
+      return 100 - (100 / (1 + rs));
+    }
+
+    function calcSMA(closes, period) {
+      if (closes.length < period) return closes[closes.length - 1];
+      const slice = closes.slice(-period);
+      return slice.reduce((a, b) => a + b, 0) / period;
+    }
+
+    function calcMACD(closes) {
+      if (closes.length < 50) return 'Neutral';
+      const ema12 = calcEMA(closes, 12);
+      const ema26 = calcEMA(closes, 26);
+      if (ema12 > ema26) return 'Alcista';
+      if (ema12 < ema26) return 'Bajista';
+      return 'Neutral';
+    }
+
+    function calcEMA(closes, period) {
+      const k = 2 / (period + 1);
+      let ema = closes[0];
+      for (let i = 1; i < closes.length; i++) ema = closes[i] * k + ema * (1 - k);
+      return ema;
+    }
+
+    // ============================================
+    // SEÑAL Y PLAN
+    // ============================================
+    function generateSignal(ind) {
+      let score = 50;
+      const reasons = [];
+
+      if (ind.current > ind.sma20 && ind.current > ind.sma50) { score += 20; reasons.push('El precio está por encima de las medias: tendencia alcista.'); }
+      else if (ind.current < ind.sma20 && ind.current < ind.sma50) { score -= 20; reasons.push('El precio está por debajo de las medias: tendencia bajista.'); }
+
+      if (ind.sma20 > ind.sma50) { score += 10; reasons.push('Media corta por encima de media larga: confirmación alcista.'); }
+      else { score -= 10; reasons.push('Media corta por debajo de media larga: confirmación bajista.'); }
+
+      if (ind.rsi < 30) { score += 15; reasons.push('RSI en sobreventa: posible rebote.'); }
+      else if (ind.rsi > 70) { score -= 15; reasons.push('RSI en sobrecompra: posible corrección.'); }
+
+      if (ind.macd === 'Alcista') { score += 10; reasons.push('MACD alcista.'); }
+      else if (ind.macd === 'Bajista') { score -= 10; reasons.push('MACD bajista.'); }
+
+      score = Math.max(0, Math.min(100, score));
+
+      let label = 'Esperar', trend = 'Neutral', title = 'Esperar confirmación';
+      if (score >= 65) { label = 'Comprar'; trend = 'Alcista'; title = 'Comprar ahora'; }
+      else if (score <= 35) { label = 'Vender'; trend = 'Bajista'; title = 'Vender / tomar ganancia'; }
+
+      return { score, trend, label, title, reasons };
+    }
+
+    function getOperationPlan(ind, sig, capital) {
+      const refCapital = capital > 0 ? capital : 100;
+      const entry = ind.current;
+      const basePct = sig.score >= 65 ? 1.2 : sig.score <= 35 ? -1.2 : 0.5;
+      const tp = entry * (1 + Math.abs(basePct) / 100);
+      const sl = entry * (1 - Math.abs(basePct) * 0.7 / 100);
+      const tpPct = Math.abs(basePct);
+      const slPct = Math.abs(basePct) * 0.7;
+      const riskPct = slPct + 0.2;
+      const benefitPct = tpPct - 0.2;
+      const riskAmt = refCapital * riskPct / 100;
+      const benefitAmt = refCapital * benefitPct / 100;
+      return { entry, tp, sl, riskPct, benefitPct, riskAmt, benefitAmt, refCapital };
+    }
+
+    // ============================================
+    // GRÁFICO
+    // ============================================
+    function drawChart() {
+      const canvas = $('candleChart');
+      const ctx = canvas.getContext('2d');
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth - 40;
+      canvas.height = 380;
+
+      const candles = state.candles;
+      if (!candles || candles.length === 0) return;
+
+      const padding = { top: 20, right: 60, bottom: 30, left: 10 };
+      const w = canvas.width - padding.left - padding.right;
+      const h = canvas.height - padding.top - padding.bottom;
+
+      const allPrices = candles.flatMap(c => [c.high, c.low]);
+      const minP = Math.min(...allPrices);
+      const maxP = Math.max(...allPrices);
+      const range = maxP - minP || 1;
+
+      const candleW = Math.max(4, w / candles.length - 2);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fafafa';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padding.top + (h / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(canvas.width - padding.right, y);
+        ctx.stroke();
+      }
+
+      // Candles
+      candles.forEach((c, i) => {
+        const x = padding.left + i * (candleW + 2) + candleW / 2;
+        const isUp = c.close >= c.open;
+        const color = isUp ? '#22c55e' : '#ef4444';
+
+        const yOpen = padding.top + h - (c.open - minP) / range * h;
+        const yClose = padding.top + h - (c.close - minP) / range * h;
+        const yHigh = padding.top + h - (c.high - minP) / range * h;
+        const yLow = padding.top + h - (c.low - minP) / range * h;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, yHigh);
+        ctx.lineTo(x, yLow);
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        const bodyTop = Math.min(yOpen, yClose);
+        const bodyH = Math.max(1, Math.abs(yClose - yOpen));
+        ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+      });
+
+      // SMA20
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 20; i < candles.length; i++) {
+        const sma = calcSMA(candles.slice(0, i + 1), 20);
+        const x = padding.left + i * (candleW + 2) + candleW / 2;
+        const y = padding.top + h - (sma - minP) / range * h;
+        if (i === 20) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // SMA50
+      ctx.strokeStyle = '#f97316';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 50; i < candles.length; i++) {
+        const sma = calcSMA(candles.slice(0, i + 1), 50);
+        const x = padding.left + i * (candleW + 2) + candleW / 2;
+        const y = padding.top + h - (sma - minP) / range * h;
+        if (i === 50) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Price labels
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'left';
+      for (let i = 0; i <= 4; i++) {
+        const price = maxP - (range / 4) * i;
+        const y = padding.top + (h / 4) * i + 4;
+        ctx.fillText(formatPrice(price), canvas.width - padding.right + 5, y);
+      }
+    }
+
+    // ============================================
+    // RENDERIZADO
+    // ============================================
+    function renderSignal() {
+      if (!state.signal || !state.plan) return;
+      const { score, trend, label, title, reasons } = state.signal;
+      const { entry, tp, sl, riskPct, benefitPct, riskAmt, benefitAmt } = state.plan;
+
+      // Banner
+      const banner = $('decisionBanner');
+      banner.className = 'decision-banner ' + (label === 'Comprar' ? 'buy' : label === 'Vender' ? 'sell' : 'wait');
+      banner.querySelector('.decision-label').textContent = label;
+      $('decisionTitle').textContent = title;
+      $('decisionDesc').textContent = reasons[0] || 'Análisis en progreso.';
+      $('currentPrice').textContent = formatPrice(state.indicators.current);
+      $('signalStrength').textContent = score + '%';
+      $('trendText').textContent = trend;
+
+      // Plan
+      $('planEntry').textContent = formatPrice(entry);
+      $('planTP').textContent = formatPrice(tp);
+      $('planSL').textContent = formatPrice(sl);
+      $('planRisk').textContent = formatPct(riskPct);
+      $('planRiskNote').textContent = 'Aprox. ' + formatPrice(riskAmt);
+      $('planBenefit').textContent = formatPct(benefitPct);
+      $('planBenefitNote').textContent = 'Posible neto aprox. ' + formatPrice(benefitAmt);
+
+      // Market stats
+      $('signalLabel').textContent = label;
+      $('signalTitle').textContent = title;
+      $('signalDesc').textContent = reasons.join(' ') || 'Esperando datos.';
+      $('signalPair').textContent = state.currentCoin;
+      $('signalStrengthPercent').textContent = score + '%';
+      $('signalBar').style.width = score + '%';
+      $('signalReasons').innerHTML = reasons.map(r => '<li>' + r + '</li>').join('');
+
+      // Indicators
+      $('indRSI').textContent = state.indicators.rsi.toFixed(1);
+      $('indRSINote').textContent = state.indicators.rsi < 30 ? 'Sobreventa' : state.indicators.rsi > 70 ? 'Sobrecompra' : 'Neutral';
+      $('indMACD').textContent = state.indicators.macd;
+      $('indSMA20').textContent = formatPrice(state.indicators.sma20);
+      $('indSMA50').textContent = formatPrice(state.indicators.sma50);
+
+      // Support/Resistance
+      const prices = state.candles.slice(-20).flatMap(c => [c.high, c.low]);
+      $('supLevel').textContent = formatPrice(Math.min(...prices));
+      $('resLevel').textContent = formatPrice(Math.max(...prices));
+    }
+
+    function renderComparison() {
+      const grid = $('comparisonGrid');
+      if (!state.comparison || state.comparison.length === 0) {
+        grid.innerHTML = '<p style="color:#64748b;">Cargando comparación...</p>';
+        return;
+      }
+      grid.innerHTML = state.comparison.map(c => `
+        <div class="coin-card ${c.symbol === state.currentCoin ? 'active' : ''}" onclick="selectCoin('${c.symbol}')">
+          <div class="coin-name">${c.symbol}</div>
+          <div class="coin-price">${formatPrice(c.price)}</div>
+          <div class="coin-change ${c.change >= 0 ? 'positive' : 'negative'}">${c.change >= 0 ? '+' : ''}${c.change}%</div>
+          <div class="coin-impulse"><span>Impulso:</span><span>${c.impulse}</span></div>
+        </div>
+      `).join('');
+    }
+
+    function renderProfilePanel() {
+      if (state.currentUser?.role === 'admin') renderUserList();
+    }
+
+    function renderUserList() {
+      const users = Auth.getUsers();
+      $('userList').innerHTML = users.map(u => `
+        <div class="user-item">
+          <div>
+            <div style="font-weight:600;">${u.username}</div>
+            <div style="font-size:11px;color:#64748b;">${u.role === 'admin' ? 'Administrador' : 'Usuario'} ${!u.active ? '(Inactivo)' : ''}</div>
+          </div>
+          <div class="user-actions">
+            ${u.username !== 'admin' ? `<button class="btn-sm btn-delete" onclick="deleteUser('${u.username}')">Eliminar</button>` : ''}
+            <button class="btn-sm btn-edit" onclick="toggleUserActive('${u.username}')">${u.active ? 'Desactivar' : 'Activar'}</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ============================================
+    // CALCULADORA
+    // ============================================
+    function updateCalculator() {
+      const capital = +$('calcCapital').value || 0;
+      const entry = +$('calcEntry').value || state.indicators.current || 0;
+      const pct = +$('calcPercent').value || 0;
+      const stopPct = +$('calcStopPct').value || 0;
+
+      const exitPrice = entry * (1 + pct / 100);
+      const gross = capital * pct / 100;
+      const commission = capital * 0.002;
+      const net = gross - commission;
+      const netPct = (net / capital) * 100 || 0;
+      const breakEven = entry * 1.002;
+      const stopPrice = entry * (1 - stopPct / 100);
+      const stopLoss = capital * stopPct / 100;
+
+      $('resExitPrice').textContent = formatPrice(exitPrice);
+      $('resGross').textContent = formatPrice(gross);
+      $('resCommission').textContent = formatPrice(commission);
+      $('resNet').textContent = formatPrice(net);
+      $('resNetPct').textContent = formatPct(netPct);
+      $('resBreakEven').textContent = formatPrice(breakEven);
+      $('resStopPrice').textContent = formatPrice(stopPrice);
+      $('resStopLoss').textContent = formatPrice(stopLoss);
+    }
+
+    function suggestFromAnalysis() {
+      if (!state.plan) return;
+      const capital = +$('calcCapital').value || 100;
+      $('calcEntry').value = state.plan.entry.toFixed(2);
+      const tpPct = ((state.plan.tp - state.plan.entry) / state.plan.entry) * 100;
+      $('calcPercent').value = tpPct.toFixed(2);
+      const slPct = ((state.plan.entry - state.plan.sl) / state.plan.entry) * 100;
+      $('calcStopPct').value = slPct.toFixed(2);
+      updateCalculator();
+    }
+
+    function useCurrentPrice() {
+      if (!state.indicators.current) return;
+      $('calcEntry').value = state.indicators.current.toFixed(2);
+      updateCalculator();
+    }
+
+    // ============================================
+    // ACCIONES DE USUARIO
+    // ============================================
+    function selectCoin(symbol) {
+      state.currentCoin = symbol;
+      $('coinSearch').value = symbol;
+      $('coinDropdown').classList.remove('show');
+      fetchData();
+    }
+
+    function deleteUser(username) {
+      if (!confirm('¿Eliminar usuario ' + username + '?')) return;
+      const result = Auth.deleteUser(username);
+      if (result.success) renderUserList();
+      else alert(result.message);
+    }
+
+    function toggleUserActive(username) {
+      const users = Auth.getUsers();
+      const idx = users.findIndex(u => u.username === username);
+      if (idx === -1) return;
+      users[idx].active = !users[idx].active;
+      Auth.saveUsers(users);
+      renderUserList();
+    }
+
+    // ============================================
+    // FLUJO PRINCIPAL
+    // ============================================
+    async function fetchData() {
+      setStatus('loading');
+      state.candles = await fetchCandles(state.currentCoin, state.timeframe);
+      state.indicators = calcIndicators(state.candles);
+      state.signal = generateSignal(state.indicators);
+      const capital = +$('calcCapital').value || 0;
+      state.plan = getOperationPlan(state.indicators, state.signal, capital);
+
+      const ticker = await fetch24h(state.currentCoin);
+      $('marketChange24h').textContent = (ticker.priceChangePercent || '0') + '%';
+      $('marketChange24h').className = 'value ' + (+ticker.priceChangePercent >= 0 ? 'positive' : 'negative');
+      $('marketHighLow').textContent = formatPrice(+ticker.highPrice) + ' / ' + formatPrice(+ticker.lowPrice);
+      $('marketVolume').textContent = (+ticker.volume / 1000).toFixed(1) + ' BTC';
+      $('marketLastUpdate').textContent = nowTime();
+
+      renderSignal();
+      drawChart();
+      updateCalculator();
+
+      // Comparison
+      state.comparison = [];
+      for (const coin of COINS.slice(0, 4)) {
+        const t = await fetch24h(coin);
+        const change = +t.priceChangePercent || 0;
+        state.comparison.push({ symbol: coin, price: +t.lastPrice, change, impulse: change > 2 ? 'Fuerte' : change > 0 ? 'Moderado' : 'Débil' });
+      }
+      renderComparison();
+
+      setStatus('ok');
+    }
+
+    function setStatus(status) {
+      const ind = $('statusIndicator');
+      const txt = $('statusText');
+      ind.className = 'status-indicator ' + (status === 'loading' ? 'loading' : status === 'ok' ? '' : 'error');
+      txt.textContent = status === 'loading' ? 'Cargando...' : status === 'ok' ? 'Datos correctos' : 'Error de conexión';
+    }
+
+    function startLiveUpdates() {
+      stopLiveUpdates();
+      state.liveInterval = setInterval(() => {
+        if (state.currentView === 'dashboard' || state.currentView === 'market') fetchData();
+      }, 45000);
+    }
+
+    function stopLiveUpdates() {
+      if (state.liveInterval) { clearInterval(state.liveInterval); state.liveInterval = null; }
+    }
+
+    // ============================================
+    // NAVEGACIÓN
+    // ============================================
+    function switchView(view) {
+      state.currentView = view;
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.toggle('active', i.dataset.view === view));
+      document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('active', p.id === view + 'View'));
+      if (view === 'dashboard' || view === 'market') fetchData();
+      if (view === 'journal') renderJournal();
+      if (view === 'profile') renderProfilePanel();
+    }
+
+    function doLogout() {
+      Auth.logout();
+      stopLiveUpdates();
+      $('appShell').classList.add('hidden');
+      $('loginOverlay').classList.remove('hidden');
+      state.currentUser = null;
+    }
+
+    function updateUserInfo(user) {
+      $('sidebarUserName').textContent = user.displayName || user.username;
+      $('topUserName').textContent = user.displayName || user.username;
+      $('sidebarUserRole').textContent = 'Rol: ' + (user.role === 'admin' ? 'Administrador' : 'Usuario');
+      $('topAdminBtn').style.display = user.role === 'admin' ? 'inline-block' : 'none';
+      $('profileUsername').value = user.username;
+      $('profileRole').value = user.role === 'admin' ? 'Administrador' : 'Usuario';
+      $('profileDisplayName').value = user.displayName || '';
+      $('adminSection').style.display = user.role === 'admin' ? 'block' : 'none';
+    }
+
+    function checkSession() {
+      const sess = Auth.getSession();
+      if (sess) {
+        state.currentUser = sess;
+        updateUserInfo(sess);
+        $('loginOverlay').classList.add('hidden');
+        $('appShell').classList.remove('hidden');
+        return true;
+      }
+      return false;
+    }
+
+    // ============================================
+    // EVENTOS
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+      // Login
+      $('loginForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const result = Auth.login($('loginUser').value, $('loginPass').value);
+        if (result.success) { checkSession(); fetchData(); startLiveUpdates(); }
+        else { $('loginError').textContent = result.message; $('loginError').style.display = 'block'; }
+      });
+
+      // Navigation
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => switchView(item.dataset.view));
+      });
+
+      // Logout
+      $('sidebarLogout').addEventListener('click', doLogout);
+      $('topLogoutBtn').addEventListener('click', doLogout);
+
+      // Coin search
+      $('coinSearch').addEventListener('focus', () => {
+        const dd = $('coinDropdown');
+        dd.innerHTML = COINS.map(c => `<div class="search-item" onclick="selectCoin('${c}')">${c}</div>`).join('');
+        dd.classList.add('show');
+      });
+      document.addEventListener('click', e => { if (!e.target.closest('.search-coin')) $('coinDropdown').classList.remove('show'); });
+
+      // Timeframe
+      $('timeframeSelect').addEventListener('change', e => { state.timeframe = e.target.value; fetchData(); });
+
+      // Refresh
+      $('btnRefresh').addEventListener('click', fetchData);
+
+      // Calculator
+      $('calcCapital').addEventListener('input', updateCalculator);
+      $('calcEntry').addEventListener('input', updateCalculator);
+      $('calcPercent').addEventListener('input', updateCalculator);
+      $('calcStopPct').addEventListener('input', updateCalculator);
+      $('btnSuggest').addEventListener('click', suggestFromAnalysis);
+      $('btnCurrentPrice').addEventListener('click', useCurrentPrice);
+
+      // Profile
+      $('btnSaveProfile').addEventListener('click', () => {
+        const displayName = $('profileDisplayName').value;
+        const newPassword = $('profileNewPassword').value;
+        const users = Auth.getUsers();
+        const idx = users.findIndex(u => u.username === state.currentUser.username);
+        if (idx !== -1) {
+          if (displayName) users[idx].displayName = displayName;
+          if (newPassword) users[idx].password = Auth.hash(newPassword);
+          Auth.saveUsers(users);
+          alert('Perfil actualizado');
+          updateUserInfo(state.currentUser);
+        }
+      });
+
+      // Admin
+      $('topAdminBtn').addEventListener('click', () => switchView('profile'));
+      $('btnCreateUser').addEventListener('click', () => {
+        const username = $('newUsername').value.trim();
+        const password = $('newUserPassword').value;
+        const role = $('newUserRole').value;
+        if (!username || !password) { alert('Completa usuario y contraseña'); return; }
+        const result = Auth.createUser(username, password, role);
+        if (result.success) { alert('Usuario creado'); renderUserList(); $('newUsername').value = ''; $('newUserPassword').value = ''; }
+        else alert(result.message);
+      });
+
+      // Journal - Registro de Operaciones
+      if ($('btnSaveOperation')) $('btnSaveOperation').addEventListener('click', saveOperation);
+      if ($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => Journal.exportToCSV());
+      if ($('btnClearAll')) $('btnClearAll').addEventListener('click', () => {
+        if (confirm('¿Seguro que quieres borrar TODAS las operaciones? Esto no se puede deshacer.')) {
+          Journal.clearAll();
+          renderJournal();
+        }
+      });
+      if ($('btnApplyReport')) $('btnApplyReport').addEventListener('click', applyReportFilter);
+
+      // Establecer fecha por defecto en el formulario de operaciones
+      if ($('opDate')) {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        $('opDate').value = now.toISOString().slice(0, 16);
+      }
+
+      // Init
+      if (checkSession()) { fetchData(); startLiveUpdates(); switchView('dashboard'); }
+    });
+  </script>
+</body>
+</html>

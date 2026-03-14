@@ -368,11 +368,6 @@
     body.dark-theme .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
     body.dark-theme .result-value.positive { color: #22c55e; }
     body.dark-theme .result-value.negative { color: #f87171; }
-    body.dark-theme .binance-status-card { background:#111827; border-color:#334155; }
-    body.dark-theme .binance-status-title { color:#f8fafc; }
-    body.dark-theme .binance-status-note { color:#94a3b8; }
-    body.dark-theme .binance-balance-item { background:#0f172a; border-color:#23314d; color:#e2e8f0; }
-    body.dark-theme .btn-secondary-soft { background:#1e293b; color:#e2e8f0; }
     body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }
     body.dark-theme .timeframe-chip.buy { background: linear-gradient(135deg, #0d2017 0%, #10261b 100%); border-color: #166534; }
     body.dark-theme .timeframe-chip.buy .timeframe-chip-value { color: #86efac; }
@@ -441,12 +436,6 @@
     .login-switch { margin-top: 14px; text-align:center; font-size:13px; color:#64748b; }
     .login-switch button { background:none; border:none; color:#2563eb; font-weight:700; cursor:pointer; padding:0; }
     .login-hint { margin-top:12px; text-align:center; font-size:12px; color:#94a3b8; }
-    .binance-status-card { border:1px solid #e2e8f0; border-radius:12px; padding:14px; background:#f8fafc; margin-bottom:14px; }
-    .binance-status-title { font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px; }
-    .binance-status-note { font-size:12px; color:#64748b; }
-    .binance-balance-list { display:grid; gap:8px; margin-top:12px; }
-    .binance-balance-item { display:flex; justify-content:space-between; gap:12px; font-size:13px; padding:10px 12px; border-radius:10px; background:#fff; border:1px solid #e2e8f0; }
-    .btn-secondary-soft { width:100%; padding:12px; background:#e2e8f0; color:#0f172a; border:none; border-radius:10px; font-weight:700; cursor:pointer; margin-top:10px; }
     
     /* Hidden helper */
     .hidden { display: none !important; }
@@ -1182,29 +1171,6 @@
             <button class="btn-primary" id="btnSaveProfile" style="width:100%;margin-top:10px;" disabled>Disponible próximamente</button>
           </div>
 
-          <div class="profile-section">
-            <h3>Binance Testnet</h3>
-            <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">Conecta tu cuenta de prueba de Binance Spot Testnet en modo solo lectura. Tus claves se guardan cifradas en el backend.</p>
-            <div class="binance-status-card" id="binanceStatusCard">
-              <div class="binance-status-title" id="binanceStatusTitle">Sin conexión</div>
-              <div class="binance-status-note" id="binanceStatusNote">Agrega tu API Key y Secret de prueba para ver balances y órdenes abiertas.</div>
-            </div>
-            <div class="calc-input-group">
-              <label>API Key Testnet</label>
-              <input type="text" id="binanceApiKey" placeholder="Pega tu API Key de Binance Testnet">
-            </div>
-            <div class="calc-input-group">
-              <label>API Secret Testnet</label>
-              <input type="password" id="binanceApiSecret" placeholder="Pega tu API Secret de Binance Testnet">
-            </div>
-            <button class="btn-primary" id="btnBinanceConnect" style="width:100%;">Conectar Binance Testnet</button>
-            <button class="btn-secondary-soft" id="btnBinanceRefresh" type="button">Actualizar resumen</button>
-            <button class="btn-secondary-soft" id="btnBinanceDisconnect" type="button">Desconectar Binance Testnet</button>
-            <div class="binance-balance-list" id="binanceBalanceList">
-              <div class="binance-status-note">Todavía no hay balances para mostrar.</div>
-            </div>
-          </div>
-
           <div class="profile-section" id="adminSection" style="display:none;">
             <h3>Administración de usuarios</h3>
             <p style="font-size:12px;color:#94a3b8;margin-bottom:16px;">La app ya está preparada para usuarios en base de datos externa. Mientras Supabase no esté configurado en Vercel, seguirá usando un fallback sembrado.</p>
@@ -1232,7 +1198,6 @@
       signal: null,
       plan: null,
       multiTimeframes: [],
-      binanceConnection: null,
       availableUsers: [],
       comparison: [],
       liveInterval: null,
@@ -1279,21 +1244,6 @@
       async getUsers() {
         const payload = await apiRequest('/api/users');
         return payload.users;
-      }
-    };
-
-    const Binance = {
-      async getConnection() {
-        return apiRequest('/api/binance/connection');
-      },
-      async connect(apiKey, apiSecret) {
-        return apiRequest('/api/binance/connection', {
-          method: 'POST',
-          body: JSON.stringify({ apiKey, apiSecret })
-        });
-      },
-      async disconnect() {
-        return apiRequest('/api/binance/connection', { method: 'DELETE' });
       }
     };
 
@@ -1936,41 +1886,7 @@
     }
 
     async function renderProfilePanel() {
-      await renderBinancePanel();
       if (state.currentUser?.role === 'admin') await renderUserList();
-    }
-
-    async function renderBinancePanel() {
-      const list = $('binanceBalanceList');
-      try {
-        const payload = await Binance.getConnection();
-        state.binanceConnection = payload;
-      } catch (error) {
-        $('binanceStatusTitle').textContent = 'Binance Testnet no disponible';
-        $('binanceStatusNote').textContent = error.message;
-        list.innerHTML = '<div class="binance-status-note">Revisa que la tabla de Binance Testnet exista en Supabase.</div>';
-        return;
-      }
-
-      if (!state.binanceConnection.connected) {
-        $('binanceStatusTitle').textContent = 'Sin conexión';
-        $('binanceStatusNote').textContent = 'Conecta tu API Key y Secret de prueba para habilitar lectura de cuenta.';
-        list.innerHTML = '<div class="binance-status-note">Todavía no hay balances para mostrar.</div>';
-        return;
-      }
-
-      const summary = state.binanceConnection.summary || {};
-      $('binanceStatusTitle').textContent = `Conectado: ${state.binanceConnection.maskedApiKey || 'API activa'}`;
-      $('binanceStatusNote').textContent = `Solo lectura. Órdenes abiertas: ${summary.openOrdersCount || 0}. Trading: ${summary.canTrade ? 'habilitado' : 'bloqueado'}.`;
-      const balances = summary.balances || [];
-      list.innerHTML = balances.length
-        ? balances.map(balance => `
-          <div class="binance-balance-item">
-            <span>${balance.asset}</span>
-            <span>${balance.total}</span>
-          </div>
-        `).join('')
-        : '<div class="binance-status-note">La cuenta de prueba no tiene balances con valor distinto de cero.</div>';
     }
 
     async function renderUserList() {
@@ -2216,31 +2132,6 @@
       // Profile
       $('btnSaveProfile').addEventListener('click', () => {
         alert('La edición de perfil se habilitará en la siguiente fase del backend.');
-      });
-
-      $('btnBinanceConnect').addEventListener('click', async () => {
-        try {
-          await Binance.connect($('binanceApiKey').value.trim(), $('binanceApiSecret').value.trim());
-          $('binanceApiSecret').value = '';
-          await renderBinancePanel();
-        } catch (error) {
-          alert(error.message);
-        }
-      });
-
-      $('btnBinanceRefresh').addEventListener('click', async () => {
-        await renderBinancePanel();
-      });
-
-      $('btnBinanceDisconnect').addEventListener('click', async () => {
-        try {
-          await Binance.disconnect();
-          $('binanceApiKey').value = '';
-          $('binanceApiSecret').value = '';
-          await renderBinancePanel();
-        } catch (error) {
-          alert(error.message);
-        }
       });
 
       $('topAdminBtn').addEventListener('click', () => switchView('profile'));

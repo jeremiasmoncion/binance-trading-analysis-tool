@@ -53,6 +53,11 @@ async function supabaseRequest(path, options = {}) {
   return response.json();
 }
 
+function isMissingAliasColumnError(error) {
+  const message = String(error?.message || "");
+  return message.includes("account_alias");
+}
+
 function maskApiKey(apiKey) {
   if (!apiKey) return "";
   return apiKey.length <= 8 ? `${apiKey.slice(0, 2)}***${apiKey.slice(-2)}` : `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
@@ -85,27 +90,52 @@ async function getAuthenticatedSession(req) {
 }
 
 async function getStoredConnection(username) {
-  const params = new URLSearchParams({
-    select: "username,api_key_encrypted,api_secret_encrypted,account_alias,updated_at",
-    username: `eq.${username}`,
-    limit: "1",
-  });
-  const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${params.toString()}`);
-  return rows[0] || null;
+  try {
+    const params = new URLSearchParams({
+      select: "username,api_key_encrypted,api_secret_encrypted,account_alias,updated_at",
+      username: `eq.${username}`,
+      limit: "1",
+    });
+    const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${params.toString()}`);
+    return rows[0] || null;
+  } catch (error) {
+    if (!isMissingAliasColumnError(error)) throw error;
+    const fallbackParams = new URLSearchParams({
+      select: "username,api_key_encrypted,api_secret_encrypted,updated_at",
+      username: `eq.${username}`,
+      limit: "1",
+    });
+    const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${fallbackParams.toString()}`);
+    return rows[0] || null;
+  }
 }
 
 async function saveConnectionForUser(username, apiKey, apiSecret, accountAlias = "") {
-  const rows = await supabaseRequest(BINANCE_CONNECTIONS_TABLE, {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: {
-      username,
-      api_key_encrypted: encryptValue(apiKey),
-      api_secret_encrypted: encryptValue(apiSecret),
-      account_alias: accountAlias || null,
-    },
-  });
-  return rows?.[0] || null;
+  try {
+    const rows = await supabaseRequest(BINANCE_CONNECTIONS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: {
+        username,
+        api_key_encrypted: encryptValue(apiKey),
+        api_secret_encrypted: encryptValue(apiSecret),
+        account_alias: accountAlias || null,
+      },
+    });
+    return rows?.[0] || null;
+  } catch (error) {
+    if (!isMissingAliasColumnError(error)) throw error;
+    const rows = await supabaseRequest(BINANCE_CONNECTIONS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: {
+        username,
+        api_key_encrypted: encryptValue(apiKey),
+        api_secret_encrypted: encryptValue(apiSecret),
+      },
+    });
+    return rows?.[0] || null;
+  }
 }
 
 async function deleteConnectionForUser(username) {

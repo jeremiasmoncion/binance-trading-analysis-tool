@@ -104,6 +104,29 @@
     .signal-spotlight .decision-title { font-size: 34px; }
     .signal-spotlight .decision-desc { max-width: 640px; }
     .plan-chip { font-size: 11px; background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; }
+    .dashboard-hero.buy {
+      background:
+        radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #f3fff8 52%, #e8fff1 100%);
+      border-color: #bbf7d0;
+      box-shadow: 0 16px 50px rgba(34, 197, 94, 0.12);
+    }
+    .dashboard-hero.sell {
+      background:
+        radial-gradient(circle at top left, rgba(239, 68, 68, 0.16), transparent 32%),
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.12), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #fff5f5 52%, #fff0f0 100%);
+      border-color: #fecaca;
+      box-shadow: 0 16px 50px rgba(239, 68, 68, 0.10);
+    }
+    .dashboard-hero.wait {
+      background:
+        radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #fffaf0 52%, #eef4ff 100%);
+      border-color: #fde68a;
+    }
     
     /* Card Styles */
     .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); margin-bottom: 20px; }
@@ -284,6 +307,27 @@
     body.dark-theme .plan-chip { background: #172554; color: #bfdbfe; }
     body.dark-theme .result-value.positive { color: #22c55e; }
     body.dark-theme .result-value.negative { color: #f87171; }
+    body.dark-theme .dashboard-hero.buy {
+      background:
+        radial-gradient(circle at top left, rgba(34, 197, 94, 0.20), transparent 32%),
+        radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #0b1b19 52%, #10211c 100%);
+      border-color: #166534;
+    }
+    body.dark-theme .dashboard-hero.sell {
+      background:
+        radial-gradient(circle at top left, rgba(239, 68, 68, 0.20), transparent 32%),
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.12), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #221112 52%, #291416 100%);
+      border-color: #7f1d1d;
+    }
+    body.dark-theme .dashboard-hero.wait {
+      background:
+        radial-gradient(circle at top left, rgba(245, 158, 11, 0.20), transparent 32%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
+        linear-gradient(135deg, #08101f 0%, #20180d 52%, #111c31 100%);
+      border-color: #854d0e;
+    }
     
     /* Responsive */
     @media (max-width: 1024px) {
@@ -457,9 +501,9 @@
           <section class="dashboard-hero">
             <div class="dashboard-hero-top">
               <div>
-                <div class="dashboard-eyebrow">Radar operativo</div>
-                <h1 class="dashboard-headline">Lee el mercado, define el plan y ejecuta con más claridad.</h1>
-                <p class="dashboard-subcopy">Este panel está pensado para que en segundos tengas contexto, señal y niveles operativos antes de pasar a Binance o a la calculadora.</p>
+                <div class="dashboard-eyebrow" id="heroSignalLabel">Esperar</div>
+                <h1 class="dashboard-headline" id="decisionTitle">Comprar ahora</h1>
+                <p class="dashboard-subcopy" id="decisionDesc">Precio sobre medias: tendencia alcista.</p>
               </div>
               <div class="dashboard-pulse">
                 <div class="dashboard-pulse-label">Activo en seguimiento</div>
@@ -470,7 +514,7 @@
             <div class="dashboard-summary-grid">
               <div class="dashboard-mini-card">
                 <div class="dashboard-mini-label">Señal dominante</div>
-                <div class="dashboard-mini-value" id="decisionTitle">Esperar, pero con sesgo alcista</div>
+                <div class="dashboard-mini-value" id="summarySignalTitle">Esperar, pero con sesgo alcista</div>
                 <div class="dashboard-mini-note">Lectura principal del mercado ahora mismo.</div>
               </div>
               <div class="dashboard-mini-card">
@@ -493,12 +537,6 @@
 
           <div class="dashboard-main-grid">
             <div class="dashboard-stack">
-              <div id="decisionBanner" class="decision-banner signal-spotlight wait">
-                <span class="decision-label">Esperar</span>
-                <div class="decision-title" id="decisionTitleSecondary">Esperar, pero con sesgo alcista</div>
-                <div class="decision-desc" id="decisionDesc">Hay señales positivas, pero todavía sería mejor esperar una confirmación más limpia.</div>
-              </div>
-
               <div class="chart-container">
                 <div class="chart-header">
                   <div>
@@ -1668,13 +1706,13 @@
       const { score, trend, label, title, reasons } = state.signal;
       const { entry, tp, sl, riskPct, benefitPct, riskAmt, benefitAmt } = state.plan;
       
-      // Banner
-      const banner = $('decisionBanner');
-      banner.className = 'decision-banner ' + (label === 'Comprar' ? 'buy' : label === 'Vender' ? 'sell' : 'wait');
-      banner.querySelector('.decision-label').textContent = label;
+      // Dashboard hero
+      const hero = document.querySelector('.dashboard-hero');
+      hero.className = 'dashboard-hero ' + (label === 'Comprar' ? 'buy' : label === 'Vender' ? 'sell' : 'wait');
+      $('heroSignalLabel').textContent = label;
       $('decisionTitle').textContent = title;
-      $('decisionTitleSecondary').textContent = title;
       $('decisionDesc').textContent = reasons[0] || 'Análisis en progreso.';
+      $('summarySignalTitle').textContent = title;
       $('currentPrice').textContent = formatPrice(state.indicators.current);
       $('signalStrength').textContent = score + '%';
       $('trendText').textContent = trend;

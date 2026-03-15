@@ -244,6 +244,8 @@ canvas { width: 100%; height: 380px; }
 .login-logo .logo-icon { width: 60px; height: 60px; font-size: 28px; margin: 0 auto 12px; }
 .login-logo h2 { font-size: 24px; font-weight: 800; color: #1a233a; }
 .login-form input { width: 100%; padding: 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; }
+.login-form input { color: #0f172a; background: #ffffff; }
+.login-form input::placeholder { color: #94a3b8; }
 .login-form input:focus { outline: none; border-color: #2563eb; }
 .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
 .login-error { background: #fef2f2; color: #ef4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
@@ -353,6 +355,7 @@ body.dark-theme .theme-toggle .sun-icon { display: none; }
 body.dark-theme .theme-toggle .moon-icon { display: block; }
 body.dark-theme .binance-status-card,
 body.dark-theme .portfolio-highlight-card { background:#111827; border-color:#23314d; }
+body.dark-theme .binance-status-title { color: #e2e8f0; }
 body.dark-theme .btn-secondary-soft { background:#1e293b; color:#e2e8f0; }
 body.dark-theme .portfolio-search-icon { color:#f8fafc; }
 body.dark-theme .portfolio-filter-toggle { color:#e5e7eb; }
@@ -373,6 +376,27 @@ body.dark-theme .dashboard-hero {
     linear-gradient(135deg, #08101f 0%, #0d1628 52%, #111c31 100%);
   border-color: #23314d;
   box-shadow: 0 16px 50px rgba(2, 6, 23, 0.35);
+}
+body.dark-theme .dashboard-hero.buy {
+  background:
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.20), transparent 32%),
+    radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 28%),
+    linear-gradient(135deg, #08181a 0%, #0d1d1f 52%, #112323 100%);
+  border-color: #166534;
+}
+body.dark-theme .dashboard-hero.sell {
+  background:
+    radial-gradient(circle at top left, rgba(239, 68, 68, 0.22), transparent 32%),
+    radial-gradient(circle at top right, rgba(190, 24, 93, 0.12), transparent 28%),
+    linear-gradient(135deg, #170d14 0%, #1d1018 52%, #24131b 100%);
+  border-color: #7f1d1d;
+}
+body.dark-theme .dashboard-hero.wait {
+  background:
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.20), transparent 32%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
+    linear-gradient(135deg, #17120a 0%, #1c160d 52%, #111c31 100%);
+  border-color: #854d0e;
 }
 body.dark-theme .dashboard-eyebrow { background: rgba(37, 99, 235, 0.18); color: #93c5fd; }
 body.dark-theme .dashboard-eyebrow.buy { background: rgba(34, 197, 94, 0.22); color: #86efac; }

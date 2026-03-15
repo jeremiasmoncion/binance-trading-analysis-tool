@@ -24,6 +24,7 @@ export function TopBar(props: TopBarProps) {
   const [query, setQuery] = useState(props.currentCoin);
   const [isOpen, setIsOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const statusText =
     props.status === "loading" ? "Cargando..." : props.status === "error" ? "Error de conexión" : "Datos correctos";
@@ -38,6 +39,10 @@ export function TopBar(props: TopBarProps) {
   useEffect(() => {
     setQuery(props.currentCoin);
   }, [props.currentCoin]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, isOpen]);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -55,6 +60,7 @@ export function TopBar(props: TopBarProps) {
     const ok = props.onCoinChange(normalized);
     if (!ok) {
       setFeedback("Ese par no existe en Binance Spot");
+      setIsOpen(true);
       return;
     }
     setFeedback("");
@@ -75,9 +81,25 @@ export function TopBar(props: TopBarProps) {
             }}
             onFocus={() => setIsOpen(true)}
             onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setIsOpen(true);
+                if (!filteredCoins.length) return;
+                setActiveIndex((current) => (current + 1) % filteredCoins.length);
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setIsOpen(true);
+                if (!filteredCoins.length) return;
+                setActiveIndex((current) => (current - 1 + filteredCoins.length) % filteredCoins.length);
+              }
               if (e.key === "Enter") {
                 e.preventDefault();
-                applyCoin(query);
+                if (isOpen && filteredCoins[activeIndex]) {
+                  applyCoin(filteredCoins[activeIndex]);
+                } else {
+                  applyCoin(query);
+                }
               }
               if (e.key === "Escape") {
                 setIsOpen(false);
@@ -90,12 +112,13 @@ export function TopBar(props: TopBarProps) {
             <div className="coin-combobox-menu">
               <div className="coin-combobox-head">{query.trim() ? "Resultados" : "Populares en Binance"}</div>
               {filteredCoins.length ? (
-                filteredCoins.map((coin) => (
+                filteredCoins.map((coin, index) => (
                   <button
                     key={coin}
                     type="button"
-                    className={`coin-combobox-option${coin === props.currentCoin ? " active" : ""}`}
+                    className={`coin-combobox-option${index === activeIndex ? " active" : ""}${coin === props.currentCoin ? " current" : ""}`}
                     onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => applyCoin(coin)}
                   >
                     {coin}

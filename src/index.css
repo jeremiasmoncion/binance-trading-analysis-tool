@@ -75,6 +75,10 @@ body.dark-theme .portfolio-asset span,
 body.dark-theme .portfolio-metric span,
 body.dark-theme .portfolio-highlight-note,
 body.dark-theme .binance-status-note { color: #94a3b8; }
+body.dark-theme .calc-input-group label,
+body.dark-theme .login-subtitle,
+body.dark-theme .login-switch,
+body.dark-theme .login-hint { color: #cbd5e1; }
 body.dark-theme .search-coin input,
 body.dark-theme .timeframe-select,
 body.dark-theme .calc-input-group input,
@@ -132,10 +136,11 @@ body.dark-theme .dashboard-hero.buy {
 }
 body.dark-theme .dashboard-hero.sell {
   background:
-    radial-gradient(circle at top left, rgba(239, 68, 68, 0.22), transparent 32%),
-    radial-gradient(circle at top right, rgba(190, 24, 93, 0.12), transparent 28%),
-    linear-gradient(135deg, #170d14 0%, #1d1018 52%, #24131b 100%);
+    radial-gradient(circle at top left, rgba(239, 68, 68, 0.30), transparent 30%),
+    radial-gradient(circle at top right, rgba(251, 113, 133, 0.18), transparent 26%),
+    linear-gradient(135deg, #220d12 0%, #2a1015 48%, #311219 100%);
   border-color: #7f1d1d;
+  box-shadow: 0 16px 50px rgba(127, 29, 29, 0.30);
 }
 body.dark-theme .dashboard-hero.wait {
   background:

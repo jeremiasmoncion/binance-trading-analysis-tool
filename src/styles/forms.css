@@ -25,7 +25,22 @@
 .login-logo .logo-icon { width: 60px; height: 60px; font-size: 28px; margin: 0 auto 12px; }
 .login-logo h2 { font-size: 24px; font-weight: 800; color: #1a233a; }
 .login-form input { width: 100%; padding: 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; color: #0f172a; background: #ffffff; }
-.login-form input::placeholder { color: #94a3b8; }
+.login-form input::placeholder { color: #94a3b8; opacity: 1; }
+.login-form input,
+.login-form input::-webkit-input-placeholder,
+.login-form input::-moz-placeholder,
+.login-form input:-ms-input-placeholder,
+.login-form input::-ms-input-placeholder {
+  -webkit-text-fill-color: #0f172a;
+}
+.login-form input:-webkit-autofill,
+.login-form input:-webkit-autofill:hover,
+.login-form input:-webkit-autofill:focus,
+.login-form input:-webkit-autofill:active {
+  -webkit-text-fill-color: #0f172a;
+  transition: background-color 9999s ease-in-out 0s;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+}
 .login-form input:focus { outline: none; border-color: #2563eb; }
 .btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
 .login-error { background: #fef2f2; color: #ef4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
@@ -35,6 +50,7 @@
 .login-hint { margin-top:12px; text-align:center; font-size:12px; color:#94a3b8; }
 .binance-status-card { border:1px solid #e2e8f0; border-radius:12px; padding:14px; background:#f8fafc; margin-bottom:14px; }
 .binance-status-title { font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+.binance-status-title::selection { background: rgba(59, 130, 246, 0.35); color: inherit; }
 .binance-status-note { font-size:12px; color:#64748b; }
 .btn-secondary-soft { width:100%; padding:12px; background:#e2e8f0; color:#0f172a; border:none; border-radius:10px; font-weight:700; cursor:pointer; margin-top:10px; }
 

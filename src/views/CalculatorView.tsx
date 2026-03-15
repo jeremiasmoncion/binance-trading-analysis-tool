@@ -55,13 +55,13 @@ export function CalculatorView(props: CalculatorViewProps) {
           <button className="btn-calc btn-current" onClick={props.onCurrentPrice}>
             ⚡ Usar precio actual
           </button>
-          <p style={{ fontSize: 12, color: "#64748b", marginTop: 12 }}>
+          <p className="calculator-tip">
             💡 Comisión de Binance: 0.1% compra + 0.1% venta = 0.2% total. Capital mínimo recomendado: $15-20 USDT para operaciones cortas.
           </p>
         </div>
 
         <div className="calc-results">
-          <h4 style={{ marginBottom: 14, fontSize: 15 }}>Resultados de la operación</h4>
+          <h4 className="calc-results-title">Resultados de la operación</h4>
           <div className="result-row"><span className="result-label">Precio de venta</span><span className="result-value">{formatPrice(props.result.exitPrice)}</span></div>
           <div className="result-row"><span className="result-label">Ganancia bruta</span><span className="result-value">{formatPrice(props.result.gross)}</span></div>
           <div className="result-row"><span className="result-label">Comisión total</span><span className="result-value">{formatPrice(props.result.commission)}</span></div>
@@ -69,7 +69,7 @@ export function CalculatorView(props: CalculatorViewProps) {
           <div className="result-row"><span className="result-label">Retorno neto</span><span className={`result-value ${netPctClass}`}>{formatPct(props.result.netPct)}</span></div>
           <div className="result-row"><span className="result-label">Punto de equilibrio</span><span className="result-value">{formatPrice(props.result.breakEven)}</span></div>
           <div className="result-row"><span className="result-label">Stop loss (precio)</span><span className="result-value">{formatPrice(props.result.stopPrice)}</span></div>
-          <div className="result-row"><span className="result-label">Pérdida si toca stop</span><span className="result-value" style={{ color: "#ef4444" }}>{formatPrice(props.result.stopLoss)}</span></div>
+          <div className="result-row"><span className="result-label">Pérdida si toca stop</span><span className="result-value stop-loss">{formatPrice(props.result.stopLoss)}</span></div>
         </div>
       </div>
     </div>

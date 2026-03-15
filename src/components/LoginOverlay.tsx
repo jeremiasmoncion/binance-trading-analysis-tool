@@ -24,7 +24,7 @@ export function LoginOverlay(props: LoginOverlayProps) {
           <p className="login-subtitle">{isLogin ? "Radar Inteligente de Trading" : "Crea tu acceso para empezar"}</p>
         </div>
 
-        <div className="login-error" style={{ display: props.error ? "block" : "none" }}>
+        <div className={`login-error${props.error ? " is-visible" : ""}`}>
           {props.error}
         </div>
 

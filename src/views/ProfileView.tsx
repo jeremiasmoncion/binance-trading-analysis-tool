@@ -28,13 +28,13 @@ export function ProfileView(props: ProfileViewProps) {
           <div className="calc-input-group"><label>Rol</label><input type="text" value={props.user.role === "admin" ? "Administrador" : "Genérico"} readOnly /></div>
           <div className="calc-input-group"><label>Nombre visible</label><input type="text" value={props.user.displayName || props.user.username} readOnly /></div>
           <div className="calc-input-group"><label>Nueva contraseña</label><input type="password" placeholder="Disponible en la siguiente fase" disabled /></div>
-          <p style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>Fase 1 del backend: login y sesiones reales. La edición de perfil y contraseñas llegará cuando agreguemos persistencia.</p>
-          <button className="btn-primary" style={{ width: "100%", marginTop: 10 }} disabled>Disponible próximamente</button>
+          <p className="section-note with-top-gap">Fase 1 del backend: login y sesiones reales. La edición de perfil y contraseñas llegará cuando agreguemos persistencia.</p>
+          <button className="btn-primary section-fill-button with-top-gap" disabled>Disponible próximamente</button>
         </div>
 
         <div className="profile-section">
           <h3>Binance Demo Spot</h3>
-          <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>Conecta tu cuenta de prueba de Binance Demo Spot en modo solo lectura. Tus claves se guardan cifradas en el backend.</p>
+          <p className="section-note with-bottom-gap">Conecta tu cuenta de prueba de Binance Demo Spot en modo solo lectura. Tus claves se guardan cifradas en el backend.</p>
           <div className="binance-status-card">
             <div className="binance-status-title">
               {connection?.connected ? identityParts.join(" · ") || `Conectado: ${connection.maskedApiKey || "API activa"}` : "Sin conexión"}
@@ -48,7 +48,7 @@ export function ProfileView(props: ProfileViewProps) {
           <div className="calc-input-group"><label>Alias de la cuenta</label><input type="text" value={props.binanceForm.alias} onChange={(e) => props.onBinanceFormChange("alias", e.target.value)} placeholder="Ej: Demo principal Jeremias" /></div>
           <div className="calc-input-group"><label>API Key Demo Spot</label><input type="text" value={props.binanceForm.apiKey} onChange={(e) => props.onBinanceFormChange("apiKey", e.target.value)} placeholder="Pega tu API Key de Binance Demo Spot" /></div>
           <div className="calc-input-group"><label>API Secret Demo Spot</label><input type="password" value={props.binanceForm.apiSecret} onChange={(e) => props.onBinanceFormChange("apiSecret", e.target.value)} placeholder="Pega tu API Secret de Binance Demo Spot" /></div>
-          <button className="btn-primary" onClick={props.onConnect} style={{ width: "100%" }}>Conectar Binance Demo Spot</button>
+          <button className="btn-primary section-fill-button" onClick={props.onConnect}>Conectar Binance Demo Spot</button>
           <button className="btn-secondary-soft" type="button" onClick={props.onRefresh}>Actualizar resumen</button>
           <button className="btn-secondary-soft" type="button" onClick={props.onDisconnect}>Desconectar Binance Demo Spot</button>
         </div>
@@ -56,16 +56,16 @@ export function ProfileView(props: ProfileViewProps) {
         {props.user.role === "admin" ? (
           <div className="profile-section">
             <h3>Administración de usuarios</h3>
-            <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>La app ya está preparada para usuarios en base de datos externa. Mientras Supabase no esté configurado en Vercel, seguirá usando un fallback sembrado.</p>
-            <h4 style={{ margin: "16px 0 10px", fontSize: 14 }}>Usuarios disponibles</h4>
+            <p className="section-note with-bottom-gap">La app ya está preparada para usuarios en base de datos externa. Mientras Supabase no esté configurado en Vercel, seguirá usando un fallback sembrado.</p>
+            <h4 className="section-heading-sm">Usuarios disponibles</h4>
             <div className="user-list">
               {props.users.map((user) => (
                 <div className="user-item" key={user.username}>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{user.username}</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{user.role === "admin" ? "Administrador" : "Genérico"}</div>
+                    <div className="text-strong">{user.username}</div>
+                    <div className="text-xs-muted">{user.role === "admin" ? "Administrador" : "Genérico"}</div>
                   </div>
-                  <div className="user-actions" style={{ color: "#94a3b8", fontSize: 11 }}>Backend fase 1</div>
+                  <div className="user-actions text-xs-soft">Backend fase 1</div>
                 </div>
               ))}
             </div>

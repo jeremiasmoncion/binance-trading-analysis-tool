@@ -43,7 +43,7 @@ export function BalanceView(props: BalanceViewProps) {
         title="Balance"
         subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."
         actions={
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="inline-actions">
             <select className="timeframe-select" value={props.period} onChange={(e) => props.onPeriodChange(e.target.value)}>
               <option value="1d">Comparar con ayer</option>
               <option value="7d">Comparar con 7 días</option>
@@ -55,21 +55,21 @@ export function BalanceView(props: BalanceViewProps) {
       />
 
       <div className="stats-grid">
-        <StatCard label="Capital total" value={formatPrice(portfolio?.totalValue || 0)} style={{ borderLeft: "4px solid #3b82f6" }} sub={
+        <StatCard label="Capital total" value={formatPrice(portfolio?.totalValue || 0)} accentClass="accent-blue" sub={
           <>
             Cuenta {props.payload?.summary?.accountType || "SPOT"} · {props.payload?.summary?.uid ? `UID ${props.payload.summary.uid}` : "sin UID visible"}
             {hiddenLockedAssetsCount ? ` · Excluye ${formatPrice(hiddenLockedValue)} bloqueado` : ""}
           </>
         } />
-        <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} style={{ borderLeft: "4px solid #22c55e" }} sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} />
-        <StatCard label="Rendimiento abierto" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} style={{ borderLeft: "4px solid #10b981" }} sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} />
-        <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} style={{ borderLeft: "4px solid #f59e0b" }} sub={`${portfolio?.openPositionsCount || 0} activos visibles`} />
+        <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} accentClass="accent-green" sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} />
+        <StatCard label="Rendimiento abierto" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} />
+        <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} accentClass="accent-amber" sub={`${portfolio?.openPositionsCount || 0} activos visibles`} />
       </div>
 
       <div className="dashboard-main-grid">
         <div className="dashboard-stack">
           <SectionCard title="Resumen del dinero" subtitle="Tu liquidez, lo que está invertido y la base estimada de tus activos visibles.">
-            <div className="stats-grid" style={{ marginBottom: 0 }}>
+            <div className="stats-grid no-bottom-gap">
               <StatCard label="Disponible en USDT" value={formatPrice(portfolio?.cashValue || 0)} sub="Liquidez lista para operar" />
               <StatCard label="Capital en monedas" value={formatPrice(portfolio?.positionsValue || 0)} sub="Valor vivo de tus activos" />
               <StatCard label="Costo promedio abierto" value={formatPrice(portfolio?.investedValue || 0)} sub="Base estimada según tus trades" />
@@ -85,7 +85,7 @@ export function BalanceView(props: BalanceViewProps) {
                 <span>Ocultar activos de menos de 1 USD</span>
               </label>
             </div>
-            <div style={{ overflowX: "auto" }}>
+            <div className="table-scroll">
               <table className="portfolio-table">
                 <thead>
                   <tr>

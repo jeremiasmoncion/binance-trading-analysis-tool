@@ -153,6 +153,28 @@
   color: #0f172a;
 }
 
+.signal-status-block,
+.signal-pnl-block,
+.signal-note-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signal-status-note {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.signal-status-note.is-positive {
+  color: #16a34a;
+}
+
+.signal-status-note.is-negative {
+  color: #ef4444;
+}
+
 .plan-signal-wrap {
   margin-bottom: 18px;
 }
@@ -174,6 +196,18 @@ body.dark-theme .signal-memory-input {
   background: #111c31;
   color: #e2e8f0;
   border-color: #23314d;
+}
+
+body.dark-theme .signal-status-note {
+  color: #94a3b8;
+}
+
+body.dark-theme .signal-status-note.is-positive {
+  color: #4ade80;
+}
+
+body.dark-theme .signal-status-note.is-negative {
+  color: #f87171;
 }
 
 body.dark-theme .market-pill {

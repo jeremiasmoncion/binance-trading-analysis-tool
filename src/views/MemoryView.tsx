@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { formatPrice } from "../lib/format";
+import { formatPrice, formatSignedPrice } from "../lib/format";
 import type { SignalOutcomeStatus, SignalSnapshot } from "../types";
 
 interface MemoryViewProps {
@@ -106,6 +106,9 @@ export function MemoryView(props: MemoryViewProps) {
         title="Historial de señales"
         subtitle="Cada fila guarda el contexto de la señal. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
       >
+        <p className="section-note with-bottom-gap">
+          `Pendiente` significa que la señal sigue abierta: todavía no ha tocado `TP` ni `SL`, o aún no la has cerrado manualmente.
+        </p>
         <div className="memory-filter-bar">
           <input
             className="signal-memory-input"
@@ -115,10 +118,10 @@ export function MemoryView(props: MemoryViewProps) {
           />
           <select className="timeframe-select signal-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SignalOutcomeStatus | "all")}>
             <option value="all">Todos los estados</option>
-            <option value="pending">Pending</option>
-            <option value="win">Win</option>
-            <option value="loss">Loss</option>
-            <option value="invalidated">Invalidated</option>
+            <option value="pending">Pendiente</option>
+            <option value="win">Ganada</option>
+            <option value="loss">Perdida</option>
+            <option value="invalidated">Invalidada</option>
           </select>
           <select className="timeframe-select signal-select" value={timeframeFilter} onChange={(event) => setTimeframeFilter(event.target.value)}>
             <option value="all">Todos los marcos</option>
@@ -209,28 +212,45 @@ function SignalRow({
         </div>
       </td>
       <td>
-        <select className="timeframe-select signal-select" value={outcomeStatus} onChange={(e) => setOutcomeStatus(e.target.value as SignalOutcomeStatus)}>
-          <option value="pending">Pending</option>
-          <option value="win">Win</option>
-          <option value="loss">Loss</option>
-          <option value="invalidated">Invalidated</option>
-        </select>
+        <div className="signal-status-block">
+          <select className="timeframe-select signal-select" value={outcomeStatus} onChange={(e) => setOutcomeStatus(e.target.value as SignalOutcomeStatus)}>
+            <option value="pending">Pendiente</option>
+            <option value="win">Ganada</option>
+            <option value="loss">Perdida</option>
+            <option value="invalidated">Invalidada</option>
+          </select>
+          <span className="signal-status-note">{describeSignalStatus(signal, outcomeStatus)}</span>
+        </div>
       </td>
       <td>
-        <input
-          className="signal-memory-input"
-          value={outcomePnl}
-          onChange={(e) => setOutcomePnl(e.target.value)}
-          placeholder="0.00"
-        />
+        <div className="signal-pnl-block">
+          <input
+            className="signal-memory-input"
+            value={outcomePnl}
+            onChange={(e) => setOutcomePnl(e.target.value)}
+            placeholder="0.00"
+          />
+          <span className={`signal-status-note ${Number(outcomePnl || 0) > 0 ? "is-positive" : Number(outcomePnl || 0) < 0 ? "is-negative" : ""}`}>
+            {Number(outcomePnl || 0) !== 0 ? formatSignedPrice(Number(outcomePnl || 0)) : "Sin PnL registrado"}
+          </span>
+        </div>
       </td>
       <td>
-        <input
-          className="signal-memory-input"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Qué pasó con esta señal"
-        />
+        <div className="signal-note-block">
+          <input
+            className="signal-memory-input"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Qué pasó con esta señal"
+          />
+          <span className="signal-status-note">
+            {note.includes("Auto-cerrada")
+              ? "Cierre automático detectado"
+              : outcomeStatus === "pending"
+                ? "Todavía sin cierre"
+                : "Cierre marcado manualmente"}
+          </span>
+        </div>
       </td>
       <td>
         <button className="btn-secondary-soft" type="button" onClick={() => onSave(signal.id, outcomeStatus, Number(outcomePnl || 0), note)}>
@@ -239,4 +259,20 @@ function SignalRow({
       </td>
     </tr>
   );
+}
+
+function describeSignalStatus(signal: SignalSnapshot, selectedStatus: SignalOutcomeStatus) {
+  if (selectedStatus === "pending") {
+    return `Abierta desde ${new Date(signal.created_at).toLocaleString("es-DO")}`;
+  }
+
+  const closedAt = signal.updated_at || signal.created_at;
+  const closeLabel =
+    selectedStatus === "win"
+      ? "Cerrada en ganancia"
+      : selectedStatus === "loss"
+        ? "Cerrada en pérdida"
+        : "Invalidada";
+
+  return `${closeLabel} el ${new Date(closedAt).toLocaleString("es-DO")}`;
 }

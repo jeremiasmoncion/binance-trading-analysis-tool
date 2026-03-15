@@ -17,7 +17,7 @@ export function ProfileView(props: ProfileViewProps) {
   const identityParts = [connection?.accountAlias || null, summary.uid ? `UID ${summary.uid}` : null, summary.accountType || null].filter(Boolean);
 
   return (
-    <div id="profileView" className="view-panel">
+    <div id="profileView" className="view-panel active">
       <div className="card">
         <div className="card-header">
           <div>

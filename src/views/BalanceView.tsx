@@ -35,7 +35,7 @@ export function BalanceView(props: BalanceViewProps) {
   const hiddenLockedAssetsCount = portfolio?.hiddenLockedAssetsCount || 0;
 
   return (
-    <div id="journalView" className="view-panel">
+    <div id="journalView" className="view-panel active">
       <div className="card">
         <div className="card-header">
           <div>

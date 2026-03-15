@@ -9,7 +9,7 @@ interface CompareViewProps {
 
 export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareViewProps) {
   return (
-    <div id="compareView" className="view-panel">
+    <div id="compareView" className="view-panel active">
       <div className="card">
         <div className="card-header">
           <div>

@@ -20,7 +20,7 @@ export function MarketView(props: MarketViewProps) {
   const signal = props.signal;
   const indicators = props.indicators;
   return (
-    <div id="marketView" className="view-panel">
+    <div id="marketView" className="view-panel active">
       <div className="card">
         <div className="card-header">
           <div>

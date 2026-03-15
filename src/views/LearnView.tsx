@@ -11,7 +11,7 @@ const LEARN_CARDS = [
 
 export function LearnView() {
   return (
-    <div id="learnView" className="view-panel">
+    <div id="learnView" className="view-panel active">
       <div className="card">
         <div className="card-header">
           <div>

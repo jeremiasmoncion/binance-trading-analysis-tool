@@ -27,7 +27,7 @@ export function CalculatorView(props: CalculatorViewProps) {
   const netPctClass = props.result.netPct >= 0 ? "positive" : "negative";
 
   return (
-    <div id="calculatorView" className="view-panel">
+    <div id="calculatorView" className="view-panel active">
       <div className="card">
         <div className="card-header">
           <div>

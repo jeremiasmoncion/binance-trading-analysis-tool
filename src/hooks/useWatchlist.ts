@@ -14,7 +14,20 @@ function getLegacyStorageKey(username: string) {
 
 function normalizeWatchlist(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return Array.from(new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)));
+  return Array.from(
+    new Set(
+      value
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => {
+          const raw = item.trim().toUpperCase();
+          if (raw.includes("/")) return raw;
+          if (raw.endsWith("USDT") && raw.length > 4) {
+            return `${raw.slice(0, -4)}/USDT`;
+          }
+          return raw;
+        }),
+    ),
+  );
 }
 
 export function useWatchlist({ currentUser }: UseWatchlistOptions) {

@@ -1,46 +1,35 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { AppView } from "./components/AppView";
 import { LoginOverlay } from "./components/LoginOverlay";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
+import { useCalculator } from "./hooks/useCalculator";
 import { useMarketData } from "./hooks/useMarketData";
 import { useTheme } from "./hooks/useTheme";
-import type { ViewName } from "./types";
-import { BalanceView } from "./views/BalanceView";
-import { CalculatorView } from "./views/CalculatorView";
-import { CompareView } from "./views/CompareView";
-import { DashboardView } from "./views/DashboardView";
-import { LearnView } from "./views/LearnView";
-import { MarketView } from "./views/MarketView";
-import { ProfileView } from "./views/ProfileView";
+import { useViewState } from "./hooks/useViewState";
+import { getOperationPlan } from "./lib/trading";
 
 export function App() {
-  const [currentView, setCurrentView] = useState<ViewName>("dashboard");
-  const [calculator, setCalculator] = useState({ capital: "0", entry: "", percent: "1.5", stopPct: "1.0" });
+  const view = useViewState("dashboard");
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const bootstrappedRef = useRef(false);
 
   const auth = useAuth();
-  const market = useMarketData({ currentView, calculatorCapital: Number(calculator.capital) || 0 });
-  const binance = useBinanceData({ currentUser: auth.currentUser, currentView });
+  const market = useMarketData({ currentView: view.currentView });
+  const calculatorState = useCalculator(
+    market.indicators,
+    market.indicators && market.signal
+      ? getOperationPlan(market.indicators, market.signal, 0, market.timeframe)
+      : null,
+  );
+  const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
   const { theme, toggleTheme } = useTheme(chartRef, market.candles);
-
-  const calculatorResult = useMemo(() => {
-    const capital = Number(calculator.capital) || 0;
-    const entry = Number(calculator.entry) || market.indicators?.current || 0;
-    const pct = Number(calculator.percent) || 0;
-    const stopPct = Number(calculator.stopPct) || 0;
-    const exitPrice = entry * (1 + pct / 100);
-    const gross = capital * pct / 100;
-    const commission = capital * 0.002;
-    const net = gross - commission;
-    const netPct = capital ? (net / capital) * 100 : 0;
-    const breakEven = entry * 1.002;
-    const stopPrice = entry * (1 - stopPct / 100);
-    const stopLoss = capital * stopPct / 100;
-    return { exitPrice, gross, commission, net, netPct, breakEven, stopPrice, stopLoss };
-  }, [calculator, market.indicators]);
+  const plan = useMemo(() => {
+    if (!market.indicators || !market.signal) return null;
+    return getOperationPlan(market.indicators, market.signal, calculatorState.capitalValue, market.timeframe);
+  }, [market.indicators, market.signal, calculatorState.capitalValue, market.timeframe]);
 
   useEffect(() => {
     if (bootstrappedRef.current) return;
@@ -56,25 +45,8 @@ export function App() {
 
   async function handleLogout() {
     await auth.handleLogout(async () => {
-      setCurrentView("dashboard");
+      view.resetToDashboard();
     });
-  }
-
-  function handleSuggest() {
-    if (!market.plan) return;
-    const tpPct = ((market.plan.tp - market.plan.entry) / market.plan.entry) * 100;
-    const slPct = ((market.plan.entry - market.plan.sl) / market.plan.entry) * 100;
-    setCalculator((prev) => ({
-      ...prev,
-      entry: market.plan?.entry.toFixed(2) || "",
-      percent: tpPct.toFixed(2),
-      stopPct: slPct.toFixed(2),
-    }));
-  }
-
-  function handleUseCurrentPrice() {
-    if (!market.indicators?.current) return;
-    setCalculator((prev) => ({ ...prev, entry: market.indicators.current.toFixed(2) || prev.entry }));
   }
 
   if (!auth.currentUser) {
@@ -101,8 +73,8 @@ export function App() {
     <div className="app-shell">
       <Sidebar
         user={auth.currentUser}
-        currentView={currentView}
-        onViewChange={setCurrentView}
+        currentView={view.currentView}
+        onViewChange={view.setCurrentView}
         onLogout={handleLogout}
       />
 
@@ -118,77 +90,46 @@ export function App() {
           onTimeframeChange={market.selectTimeframe}
           onRefresh={() => void market.fetchData(market.currentCoin, market.timeframe)}
           onToggleTheme={toggleTheme}
-          onOpenAdmin={() => setCurrentView("profile")}
+          onOpenAdmin={view.openProfile}
           onLogout={handleLogout}
         />
 
-        {currentView === "dashboard" ? (
-          <DashboardView
-            currentCoin={market.currentCoin}
-            timeframe={market.timeframe}
-            currentPrice={market.indicators?.current || 0}
-            signal={market.signal}
-            plan={market.plan}
-            multiTimeframes={market.multiTimeframes}
-            candles={market.candles}
-            chartRef={chartRef}
-          />
-        ) : null}
-
-        {currentView === "market" ? (
-          <MarketView
-            currentCoin={market.currentCoin}
-            signal={market.signal}
-            indicators={market.indicators}
-            market24h={market.market24h}
-            support={market.supportResistance.support}
-            resistance={market.supportResistance.resistance}
-          />
-        ) : null}
-
-        {currentView === "calculator" ? (
-          <CalculatorView
-            values={calculator}
-            result={calculatorResult}
-            onChange={(field, value) => setCalculator((prev) => ({ ...prev, [field]: value }))}
-            onSuggest={handleSuggest}
-            onCurrentPrice={handleUseCurrentPrice}
-          />
-        ) : null}
-
-        {currentView === "compare" ? (
-          <CompareView
-            comparison={market.comparison}
-            currentCoin={market.currentCoin}
-            onSelectCoin={market.selectCoin}
-          />
-        ) : null}
-
-        {currentView === "learn" ? <LearnView /> : null}
-
-        {currentView === "journal" ? (
-          <BalanceView
-            payload={binance.portfolioData}
-            period={binance.portfolioPeriod}
-            hideSmallAssets={binance.hideSmallAssets}
-            onPeriodChange={(period) => void binance.refreshPortfolio(period)}
-            onRefresh={() => void binance.refreshPortfolio()}
-            onToggleHideSmall={binance.setHideSmallAssets}
-          />
-        ) : null}
-
-        {currentView === "profile" ? (
-          <ProfileView
-            user={auth.currentUser}
-            users={binance.availableUsers}
-            connection={binance.binanceConnection}
-            binanceForm={binance.binanceForm}
-            onBinanceFormChange={binance.setBinanceFormField}
-            onConnect={binance.connect}
-            onRefresh={() => void binance.refreshProfileData()}
-            onDisconnect={binance.disconnect}
-          />
-        ) : null}
+        <AppView
+          currentView={view.currentView}
+          currentCoin={market.currentCoin}
+          timeframe={market.timeframe}
+          currentPrice={market.indicators?.current || 0}
+          signal={market.signal}
+          plan={plan}
+          multiTimeframes={market.multiTimeframes}
+          candles={market.candles}
+          chartRef={chartRef}
+          indicators={market.indicators}
+          market24h={market.market24h}
+          support={market.supportResistance.support}
+          resistance={market.supportResistance.resistance}
+          calculatorValues={calculatorState.calculator}
+          calculatorResult={calculatorState.result}
+          onCalculatorChange={calculatorState.setField}
+          onSuggestPlan={() => calculatorState.applySuggestedPlan()}
+          onUseCurrentPrice={calculatorState.useCurrentPrice}
+          comparison={market.comparison}
+          onSelectCoin={market.selectCoin}
+          portfolioData={binance.portfolioData}
+          portfolioPeriod={binance.portfolioPeriod}
+          hideSmallAssets={binance.hideSmallAssets}
+          onPortfolioPeriodChange={(period) => void binance.refreshPortfolio(period)}
+          onRefreshPortfolio={() => void binance.refreshPortfolio()}
+          onToggleHideSmallAssets={binance.setHideSmallAssets}
+          user={auth.currentUser}
+          users={binance.availableUsers}
+          connection={binance.binanceConnection}
+          binanceForm={binance.binanceForm}
+          onBinanceFormChange={binance.setBinanceFormField}
+          onConnectBinance={binance.connect}
+          onRefreshBinance={() => void binance.refreshProfileData()}
+          onDisconnectBinance={binance.disconnect}
+        />
       </main>
     </div>
   );

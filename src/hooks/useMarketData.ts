@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { COINS, MAP_TIMEFRAMES } from "../config/constants";
-import { calcIndicators, generateFallbackCandles, generateSignal, getOperationPlan, getSupportResistance } from "../lib/trading";
+import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
 import { marketService } from "../services/api";
 import type { Candle, ComparisonCoin, Indicators, Signal, TimeframeSignal, ViewName } from "../types";
 
 interface UseMarketDataOptions {
   currentView: ViewName;
-  calculatorCapital: number;
 }
 
-export function useMarketData({ currentView, calculatorCapital }: UseMarketDataOptions) {
+export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState("1h");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
@@ -19,11 +18,6 @@ export function useMarketData({ currentView, calculatorCapital }: UseMarketDataO
   const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
   const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
   const [market24h, setMarket24h] = useState({ change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" });
-
-  const plan = useMemo(() => {
-    if (!indicators || !signal) return null;
-    return getOperationPlan(indicators, signal, calculatorCapital, timeframe);
-  }, [indicators, signal, calculatorCapital, timeframe]);
 
   const supportResistance = useMemo(
     () => getSupportResistance(candles.length ? candles : generateFallbackCandles(timeframe)),
@@ -98,7 +92,6 @@ export function useMarketData({ currentView, calculatorCapital }: UseMarketDataO
     candles,
     indicators,
     signal,
-    plan,
     multiTimeframes,
     comparison,
     market24h,

@@ -1,4 +1,4 @@
-import type { BinanceConnection, PortfolioPayload, UserSession } from "../types";
+import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession } from "../types";
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -65,6 +65,32 @@ export const binanceService = {
   },
   disconnect() {
     return apiRequest("/api/binance/connection", { method: "DELETE" });
+  },
+};
+
+export const signalService = {
+  list() {
+    return apiRequest<{ signals: SignalSnapshot[] }>("/api/signals");
+  },
+  create(payload: {
+    coin: string;
+    timeframe: string;
+    signal: Signal;
+    analysis: DashboardAnalysis | null;
+    plan: OperationPlan | null;
+    multiTimeframes: TimeframeSignal[];
+    note?: string;
+  }) {
+    return apiRequest<{ signal: SignalSnapshot }>("/api/signals", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  update(id: number, payload: { outcomeStatus: SignalOutcomeStatus; outcomePnl: number; note: string }) {
+    return apiRequest<{ signal: SignalSnapshot }>(`/api/signals/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   },
 };
 

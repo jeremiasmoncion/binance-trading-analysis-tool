@@ -1,10 +1,11 @@
 import type { RefObject } from "react";
-import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, TimeframeSignal, UserSession, ViewName } from "../types";
+import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, ViewName } from "../types";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
 import { DashboardView } from "../views/DashboardView";
 import { LearnView } from "../views/LearnView";
+import { MemoryView } from "../views/MemoryView";
 import { MarketView } from "../views/MarketView";
 import { ProfileView } from "../views/ProfileView";
 
@@ -45,6 +46,9 @@ interface AppViewProps {
   onPortfolioPeriodChange: (period: string) => void;
   onRefreshPortfolio: () => void;
   onToggleHideSmallAssets: (value: boolean) => void;
+  signalMemory: SignalSnapshot[];
+  onSaveSignal: () => void;
+  onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
   users: UserSession[];
   connection: BinanceConnection | null;
@@ -69,6 +73,14 @@ export function AppView(props: AppViewProps) {
           multiTimeframes={props.multiTimeframes}
           candles={props.candles}
           chartRef={props.chartRef}
+          onSaveSignal={props.onSaveSignal}
+        />
+      );
+    case "memory":
+      return (
+        <MemoryView
+          signals={props.signalMemory}
+          onUpdateSignal={props.onUpdateSignal}
         />
       );
     case "market":

@@ -7,6 +7,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
 import { useCalculator } from "./hooks/useCalculator";
 import { useMarketData } from "./hooks/useMarketData";
+import { useSignalMemory } from "./hooks/useSignalMemory";
 import { useTheme } from "./hooks/useTheme";
 import { useViewState } from "./hooks/useViewState";
 import { getOperationPlan } from "./lib/trading";
@@ -25,6 +26,7 @@ export function App() {
       : null,
   );
   const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
+  const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
   const { theme, toggleTheme } = useTheme(chartRef, market.candles);
   const plan = useMemo(() => {
     if (!market.indicators || !market.signal) return null;
@@ -107,6 +109,14 @@ export function App() {
           multiTimeframes={market.multiTimeframes}
           candles={market.candles}
           chartRef={chartRef}
+          onSaveSignal={() => void signalMemory.saveSignal({
+            coin: market.currentCoin,
+            timeframe: market.timeframe,
+            signal: market.signal,
+            analysis: market.analysis,
+            plan,
+            multiTimeframes: market.multiTimeframes,
+          })}
           indicators={market.indicators}
           market24h={market.market24h}
           support={market.supportResistance.support}
@@ -124,6 +134,8 @@ export function App() {
           onPortfolioPeriodChange={(period) => void binance.refreshPortfolio(period)}
           onRefreshPortfolio={() => void binance.refreshPortfolio()}
           onToggleHideSmallAssets={binance.setHideSmallAssets}
+          signalMemory={signalMemory.signals}
+          onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void signalMemory.updateSignal(id, outcomeStatus, outcomePnl, note)}
           user={auth.currentUser}
           users={binance.availableUsers}
           connection={binance.binanceConnection}

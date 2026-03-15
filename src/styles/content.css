@@ -132,6 +132,20 @@
   overflow-x: auto;
 }
 
+.signal-select {
+  min-width: 140px;
+}
+
+.signal-memory-input {
+  width: 100%;
+  min-width: 140px;
+  padding: 10px 12px;
+  border: 1px solid #dbe7ff;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+}
+
 .plan-signal-wrap {
   margin-bottom: 18px;
 }
@@ -147,6 +161,12 @@ body.dark-theme .section-note,
 body.dark-theme .text-xs-muted,
 body.dark-theme .text-xs-soft {
   color: #94a3b8;
+}
+
+body.dark-theme .signal-memory-input {
+  background: #111c31;
+  color: #e2e8f0;
+  border-color: #23314d;
 }
 
 body.dark-theme .market-pill {

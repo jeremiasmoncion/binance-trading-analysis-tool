@@ -47,6 +47,7 @@ interface AppViewProps {
   onRefreshPortfolio: () => void;
   onToggleHideSmallAssets: (value: boolean) => void;
   signalMemory: SignalSnapshot[];
+  watchlist: string[];
   onSaveSignal: () => void;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
@@ -80,6 +81,7 @@ export function AppView(props: AppViewProps) {
       return (
         <MemoryView
           signals={props.signalMemory}
+          watchlist={props.watchlist}
           onUpdateSignal={props.onUpdateSignal}
         />
       );

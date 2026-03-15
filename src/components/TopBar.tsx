@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TIMEFRAME_OPTIONS } from "../config/constants";
-import { MoonIcon, SunIcon } from "./Icons";
+import { MoonIcon, StarIcon, SunIcon } from "./Icons";
 import type { UserSession } from "../types";
 
 interface TopBarProps {
   currentCoin: string;
   coinOptions: string[];
   popularCoins: string[];
+  watchlist: string[];
+  isCurrentCoinWatched: boolean;
   timeframe: string;
   status: "idle" | "loading" | "ok" | "error";
   user: UserSession;
@@ -15,6 +17,7 @@ interface TopBarProps {
   onCoinChange: (coin: string) => boolean;
   onTimeframeChange: (timeframe: string) => void;
   onRefresh: () => void;
+  onToggleWatchlist: () => void;
   onToggleTheme: () => void;
   onOpenAdmin: () => void;
   onLogout: () => void;
@@ -147,6 +150,17 @@ export function TopBar(props: TopBarProps) {
           {feedback ? <div className="coin-combobox-feedback">{feedback}</div> : null}
         </div>
 
+        <button
+          className={`btn-primary watchlist-toggle${props.isCurrentCoinWatched ? " active" : ""}`}
+          type="button"
+          onClick={props.onToggleWatchlist}
+          title={props.isCurrentCoinWatched ? "Quitar del watchlist" : "Agregar al watchlist"}
+          aria-label={props.isCurrentCoinWatched ? "Quitar del watchlist" : "Agregar al watchlist"}
+        >
+          <StarIcon className="watchlist-icon" />
+          <span>{props.isCurrentCoinWatched ? "En watchlist" : "Vigilar"}</span>
+        </button>
+
         <select className="timeframe-select" value={props.timeframe} onChange={(e) => props.onTimeframeChange(e.target.value)}>
           {TIMEFRAME_OPTIONS.map(([value, label]) => (
             <option key={value} value={value}>
@@ -161,6 +175,12 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div className="top-right">
+        {props.watchlist.length ? (
+          <div className="user-pill watchlist-pill">
+            <span>{props.watchlist.length} en watchlist</span>
+          </div>
+        ) : null}
+
         <button className="btn-primary theme-toggle" type="button" onClick={props.onToggleTheme} aria-label="Cambiar tema">
           <SunIcon className="sun-icon" />
           <MoonIcon className="moon-icon" />

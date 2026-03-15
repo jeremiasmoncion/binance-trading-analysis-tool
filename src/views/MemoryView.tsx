@@ -7,6 +7,7 @@ import type { SignalOutcomeStatus, SignalSnapshot } from "../types";
 
 interface MemoryViewProps {
   signals: SignalSnapshot[];
+  watchlist: string[];
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
@@ -46,6 +47,16 @@ export function MemoryView(props: MemoryViewProps) {
   const invalidated = props.signals.filter((item) => item.outcome_status === "invalidated").length;
   const totalPnl = props.signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
   const winRate = completedSignals.length ? (wins / completedSignals.length) * 100 : 0;
+  const grossWins = props.signals
+    .filter((item) => Number(item.outcome_pnl || 0) > 0)
+    .reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
+  const grossLosses = props.signals
+    .filter((item) => Number(item.outcome_pnl || 0) < 0)
+    .reduce((sum, item) => sum + Math.abs(Number(item.outcome_pnl || 0)), 0);
+  const avgWin = wins ? grossWins / wins : 0;
+  const avgLoss = losses ? grossLosses / losses : 0;
+  const expectancy = completedSignals.length ? totalPnl / completedSignals.length : 0;
+  const profitFactor = grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? grossWins : 0;
   const bestSetup = useMemo(() => {
     const bySetup = new Map<string, { wins: number; total: number }>();
     props.signals.forEach((item) => {
@@ -104,8 +115,11 @@ export function MemoryView(props: MemoryViewProps) {
 
       <SectionCard
         title="Historial de señales"
-        subtitle="Cada fila guarda el contexto de la señal. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
+        subtitle="La memoria solo trabaja con monedas de tu watchlist. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
       >
+        <p className="section-note with-bottom-gap">
+          Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
+        </p>
         <p className="section-note with-bottom-gap">
           `Pendiente` significa que la señal sigue abierta: todavía no ha tocado `TP` ni `SL`, o aún no la has cerrado manualmente.
         </p>
@@ -174,6 +188,37 @@ export function MemoryView(props: MemoryViewProps) {
           </table>
         </div>
       </SectionCard>
+
+      <div className="stats-grid">
+        <StatCard
+          label="Ganancia promedio"
+          value={wins ? formatSignedPrice(avgWin) : "--"}
+          sub={wins ? `${wins} señales ganadas suman ${formatSignedPrice(grossWins)}` : "Todavía no hay ganancias cerradas"}
+          toneClass="portfolio-positive"
+          accentClass="accent-green"
+        />
+        <StatCard
+          label="Pérdida promedio"
+          value={losses ? `-${formatPrice(avgLoss)}` : "--"}
+          sub={losses ? `${losses} señales perdidas suman -${formatPrice(grossLosses)}` : "Todavía no hay pérdidas cerradas"}
+          toneClass="portfolio-negative"
+          accentClass="accent-amber"
+        />
+        <StatCard
+          label="Expectativa por señal"
+          value={completedSignals.length ? formatSignedPrice(expectancy) : "--"}
+          sub={completedSignals.length ? "Lo que deja el sistema por señal cerrada en promedio" : "Esperando más cierres"}
+          toneClass={expectancy > 0 ? "portfolio-positive" : expectancy < 0 ? "portfolio-negative" : ""}
+          accentClass="accent-blue"
+        />
+        <StatCard
+          label="Profit factor"
+          value={completedSignals.length ? profitFactor.toFixed(2) : "--"}
+          sub={grossLosses > 0 ? `${formatSignedPrice(grossWins)} frente a -${formatPrice(grossLosses)}` : "Sin pérdidas cerradas para compararlo"}
+          toneClass={profitFactor > 1 ? "portfolio-positive" : completedSignals.length ? "portfolio-negative" : ""}
+          accentClass="accent-emerald"
+        />
+      </div>
     </div>
   );
 }

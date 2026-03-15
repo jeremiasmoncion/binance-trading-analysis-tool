@@ -519,7 +519,7 @@
           <div class="logo-text">
             <h1>CRYPE</h1>
             <p>Trading simple con identidad propia</p>
-          </div>
+          </aside>
         </div>
       </div>
       <nav class="sidebar-nav">
@@ -2277,24 +2277,6 @@
       if ($('btnRefreshPortfolio')) $('btnRefreshPortfolio').addEventListener('click', () => renderJournal());
 
       $('topAdminBtn').addEventListener('click', () => switchView('profile'));
-
-      // Journal - Registro de Operaciones
-      if ($('btnSaveOperation')) $('btnSaveOperation').addEventListener('click', saveOperation);
-      if ($('btnExportCSV')) $('btnExportCSV').addEventListener('click', () => Journal.exportToCSV());
-      if ($('btnClearAll')) $('btnClearAll').addEventListener('click', () => {
-        if (confirm('¿Seguro que quieres borrar TODAS las operaciones? Esto no se puede deshacer.')) {
-          Journal.clearAll();
-          renderJournal();
-        }
-      });
-      if ($('btnApplyReport')) $('btnApplyReport').addEventListener('click', applyReportFilter);
-      
-      // Establecer fecha por defecto en el formulario de operaciones
-      if ($('opDate')) {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        $('opDate').value = now.toISOString().slice(0, 16);
-      }
 
       // Init
       (async () => {

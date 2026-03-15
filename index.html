@@ -383,6 +383,8 @@
     body.dark-theme .portfolio-metric span,
     body.dark-theme .portfolio-highlight-note { color:#94a3b8; }
     body.dark-theme .portfolio-highlight-card { background:#111827; border-color:#23314d; }
+    body.dark-theme .portfolio-search-icon { color:#f8fafc; }
+    body.dark-theme .portfolio-filter-toggle { color:#e5e7eb; }
     body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }
     body.dark-theme .timeframe-chip.buy { background: linear-gradient(135deg, #0d2017 0%, #10261b 100%); border-color: #166534; }
     body.dark-theme .timeframe-chip.buy .timeframe-chip-value { color: #86efac; }
@@ -478,6 +480,10 @@
     .portfolio-highlight-card { padding:14px; border-radius:14px; border:1px solid #e2e8f0; background:#f8fafc; margin-bottom:12px; }
     .portfolio-highlight-title { font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px; }
     .portfolio-highlight-note { font-size:12px; color:#64748b; line-height:1.6; }
+    .portfolio-toolbar { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+    .portfolio-search-icon { width:18px; height:18px; color:#cbd5e1; flex-shrink:0; }
+    .portfolio-filter-toggle { display:inline-flex; align-items:center; gap:10px; font-size:14px; color:#64748b; cursor:pointer; }
+    .portfolio-filter-toggle input { width:16px; height:16px; accent-color:#2563eb; }
   </style>
 </head>
 <body>
@@ -1069,6 +1075,15 @@
                   <div class="card-subtitle">Aquí ves cuánto dinero tienes por activo, el precio promedio de entrada estimado y tu ganancia abierta por posición.</div>
                 </div>
               </div>
+              <div class="portfolio-toolbar">
+                <svg class="portfolio-search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 1 1-14 0a7 7 0 0 1 14 0Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                <label class="portfolio-filter-toggle" for="portfolioHideSmallAssets">
+                  <input type="checkbox" id="portfolioHideSmallAssets" checked>
+                  <span>Ocultar activos de menos de 1 USD</span>
+                </label>
+              </div>
               <div style="overflow-x:auto;">
                 <table class="portfolio-table">
                   <thead>
@@ -1213,7 +1228,8 @@
       comparison: [],
       liveInterval: null,
       manualMode: false,
-      operations: []
+      operations: [],
+      hideSmallAssets: true
     };
 
     // ============================================
@@ -1383,14 +1399,21 @@
       return period === '30d' ? '30 días' : period === '7d' ? '7 días' : 'ayer';
     }
 
+    function getVisiblePortfolioAssets(assets = []) {
+      return state.hideSmallAssets
+        ? assets.filter(asset => Number(asset.marketValue || 0) >= 1)
+        : assets;
+    }
+
     function renderPortfolioTable(assets) {
       const tbody = $('portfolioTableBody');
-      if (!assets || !assets.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="portfolio-empty">No hay balances disponibles para esta cuenta.</td></tr>';
+      const visibleAssets = getVisiblePortfolioAssets(assets || []);
+      if (!visibleAssets.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="portfolio-empty">${state.hideSmallAssets ? 'No hay activos visibles por encima de 1 USD con el filtro actual.' : 'No hay balances disponibles para esta cuenta.'}</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = assets.map(asset => {
+      tbody.innerHTML = visibleAssets.map(asset => {
         const pnlClass = getPerformanceClass(asset.pnlValue);
         const periodClass = getPerformanceClass(asset.periodChangeValue);
         return `
@@ -1443,8 +1466,8 @@
     }
 
     function renderPortfolioHighlights(payload) {
-      const assets = (payload.assets || []).filter(asset => asset.asset !== 'USDT');
-      const totalValue = payload.portfolio?.totalValue || 0;
+      const assets = getVisiblePortfolioAssets(payload.assets || []).filter(asset => asset.asset !== 'USDT');
+      const totalValue = assets.reduce((sum, asset) => sum + Number(asset.marketValue || 0), 0);
       const winner = assets.slice().sort((a, b) => b.pnlValue - a.pnlValue)[0];
       const loser = assets.slice().sort((a, b) => a.pnlValue - b.pnlValue)[0];
       const dominant = assets.slice().sort((a, b) => b.marketValue - a.marketValue)[0];
@@ -1507,6 +1530,7 @@
 
     async function renderJournal() {
       $('portfolioPeriod').value = state.portfolioPeriod;
+      if ($('portfolioHideSmallAssets')) $('portfolioHideSmallAssets').checked = state.hideSmallAssets;
       try {
         const payload = await Binance.getPortfolio(state.portfolioPeriod);
         state.portfolioData = payload;
@@ -2177,6 +2201,15 @@
         });
       }
       if ($('btnRefreshPortfolio')) $('btnRefreshPortfolio').addEventListener('click', () => renderJournal());
+      if ($('portfolioHideSmallAssets')) {
+        $('portfolioHideSmallAssets').addEventListener('change', e => {
+          state.hideSmallAssets = e.target.checked;
+          if (state.currentView === 'journal' && state.portfolioData) {
+            renderPortfolioTable(state.portfolioData.assets || []);
+            renderPortfolioHighlights(state.portfolioData);
+          }
+        });
+      }
 
       $('topAdminBtn').addEventListener('click', () => switchView('profile'));
 

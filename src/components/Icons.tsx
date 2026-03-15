@@ -35,3 +35,17 @@ export function SearchIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function StarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="m12 3.5 2.78 5.63 6.22.9-4.5 4.38 1.06 6.19L12 17.68l-5.56 2.92 1.06-6.19L3 10.03l6.22-.9L12 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

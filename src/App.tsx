@@ -7,8 +7,10 @@ import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
 import { useCalculator } from "./hooks/useCalculator";
 import { useMarketData } from "./hooks/useMarketData";
+import { useSignalMemory } from "./hooks/useSignalMemory";
 import { useTheme } from "./hooks/useTheme";
 import { useViewState } from "./hooks/useViewState";
+import { useWatchlist } from "./hooks/useWatchlist";
 import { getOperationPlan } from "./lib/trading";
 
 export function App() {
@@ -25,6 +27,16 @@ export function App() {
       : null,
   );
   const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
+  const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
+  const watchlist = useWatchlist({ currentUser: auth.currentUser });
+  const {
+    signals: memorySignals,
+    saveSignal,
+    updateSignal,
+    maybeAutoSaveSignal,
+    evaluatePendingSignals,
+  } = signalMemory;
+  const isCurrentCoinWatched = watchlist.isWatched(market.currentCoin);
   const { theme, toggleTheme } = useTheme(chartRef, market.candles);
   const plan = useMemo(() => {
     if (!market.indicators || !market.signal) return null;
@@ -42,6 +54,41 @@ export function App() {
       }
     })();
   }, [auth, market]);
+
+  useEffect(() => {
+    if (!auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;
+    void maybeAutoSaveSignal({
+      coin: market.currentCoin,
+      timeframe: market.timeframe,
+      signal: market.signal,
+      analysis: market.analysis,
+      plan,
+      multiTimeframes: market.multiTimeframes,
+    });
+  }, [
+    auth.currentUser,
+    market.currentCoin,
+    market.timeframe,
+    market.signal,
+    market.analysis,
+    market.multiTimeframes,
+    plan,
+    maybeAutoSaveSignal,
+    isCurrentCoinWatched,
+  ]);
+
+  useEffect(() => {
+    if (!auth.currentUser || !market.indicators?.current) return;
+    void evaluatePendingSignals({
+      currentCoin: market.currentCoin,
+      currentPrice: market.indicators.current,
+    });
+  }, [
+    auth.currentUser,
+    market.currentCoin,
+    market.indicators?.current,
+    evaluatePendingSignals,
+  ]);
 
   async function handleLogout() {
     await auth.handleLogout(async () => {
@@ -83,6 +130,8 @@ export function App() {
           currentCoin={market.currentCoin}
           coinOptions={market.availableCoins}
           popularCoins={market.popularCoins}
+          watchlist={watchlist.watchlist}
+          isCurrentCoinWatched={isCurrentCoinWatched}
           timeframe={market.timeframe}
           status={market.status}
           user={auth.currentUser}
@@ -91,6 +140,7 @@ export function App() {
           onCoinChange={market.selectCoin}
           onTimeframeChange={market.selectTimeframe}
           onRefresh={() => void market.fetchData(market.currentCoin, market.timeframe)}
+          onToggleWatchlist={() => watchlist.toggleWatchlist(market.currentCoin)}
           onToggleTheme={toggleTheme}
           onOpenAdmin={view.openProfile}
           onLogout={handleLogout}
@@ -107,6 +157,19 @@ export function App() {
           multiTimeframes={market.multiTimeframes}
           candles={market.candles}
           chartRef={chartRef}
+          onSaveSignal={() => {
+            if (!isCurrentCoinWatched) {
+              watchlist.toggleWatchlist(market.currentCoin);
+            }
+            void saveSignal({
+              coin: market.currentCoin,
+              timeframe: market.timeframe,
+              signal: market.signal,
+              analysis: market.analysis,
+              plan,
+              multiTimeframes: market.multiTimeframes,
+            });
+          }}
           indicators={market.indicators}
           market24h={market.market24h}
           support={market.supportResistance.support}
@@ -124,6 +187,9 @@ export function App() {
           onPortfolioPeriodChange={(period) => void binance.refreshPortfolio(period)}
           onRefreshPortfolio={() => void binance.refreshPortfolio()}
           onToggleHideSmallAssets={binance.setHideSmallAssets}
+          signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
+          onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
+          watchlist={watchlist.watchlist}
           user={auth.currentUser}
           users={binance.availableUsers}
           connection={binance.binanceConnection}

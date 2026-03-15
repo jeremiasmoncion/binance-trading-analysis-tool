@@ -1,6 +1,7 @@
 export type ViewName =
   | "dashboard"
   | "balance"
+  | "memory"
   | "market"
   | "calculator"
   | "compare"
@@ -93,6 +94,49 @@ export interface DashboardAnalysis {
   riskLabel: string;
   confirmations: string[];
   warnings: string[];
+}
+
+export type SignalOutcomeStatus = "pending" | "win" | "loss" | "invalidated";
+
+export interface SignalSnapshot {
+  id: number;
+  coin: string;
+  timeframe: string;
+  signal_label: string;
+  signal_score: number;
+  trend?: string;
+  setup_type?: string;
+  setup_quality?: string;
+  risk_label?: string;
+  support?: number;
+  resistance?: number;
+  entry_price?: number;
+  tp_price?: number;
+  tp2_price?: number;
+  sl_price?: number;
+  rr_ratio?: number;
+  confirmations_count?: number;
+  warnings_count?: number;
+  outcome_status: SignalOutcomeStatus;
+  outcome_pnl: number;
+  note?: string;
+  created_at: string;
+  updated_at?: string;
+  signal_payload?: {
+    signal?: Signal;
+    analysis?: DashboardAnalysis;
+    plan?: OperationPlan;
+    multiTimeframes?: TimeframeSignal[];
+    context?: {
+      direction?: string;
+      marketRegime?: string;
+      timeframeBias?: string;
+      volumeCondition?: string;
+      levelContext?: string;
+      alignmentScore?: number;
+      contextSignature?: string;
+    };
+  };
 }
 
 export interface BinanceSummary {
@@ -200,4 +244,5 @@ export interface AppState {
   availableUsers: UserSession[];
   comparison: ComparisonCoin[];
   hideSmallAssets: boolean;
+  signalMemory?: SignalSnapshot[];
 }

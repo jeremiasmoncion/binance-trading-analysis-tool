@@ -33,8 +33,10 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (connection?.accountAlias) {
         setBinanceForm((prev) => ({ ...prev, alias: connection.accountAlias || "" }));
       }
+      return connection;
     } catch {
       // keep current UI state
+      return null;
     }
   }, [currentUser]);
 
@@ -103,13 +105,14 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
 
-    if (currentView === "profile") {
-      void refreshProfileData();
-    }
-
-    if (currentView === "balance") {
-      void refreshPortfolio();
-    }
+    void (async () => {
+      const connection = await refreshProfileData();
+      if (connection?.connected) {
+        await refreshPortfolio();
+      } else if (currentView === "balance") {
+        await refreshPortfolio();
+      }
+    })();
   }, [currentUser, currentView, refreshPortfolio, refreshProfileData]);
 
   return {

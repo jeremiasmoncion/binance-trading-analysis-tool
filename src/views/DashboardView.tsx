@@ -11,6 +11,7 @@ interface DashboardViewProps {
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
+  onSaveSignal: () => void;
 }
 
 export function DashboardView(props: DashboardViewProps) {
@@ -206,7 +207,12 @@ export function DashboardView(props: DashboardViewProps) {
                   <div className="quick-plan-title">Plan rápido sugerido</div>
                   <div className="card-subtitle">Plan técnico basado en alineación, niveles, volatilidad y costo operativo.</div>
                 </div>
-                <span className="plan-chip">{analysis?.setupType || "Basado en señal + temporalidad + comisión"}</span>
+                <div className="inline-actions">
+                  <span className="plan-chip">{analysis?.setupType || "Basado en señal + temporalidad + comisión"}</span>
+                  <button className="btn-secondary-soft" type="button" onClick={props.onSaveSignal}>
+                    Guardar señal
+                  </button>
+                </div>
               </div>
               <div className="plan-signal-wrap">
                 <span className={`plan-signal-pill ${tone}`}>Señal: {signal?.label || "Esperar"}</span>

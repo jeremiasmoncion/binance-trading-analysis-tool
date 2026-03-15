@@ -50,6 +50,21 @@
   z-index: 2;
 }
 .coin-clear-btn:hover { background: #cbd5e1; color: #0f172a; }
+.watchlist-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.watchlist-toggle.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+.watchlist-icon {
+  width: 16px;
+  height: 16px;
+}
+.watchlist-pill {
+  white-space: nowrap;
+}
 .coin-combobox-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -148,4 +163,6 @@
   .top-bar { padding: 12px 16px; }
   .search-coin input { width: 180px; }
   .coin-combobox-menu { min-width: 200px; }
+  .watchlist-toggle span,
+  .watchlist-pill { display: none; }
 }

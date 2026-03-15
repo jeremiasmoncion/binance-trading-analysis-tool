@@ -29,6 +29,57 @@
 .search-coin { position: relative; }
 .search-coin input { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; width: 180px; font-size: 14px; }
 .search-coin input:focus { outline: none; border-color: #2563eb; }
+.coin-combobox-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  min-width: 240px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  padding: 8px;
+  z-index: 80;
+}
+.coin-combobox-head {
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+.coin-combobox-option {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  cursor: pointer;
+}
+.coin-combobox-option:hover,
+.coin-combobox-option.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+.coin-combobox-empty {
+  padding: 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+.coin-combobox-feedback {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  margin-top: 154px;
+  font-size: 12px;
+  color: #ef4444;
+  white-space: nowrap;
+}
 .timeframe-select { padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer; }
 .btn-primary { padding: 10px 20px; background: #1a233a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-primary:hover { background: #0f1525; }
@@ -67,4 +118,5 @@
   .nav-item { justify-content: center; padding: 14px; }
   .top-bar { padding: 12px 16px; }
   .search-coin input { width: 120px; }
+  .coin-combobox-menu { min-width: 200px; }
 }

@@ -54,6 +54,12 @@ body.dark-theme .search-coin input,
 body.dark-theme .timeframe-select,
 body.dark-theme .calc-input-group input,
 body.dark-theme .calc-input-group select { background: #111c31; color: #e2e8f0; border-color: #23314d; }
+body.dark-theme .coin-combobox-menu { background: #0f172a; border-color: #23314d; box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45); }
+body.dark-theme .coin-combobox-head,
+body.dark-theme .coin-combobox-empty { color: #94a3b8; }
+body.dark-theme .coin-combobox-option { color: #e2e8f0; }
+body.dark-theme .coin-combobox-option:hover,
+body.dark-theme .coin-combobox-option.active { background: #172554; color: #bfdbfe; }
 body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
 body.dark-theme .quick-plan {
   background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%);

@@ -81,6 +81,8 @@ export function App() {
       <main className="main-content">
         <TopBar
           currentCoin={market.currentCoin}
+          coinOptions={market.availableCoins}
+          popularCoins={market.popularCoins}
           timeframe={market.timeframe}
           status={market.status}
           user={auth.currentUser}

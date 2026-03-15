@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { COINS, MAP_TIMEFRAMES } from "../config/constants";
+import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
 import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
 import { marketService } from "../services/api";
 import type { Candle, ComparisonCoin, Indicators, Signal, TimeframeSignal, ViewName } from "../types";
@@ -18,6 +18,9 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
   const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
   const [market24h, setMarket24h] = useState({ change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" });
+  const [availableCoins, setAvailableCoins] = useState<string[]>(POPULAR_COINS);
+
+  const coinLookup = useMemo(() => new Set(availableCoins), [availableCoins]);
 
   const supportResistance = useMemo(
     () => getSupportResistance(candles.length ? candles : generateFallbackCandles(timeframe)),
@@ -45,7 +48,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
 
       const ticker = await marketService.fetch24h(coin);
       const nextComparison = await Promise.all(
-        COINS.slice(0, 4).map(async (symbol) => {
+        POPULAR_COINS.slice(0, 4).map(async (symbol) => {
           const data = await marketService.fetch24h(symbol);
           const change = Number(data.priceChangePercent || 0);
           return {
@@ -78,6 +81,21 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   }, [currentCoin, timeframe]);
 
   useEffect(() => {
+    let active = true;
+    void (async () => {
+      const symbols = await marketService.fetchSymbols();
+      if (!active || !symbols.length) return;
+
+      const merged = Array.from(new Set([...POPULAR_COINS.filter((coin) => symbols.includes(coin)), ...symbols]));
+      setAvailableCoins(merged);
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (currentView !== "dashboard" && currentView !== "market") return undefined;
     const intervalId = window.setInterval(() => {
       void fetchData();
@@ -94,12 +112,16 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     signal,
     multiTimeframes,
     comparison,
+    availableCoins,
+    popularCoins: POPULAR_COINS.filter((coin) => coinLookup.has(coin)),
     market24h,
     supportResistance,
     fetchData,
     selectCoin(coin: string) {
-      if (!coin) return;
-      void fetchData(coin, timeframe);
+      const normalized = coin.trim().toUpperCase();
+      if (!normalized || !coinLookup.has(normalized)) return false;
+      void fetchData(normalized, timeframe);
+      return true;
     },
     selectTimeframe(nextTimeframe: string) {
       void fetchData(currentCoin, nextTimeframe);

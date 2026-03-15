@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { SearchIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -14,6 +15,8 @@ interface BalanceViewProps {
   onToggleHideSmall: (value: boolean) => void;
 }
 
+const PAGE_SIZE = 10;
+
 function getPerformanceClass(value: number) {
   if (value > 0) return "portfolio-positive";
   if (value < 0) return "portfolio-negative";
@@ -26,8 +29,15 @@ function getVisibleAssets(payload: PortfolioPayload | null, hideSmallAssets: boo
 }
 
 export function BalanceView(props: BalanceViewProps) {
+  const [assetPage, setAssetPage] = useState(1);
+  const [openOrdersPage, setOpenOrdersPage] = useState(1);
+  const [closedOrdersPage, setClosedOrdersPage] = useState(1);
+  const [tradesPage, setTradesPage] = useState(1);
   const portfolio = props.payload?.portfolio;
   const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
+  const openOrders = props.payload?.openOrders || [];
+  const recentOrders = props.payload?.recentOrders || [];
+  const recentTrades = props.payload?.recentTrades || [];
   const nonUsdtAssets = visibleAssets.filter((asset) => asset.asset !== "USDT");
   const winner = nonUsdtAssets.slice().sort((a, b) => b.pnlValue - a.pnlValue)[0];
   const loser = nonUsdtAssets.slice().sort((a, b) => a.pnlValue - b.pnlValue)[0];
@@ -36,6 +46,20 @@ export function BalanceView(props: BalanceViewProps) {
   const periodLabel = props.period === "30d" ? "30 días" : props.period === "7d" ? "7 días" : "ayer";
   const hiddenLockedValue = portfolio?.hiddenLockedValue || 0;
   const hiddenLockedAssetsCount = portfolio?.hiddenLockedAssetsCount || 0;
+  const pagedAssets = useMemo(() => paginateRows(visibleAssets, assetPage), [visibleAssets, assetPage]);
+  const pagedOpenOrders = useMemo(() => paginateRows(openOrders, openOrdersPage), [openOrders, openOrdersPage]);
+  const pagedClosedOrders = useMemo(() => paginateRows(recentOrders, closedOrdersPage), [recentOrders, closedOrdersPage]);
+  const pagedTrades = useMemo(() => paginateRows(recentTrades, tradesPage), [recentTrades, tradesPage]);
+
+  useEffect(() => {
+    setAssetPage(1);
+  }, [props.hideSmallAssets, props.payload?.assets?.length]);
+
+  useEffect(() => {
+    setOpenOrdersPage(1);
+    setClosedOrdersPage(1);
+    setTradesPage(1);
+  }, [props.payload?.openOrders?.length, props.payload?.recentOrders?.length, props.payload?.recentTrades?.length]);
 
   return (
     <div id="balanceView" className="view-panel active">
@@ -107,17 +131,30 @@ export function BalanceView(props: BalanceViewProps) {
                       <td colSpan={8}><EmptyState message={props.hideSmallAssets ? "No hay activos visibles por encima de 1 USD con el filtro actual." : "No hay balances disponibles para esta cuenta."} /></td>
                     </tr>
                   ) : (
-                    visibleAssets.map((asset) => <AssetRow asset={asset} key={asset.asset} />)
+                    pagedAssets.rows.map((asset) => <AssetRow asset={asset} key={asset.asset} />)
                   )}
                 </tbody>
               </table>
             </div>
+            <PaginationControls
+              currentPage={assetPage}
+              totalPages={pagedAssets.totalPages}
+              totalItems={visibleAssets.length}
+              label="activos"
+              onPageChange={setAssetPage}
+            />
           </SectionCard>
 
           <SectionCard title="Historial real" subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones.">
-            <div className="dashboard-main-grid">
-              <div className="dashboard-stack">
-                <div className="card-subtitle">Órdenes abiertas</div>
+            <div className="history-grid">
+              <div className="history-panel">
+                <div className="history-panel-head">
+                  <div>
+                    <div className="card-title history-title">Órdenes abiertas</div>
+                    <div className="card-subtitle">Lo que todavía está pendiente o parcialmente ejecutado.</div>
+                  </div>
+                  <span className="history-badge">{openOrders.length}</span>
+                </div>
                 <div className="table-scroll">
                   <table className="portfolio-table">
                     <thead>
@@ -132,18 +169,31 @@ export function BalanceView(props: BalanceViewProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {!props.payload?.openOrders?.length ? (
+                      {!openOrders.length ? (
                         <tr><td colSpan={7}><EmptyState message="No hay órdenes abiertas en esta cuenta." /></td></tr>
                       ) : (
-                        props.payload.openOrders.map((order, index) => <OrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
+                        pagedOpenOrders.rows.map((order, index) => <OrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
                       )}
                     </tbody>
                   </table>
                 </div>
+                <PaginationControls
+                  currentPage={openOrdersPage}
+                  totalPages={pagedOpenOrders.totalPages}
+                  totalItems={openOrders.length}
+                  label="órdenes abiertas"
+                  onPageChange={setOpenOrdersPage}
+                />
               </div>
 
-              <div className="dashboard-stack">
-                <div className="card-subtitle">Órdenes cerradas recientes</div>
+              <div className="history-panel">
+                <div className="history-panel-head">
+                  <div>
+                    <div className="card-title history-title">Órdenes cerradas recientes</div>
+                    <div className="card-subtitle">Compras y ventas ya completadas o canceladas.</div>
+                  </div>
+                  <span className="history-badge">{recentOrders.length}</span>
+                </div>
                 <div className="table-scroll">
                   <table className="portfolio-table">
                     <thead>
@@ -158,39 +208,62 @@ export function BalanceView(props: BalanceViewProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {!props.payload?.recentOrders?.length ? (
+                      {!recentOrders.length ? (
                         <tr><td colSpan={7}><EmptyState message="Todavía no hay órdenes cerradas recientes para los activos visibles." /></td></tr>
                       ) : (
-                        props.payload.recentOrders.map((order, index) => <ClosedOrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
+                        pagedClosedOrders.rows.map((order, index) => <ClosedOrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
                       )}
                     </tbody>
                   </table>
                 </div>
+                <PaginationControls
+                  currentPage={closedOrdersPage}
+                  totalPages={pagedClosedOrders.totalPages}
+                  totalItems={recentOrders.length}
+                  label="órdenes cerradas"
+                  onPageChange={setClosedOrdersPage}
+                />
               </div>
             </div>
 
-            <div className="table-scroll">
-              <table className="portfolio-table">
-                <thead>
-                  <tr>
-                    <th>Trade</th>
-                    <th>Lado</th>
-                    <th>Precio</th>
-                    <th>Cantidad</th>
-                    <th>Valor</th>
-                    <th>Comisión</th>
-                    <th>PnL realizado</th>
-                    <th>Hora</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!props.payload?.recentTrades?.length ? (
-                    <tr><td colSpan={8}><EmptyState message="Aún no hay trades recientes para construir historial real." /></td></tr>
-                  ) : (
-                    props.payload.recentTrades.map((trade, index) => <TradeRow key={`${trade.symbol}-${trade.time}-${index}`} trade={trade} />)
-                  )}
-                </tbody>
-              </table>
+            <div className="history-panel">
+              <div className="history-panel-head">
+                <div>
+                  <div className="card-title history-title">Trades recientes</div>
+                  <div className="card-subtitle">Ejecuciones reales con comisión y PnL realizado por venta.</div>
+                </div>
+                <span className="history-badge">{recentTrades.length}</span>
+              </div>
+              <div className="table-scroll">
+                <table className="portfolio-table">
+                  <thead>
+                    <tr>
+                      <th>Trade</th>
+                      <th>Lado</th>
+                      <th>Precio</th>
+                      <th>Cantidad</th>
+                      <th>Valor</th>
+                      <th>Comisión</th>
+                      <th>PnL realizado</th>
+                      <th>Hora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!recentTrades.length ? (
+                      <tr><td colSpan={8}><EmptyState message="Aún no hay trades recientes para construir historial real." /></td></tr>
+                    ) : (
+                      pagedTrades.rows.map((trade, index) => <TradeRow key={`${trade.symbol}-${trade.time}-${index}`} trade={trade} />)
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls
+                currentPage={tradesPage}
+                totalPages={pagedTrades.totalPages}
+                totalItems={recentTrades.length}
+                label="trades"
+                onPageChange={setTradesPage}
+              />
             </div>
           </SectionCard>
         </div>
@@ -322,5 +395,51 @@ function TradeRow({ trade }: { trade: BinanceTradeSummary }) {
       <td><span className={getPerformanceClass(trade.realizedPnl || 0)}>{formatSignedPrice(trade.realizedPnl || 0)}</span></td>
       <td>{new Date(trade.time).toLocaleString("es-DO")}</td>
     </tr>
+  );
+}
+
+function paginateRows<T>(rows: T[], currentPage: number) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  return {
+    rows: rows.slice(start, start + PAGE_SIZE),
+    totalPages,
+    safePage,
+  };
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  label,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  label: string;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalItems <= PAGE_SIZE) {
+    return null;
+  }
+
+  return (
+    <div className="pagination-bar">
+      <div className="pagination-note">
+        Mostrando {Math.min((currentPage - 1) * PAGE_SIZE + 1, totalItems)}-{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} {label}
+      </div>
+      <div className="pagination-actions">
+        <button className="btn-secondary-soft" type="button" onClick={() => onPageChange(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>
+          Anterior
+        </button>
+        <span className="pagination-page">Página {currentPage} de {totalPages}</span>
+        <button className="btn-secondary-soft" type="button" onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>
+          Siguiente
+        </button>
+      </div>
+    </div>
   );
 }

@@ -92,6 +92,10 @@ body.dark-theme .binance-status-title { color: #e2e8f0; }
 body.dark-theme .btn-secondary-soft { background:#1e293b; color:#e2e8f0; }
 body.dark-theme .portfolio-search-icon { color:#f8fafc; }
 body.dark-theme .portfolio-filter-toggle { color:#e5e7eb; }
+body.dark-theme .history-panel { background:#111827; border-color:#23314d; }
+body.dark-theme .history-badge { background:#172554; color:#bfdbfe; }
+body.dark-theme .pagination-note,
+body.dark-theme .pagination-page { color:#cbd5e1; }
 body.dark-theme .timeframe-map,
 body.dark-theme .dashboard-mini-card,
 body.dark-theme .dashboard-pulse { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }

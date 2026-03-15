@@ -38,7 +38,7 @@ export function BalanceView(props: BalanceViewProps) {
   const hiddenLockedAssetsCount = portfolio?.hiddenLockedAssetsCount || 0;
 
   return (
-    <div id="journalView" className="view-panel active">
+    <div id="balanceView" className="view-panel active">
       <SectionCard
         title="Balance"
         subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."

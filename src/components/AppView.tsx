@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { Candle, ComparisonCoin, Indicators, OperationPlan, PortfolioPayload, Signal, TimeframeSignal, UserSession, ViewName, BinanceConnection } from "../types";
+import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, TimeframeSignal, UserSession, ViewName } from "../types";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
@@ -15,6 +15,7 @@ interface AppViewProps {
   currentPrice: number;
   signal: Signal | null;
   plan: OperationPlan | null;
+  analysis: DashboardAnalysis | null;
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: RefObject<HTMLCanvasElement | null>;
@@ -64,6 +65,7 @@ export function AppView(props: AppViewProps) {
           currentPrice={props.currentPrice}
           signal={props.signal}
           plan={props.plan}
+          analysis={props.analysis}
           multiTimeframes={props.multiTimeframes}
           candles={props.candles}
           chartRef={props.chartRef}

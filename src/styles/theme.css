@@ -54,6 +54,20 @@ body.dark-theme .search-coin input,
 body.dark-theme .timeframe-select,
 body.dark-theme .calc-input-group input,
 body.dark-theme .calc-input-group select { background: #111c31; color: #e2e8f0; border-color: #23314d; }
+body.dark-theme .coin-clear-btn { background: #23314d; color: #cbd5e1; }
+body.dark-theme .coin-clear-btn:hover { background: #334155; color: #f8fafc; }
+body.dark-theme .coin-combobox-menu { background: #0f172a; border-color: #23314d; box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45); }
+body.dark-theme .coin-combobox-head,
+body.dark-theme .coin-combobox-empty { color: #94a3b8; }
+body.dark-theme .coin-combobox-option { color: #e2e8f0; }
+body.dark-theme .coin-combobox-option:hover,
+body.dark-theme .coin-combobox-option.active { background: #172554; color: #bfdbfe; }
+body.dark-theme .coin-combobox-option.current { color: #f8fafc; }
+body.dark-theme .coin-combobox-feedback {
+  background: rgba(69, 10, 10, 0.92);
+  border-color: rgba(248, 113, 113, 0.24);
+  color: #fecaca;
+}
 body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
 body.dark-theme .quick-plan {
   background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%);
@@ -80,10 +94,29 @@ body.dark-theme .binance-status-title { color: #e2e8f0; }
 body.dark-theme .btn-secondary-soft { background:#1e293b; color:#e2e8f0; }
 body.dark-theme .portfolio-search-icon { color:#f8fafc; }
 body.dark-theme .portfolio-filter-toggle { color:#e5e7eb; }
+body.dark-theme .history-panel { background:#111827; border-color:#23314d; }
+body.dark-theme .history-badge { background:#172554; color:#bfdbfe; }
+body.dark-theme .pagination-note,
+body.dark-theme .pagination-page { color:#cbd5e1; }
 body.dark-theme .timeframe-map,
 body.dark-theme .dashboard-mini-card,
-body.dark-theme .dashboard-pulse { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+body.dark-theme .timeframe-map,
+body.dark-theme .dashboard-mini-card,
+body.dark-theme .dashboard-pulse,
+body.dark-theme .analysis-card,
+body.dark-theme .levels-card { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+body.dark-theme .dashboard-chip,
+body.dark-theme .timeframe-map-score { background:#172554; color:#bfdbfe; border-color:#23314d; }
 body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }
+body.dark-theme .level-pill,
+body.dark-theme .checklist-card { background:#111c31; border-color:#23314d; }
+body.dark-theme .checklist-card.warnings { background:linear-gradient(180deg, #2b1624 0%, #111c31 100%); border-color:#7f1d1d; }
+body.dark-theme .analysis-card-value,
+body.dark-theme .level-pill strong,
+body.dark-theme .checklist-title { color:#f8fafc; }
+body.dark-theme .analysis-card-note,
+body.dark-theme .level-pill span,
+body.dark-theme .checklist-card li { color:#94a3b8; }
 body.dark-theme .timeframe-chip.buy { background: linear-gradient(135deg, #0d2017 0%, #10261b 100%); border-color: #166534; }
 body.dark-theme .timeframe-chip.buy .timeframe-chip-value { color: #86efac; }
 body.dark-theme .timeframe-chip.wait { background: linear-gradient(135deg, #261d0c 0%, #2b220d 100%); border-color: #854d0e; }

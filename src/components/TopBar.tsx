@@ -1,15 +1,18 @@
-import { COINS, TIMEFRAME_OPTIONS } from "../config/constants";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { TIMEFRAME_OPTIONS } from "../config/constants";
 import { MoonIcon, SunIcon } from "./Icons";
 import type { UserSession } from "../types";
 
 interface TopBarProps {
   currentCoin: string;
+  coinOptions: string[];
+  popularCoins: string[];
   timeframe: string;
   status: "idle" | "loading" | "ok" | "error";
   user: UserSession;
   showAdmin: boolean;
   theme: "light" | "dark";
-  onCoinChange: (coin: string) => void;
+  onCoinChange: (coin: string) => boolean;
   onTimeframeChange: (timeframe: string) => void;
   onRefresh: () => void;
   onToggleTheme: () => void;
@@ -18,19 +21,130 @@ interface TopBarProps {
 }
 
 export function TopBar(props: TopBarProps) {
+  const [query, setQuery] = useState(props.currentCoin);
+  const [isOpen, setIsOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const statusText =
     props.status === "loading" ? "Cargando..." : props.status === "error" ? "Error de conexión" : "Datos correctos";
+  const filteredCoins = useMemo(() => {
+    const normalized = query.trim().toUpperCase().replace(/\s+/g, "");
+    const source = normalized
+      ? props.coinOptions.filter((coin) => coin.includes(normalized))
+      : props.popularCoins;
+    return source.slice(0, 10);
+  }, [props.coinOptions, props.popularCoins, query]);
+
+  useEffect(() => {
+    setQuery(props.currentCoin);
+  }, [props.currentCoin]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [query, isOpen]);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  function applyCoin(nextCoin: string) {
+    const normalized = nextCoin.trim().toUpperCase();
+    const ok = props.onCoinChange(normalized);
+    if (!ok) {
+      setFeedback("Ese par no existe en Binance Spot");
+      setIsOpen(true);
+      return;
+    }
+    setFeedback("");
+    setQuery(normalized);
+    setIsOpen(false);
+  }
 
   return (
     <header className="top-bar">
       <div className="top-left">
-        <div className="search-coin">
-          <input list="coin-options" value={props.currentCoin} onChange={(e) => props.onCoinChange(e.target.value)} placeholder="Buscar moneda" />
-          <datalist id="coin-options">
-            {COINS.map((coin) => (
-              <option key={coin} value={coin} />
-            ))}
-          </datalist>
+        <div className="search-coin" ref={wrapperRef}>
+          {query ? (
+            <button
+              type="button"
+              className="coin-clear-btn"
+              aria-label="Limpiar búsqueda"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setQuery("");
+                setFeedback("");
+                setIsOpen(true);
+              }}
+            >
+              ×
+            </button>
+          ) : null}
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setFeedback("");
+              setIsOpen(true);
+            }}
+            onFocus={() => setIsOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setIsOpen(true);
+                if (!filteredCoins.length) return;
+                setActiveIndex((current) => (current + 1) % filteredCoins.length);
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setIsOpen(true);
+                if (!filteredCoins.length) return;
+                setActiveIndex((current) => (current - 1 + filteredCoins.length) % filteredCoins.length);
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (isOpen && filteredCoins[activeIndex]) {
+                  applyCoin(filteredCoins[activeIndex]);
+                } else {
+                  applyCoin(query);
+                }
+              }
+              if (e.key === "Escape") {
+                setIsOpen(false);
+              }
+            }}
+            placeholder="Busca un par, ej. BTC/USDT"
+            spellCheck={false}
+          />
+          {isOpen ? (
+            <div className="coin-combobox-menu">
+              <div className="coin-combobox-head">{query.trim() ? "Resultados" : "Populares en Binance"}</div>
+              {filteredCoins.length ? (
+                filteredCoins.map((coin, index) => (
+                  <button
+                    key={coin}
+                    type="button"
+                    className={`coin-combobox-option${index === activeIndex ? " active" : ""}${coin === props.currentCoin ? " current" : ""}`}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => applyCoin(coin)}
+                  >
+                    {coin}
+                  </button>
+                ))
+              ) : (
+                <div className="coin-combobox-empty">No encontramos ese par en Binance Spot.</div>
+              )}
+            </div>
+          ) : null}
+          {feedback ? <div className="coin-combobox-feedback">{feedback}</div> : null}
         </div>
 
         <select className="timeframe-select" value={props.timeframe} onChange={(e) => props.onTimeframeChange(e.target.value)}>

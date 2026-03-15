@@ -1,4 +1,4 @@
-export const COINS = [
+export const POPULAR_COINS = [
   "BTC/USDT",
   "ETH/USDT",
   "BNB/USDT",
@@ -7,6 +7,8 @@ export const COINS = [
   "ADA/USDT",
   "DOGE/USDT",
   "MATIC/USDT",
+  "LINK/USDT",
+  "AVAX/USDT",
 ];
 
 export const TIMEFRAME_OPTIONS = [

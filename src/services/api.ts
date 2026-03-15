@@ -76,6 +76,13 @@ export interface MarketTicker {
   volume?: string;
 }
 
+export interface ExchangeSymbol {
+  symbol: string;
+  status: string;
+  baseAsset: string;
+  quoteAsset: string;
+}
+
 export const marketService = {
   async fetchCandles(symbol: string, timeframe: string) {
     try {
@@ -107,6 +114,18 @@ export const marketService = {
         lowPrice: "69000",
         volume: "25000",
       };
+    }
+  },
+  async fetchSymbols(): Promise<string[]> {
+    try {
+      const response = await fetch("https://api.binance.com/api/v3/exchangeInfo");
+      const data = await response.json();
+      const symbols = Array.isArray(data?.symbols) ? (data.symbols as ExchangeSymbol[]) : [];
+      return symbols
+        .filter((item) => item.status === "TRADING" && item.quoteAsset === "USDT")
+        .map((item) => `${item.baseAsset}/${item.quoteAsset}`);
+    } catch {
+      return [];
     }
   },
 };

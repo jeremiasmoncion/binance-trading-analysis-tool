@@ -1,4 +1,4 @@
-import type { Candle, Indicators, OperationPlan, Signal } from "../types";
+import type { Candle, DashboardAnalysis, Indicators, OperationPlan, Signal, TimeframeSignal } from "../types";
 
 export function generateFallbackCandles(tf: string): Candle[] {
   const base = 70000;
@@ -56,6 +56,21 @@ export function calcRSI(data: Candle[], period = 14) {
   if (losses === 0) return 100;
   const rs = gains / losses;
   return 100 - 100 / (1 + rs);
+}
+
+export function calcATR(data: Candle[], period = 14) {
+  if (data.length < 2) return 0;
+  const slice = data.slice(-(period + 1));
+  const trueRanges = slice.slice(1).map((candle, index) => {
+    const previousClose = slice[index].close;
+    return Math.max(
+      candle.high - candle.low,
+      Math.abs(candle.high - previousClose),
+      Math.abs(candle.low - previousClose),
+    );
+  });
+  if (!trueRanges.length) return 0;
+  return trueRanges.reduce((sum, value) => sum + value, 0) / trueRanges.length;
 }
 
 export function calcIndicators(candles: Candle[]): Indicators {
@@ -118,6 +133,7 @@ export function getOperationPlan(
   signal: Signal,
   capital: number,
   timeframe: string,
+  analysis?: DashboardAnalysis | null,
 ): OperationPlan {
   const refCapital = capital > 0 ? capital : 100;
   const basePct =
@@ -138,24 +154,36 @@ export function getOperationPlan(
     }[timeframe] || 0.8;
 
   const strengthFactor = Math.max(0.5, signal.score / 50);
-  const tpPct = basePct * strengthFactor;
-  const slPct = tpPct * 0.6;
+  const volatilityFactor = analysis ? Math.max(0.9, Math.min(1.5, analysis.volatilityPct / 1.2)) : 1;
+  const tpPct = basePct * strengthFactor * volatilityFactor;
+  const supportGap = analysis?.supportDistancePct || tpPct * 0.6;
+  const resistanceGap = analysis?.resistanceDistancePct || tpPct;
+  const slPct = Math.max(basePct * 0.45, Math.min(tpPct * 0.65, supportGap > 0 ? supportGap * 0.95 : tpPct * 0.6));
 
   const entry = indicators.current;
-  const tp = entry * (1 + tpPct / 100);
-  const sl = entry * (1 - slPct / 100);
+  const tp = signal.label === "Vender"
+    ? entry * (1 - Math.max(basePct * 0.5, Math.min(tpPct, supportGap || tpPct)) / 100)
+    : entry * (1 + Math.max(basePct * 0.5, Math.min(tpPct, resistanceGap || tpPct)) / 100);
+  const tp2Pct = Math.max(tpPct * 1.6, tpPct + (analysis?.volatilityPct || 0.6));
+  const tp2 = signal.label === "Vender" ? entry * (1 - tp2Pct / 100) : entry * (1 + tp2Pct / 100);
+  const sl = signal.label === "Vender" ? entry * (1 + slPct / 100) : entry * (1 - slPct / 100);
   const riskPct = slPct + 0.2;
-  const benefitPct = tpPct - 0.2;
+  const benefitPct = Math.max(0, Math.abs(((tp - entry) / entry) * 100) - 0.2);
+  const rrRatio = riskPct > 0 ? benefitPct / riskPct : 0;
 
   return {
     entry,
     tp,
+    tp2,
     sl,
     riskPct,
     benefitPct,
     riskAmt: (refCapital * riskPct) / 100,
     benefitAmt: (refCapital * benefitPct) / 100,
     refCapital,
+    rrRatio: Number(rrRatio.toFixed(2)),
+    setupBias: analysis?.setupType,
+    invalidation: sl,
   };
 }
 
@@ -164,5 +192,100 @@ export function getSupportResistance(candles: Candle[]) {
   return {
     support: Math.min(...prices),
     resistance: Math.max(...prices),
+  };
+}
+
+export function buildDashboardAnalysis(
+  candles: Candle[],
+  indicators: Indicators,
+  signal: Signal,
+  multiTimeframes: TimeframeSignal[],
+) : DashboardAnalysis {
+  const { support, resistance } = getSupportResistance(candles);
+  const current = indicators.current;
+  const atr = calcATR(candles);
+  const volatilityPct = current > 0 ? (atr / current) * 100 : 0;
+  const recentVolumes = candles.slice(-20).map((candle) => candle.volume || 0);
+  const avgVolume = recentVolumes.length ? recentVolumes.reduce((sum, value) => sum + value, 0) / recentVolumes.length : 0;
+  const currentVolume = candles[candles.length - 1]?.volume || 0;
+  const volumeRatio = avgVolume > 0 ? currentVolume / avgVolume : 1;
+  const alignmentCount = multiTimeframes.filter((item) => item.label === signal.label).length;
+  const alignmentTotal = multiTimeframes.length || 1;
+  const alignmentPct = (alignmentCount / alignmentTotal) * 100;
+  const higherFrames = multiTimeframes.filter((item) => item.timeframe === "4H" || item.timeframe === "1D");
+  const higherTimeframeBias =
+    higherFrames.filter((item) => item.label === "Comprar").length >= 2
+      ? "Alcista"
+      : higherFrames.filter((item) => item.label === "Vender").length >= 2
+        ? "Bajista"
+        : "Mixto";
+  const supportDistancePct = current > 0 ? Math.max(0, ((current - support) / current) * 100) : 0;
+  const resistanceDistancePct = current > 0 ? Math.max(0, ((resistance - current) / current) * 100) : 0;
+  const range = resistance - support;
+  const rangePositionPct = range > 0 ? ((current - support) / range) * 100 : 50;
+  const volatilityLabel = volatilityPct > 2.5 ? "Alta" : volatilityPct > 1.2 ? "Media" : "Baja";
+  const volumeLabel = volumeRatio > 1.25 ? "Volumen fuerte" : volumeRatio < 0.85 ? "Volumen débil" : "Volumen normal";
+
+  let setupType = "Espera";
+  if (signal.label === "Comprar" && higherTimeframeBias === "Alcista") {
+    setupType = rangePositionPct < 45 ? "Pullback en tendencia" : "Continuación";
+  } else if (signal.label === "Vender" && higherTimeframeBias === "Bajista") {
+    setupType = rangePositionPct > 55 ? "Pullback bajista" : "Continuación bajista";
+  } else if (signal.label !== "Esperar") {
+    setupType = "Contra tendencia";
+  }
+
+  const confirmations: string[] = [];
+  const warnings: string[] = [];
+
+  if (alignmentCount >= 4) confirmations.push(`${alignmentCount}/${alignmentTotal} temporalidades alineadas`);
+  else if (alignmentCount >= 3) confirmations.push(`Contexto usable con ${alignmentCount}/${alignmentTotal} marcos alineados`);
+  else warnings.push(`Solo ${alignmentCount}/${alignmentTotal} temporalidades están alineadas`);
+
+  if (volumeRatio > 1.1) confirmations.push(volumeLabel);
+  else if (volumeRatio < 0.85) warnings.push(volumeLabel);
+
+  if (signal.label === "Comprar" && resistanceDistancePct < 1.2) warnings.push("Resistencia cercana");
+  if (signal.label === "Vender" && supportDistancePct < 1.2) warnings.push("Soporte cercano");
+  if (signal.label === "Comprar" && supportDistancePct < 0.6) warnings.push("Entrada muy pegada al soporte");
+  if (signal.label === "Vender" && resistanceDistancePct < 0.6) warnings.push("Entrada muy pegada a resistencia");
+
+  if (higherTimeframeBias === signal.trend) confirmations.push(`Marco mayor ${higherTimeframeBias.toLowerCase()}`);
+  else if (signal.label !== "Esperar" && higherTimeframeBias !== "Mixto") warnings.push(`Vas contra el marco mayor ${higherTimeframeBias.toLowerCase()}`);
+
+  const setupQuality =
+    alignmentCount >= 4 && volumeRatio > 1.1 && warnings.length <= 1
+      ? "Alta"
+      : alignmentCount >= 3 && warnings.length <= 2
+        ? "Media"
+        : "Baja";
+
+  const riskLabel =
+    warnings.length >= 3 || setupQuality === "Baja"
+      ? "Agresivo"
+      : volatilityPct > 2.5
+        ? "Elevado"
+        : "Controlado";
+
+  return {
+    alignmentCount,
+    alignmentTotal,
+    alignmentPct: Number(alignmentPct.toFixed(0)),
+    alignmentLabel: alignmentCount >= 4 ? "Alta alineación" : alignmentCount >= 3 ? "Alineación mixta" : "Desalineado",
+    higherTimeframeBias,
+    support,
+    resistance,
+    supportDistancePct: Number(supportDistancePct.toFixed(2)),
+    resistanceDistancePct: Number(resistanceDistancePct.toFixed(2)),
+    rangePositionPct: Number(rangePositionPct.toFixed(1)),
+    volatilityPct: Number(volatilityPct.toFixed(2)),
+    volatilityLabel,
+    volumeRatio: Number(volumeRatio.toFixed(2)),
+    volumeLabel,
+    setupType,
+    setupQuality,
+    riskLabel,
+    confirmations,
+    warnings,
   };
 }

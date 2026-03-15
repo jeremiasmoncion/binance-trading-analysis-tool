@@ -21,15 +21,15 @@ export function App() {
   const calculatorState = useCalculator(
     market.indicators,
     market.indicators && market.signal
-      ? getOperationPlan(market.indicators, market.signal, 0, market.timeframe)
+      ? getOperationPlan(market.indicators, market.signal, 0, market.timeframe, market.analysis)
       : null,
   );
   const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
   const { theme, toggleTheme } = useTheme(chartRef, market.candles);
   const plan = useMemo(() => {
     if (!market.indicators || !market.signal) return null;
-    return getOperationPlan(market.indicators, market.signal, calculatorState.capitalValue, market.timeframe);
-  }, [market.indicators, market.signal, calculatorState.capitalValue, market.timeframe]);
+    return getOperationPlan(market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis);
+  }, [market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis]);
 
   useEffect(() => {
     if (bootstrappedRef.current) return;
@@ -81,6 +81,8 @@ export function App() {
       <main className="main-content">
         <TopBar
           currentCoin={market.currentCoin}
+          coinOptions={market.availableCoins}
+          popularCoins={market.popularCoins}
           timeframe={market.timeframe}
           status={market.status}
           user={auth.currentUser}
@@ -101,6 +103,7 @@ export function App() {
           currentPrice={market.indicators?.current || 0}
           signal={market.signal}
           plan={plan}
+          analysis={market.analysis}
           multiTimeframes={market.multiTimeframes}
           candles={market.candles}
           chartRef={chartRef}

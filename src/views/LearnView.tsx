@@ -12,14 +12,7 @@ const LEARN_CARDS = [
 export function LearnView() {
   return (
     <div id="learnView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Aprender</div>
-            <div className="card-subtitle">Glosario práctico y consejos para principiantes antes de operar en Binance.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Aprender" subtitle="Glosario práctico y consejos para principiantes antes de operar en Binance." />
 
       <div className="learn-grid">
         {LEARN_CARDS.map(([tag, title, content]) => (
@@ -33,3 +26,4 @@ export function LearnView() {
     </div>
   );
 }
+import { SectionCard } from "../components/ui/SectionCard";

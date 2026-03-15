@@ -1,0 +1,43 @@
+.calculator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.calc-input-group { margin-bottom: 16px; }
+.calc-input-group label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+.calc-input-group input, .calc-input-group select { width: 100%; padding: 11px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+.calc-input-group input:focus { outline: none; border-color: #2563eb; }
+.btn-calc { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 10px; transition: all 0.2s; }
+.btn-suggest { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; }
+.btn-current { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #fff; }
+.calc-results { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; padding: 18px; }
+.result-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+.result-row:last-child { border-bottom: none; }
+.result-label { font-size: 13px; color: #64748b; }
+.result-value { font-size: 14px; font-weight: 700; color: #1a233a; }
+.result-value.positive { color: #16a34a; }
+.result-value.negative { color: #ef4444; }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.profile-section { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+.profile-section h3 { font-size: 16px; font-weight: 700; color: #1a233a; margin-bottom: 16px; }
+.user-list { max-height: 300px; overflow-y: auto; }
+.user-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+.user-item:last-child { border-bottom: none; }
+.login-overlay { position: fixed; inset: 0; background: linear-gradient(135deg, #1a233a 0%, #0f1525 100%); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.login-box { background: #fff; padding: 40px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.login-logo { text-align: center; margin-bottom: 24px; }
+.login-logo .logo-icon { width: 60px; height: 60px; font-size: 28px; margin: 0 auto 12px; }
+.login-logo h2 { font-size: 24px; font-weight: 800; color: #1a233a; }
+.login-form input { width: 100%; padding: 14px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 15px; margin-bottom: 14px; color: #0f172a; background: #ffffff; }
+.login-form input::placeholder { color: #94a3b8; }
+.login-form input:focus { outline: none; border-color: #2563eb; }
+.btn-login { width: 100%; padding: 14px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; }
+.login-error { background: #fef2f2; color: #ef4444; padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+.login-subtitle { color:#64748b;font-size:13px;margin-top:4px; }
+.login-switch { margin-top: 14px; text-align:center; font-size:13px; color:#64748b; }
+.login-switch button { background:none; border:none; color:#2563eb; font-weight:700; cursor:pointer; padding:0; }
+.login-hint { margin-top:12px; text-align:center; font-size:12px; color:#94a3b8; }
+.binance-status-card { border:1px solid #e2e8f0; border-radius:12px; padding:14px; background:#f8fafc; margin-bottom:14px; }
+.binance-status-title { font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px; }
+.binance-status-note { font-size:12px; color:#64748b; }
+.btn-secondary-soft { width:100%; padding:12px; background:#e2e8f0; color:#0f172a; border:none; border-radius:10px; font-weight:700; cursor:pointer; margin-top:10px; }
+
+@media (max-width: 1024px) {
+  .calculator-grid, .profile-grid { grid-template-columns: 1fr; }
+}

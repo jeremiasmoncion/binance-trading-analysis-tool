@@ -1,3 +1,5 @@
+import { SectionCard } from "../components/ui/SectionCard";
+import { StatCard } from "../components/ui/StatCard";
 import { formatPrice } from "../lib/format";
 import type { Indicators, Signal } from "../types";
 
@@ -21,38 +23,13 @@ export function MarketView(props: MarketViewProps) {
   const indicators = props.indicators;
   return (
     <div id="marketView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Lectura de mercado</div>
-            <div className="card-subtitle">Señal principal, indicadores y contexto técnico del activo seleccionado.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Lectura de mercado" subtitle="Señal principal, indicadores y contexto técnico del activo seleccionado." />
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="label">Cambio 24h</div>
-          <div className={`value ${props.market24h.change >= 0 ? "positive" : "negative"}`}>{props.market24h.change.toFixed(2)}%</div>
-          <div className="sub">Variación del día</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Máximo / Mínimo 24h</div>
-          <div className="value">
-            {formatPrice(props.market24h.high)} / {formatPrice(props.market24h.low)}
-          </div>
-          <div className="sub">Rango donde se ha movido hoy</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Volumen 24h</div>
-          <div className="value">{props.market24h.volume}</div>
-          <div className="sub">Entre más volumen, más participación</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Última actualización</div>
-          <div className="value">{props.market24h.updatedAt}</div>
-          <div className="sub">Datos en vivo</div>
-        </div>
+        <StatCard label="Cambio 24h" value={`${props.market24h.change.toFixed(2)}%`} toneClass={props.market24h.change >= 0 ? "positive" : "negative"} sub="Variación del día" />
+        <StatCard label="Máximo / Mínimo 24h" value={`${formatPrice(props.market24h.high)} / ${formatPrice(props.market24h.low)}`} sub="Rango donde se ha movido hoy" />
+        <StatCard label="Volumen 24h" value={props.market24h.volume} sub="Entre más volumen, más participación" />
+        <StatCard label="Última actualización" value={props.market24h.updatedAt} sub="Datos en vivo" />
       </div>
 
       <div className="card">

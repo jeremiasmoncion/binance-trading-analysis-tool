@@ -1,3 +1,4 @@
+import { SectionCard } from "../components/ui/SectionCard";
 import { formatPct, formatPrice } from "../lib/format";
 
 interface CalculatorViewProps {
@@ -28,14 +29,7 @@ export function CalculatorView(props: CalculatorViewProps) {
 
   return (
     <div id="calculatorView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Calculadora de operación</div>
-            <div className="card-subtitle">Mantén el control manual de tu objetivo y tu stop o pide una sugerencia cuando quieras.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Calculadora de operación" subtitle="Mantén el control manual de tu objetivo y tu stop o pide una sugerencia cuando quieras." />
 
       <div className="calculator-grid">
         <div>

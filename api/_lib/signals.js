@@ -41,9 +41,36 @@ async function listSignalSnapshots(req) {
     select: "*",
     username: `eq.${session.username}`,
     order: "created_at.desc",
-    limit: "50",
+    limit: "200",
   });
   return supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`);
+}
+
+async function findRecentDuplicateSignal(session, body) {
+  const createdAfter = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const params = new URLSearchParams({
+    select: "id,entry_price,setup_type,outcome_status,created_at",
+    username: `eq.${session.username}`,
+    coin: `eq.${String(body.coin)}`,
+    timeframe: `eq.${String(body.timeframe)}`,
+    signal_label: `eq.${String(body.signal?.label || "Esperar")}`,
+    created_at: `gte.${createdAfter}`,
+    order: "created_at.desc",
+    limit: "10",
+  });
+
+  const rows = await supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`);
+  const nextEntry = Number(body.plan?.entry || 0);
+  const nextSetup = String(body.analysis?.setupType || "");
+
+  return (rows || []).find((row) => {
+    const rowEntry = Number(row.entry_price || 0);
+    const entryGapPct =
+      nextEntry > 0 && rowEntry > 0 ? Math.abs(((rowEntry - nextEntry) / nextEntry) * 100) : 0;
+    return row.outcome_status === "pending"
+      && String(row.setup_type || "") === nextSetup
+      && entryGapPct <= 0.4;
+  });
 }
 
 async function createSignalSnapshot(req) {
@@ -51,6 +78,11 @@ async function createSignalSnapshot(req) {
   const body = parseJsonBody(req);
   if (!body?.coin || !body?.timeframe || !body?.signal) {
     throw new Error("Faltan datos para guardar la señal");
+  }
+
+  const duplicate = await findRecentDuplicateSignal(session, body);
+  if (duplicate) {
+    return duplicate;
   }
 
   const signal = body.signal || {};

@@ -255,9 +255,10 @@
     .learn-card .tag { display: inline-block; background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-bottom: 10px; }
     
     /* Profile */
-    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
     .profile-section { background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
     .profile-section h3 { font-size: 16px; font-weight: 700; color: #1a233a; margin-bottom: 16px; }
+    #adminSection { grid-column: 1 / -1; }
     .user-list { max-height: 300px; overflow-y: auto; }
     .user-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
     .user-item:last-child { border-bottom: none; }
@@ -1176,9 +1177,6 @@
             <button class="btn-primary" id="btnBinanceConnect" style="width:100%;">Conectar Binance Demo Spot</button>
             <button class="btn-secondary-soft" id="btnBinanceRefresh" type="button">Actualizar resumen</button>
             <button class="btn-secondary-soft" id="btnBinanceDisconnect" type="button">Desconectar Binance Demo Spot</button>
-            <div class="binance-balance-list" id="binanceBalanceList">
-              <div class="binance-status-note">Todavía no hay balances para mostrar.</div>
-            </div>
           </div>
 
           <div class="profile-section" id="adminSection" style="display:none;">
@@ -1970,14 +1968,12 @@
     }
 
     async function renderBinancePanel() {
-      const list = $('binanceBalanceList');
       try {
         const payload = await Binance.getConnection();
         state.binanceConnection = payload;
       } catch (error) {
         $('binanceStatusTitle').textContent = 'Binance Demo Spot no disponible';
         $('binanceStatusNote').textContent = error.message;
-        list.innerHTML = '<div class="binance-status-note">Revisa que la tabla de Binance Demo Spot exista en Supabase.</div>';
         return;
       }
 
@@ -1985,7 +1981,6 @@
         $('binanceStatusTitle').textContent = 'Sin conexión';
         $('binanceStatusNote').textContent = 'Conecta tu API Key y Secret de Binance Demo Spot para habilitar lectura de cuenta.';
         $('binanceAccountAlias').value = '';
-        list.innerHTML = '<div class="binance-status-note">Todavía no hay balances para mostrar.</div>';
         return;
       }
 
@@ -1997,16 +1992,7 @@
         summary.accountType || null
       ].filter(Boolean);
       $('binanceStatusTitle').textContent = identityParts.length ? identityParts.join(' · ') : `Conectado: ${state.binanceConnection.maskedApiKey || 'API activa'}`;
-      $('binanceStatusNote').textContent = `API ${state.binanceConnection.maskedApiKey || 'activa'} · Permisos: ${(summary.permissions || []).join(', ') || 'Sin permisos'} · Órdenes abiertas: ${summary.openOrdersCount || 0}.`;
-      const balances = summary.balances || [];
-      list.innerHTML = balances.length
-        ? balances.map(balance => `
-          <div class="binance-balance-item">
-            <span>${balance.asset}</span>
-            <span>${balance.total}</span>
-          </div>
-        `).join('')
-        : '<div class="binance-status-note">La cuenta de prueba no tiene balances con valor distinto de cero.</div>';
+      $('binanceStatusNote').textContent = `API ${state.binanceConnection.maskedApiKey || 'activa'} · Permisos: ${(summary.permissions || []).join(', ') || 'Sin permisos'} · Órdenes abiertas: ${summary.openOrdersCount || 0} · Estado: conectado correctamente.`;
     }
 
     async function renderUserList() {

@@ -484,9 +484,12 @@
     .portfolio-search-icon { width:18px; height:18px; color:#cbd5e1; flex-shrink:0; }
     .portfolio-filter-toggle { display:inline-flex; align-items:center; gap:10px; font-size:14px; color:#64748b; cursor:pointer; }
     .portfolio-filter-toggle input { width:16px; height:16px; accent-color:#2563eb; }
+    body.react-root > :not(#root):not(script[type="module"]) { display:none !important; }
   </style>
 </head>
-<body>
+<body class="react-root">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
   <!-- Login Overlay -->
   <div id="loginOverlay" class="login-overlay">
     <div class="login-box">
@@ -1205,7 +1208,7 @@
     </main>
   </div>
 
-  <script>
+  <script type="application/json">
     // ============================================
     // ESTADO Y CONFIGURACIÓN
     // ============================================

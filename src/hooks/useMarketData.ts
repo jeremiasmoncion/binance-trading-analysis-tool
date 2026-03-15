@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
-import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
+import { buildDashboardAnalysis, calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
 import { marketService } from "../services/api";
-import type { Candle, ComparisonCoin, Indicators, Signal, TimeframeSignal, ViewName } from "../types";
+import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, TimeframeSignal, ViewName } from "../types";
 
 interface UseMarketDataOptions {
   currentView: ViewName;
@@ -15,6 +15,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
+  const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null);
   const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
   const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
   const [market24h, setMarket24h] = useState({ change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" });
@@ -42,9 +43,13 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
             timeframe: mapTf,
             label: tfSignal.label,
             note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
+            trend: tfSignal.trend,
+            score: tfSignal.score,
+            aligned: tfSignal.label === nextSignal.label,
           };
         }),
       );
+      const nextAnalysis = buildDashboardAnalysis(fetchedCandles, nextIndicators, nextSignal, nextMultiTimeframes);
 
       const ticker = await marketService.fetch24h(coin);
       const nextComparison = await Promise.all(
@@ -65,6 +70,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setCandles(fetchedCandles);
       setIndicators(nextIndicators);
       setSignal(nextSignal);
+      setAnalysis(nextAnalysis);
       setMultiTimeframes(nextMultiTimeframes);
       setComparison(nextComparison);
       setMarket24h({
@@ -110,6 +116,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     candles,
     indicators,
     signal,
+    analysis,
     multiTimeframes,
     comparison,
     availableCoins,

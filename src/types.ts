@@ -45,12 +45,16 @@ export interface Signal {
 export interface OperationPlan {
   entry: number;
   tp: number;
+  tp2?: number;
   sl: number;
   riskPct: number;
   benefitPct: number;
   riskAmt: number;
   benefitAmt: number;
   refCapital: number;
+  rrRatio?: number;
+  setupBias?: string;
+  invalidation?: number;
 }
 
 export interface ComparisonCoin {
@@ -64,6 +68,31 @@ export interface TimeframeSignal {
   timeframe: string;
   label: string;
   note: string;
+  trend?: string;
+  score?: number;
+  aligned?: boolean;
+}
+
+export interface DashboardAnalysis {
+  alignmentCount: number;
+  alignmentTotal: number;
+  alignmentPct: number;
+  alignmentLabel: string;
+  higherTimeframeBias: string;
+  support: number;
+  resistance: number;
+  supportDistancePct: number;
+  resistanceDistancePct: number;
+  rangePositionPct: number;
+  volatilityPct: number;
+  volatilityLabel: string;
+  volumeRatio: number;
+  volumeLabel: string;
+  setupType: string;
+  setupQuality: string;
+  riskLabel: string;
+  confirmations: string[];
+  warnings: string[];
 }
 
 export interface BinanceSummary {
@@ -163,6 +192,7 @@ export interface AppState {
   indicators: Indicators | null;
   signal: Signal | null;
   plan: OperationPlan | null;
+  analysis?: DashboardAnalysis | null;
   multiTimeframes: TimeframeSignal[];
   binanceConnection: BinanceConnection | null;
   portfolioData: PortfolioPayload | null;

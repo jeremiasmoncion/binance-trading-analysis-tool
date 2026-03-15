@@ -100,8 +100,23 @@ body.dark-theme .pagination-note,
 body.dark-theme .pagination-page { color:#cbd5e1; }
 body.dark-theme .timeframe-map,
 body.dark-theme .dashboard-mini-card,
-body.dark-theme .dashboard-pulse { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+body.dark-theme .timeframe-map,
+body.dark-theme .dashboard-mini-card,
+body.dark-theme .dashboard-pulse,
+body.dark-theme .analysis-card,
+body.dark-theme .levels-card { background: rgba(15, 23, 42, 0.76); border-color: rgba(59, 130, 246, 0.18); }
+body.dark-theme .dashboard-chip,
+body.dark-theme .timeframe-map-score { background:#172554; color:#bfdbfe; border-color:#23314d; }
 body.dark-theme .timeframe-chip { background: #111c31; border-color: #23314d; }
+body.dark-theme .level-pill,
+body.dark-theme .checklist-card { background:#111c31; border-color:#23314d; }
+body.dark-theme .checklist-card.warnings { background:linear-gradient(180deg, #2b1624 0%, #111c31 100%); border-color:#7f1d1d; }
+body.dark-theme .analysis-card-value,
+body.dark-theme .level-pill strong,
+body.dark-theme .checklist-title { color:#f8fafc; }
+body.dark-theme .analysis-card-note,
+body.dark-theme .level-pill span,
+body.dark-theme .checklist-card li { color:#94a3b8; }
 body.dark-theme .timeframe-chip.buy { background: linear-gradient(135deg, #0d2017 0%, #10261b 100%); border-color: #166534; }
 body.dark-theme .timeframe-chip.buy .timeframe-chip-value { color: #86efac; }
 body.dark-theme .timeframe-chip.wait { background: linear-gradient(135deg, #261d0c 0%, #2b220d 100%); border-color: #854d0e; }

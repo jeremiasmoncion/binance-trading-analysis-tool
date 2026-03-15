@@ -146,7 +146,7 @@ export function BalanceView(props: BalanceViewProps) {
           </SectionCard>
 
           <SectionCard title="Historial real" subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones.">
-            <div className="history-grid">
+            <div className="history-stack">
               <div className="history-panel">
                 <div className="history-panel-head">
                   <div>
@@ -224,12 +224,11 @@ export function BalanceView(props: BalanceViewProps) {
                   onPageChange={setClosedOrdersPage}
                 />
               </div>
-            </div>
 
-            <div className="history-panel">
-              <div className="history-panel-head">
-                <div>
-                  <div className="card-title history-title">Trades recientes</div>
+              <div className="history-panel">
+                <div className="history-panel-head">
+                  <div>
+                    <div className="card-title history-title">Trades recientes</div>
                   <div className="card-subtitle">Ejecuciones reales con comisión y PnL realizado por venta.</div>
                 </div>
                 <span className="history-badge">{recentTrades.length}</span>
@@ -257,13 +256,14 @@ export function BalanceView(props: BalanceViewProps) {
                   </tbody>
                 </table>
               </div>
-              <PaginationControls
-                currentPage={tradesPage}
-                totalPages={pagedTrades.totalPages}
-                totalItems={recentTrades.length}
-                label="trades"
-                onPageChange={setTradesPage}
-              />
+                <PaginationControls
+                  currentPage={tradesPage}
+                  totalPages={pagedTrades.totalPages}
+                  totalItems={recentTrades.length}
+                  label="trades"
+                  onPageChange={setTradesPage}
+                />
+              </div>
             </div>
           </SectionCard>
         </div>

@@ -1487,7 +1487,9 @@
       const pnlClass = getPerformanceClass(portfolio.unrealizedPnl);
 
       $('portfolioTotalValue').textContent = formatPrice(portfolio.totalValue || 0);
-      $('portfolioTotalNote').textContent = `Cuenta ${payload.summary?.accountType || 'SPOT'} · ${payload.summary?.uid ? `UID ${payload.summary.uid}` : 'sin UID visible'}`;
+      const hiddenLockedValue = portfolio.hiddenLockedValue || 0;
+      const hiddenLockedAssetsCount = portfolio.hiddenLockedAssetsCount || 0;
+      $('portfolioTotalNote').textContent = `Cuenta ${payload.summary?.accountType || 'SPOT'} · ${payload.summary?.uid ? `UID ${payload.summary.uid}` : 'sin UID visible'}${hiddenLockedAssetsCount ? ` · Excluye ${formatPrice(hiddenLockedValue)} bloqueado` : ''}`;
       $('portfolioPeriodChange').textContent = formatSignedPrice(portfolio.periodChangeValue || 0);
       $('portfolioPeriodChange').className = `value ${periodClass}`;
       $('portfolioPeriodNote').textContent = `Comparado con ${periodLabel} · ${formatSignedPct(portfolio.periodChangePct || 0)}`;
@@ -1500,7 +1502,7 @@
       $('portfolioPositionsValue').textContent = formatPrice(portfolio.positionsValue || 0);
       $('portfolioInvestedValue').textContent = formatPrice(portfolio.investedValue || 0);
       $('portfolioUpdatedAt').textContent = portfolio.updatedAt ? new Date(portfolio.updatedAt).toLocaleTimeString('es-ES') : '--:--';
-      $('portfolioMethodNote').textContent = `La comparación con ${periodLabel} usa tus holdings actuales y el precio de referencia del activo en ese momento. La ganancia abierta usa el costo promedio estimado según tus trades de Binance Demo Spot.`;
+      $('portfolioMethodNote').textContent = `La comparación con ${periodLabel} usa tus holdings actuales y el precio de referencia del activo en ese momento. La ganancia abierta usa el costo promedio estimado según tus trades de Binance Demo Spot.${hiddenLockedAssetsCount ? ` El total visible excluye ${hiddenLockedAssetsCount} activo${hiddenLockedAssetsCount > 1 ? 's' : ''} 100% bloqueado${hiddenLockedAssetsCount > 1 ? 's' : ''} por ${formatPrice(hiddenLockedValue)} para acercarse a la vista spot de Binance.` : ''}`;
     }
 
     async function renderJournal() {

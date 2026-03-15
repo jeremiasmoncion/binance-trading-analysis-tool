@@ -390,14 +390,17 @@ async function getPortfolioSnapshot(req, period = "1d") {
   );
 
   const cleanAssets = assets.filter(Boolean).sort((a, b) => b.marketValue - a.marketValue);
-  const totalValue = cleanAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
-  const investedValue = cleanAssets.reduce((sum, asset) => sum + asset.investedValue, 0);
-  const unrealizedPnl = cleanAssets.reduce((sum, asset) => sum + asset.pnlValue, 0);
-  const periodChangeValue = cleanAssets.reduce((sum, asset) => sum + asset.periodChangeValue, 0);
+  const hiddenLockedAssets = cleanAssets.filter((asset) => asset.free <= 0 && asset.locked > 0);
+  const visibleAssets = cleanAssets.filter((asset) => !(asset.free <= 0 && asset.locked > 0));
+  const totalValue = visibleAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+  const investedValue = visibleAssets.reduce((sum, asset) => sum + asset.investedValue, 0);
+  const unrealizedPnl = visibleAssets.reduce((sum, asset) => sum + asset.pnlValue, 0);
+  const periodChangeValue = visibleAssets.reduce((sum, asset) => sum + asset.periodChangeValue, 0);
   const periodBaseValue = totalValue - periodChangeValue;
   const periodChangePct = periodBaseValue > 0 ? (periodChangeValue / periodBaseValue) * 100 : 0;
-  const cashAsset = cleanAssets.find((asset) => asset.asset === "USDT");
-  const openPositions = cleanAssets.filter((asset) => asset.asset !== "USDT" && asset.quantity > 0);
+  const cashAsset = visibleAssets.find((asset) => asset.asset === "USDT");
+  const openPositions = visibleAssets.filter((asset) => asset.asset !== "USDT" && asset.quantity > 0);
+  const hiddenLockedValue = hiddenLockedAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
 
   return {
     connected: true,
@@ -424,9 +427,12 @@ async function getPortfolioSnapshot(req, period = "1d") {
       positionsValue: formatMoneyNumber(totalValue - (cashAsset?.marketValue || 0)),
       openPositionsCount: openPositions.length,
       winnersCount: openPositions.filter((asset) => asset.pnlValue > 0).length,
+      hiddenLockedValue: formatMoneyNumber(hiddenLockedValue),
+      hiddenLockedAssetsCount: hiddenLockedAssets.length,
       updatedAt: new Date().toISOString(),
     },
-    assets: cleanAssets,
+    assets: visibleAssets,
+    hiddenLockedAssets,
   };
 }
 

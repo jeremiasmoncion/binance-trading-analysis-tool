@@ -72,6 +72,21 @@ export function TopBar(props: TopBarProps) {
     <header className="top-bar">
       <div className="top-left">
         <div className="search-coin" ref={wrapperRef}>
+          {query ? (
+            <button
+              type="button"
+              className="coin-clear-btn"
+              aria-label="Limpiar búsqueda"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setQuery("");
+                setFeedback("");
+                setIsOpen(true);
+              }}
+            >
+              ×
+            </button>
+          ) : null}
           <input
             value={query}
             onChange={(e) => {

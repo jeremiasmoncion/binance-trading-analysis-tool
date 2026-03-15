@@ -1,3 +1,5 @@
+import { SectionCard } from "../components/ui/SectionCard";
+
 const LEARN_CARDS = [
   ["Concepto básico", "¿Qué es el Stop Loss?", "Es una orden automática que vende tu criptomoneda si el precio baja hasta cierto nivel. Sirve para limitar tus pérdidas. Ejemplo: compras BTC a $70,000 y pones stop loss en $69,000. Si el precio cae a $69,000, se vende automáticamente y pierdes solo $1,000 en vez de arriesgar más."],
   ["Tipo de orden", "Orden Market", "Es una compra o venta inmediata al precio actual del mercado. Es rápida pero no controlas el precio exacto. Úsala cuando quieras entrar o salir rápido de una operación."],
@@ -26,4 +28,3 @@ export function LearnView() {
     </div>
   );
 }
-import { SectionCard } from "../components/ui/SectionCard";

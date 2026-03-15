@@ -1,3 +1,5 @@
+import { EmptyState } from "../components/ui/EmptyState";
+import { SectionCard } from "../components/ui/SectionCard";
 import { formatPrice } from "../lib/format";
 import type { ComparisonCoin } from "../types";
 
@@ -10,18 +12,11 @@ interface CompareViewProps {
 export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareViewProps) {
   return (
     <div id="compareView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Comparar monedas</div>
-            <div className="card-subtitle">Compara impulso, tendencia y lectura general entre distintos pares.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Comparar monedas" subtitle="Compara impulso, tendencia y lectura general entre distintos pares." />
 
       <div className="comparison-grid">
         {!comparison.length ? (
-          <p style={{ color: "#64748b" }}>Cargando comparación...</p>
+          <EmptyState message="Cargando comparación..." />
         ) : (
           comparison.map((coin) => (
             <div

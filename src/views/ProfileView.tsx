@@ -1,3 +1,4 @@
+import { SectionCard } from "../components/ui/SectionCard";
 import type { BinanceConnection, UserSession } from "../types";
 
 interface ProfileViewProps {
@@ -18,14 +19,7 @@ export function ProfileView(props: ProfileViewProps) {
 
   return (
     <div id="profileView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Perfil y acceso</div>
-            <div className="card-subtitle">Gestiona tu perfil, tu contraseña y, si eres admin, la administración de usuarios.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Perfil y acceso" subtitle="Gestiona tu perfil, tu contraseña y, si eres admin, la administración de usuarios." />
 
       <div className="profile-grid">
         <div className="profile-section">

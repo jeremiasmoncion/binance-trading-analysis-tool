@@ -5,36 +5,51 @@ interface UseWatchlistOptions {
   currentUser: UserSession | null;
 }
 
-function getStorageKey(username: string) {
+const GLOBAL_WATCHLIST_KEY = "crype-watchlist";
+
+function getLegacyStorageKey(username: string) {
   return `crype-watchlist:${username}`;
+}
+
+function normalizeWatchlist(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)));
 }
 
 export function useWatchlist({ currentUser }: UseWatchlistOptions) {
   const [watchlist, setWatchlist] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!currentUser) {
-      setWatchlist([]);
-      return;
-    }
-
-    const raw = window.localStorage.getItem(getStorageKey(currentUser.username));
-    if (!raw) {
-      setWatchlist([]);
-      return;
-    }
-
     try {
-      const parsed = JSON.parse(raw);
-      setWatchlist(Array.isArray(parsed) ? parsed : []);
+      const globalRaw = window.localStorage.getItem(GLOBAL_WATCHLIST_KEY);
+      const parsedGlobal = globalRaw ? normalizeWatchlist(JSON.parse(globalRaw)) : [];
+
+      if (parsedGlobal.length) {
+        setWatchlist(parsedGlobal);
+        return;
+      }
+
+      if (currentUser) {
+        const legacyRaw = window.localStorage.getItem(getLegacyStorageKey(currentUser.username));
+        const parsedLegacy = legacyRaw ? normalizeWatchlist(JSON.parse(legacyRaw)) : [];
+        if (parsedLegacy.length) {
+          setWatchlist(parsedLegacy);
+          window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(parsedLegacy));
+          return;
+        }
+      }
+
+      setWatchlist([]);
     } catch {
       setWatchlist([]);
     }
   }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser) return;
-    window.localStorage.setItem(getStorageKey(currentUser.username), JSON.stringify(watchlist));
+    window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(watchlist));
+    if (currentUser) {
+      window.localStorage.setItem(getLegacyStorageKey(currentUser.username), JSON.stringify(watchlist));
+    }
   }, [currentUser, watchlist]);
 
   const watchlistSet = useMemo(() => new Set(watchlist), [watchlist]);

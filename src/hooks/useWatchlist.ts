@@ -8,6 +8,16 @@ interface UseWatchlistOptions {
 
 const GLOBAL_WATCHLIST_KEY = "crype-watchlist";
 
+function normalizeCoin(value: unknown) {
+  const raw = String(value || "").trim().toUpperCase().replace(/\s+/g, "");
+  if (!raw) return "";
+  if (raw.includes("/")) return raw;
+  if (raw.endsWith("USDT") && raw.length > 4) {
+    return `${raw.slice(0, -4)}/USDT`;
+  }
+  return raw;
+}
+
 function getLegacyStorageKey(username: string) {
   return `crype-watchlist:${username}`;
 }
@@ -18,14 +28,7 @@ function normalizeWatchlist(value: unknown) {
     new Set(
       value
         .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-        .map((item) => {
-          const raw = item.trim().toUpperCase();
-          if (raw.includes("/")) return raw;
-          if (raw.endsWith("USDT") && raw.length > 4) {
-            return `${raw.slice(0, -4)}/USDT`;
-          }
-          return raw;
-        }),
+        .map((item) => normalizeCoin(item)),
     ),
   );
 }
@@ -103,11 +106,14 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
     watchlist,
     watchlistSet,
     isWatched(coin: string) {
-      return watchlistSet.has(coin);
+      return watchlistSet.has(normalizeCoin(coin));
     },
     toggleWatchlist(coin: string) {
+      const normalizedCoin = normalizeCoin(coin);
       setWatchlist((current) =>
-        current.includes(coin) ? current.filter((item) => item !== coin) : [coin, ...current],
+        current.includes(normalizedCoin)
+          ? current.filter((item) => item !== normalizedCoin)
+          : [normalizedCoin, ...current],
       );
     },
   };

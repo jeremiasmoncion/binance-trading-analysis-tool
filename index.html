@@ -999,7 +999,7 @@
           <div class="card-header">
             <div>
               <div class="card-title">Balance</div>
-              <div class="card-subtitle">Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de cada posición conectada a Binance Demo Spot.</div>
+              <div class="card-subtitle">Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot.</div>
             </div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <select id="portfolioPeriod" class="timeframe-select">
@@ -1024,14 +1024,14 @@
             <div class="sub" id="portfolioPeriodNote">Comparado con ayer</div>
           </div>
           <div class="stat-card" style="border-left:4px solid #10b981;">
-            <div class="label">Ganancia abierta</div>
+            <div class="label">Rendimiento abierto</div>
             <div class="value" id="portfolioPnlValue">$0.00</div>
-            <div class="sub" id="portfolioPnlNote">Sobre posiciones todavía abiertas</div>
+            <div class="sub" id="portfolioPnlNote">Sobre activos todavía abiertos</div>
           </div>
           <div class="stat-card" style="border-left:4px solid #f59e0b;">
-            <div class="label">Monedas ganando</div>
+            <div class="label">Activos en verde</div>
             <div class="value" id="portfolioWinners">0</div>
-            <div class="sub" id="portfolioWinnersNote">0 posiciones activas</div>
+            <div class="sub" id="portfolioWinnersNote">0 activos visibles</div>
           </div>
         </div>
 
@@ -1041,7 +1041,7 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">Resumen del dinero</div>
-                  <div class="card-subtitle">Tu liquidez, lo que está invertido y la base estimada de tus posiciones abiertas.</div>
+                  <div class="card-subtitle">Tu liquidez, lo que está invertido y la base estimada de tus activos visibles.</div>
                 </div>
               </div>
               <div class="stats-grid" style="margin-bottom:0;">
@@ -1053,7 +1053,7 @@
                 <div class="stat-card">
                   <div class="label">Capital en monedas</div>
                   <div class="value" id="portfolioPositionsValue">$0.00</div>
-                  <div class="sub">Valor vivo de tus posiciones</div>
+                  <div class="sub">Valor vivo de tus activos</div>
                 </div>
                 <div class="stat-card">
                   <div class="label">Costo promedio abierto</div>
@@ -1072,7 +1072,7 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">Detalle por moneda</div>
-                  <div class="card-subtitle">Aquí ves cuánto dinero tienes por activo, el precio promedio de entrada estimado y tu ganancia abierta por posición.</div>
+                  <div class="card-subtitle">Aquí ves cuánto dinero tienes por activo, el precio promedio estimado y el rendimiento abierto de cada balance.</div>
                 </div>
               </div>
               <div class="portfolio-toolbar">
@@ -1093,7 +1093,7 @@
                       <th>Precio actual</th>
                       <th>Precio promedio</th>
                       <th>Valor actual</th>
-                      <th>Ganancia abierta</th>
+                      <th>Rendimiento abierto</th>
                       <th>Cambio del período</th>
                     </tr>
                   </thead>
@@ -1110,13 +1110,13 @@
               <div class="card-header">
                 <div>
                   <div class="card-title">Lectura rápida</div>
-                  <div class="card-subtitle">Una vista corta para saber qué está empujando tu cuenta y qué la está frenando.</div>
+                  <div class="card-subtitle">Una vista corta para saber qué está empujando tu balance y qué lo está frenando.</div>
                 </div>
               </div>
               <div id="portfolioHighlights">
                 <div class="portfolio-highlight-card">
                   <div class="portfolio-highlight-title">Esperando conexión</div>
-                  <div class="portfolio-highlight-note">Cuando Binance Demo Spot esté activo aquí verás la mejor posición, la peor y el peso de tus monedas.</div>
+                  <div class="portfolio-highlight-note">Cuando Binance Demo Spot esté activo aquí verás el mejor activo, el más presionado y el peso de tus monedas.</div>
                 </div>
               </div>
             </div>
@@ -1500,7 +1500,7 @@
 
       $('portfolioHighlights').innerHTML = cards.length
         ? cards.join('')
-        : '<div class="portfolio-highlight-card"><div class="portfolio-highlight-title">Sin posiciones abiertas</div><div class="portfolio-highlight-note">La cuenta no tiene monedas con valor distinto de cero fuera de USDT.</div></div>';
+        : '<div class="portfolio-highlight-card"><div class="portfolio-highlight-title">Sin activos visibles</div><div class="portfolio-highlight-note">La cuenta no tiene monedas con valor distinto de cero fuera de USDT.</div></div>';
     }
 
     function updatePortfolioStats(payload) {
@@ -1518,9 +1518,9 @@
       $('portfolioPeriodNote').textContent = `Comparado con ${periodLabel} · ${formatSignedPct(portfolio.periodChangePct || 0)}`;
       $('portfolioPnlValue').textContent = formatSignedPrice(portfolio.unrealizedPnl || 0);
       $('portfolioPnlValue').className = `value ${pnlClass}`;
-      $('portfolioPnlNote').textContent = `${formatSignedPct(portfolio.unrealizedPnlPct || 0)} sobre posiciones todavía abiertas`;
+      $('portfolioPnlNote').textContent = `${formatSignedPct(portfolio.unrealizedPnlPct || 0)} sobre activos todavía abiertos`;
       $('portfolioWinners').textContent = String(portfolio.winnersCount || 0);
-      $('portfolioWinnersNote').textContent = `${portfolio.openPositionsCount || 0} posiciones activas`;
+      $('portfolioWinnersNote').textContent = `${portfolio.openPositionsCount || 0} activos visibles`;
       $('portfolioCashValue').textContent = formatPrice(portfolio.cashValue || 0);
       $('portfolioPositionsValue').textContent = formatPrice(portfolio.positionsValue || 0);
       $('portfolioInvestedValue').textContent = formatPrice(portfolio.investedValue || 0);

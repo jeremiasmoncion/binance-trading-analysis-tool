@@ -133,7 +133,7 @@ export function DashboardView(props: DashboardViewProps) {
                 </div>
                 <span className="plan-chip">Basado en señal + temporalidad + comisión</span>
               </div>
-              <div style={{ marginBottom: 18 }}>
+              <div className="plan-signal-wrap">
                 <span className={`plan-signal-pill ${tone}`}>Señal: {signal?.label || "Esperar"}</span>
               </div>
               <div className="quick-plan-grid">

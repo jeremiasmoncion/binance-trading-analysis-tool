@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import type { UserSession, ViewName } from "../types";
 
-const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: JSX.Element }> = [
+const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: ReactNode }> = [
   {
     view: "dashboard",
     label: "Inicio",
@@ -11,7 +12,7 @@ const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: JSX.Element }> = [
     ),
   },
   {
-    view: "journal",
+    view: "balance",
     label: "Balance",
     icon: (
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

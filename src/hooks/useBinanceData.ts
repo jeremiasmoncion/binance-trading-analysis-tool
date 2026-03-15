@@ -71,7 +71,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       await binanceService.connect(binanceForm.apiKey.trim(), binanceForm.apiSecret.trim(), binanceForm.alias.trim());
       setBinanceForm((prev) => ({ ...prev, apiSecret: "" }));
       await refreshProfileData();
-      if (currentView === "journal") {
+      if (currentView === "balance") {
         await refreshPortfolio();
       }
     } catch (error) {
@@ -84,7 +84,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       await binanceService.disconnect();
       setBinanceForm({ alias: "", apiKey: "", apiSecret: "" });
       await refreshProfileData();
-      if (currentView === "journal") {
+      if (currentView === "balance") {
         await refreshPortfolio();
       }
     } catch (error) {
@@ -105,7 +105,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       void refreshProfileData();
     }
 
-    if (currentView === "journal") {
+    if (currentView === "balance") {
       void refreshPortfolio();
     }
   }, [currentUser, currentView, refreshPortfolio, refreshProfileData]);

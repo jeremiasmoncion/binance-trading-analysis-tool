@@ -1,0 +1,10 @@
+.comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.coin-card { background: #fff; padding: 18px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
+.coin-card:hover { border-color: #2563eb; box-shadow: 0 4px 12px rgba(37,99,235,0.15); }
+.coin-card.active { border-color: #2563eb; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); }
+.coin-name { font-size: 15px; font-weight: 700; color: #1a233a; margin-bottom: 4px; }
+.coin-price { font-size: 18px; font-weight: 700; color: #2563eb; margin-bottom: 8px; }
+.coin-change { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.coin-change.positive { color: #22c55e; }
+.coin-change.negative { color: #ef4444; }
+.coin-impulse { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }

@@ -1,0 +1,159 @@
+.section-note {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.section-note.with-top-gap {
+  margin-top: 8px;
+}
+
+.section-note.with-bottom-gap {
+  margin-bottom: 16px;
+}
+
+.section-heading-sm {
+  margin: 16px 0 10px;
+  font-size: 14px;
+}
+
+.section-fill-button {
+  width: 100%;
+}
+
+.section-fill-button.with-top-gap {
+  margin-top: 10px;
+}
+
+.text-strong {
+  font-weight: 600;
+}
+
+.text-xs-muted {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.text-xs-soft {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.market-title {
+  font-size: 22px;
+  margin: 10px 0;
+}
+
+.market-copy {
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.market-pill-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.market-pill {
+  font-size: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.market-score {
+  margin-bottom: 12px;
+}
+
+.market-score-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.market-score-track {
+  background: #e2e8f0;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.market-score-fill {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  height: 100%;
+  border-radius: 4px;
+}
+
+.market-reason-list {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.details-card {
+  cursor: pointer;
+}
+
+.details-summary {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.calculator-tip {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 12px;
+}
+
+.calc-results-title {
+  margin-bottom: 14px;
+  font-size: 15px;
+}
+
+.result-value.stop-loss {
+  color: #ef4444;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.stats-grid.no-bottom-gap {
+  margin-bottom: 0;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.plan-signal-wrap {
+  margin-bottom: 18px;
+}
+
+.login-error.is-visible {
+  display: block;
+}
+
+body.dark-theme .market-copy,
+body.dark-theme .market-reason-list,
+body.dark-theme .calculator-tip,
+body.dark-theme .section-note,
+body.dark-theme .text-xs-muted,
+body.dark-theme .text-xs-soft {
+  color: #94a3b8;
+}
+
+body.dark-theme .market-pill {
+  background: #172554;
+  color: #bfdbfe;
+}
+
+body.dark-theme .market-score-track {
+  background: #243244;
+}

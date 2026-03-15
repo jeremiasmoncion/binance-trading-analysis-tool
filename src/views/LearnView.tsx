@@ -1,3 +1,5 @@
+import { SectionCard } from "../components/ui/SectionCard";
+
 const LEARN_CARDS = [
   ["Concepto básico", "¿Qué es el Stop Loss?", "Es una orden automática que vende tu criptomoneda si el precio baja hasta cierto nivel. Sirve para limitar tus pérdidas. Ejemplo: compras BTC a $70,000 y pones stop loss en $69,000. Si el precio cae a $69,000, se vende automáticamente y pierdes solo $1,000 en vez de arriesgar más."],
   ["Tipo de orden", "Orden Market", "Es una compra o venta inmediata al precio actual del mercado. Es rápida pero no controlas el precio exacto. Úsala cuando quieras entrar o salir rápido de una operación."],
@@ -12,14 +14,7 @@ const LEARN_CARDS = [
 export function LearnView() {
   return (
     <div id="learnView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Aprender</div>
-            <div className="card-subtitle">Glosario práctico y consejos para principiantes antes de operar en Binance.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Aprender" subtitle="Glosario práctico y consejos para principiantes antes de operar en Binance." />
 
       <div className="learn-grid">
         {LEARN_CARDS.map(([tag, title, content]) => (

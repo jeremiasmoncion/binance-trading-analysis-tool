@@ -1,3 +1,5 @@
+import { SectionCard } from "../components/ui/SectionCard";
+import { StatCard } from "../components/ui/StatCard";
 import { formatPrice } from "../lib/format";
 import type { Indicators, Signal } from "../types";
 
@@ -21,38 +23,13 @@ export function MarketView(props: MarketViewProps) {
   const indicators = props.indicators;
   return (
     <div id="marketView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Lectura de mercado</div>
-            <div className="card-subtitle">Señal principal, indicadores y contexto técnico del activo seleccionado.</div>
-          </div>
-        </div>
-      </div>
+      <SectionCard title="Lectura de mercado" subtitle="Señal principal, indicadores y contexto técnico del activo seleccionado." />
 
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="label">Cambio 24h</div>
-          <div className={`value ${props.market24h.change >= 0 ? "positive" : "negative"}`}>{props.market24h.change.toFixed(2)}%</div>
-          <div className="sub">Variación del día</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Máximo / Mínimo 24h</div>
-          <div className="value">
-            {formatPrice(props.market24h.high)} / {formatPrice(props.market24h.low)}
-          </div>
-          <div className="sub">Rango donde se ha movido hoy</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Volumen 24h</div>
-          <div className="value">{props.market24h.volume}</div>
-          <div className="sub">Entre más volumen, más participación</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Última actualización</div>
-          <div className="value">{props.market24h.updatedAt}</div>
-          <div className="sub">Datos en vivo</div>
-        </div>
+        <StatCard label="Cambio 24h" value={`${props.market24h.change.toFixed(2)}%`} toneClass={props.market24h.change >= 0 ? "positive" : "negative"} sub="Variación del día" />
+        <StatCard label="Máximo / Mínimo 24h" value={`${formatPrice(props.market24h.high)} / ${formatPrice(props.market24h.low)}`} sub="Rango donde se ha movido hoy" />
+        <StatCard label="Volumen 24h" value={props.market24h.volume} sub="Entre más volumen, más participación" />
+        <StatCard label="Última actualización" value={props.market24h.updatedAt} sub="Datos en vivo" />
       </div>
 
       <div className="card">
@@ -63,29 +40,29 @@ export function MarketView(props: MarketViewProps) {
           </div>
         </div>
         <span className="decision-label">{signal?.label || "Esperar"}</span>
-        <h3 style={{ fontSize: 22, margin: "10px 0" }}>{signal?.title || "Esperar confirmación"}</h3>
-        <p style={{ color: "#64748b", marginBottom: 16 }}>{signal?.reasons.join(" ") || "Esperando datos."}</p>
-        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-          <span style={{ fontSize: 12, background: "#eff6ff", color: "#2563eb", padding: "4px 10px", borderRadius: 20 }}>{props.currentCoin}</span>
+        <h3 className="market-title">{signal?.title || "Esperar confirmación"}</h3>
+        <p className="market-copy">{signal?.reasons.join(" ") || "Esperando datos."}</p>
+        <div className="market-pill-row">
+          <span className="market-pill">{props.currentCoin}</span>
         </div>
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+        <div className="market-score">
+          <div className="market-score-head">
             <span>Fuerza de la lectura</span>
             <span>{signal ? `${signal.score}%` : "0%"}</span>
           </div>
-          <div style={{ background: "#e2e8f0", height: 8, borderRadius: 4, overflow: "hidden" }}>
-            <div style={{ width: `${signal?.score || 0}%`, background: "linear-gradient(90deg,#f59e0b,#d97706)", height: "100%", borderRadius: 4 }} />
+          <div className="market-score-track">
+            <div className="market-score-fill" style={{ width: `${signal?.score || 0}%` }} />
           </div>
         </div>
-        <ul style={{ color: "#475569", fontSize: 13, lineHeight: 1.8 }}>
+        <ul className="market-reason-list">
           {(signal?.reasons || ["El mercado sigue recopilando contexto."]).map((reason) => (
             <li key={reason}>{reason}</li>
           ))}
         </ul>
       </div>
 
-      <details className="card" style={{ cursor: "pointer" }}>
-        <summary style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Indicadores técnicos (clic para ver)</summary>
+      <details className="card details-card">
+        <summary className="details-summary">Indicadores técnicos (clic para ver)</summary>
         <div className="stats-grid">
           <div className="stat-card">
             <div className="label">RSI (14)</div>
@@ -112,8 +89,8 @@ export function MarketView(props: MarketViewProps) {
         </div>
       </details>
 
-      <details className="card" style={{ cursor: "pointer" }}>
-        <summary style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Soporte y resistencia (clic para ver)</summary>
+      <details className="card details-card">
+        <summary className="details-summary">Soporte y resistencia (clic para ver)</summary>
         <div className="stats-grid">
           <div className="stat-card">
             <div className="label">Soporte cercano</div>

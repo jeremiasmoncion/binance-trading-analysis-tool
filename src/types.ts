@@ -1,6 +1,6 @@
 export type ViewName =
   | "dashboard"
-  | "journal"
+  | "balance"
   | "market"
   | "calculator"
   | "compare"

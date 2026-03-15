@@ -1,4 +1,7 @@
 import { SearchIcon } from "../components/Icons";
+import { EmptyState } from "../components/ui/EmptyState";
+import { SectionCard } from "../components/ui/SectionCard";
+import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
 import type { PortfolioAsset, PortfolioPayload } from "../types";
 
@@ -35,14 +38,12 @@ export function BalanceView(props: BalanceViewProps) {
   const hiddenLockedAssetsCount = portfolio?.hiddenLockedAssetsCount || 0;
 
   return (
-    <div id="journalView" className="view-panel active">
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Balance</div>
-            <div className="card-subtitle">Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot.</div>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div id="balanceView" className="view-panel active">
+      <SectionCard
+        title="Balance"
+        subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."
+        actions={
+          <div className="inline-actions">
             <select className="timeframe-select" value={props.period} onChange={(e) => props.onPeriodChange(e.target.value)}>
               <option value="1d">Comparar con ayer</option>
               <option value="7d">Comparar con 7 días</option>
@@ -50,59 +51,33 @@ export function BalanceView(props: BalanceViewProps) {
             </select>
             <button className="btn-primary" onClick={props.onRefresh}>Actualizar capital</button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="stats-grid">
-        <div className="stat-card" style={{ borderLeft: "4px solid #3b82f6" }}>
-          <div className="label">Capital total</div>
-          <div className="value">{formatPrice(portfolio?.totalValue || 0)}</div>
-          <div className="sub">
+        <StatCard label="Capital total" value={formatPrice(portfolio?.totalValue || 0)} accentClass="accent-blue" sub={
+          <>
             Cuenta {props.payload?.summary?.accountType || "SPOT"} · {props.payload?.summary?.uid ? `UID ${props.payload.summary.uid}` : "sin UID visible"}
             {hiddenLockedAssetsCount ? ` · Excluye ${formatPrice(hiddenLockedValue)} bloqueado` : ""}
-          </div>
-        </div>
-        <div className="stat-card" style={{ borderLeft: "4px solid #22c55e" }}>
-          <div className="label">Incremento del período</div>
-          <div className={`value ${getPerformanceClass(portfolio?.periodChangeValue || 0)}`}>{formatSignedPrice(portfolio?.periodChangeValue || 0)}</div>
-          <div className="sub">Comparado con {periodLabel} · {formatSignedPct(portfolio?.periodChangePct || 0)}</div>
-        </div>
-        <div className="stat-card" style={{ borderLeft: "4px solid #10b981" }}>
-          <div className="label">Rendimiento abierto</div>
-          <div className={`value ${getPerformanceClass(portfolio?.unrealizedPnl || 0)}`}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</div>
-          <div className="sub">{formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos</div>
-        </div>
-        <div className="stat-card" style={{ borderLeft: "4px solid #f59e0b" }}>
-          <div className="label">Activos en verde</div>
-          <div className="value">{String(portfolio?.winnersCount || 0)}</div>
-          <div className="sub">{portfolio?.openPositionsCount || 0} activos visibles</div>
-        </div>
+          </>
+        } />
+        <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} accentClass="accent-green" sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} />
+        <StatCard label="Rendimiento abierto" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} />
+        <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} accentClass="accent-amber" sub={`${portfolio?.openPositionsCount || 0} activos visibles`} />
       </div>
 
       <div className="dashboard-main-grid">
         <div className="dashboard-stack">
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Resumen del dinero</div>
-                <div className="card-subtitle">Tu liquidez, lo que está invertido y la base estimada de tus activos visibles.</div>
-              </div>
+          <SectionCard title="Resumen del dinero" subtitle="Tu liquidez, lo que está invertido y la base estimada de tus activos visibles.">
+            <div className="stats-grid no-bottom-gap">
+              <StatCard label="Disponible en USDT" value={formatPrice(portfolio?.cashValue || 0)} sub="Liquidez lista para operar" />
+              <StatCard label="Capital en monedas" value={formatPrice(portfolio?.positionsValue || 0)} sub="Valor vivo de tus activos" />
+              <StatCard label="Costo promedio abierto" value={formatPrice(portfolio?.investedValue || 0)} sub="Base estimada según tus trades" />
+              <StatCard label="Última lectura" value={portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleTimeString("es-ES") : "--:--"} sub="Dato calculado en backend" />
             </div>
-            <div className="stats-grid" style={{ marginBottom: 0 }}>
-              <div className="stat-card"><div className="label">Disponible en USDT</div><div className="value">{formatPrice(portfolio?.cashValue || 0)}</div><div className="sub">Liquidez lista para operar</div></div>
-              <div className="stat-card"><div className="label">Capital en monedas</div><div className="value">{formatPrice(portfolio?.positionsValue || 0)}</div><div className="sub">Valor vivo de tus activos</div></div>
-              <div className="stat-card"><div className="label">Costo promedio abierto</div><div className="value">{formatPrice(portfolio?.investedValue || 0)}</div><div className="sub">Base estimada según tus trades</div></div>
-              <div className="stat-card"><div className="label">Última lectura</div><div className="value">{portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleTimeString("es-ES") : "--:--"}</div><div className="sub">Dato calculado en backend</div></div>
-            </div>
-          </div>
+          </SectionCard>
 
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <div className="card-title">Detalle por moneda</div>
-                <div className="card-subtitle">Aquí ves cuánto dinero tienes por activo, el precio promedio estimado y el rendimiento abierto de cada balance.</div>
-              </div>
-            </div>
+          <SectionCard title="Detalle por moneda" subtitle="Aquí ves cuánto dinero tienes por activo, el precio promedio estimado y el rendimiento abierto de cada balance.">
             <div className="portfolio-toolbar">
               <SearchIcon className="portfolio-search-icon" />
               <label className="portfolio-filter-toggle">
@@ -110,7 +85,7 @@ export function BalanceView(props: BalanceViewProps) {
                 <span>Ocultar activos de menos de 1 USD</span>
               </label>
             </div>
-            <div style={{ overflowX: "auto" }}>
+            <div className="table-scroll">
               <table className="portfolio-table">
                 <thead>
                   <tr>
@@ -126,9 +101,7 @@ export function BalanceView(props: BalanceViewProps) {
                 <tbody>
                   {!visibleAssets.length ? (
                     <tr>
-                      <td colSpan={7} className="portfolio-empty">
-                        {props.hideSmallAssets ? "No hay activos visibles por encima de 1 USD con el filtro actual." : "No hay balances disponibles para esta cuenta."}
-                      </td>
+                      <td colSpan={7}><EmptyState message={props.hideSmallAssets ? "No hay activos visibles por encima de 1 USD con el filtro actual." : "No hay balances disponibles para esta cuenta."} /></td>
                     </tr>
                   ) : (
                     visibleAssets.map((asset) => <AssetRow asset={asset} key={asset.asset} />)
@@ -136,7 +109,7 @@ export function BalanceView(props: BalanceViewProps) {
                 </tbody>
               </table>
             </div>
-          </div>
+          </SectionCard>
         </div>
 
         <aside className="dashboard-stack">

@@ -100,7 +100,7 @@ export function AppView(props: AppViewProps) {
       );
     case "learn":
       return <LearnView />;
-    case "journal":
+    case "balance":
       return (
         <BalanceView
           payload={props.portfolioData}

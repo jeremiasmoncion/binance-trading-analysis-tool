@@ -14,6 +14,7 @@ interface MemoryViewProps {
 export function MemoryView(props: MemoryViewProps) {
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
+  const [coinFilter, setCoinFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<SignalOutcomeStatus | "all">("all");
   const [timeframeFilter, setTimeframeFilter] = useState("all");
   const [setupFilter, setSetupFilter] = useState("all");
@@ -24,6 +25,10 @@ export function MemoryView(props: MemoryViewProps) {
   );
   const setups = useMemo(
     () => Array.from(new Set(props.signals.map((item) => item.setup_type).filter(Boolean))).sort(),
+    [props.signals],
+  );
+  const coins = useMemo(
+    () => Array.from(new Set(props.signals.map((item) => item.coin).filter(Boolean))).sort(),
     [props.signals],
   );
 
@@ -45,12 +50,13 @@ export function MemoryView(props: MemoryViewProps) {
         || (item.signal_label || "").toLowerCase().includes(normalizedSearch)
         || (item.setup_type || "").toLowerCase().includes(normalizedSearch)
         || (item.note || "").toLowerCase().includes(normalizedSearch);
+      const matchesCoin = coinFilter === "all" || item.coin === coinFilter;
       const matchesStatus = statusFilter === "all" || item.outcome_status === statusFilter;
       const matchesTimeframe = timeframeFilter === "all" || item.timeframe === timeframeFilter;
       const matchesSetup = setupFilter === "all" || (item.setup_type || "") === setupFilter;
-      return matchesSearch && matchesStatus && matchesTimeframe && matchesSetup;
+      return matchesSearch && matchesCoin && matchesStatus && matchesTimeframe && matchesSetup;
     });
-  }, [periodSignals, search, setupFilter, statusFilter, timeframeFilter]);
+  }, [coinFilter, periodSignals, search, setupFilter, statusFilter, timeframeFilter]);
 
   const completedSignals = props.signals.filter((item) => item.outcome_status !== "pending");
   const wins = props.signals.filter((item) => item.outcome_status === "win").length;
@@ -59,6 +65,10 @@ export function MemoryView(props: MemoryViewProps) {
   const totalPnl = props.signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
   const winRate = completedSignals.length ? (wins / completedSignals.length) * 100 : 0;
   const periodCompletedSignals = periodSignals.filter((item) => item.outcome_status !== "pending");
+  const periodWins = periodSignals.filter((item) => item.outcome_status === "win").length;
+  const periodLosses = periodSignals.filter((item) => item.outcome_status === "loss").length;
+  const periodInvalidated = periodSignals.filter((item) => item.outcome_status === "invalidated").length;
+  const periodPending = periodSignals.filter((item) => item.outcome_status === "pending").length;
   const periodGrossWins = periodSignals
     .filter((item) => Number(item.outcome_pnl || 0) > 0)
     .reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
@@ -170,6 +180,13 @@ export function MemoryView(props: MemoryViewProps) {
         />
       </div>
 
+      <div className="stats-grid">
+        <StatCard label="Ganadas en período" value={String(periodWins)} sub={`Cierres ganadores en ${periodLabel}`} accentClass="accent-green" />
+        <StatCard label="Perdidas en período" value={String(periodLosses)} sub={`Cierres perdedores en ${periodLabel}`} accentClass="accent-amber" />
+        <StatCard label="Invalidadas" value={String(periodInvalidated)} sub={`Señales descartadas en ${periodLabel}`} accentClass="accent-blue" />
+        <StatCard label="Pendientes en período" value={String(periodPending)} sub={`Todavía abiertas en ${periodLabel}`} accentClass="accent-emerald" />
+      </div>
+
       <SectionCard
         title="Analítica de señales"
         subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
@@ -253,6 +270,12 @@ export function MemoryView(props: MemoryViewProps) {
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar por par, señal, setup o nota"
           />
+          <select className="timeframe-select signal-select" value={coinFilter} onChange={(event) => setCoinFilter(event.target.value)}>
+            <option value="all">Todas las monedas</option>
+            {coins.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
           <select className="timeframe-select signal-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SignalOutcomeStatus | "all")}>
             <option value="all">Todos los estados</option>
             <option value="pending">Pendiente</option>

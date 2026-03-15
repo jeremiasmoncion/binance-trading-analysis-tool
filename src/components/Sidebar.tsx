@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import type { UserSession, ViewName } from "../types";
 
-const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: JSX.Element }> = [
+const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: ReactNode }> = [
   {
     view: "dashboard",
     label: "Inicio",

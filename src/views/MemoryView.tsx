@@ -112,6 +112,28 @@ export function MemoryView(props: MemoryViewProps) {
       .map(([timeframe, stats]) => ({ timeframe, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
   }, [props.signals]);
+  const periodAnalytics = useMemo(() => {
+    const closed = periodSignals.filter((item) => item.outcome_status !== "pending");
+
+    const byCoin = summarizeByKey(closed, (item) => item.coin);
+    const bySetup = summarizeByKey(closed, (item) => item.setup_type || "Sin setup");
+    const byTimeframe = summarizeByKey(closed, (item) => item.timeframe);
+    const byContext = summarizeByKey(
+      closed,
+      (item) => item.signal_payload?.context?.contextSignature || "Contexto no clasificado",
+    );
+
+    return {
+      bestCoin: byCoin[0],
+      worstCoin: [...byCoin].sort((a, b) => a.pnl - b.pnl || a.winRate - b.winRate)[0],
+      bestSetupPnl: bySetup[0],
+      bestTimeframePnl: byTimeframe[0],
+      topCoins: byCoin.slice(0, 3),
+      topSetups: bySetup.slice(0, 3),
+      topTimeframes: byTimeframe.slice(0, 3),
+      topContexts: byContext.slice(0, 3),
+    };
+  }, [periodSignals]);
 
   return (
     <div id="memoryView" className="view-panel active">
@@ -147,6 +169,66 @@ export function MemoryView(props: MemoryViewProps) {
           accentClass="accent-emerald"
         />
       </div>
+
+      <SectionCard
+        title="Analítica de señales"
+        subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
+      >
+        <div className="stats-grid">
+          <StatCard
+            label="Par más rentable"
+            value={periodAnalytics.bestCoin?.label || "--"}
+            sub={periodAnalytics.bestCoin ? `${formatSignedPrice(periodAnalytics.bestCoin.pnl)} · ${periodAnalytics.bestCoin.winRate.toFixed(0)}% win rate` : "Esperando cierres suficientes"}
+            toneClass={periodAnalytics.bestCoin && periodAnalytics.bestCoin.pnl > 0 ? "portfolio-positive" : ""}
+            accentClass="accent-green"
+          />
+          <StatCard
+            label="Par más débil"
+            value={periodAnalytics.worstCoin?.label || "--"}
+            sub={periodAnalytics.worstCoin ? `${formatSignedPrice(periodAnalytics.worstCoin.pnl)} · ${periodAnalytics.worstCoin.winRate.toFixed(0)}% win rate` : "Todavía no hay pérdidas cerradas"}
+            toneClass={periodAnalytics.worstCoin && periodAnalytics.worstCoin.pnl < 0 ? "portfolio-negative" : ""}
+            accentClass="accent-amber"
+          />
+          <StatCard
+            label="Setup más rentable"
+            value={periodAnalytics.bestSetupPnl?.label || "--"}
+            sub={periodAnalytics.bestSetupPnl ? `${formatSignedPrice(periodAnalytics.bestSetupPnl.pnl)} en ${periodAnalytics.bestSetupPnl.total} señales` : "Sin historial suficiente"}
+            toneClass={periodAnalytics.bestSetupPnl && periodAnalytics.bestSetupPnl.pnl > 0 ? "portfolio-positive" : ""}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Marco con mejor PnL"
+            value={periodAnalytics.bestTimeframePnl?.label || "--"}
+            sub={periodAnalytics.bestTimeframePnl ? `${formatSignedPrice(periodAnalytics.bestTimeframePnl.pnl)} · ${periodAnalytics.bestTimeframePnl.winRate.toFixed(0)}% de acierto` : "Sin datos cerrados todavía"}
+            toneClass={periodAnalytics.bestTimeframePnl && periodAnalytics.bestTimeframePnl.pnl > 0 ? "portfolio-positive" : ""}
+            accentClass="accent-emerald"
+          />
+        </div>
+
+        <div className="signal-analytics-grid">
+          <AnalyticsListCard
+            title="Top pares"
+            subtitle="Qué monedas están dejando mejor resultado neto."
+            items={periodAnalytics.topCoins}
+          />
+          <AnalyticsListCard
+            title="Top setups"
+            subtitle="Qué tipo de entrada está funcionando mejor."
+            items={periodAnalytics.topSetups}
+          />
+          <AnalyticsListCard
+            title="Top marcos"
+            subtitle="Qué timeframe está siendo más eficiente."
+            items={periodAnalytics.topTimeframes}
+          />
+          <AnalyticsListCard
+            title="Top contextos"
+            subtitle="Combinaciones de contexto con mejor rendimiento."
+            items={periodAnalytics.topContexts}
+            truncateLabel
+          />
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Historial de señales"
@@ -274,6 +356,86 @@ export function MemoryView(props: MemoryViewProps) {
           accentClass="accent-emerald"
         />
       </div>
+    </div>
+  );
+}
+
+interface AggregateRow {
+  label: string;
+  total: number;
+  wins: number;
+  losses: number;
+  invalidated: number;
+  pnl: number;
+  avgPnl: number;
+  winRate: number;
+}
+
+function summarizeByKey(signals: SignalSnapshot[], getKey: (signal: SignalSnapshot) => string): AggregateRow[] {
+  const buckets = new Map<string, { total: number; wins: number; losses: number; invalidated: number; pnl: number }>();
+
+  signals.forEach((signal) => {
+    const key = getKey(signal);
+    if (!key) return;
+    const bucket = buckets.get(key) || { total: 0, wins: 0, losses: 0, invalidated: 0, pnl: 0 };
+    bucket.total += 1;
+    bucket.pnl += Number(signal.outcome_pnl || 0);
+    if (signal.outcome_status === "win") bucket.wins += 1;
+    if (signal.outcome_status === "loss") bucket.losses += 1;
+    if (signal.outcome_status === "invalidated") bucket.invalidated += 1;
+    buckets.set(key, bucket);
+  });
+
+  return Array.from(buckets.entries())
+    .map(([label, stats]) => ({
+      label,
+      total: stats.total,
+      wins: stats.wins,
+      losses: stats.losses,
+      invalidated: stats.invalidated,
+      pnl: stats.pnl,
+      avgPnl: stats.total ? stats.pnl / stats.total : 0,
+      winRate: stats.total ? (stats.wins / stats.total) * 100 : 0,
+    }))
+    .sort((a, b) => b.pnl - a.pnl || b.winRate - a.winRate || b.total - a.total);
+}
+
+function AnalyticsListCard({
+  title,
+  subtitle,
+  items,
+  truncateLabel = false,
+}: {
+  title: string;
+  subtitle: string;
+  items: AggregateRow[];
+  truncateLabel?: boolean;
+}) {
+  return (
+    <div className="signal-analytics-card">
+      <div className="signal-analytics-head">
+        <h4>{title}</h4>
+        <p>{subtitle}</p>
+      </div>
+
+      {!items.length ? (
+        <p className="section-note">Todavía no hay suficientes señales cerradas para esta lectura.</p>
+      ) : (
+        <div className="signal-analytics-list">
+          {items.map((item, index) => (
+            <div key={`${title}-${item.label}`} className="signal-analytics-item">
+              <div className="signal-analytics-rank">{index + 1}</div>
+              <div className="signal-analytics-copy">
+                <strong className={truncateLabel ? "truncate-text" : ""}>{item.label}</strong>
+                <span>{item.total} señales · {item.winRate.toFixed(0)}% acierto · {formatSignedPrice(item.avgPnl)} promedio</span>
+              </div>
+              <div className={`signal-analytics-pnl ${item.pnl > 0 ? "is-positive" : item.pnl < 0 ? "is-negative" : ""}`}>
+                {formatSignedPrice(item.pnl)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

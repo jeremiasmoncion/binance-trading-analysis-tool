@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/binance/connection.js": {
+      "regions": ["fra1"]
+    },
+    "api/binance/portfolio.js": {
+      "regions": ["fra1"]
+    }
+  }
+}

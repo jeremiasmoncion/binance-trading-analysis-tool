@@ -94,6 +94,18 @@ export const signalService = {
   },
 };
 
+export const watchlistService = {
+  list() {
+    return apiRequest<{ coins: string[] }>("/api/watchlist");
+  },
+  replace(coins: string[]) {
+    return apiRequest<{ coins: string[] }>("/api/watchlist", {
+      method: "PUT",
+      body: JSON.stringify({ coins }),
+    });
+  },
+};
+
 export interface MarketTicker {
   lastPrice?: string;
   priceChangePercent?: string;

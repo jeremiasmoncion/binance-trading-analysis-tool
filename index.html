@@ -733,7 +733,7 @@
                 </div>
               </div>
             </aside>
-          </aside>
+          </div>
         </div>
       </div>
 
@@ -1273,106 +1273,6 @@
       },
       async disconnect() {
         return apiRequest('/api/binance/connection', { method: 'DELETE' });
-      }
-    };
-
-    // ============================================
-    // REGISTRO DE OPERACIONES (JOURNAL)
-    // ============================================
-    const Journal = {
-      getOperations() {
-        const stored = localStorage.getItem('crype_operations');
-        return stored ? JSON.parse(stored) : [];
-      },
-      saveOperations(ops) {
-        localStorage.setItem('crype_operations', JSON.stringify(ops));
-        state.operations = ops;
-      },
-      addOperation(op) {
-        const ops = this.getOperations();
-        op.id = Date.now();
-        op.balance = this.calculateBalanceAfterOp(ops, op);
-        ops.push(op);
-        this.saveOperations(ops);
-        return op;
-      },
-      deleteOperation(id) {
-        let ops = this.getOperations();
-        ops = ops.filter(o => o.id !== id);
-        this.recalculateBalances(ops);
-        this.saveOperations(ops);
-      },
-      clearAll() {
-        this.saveOperations([]);
-      },
-      recalculateBalances(ops) {
-        let balance = 0;
-        ops.forEach(op => {
-          balance += op.profit;
-          op.balance = balance;
-        });
-      },
-      calculateBalanceAfterOp(ops, newOp) {
-        let balance = 0;
-        ops.forEach(op => balance += op.profit);
-        return balance + newOp.profit;
-      },
-      calculateProfit(entry, exit, amount, fee, type) {
-        const grossPct = type === 'COMPRA' ? (exit - entry) / entry : (entry - exit) / entry;
-        const grossProfit = amount * grossPct;
-        const totalFee = fee * 2;
-        return grossProfit - totalFee;
-      },
-      getStats(ops) {
-        const totalProfit = ops.filter(o => o.profit > 0).reduce((s, o) => s + o.profit, 0);
-        const totalLoss = Math.abs(ops.filter(o => o.profit < 0).reduce((s, o) => s + o.profit, 0));
-        const balance = totalProfit - totalLoss;
-        const wins = ops.filter(o => o.profit > 0).length;
-        const winRate = ops.length > 0 ? (wins / ops.length) * 100 : 0;
-        return { totalProfit, totalLoss, balance, wins, winRate, total: ops.length };
-      },
-      filterByPeriod(ops, period, startDate, endDate) {
-        if (period === 'all') return ops;
-        const now = new Date();
-        let start = new Date();
-        let end = now;
-        
-        if (period === 'today') {
-          start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        } else if (period === 'week') {
-          const dayOfWeek = now.getDay();
-          start = new Date(now);
-          start.setDate(now.getDate() - dayOfWeek);
-          start.setHours(0, 0, 0, 0);
-        } else if (period === 'month') {
-          start = new Date(now.getFullYear(), now.getMonth(), 1);
-        } else if (startDate && endDate) {
-          start = new Date(startDate);
-          end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-        }
-        
-        return ops.filter(o => {
-          const opDate = new Date(o.date);
-          return opDate >= start && opDate <= end;
-        });
-      },
-      exportToCSV() {
-        const ops = this.getOperations();
-        if (ops.length === 0) { alert('No hay operaciones para exportar'); return; }
-        
-        let csv = 'Fecha,Par,Tipo,Entrada,Salida,Inversion,Comision,Ganancia,ROI,Balance,Notas\n';
-        ops.forEach(op => {
-          csv += `${op.date},${op.pair},${op.type},${op.entry},${op.exit},${op.amount},${op.fee},${op.profit.toFixed(2)},${op.roi.toFixed(2)}%,${op.balance.toFixed(2)},${op.notes}\n`;
-        });
-        
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `crype_operaciones_${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
       }
     };
 

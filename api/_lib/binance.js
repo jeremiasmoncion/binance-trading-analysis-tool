@@ -271,6 +271,28 @@ function normalizeTrade(trade) {
     commission,
     commissionAsset,
     time: Number(trade.time || 0),
+    orderId: Number(trade.orderId || 0),
+  };
+}
+
+function normalizeOrder(order) {
+  const origQty = Number(order.origQty || 0);
+  const executedQty = Number(order.executedQty || 0);
+  const price = Number(order.price || 0);
+  const stopPrice = Number(order.stopPrice || 0);
+  const quoteQty = Number(order.cummulativeQuoteQty || 0);
+  return {
+    symbol: String(order.symbol || ""),
+    side: String(order.side || "BUY"),
+    type: String(order.type || "MARKET"),
+    status: String(order.status || "NEW"),
+    price,
+    stopPrice,
+    origQty,
+    executedQty,
+    quoteQty,
+    time: Number(order.time || 0),
+    updateTime: Number(order.updateTime || order.time || 0),
   };
 }
 
@@ -278,6 +300,7 @@ function calculatePositionFromTrades(trades, asset) {
   let quantityHeld = 0;
   let costHeld = 0;
   let realizedPnl = 0;
+  const tradeSummaries = [];
 
   for (const rawTrade of trades.sort((a, b) => a.time - b.time)) {
     const trade = normalizeTrade(rawTrade);
@@ -287,6 +310,18 @@ function calculatePositionFromTrades(trades, asset) {
       const netQty = Math.max(0, trade.qty - baseCommission);
       quantityHeld += netQty;
       costHeld += trade.value + quoteCommission;
+      tradeSummaries.push({
+        symbol: String(rawTrade.symbol || ""),
+        side: "BUY",
+        qty: formatMoneyNumber(trade.qty),
+        price: formatMoneyNumber(trade.price),
+        value: formatMoneyNumber(trade.value),
+        commission: formatMoneyNumber(trade.commission),
+        commissionAsset: trade.commissionAsset,
+        time: trade.time,
+        orderId: trade.orderId || undefined,
+        realizedPnl: 0,
+      });
       continue;
     }
 
@@ -296,7 +331,20 @@ function calculatePositionFromTrades(trades, asset) {
     const removedCost = avgCost * Math.min(quantityHeld, qtyLeaving);
     quantityHeld = Math.max(0, quantityHeld - qtyLeaving);
     costHeld = Math.max(0, costHeld - removedCost);
-    realizedPnl += trade.value - removedCost - quoteCommission;
+    const realizedTradePnl = trade.value - removedCost - quoteCommission;
+    realizedPnl += realizedTradePnl;
+    tradeSummaries.push({
+      symbol: String(rawTrade.symbol || ""),
+      side: "SELL",
+      qty: formatMoneyNumber(trade.qty),
+      price: formatMoneyNumber(trade.price),
+      value: formatMoneyNumber(trade.value),
+      commission: formatMoneyNumber(trade.commission),
+      commissionAsset: trade.commissionAsset,
+      time: trade.time,
+      orderId: trade.orderId || undefined,
+      realizedPnl: formatMoneyNumber(realizedTradePnl),
+    });
   }
 
   const avgEntryPrice = quantityHeld > 0 ? costHeld / quantityHeld : 0;
@@ -305,6 +353,7 @@ function calculatePositionFromTrades(trades, asset) {
     costHeld,
     avgEntryPrice,
     realizedPnl,
+    tradeSummaries,
   };
 }
 
@@ -315,6 +364,8 @@ function formatMoneyNumber(value) {
 async function getPortfolioSnapshot(req, period = "1d") {
   const { session, row, apiKey, apiSecret } = await getCredentialsForSession(req);
   const account = await fetchBinanceSigned("/api/v3/account", apiKey, apiSecret, { omitZeroBalances: true });
+  const openOrdersPayload = await fetchBinanceSigned("/api/v3/openOrders", apiKey, apiSecret).catch(() => []);
+  const openOrders = Array.isArray(openOrdersPayload) ? openOrdersPayload.map(normalizeOrder) : [];
   const balances = (account.balances || [])
     .map((balance) => {
       const free = Number(balance.free || 0);
@@ -323,6 +374,33 @@ async function getPortfolioSnapshot(req, period = "1d") {
     })
     .filter((balance) => balance.total > 0);
 
+  const trackedSymbols = Array.from(
+    new Set(
+      [
+        ...balances.map((balance) => getSymbolForAsset(balance.asset)).filter(Boolean),
+        ...openOrders.map((order) => order.symbol).filter(Boolean),
+      ].filter(Boolean)
+    )
+  );
+
+  const symbolHistory = await Promise.all(
+    trackedSymbols.map(async (symbol) => {
+      const [trades, orders] = await Promise.all([
+        fetchBinanceSigned("/api/v3/myTrades", apiKey, apiSecret, { symbol, limit: 200 }).catch(() => []),
+        fetchBinanceSigned("/api/v3/allOrders", apiKey, apiSecret, { symbol, limit: 50 }).catch(() => []),
+      ]);
+      return {
+        symbol,
+        trades: Array.isArray(trades) ? trades : [],
+        orders: Array.isArray(orders) ? orders : [],
+      };
+    })
+  );
+
+  const tradeHistoryBySymbol = new Map(symbolHistory.map((item) => [item.symbol, item.trades]));
+  const orderHistoryBySymbol = new Map(symbolHistory.map((item) => [item.symbol, item.orders]));
+
+  const symbolPositions = new Map();
   const assets = await Promise.all(
     balances.map(async (balance) => {
       if (balance.asset === "USDT") {
@@ -338,10 +416,10 @@ async function getPortfolioSnapshot(req, period = "1d") {
           investedValue: balance.total,
           pnlValue: 0,
           pnlPct: 0,
+          realizedPnl: 0,
           periodChangeValue: 0,
           periodChangePct: 0,
           avgEntryPrice: 1,
-          realizedPnl: 0,
           tradeCount: 0,
         };
       }
@@ -353,10 +431,11 @@ async function getPortfolioSnapshot(req, period = "1d") {
         fetchBinancePublic("/api/v3/ticker/price", { symbol }).catch(() => ({ price: "0" })),
         fetchBinancePublic("/api/v3/ticker/24hr", { symbol }).catch(() => ({ priceChangePercent: "0" })),
         fetchReferencePrice(symbol, period).catch(() => null),
-        fetchBinanceSigned("/api/v3/myTrades", apiKey, apiSecret, { symbol, limit: 200 }).catch(() => []),
+        Promise.resolve(tradeHistoryBySymbol.get(symbol) || []),
       ]);
 
       const position = calculatePositionFromTrades(Array.isArray(trades) ? trades : [], balance.asset);
+      symbolPositions.set(symbol, position);
       const currentPrice = Number(priceTicker.price || 0);
       const marketValue = balance.total * currentPrice;
       const investedValue = position.quantityHeld > 0
@@ -380,10 +459,10 @@ async function getPortfolioSnapshot(req, period = "1d") {
         investedValue: formatMoneyNumber(investedValue),
         pnlValue: formatMoneyNumber(pnlValue),
         pnlPct: Number(pnlPct.toFixed(2)),
+        realizedPnl: formatMoneyNumber(position.realizedPnl),
         periodChangeValue: formatMoneyNumber(periodChangeValue),
         periodChangePct: Number(periodChangePct.toFixed(2)),
         avgEntryPrice: formatMoneyNumber(position.avgEntryPrice),
-        realizedPnl: formatMoneyNumber(position.realizedPnl),
         tradeCount: Array.isArray(trades) ? trades.length : 0,
       };
     })
@@ -394,6 +473,7 @@ async function getPortfolioSnapshot(req, period = "1d") {
   const visibleAssets = cleanAssets.filter((asset) => !(asset.free <= 0 && asset.locked > 0));
   const totalValue = visibleAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
   const investedValue = visibleAssets.reduce((sum, asset) => sum + asset.investedValue, 0);
+  const realizedPnl = visibleAssets.reduce((sum, asset) => sum + asset.realizedPnl, 0);
   const unrealizedPnl = visibleAssets.reduce((sum, asset) => sum + asset.pnlValue, 0);
   const periodChangeValue = visibleAssets.reduce((sum, asset) => sum + asset.periodChangeValue, 0);
   const periodBaseValue = totalValue - periodChangeValue;
@@ -401,6 +481,21 @@ async function getPortfolioSnapshot(req, period = "1d") {
   const cashAsset = visibleAssets.find((asset) => asset.asset === "USDT");
   const openPositions = visibleAssets.filter((asset) => asset.asset !== "USDT" && asset.quantity > 0);
   const hiddenLockedValue = hiddenLockedAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+  const recentTrades = symbolHistory
+    .flatMap((item) => {
+      const position = symbolPositions.get(item.symbol);
+      return position?.tradeSummaries || [];
+    })
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 20);
+  const recentOrders = symbolHistory
+    .flatMap((item) => item.orders.map((order) => normalizeOrder(order)))
+    .filter((order) => order.status !== "NEW" && order.status !== "PARTIALLY_FILLED")
+    .sort((a, b) => b.updateTime - a.updateTime)
+    .slice(0, 20);
+  const normalizedOpenOrders = openOrders
+    .sort((a, b) => b.updateTime - a.updateTime)
+    .slice(0, 20);
 
   return {
     connected: true,
@@ -419,8 +514,10 @@ async function getPortfolioSnapshot(req, period = "1d") {
       period,
       totalValue: formatMoneyNumber(totalValue),
       investedValue: formatMoneyNumber(investedValue),
+      realizedPnl: formatMoneyNumber(realizedPnl),
       unrealizedPnl: formatMoneyNumber(unrealizedPnl),
       unrealizedPnlPct: investedValue > 0 ? Number(((unrealizedPnl / investedValue) * 100).toFixed(2)) : 0,
+      totalPnl: formatMoneyNumber(realizedPnl + unrealizedPnl),
       periodChangeValue: formatMoneyNumber(periodChangeValue),
       periodChangePct: Number(periodChangePct.toFixed(2)),
       cashValue: formatMoneyNumber(cashAsset?.marketValue || 0),
@@ -433,6 +530,9 @@ async function getPortfolioSnapshot(req, period = "1d") {
     },
     assets: visibleAssets,
     hiddenLockedAssets,
+    openOrders: normalizedOpenOrders,
+    recentOrders,
+    recentTrades,
   };
 }
 

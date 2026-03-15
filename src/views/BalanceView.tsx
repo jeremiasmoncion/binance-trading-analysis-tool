@@ -3,7 +3,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
-import type { PortfolioAsset, PortfolioPayload } from "../types";
+import type { BinanceOrderSummary, BinanceTradeSummary, PortfolioAsset, PortfolioPayload } from "../types";
 
 interface BalanceViewProps {
   payload: PortfolioPayload | null;
@@ -62,7 +62,9 @@ export function BalanceView(props: BalanceViewProps) {
           </>
         } />
         <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} accentClass="accent-green" sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} />
-        <StatCard label="Rendimiento abierto" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} />
+        <StatCard label="PnL realizado" value={formatSignedPrice(portfolio?.realizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.realizedPnl || 0)} accentClass="accent-green" sub="Ganancia o pérdida ya cerrada por ventas" />
+        <StatCard label="PnL no realizado" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} />
+        <StatCard label="PnL total" value={formatSignedPrice(portfolio?.totalPnl || 0)} toneClass={getPerformanceClass(portfolio?.totalPnl || 0)} accentClass="accent-blue" sub="Realizado + no realizado" />
         <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} accentClass="accent-amber" sub={`${portfolio?.openPositionsCount || 0} activos visibles`} />
       </div>
 
@@ -77,7 +79,7 @@ export function BalanceView(props: BalanceViewProps) {
             </div>
           </SectionCard>
 
-          <SectionCard title="Detalle por moneda" subtitle="Aquí ves cuánto dinero tienes por activo, el precio promedio estimado y el rendimiento abierto de cada balance.">
+          <SectionCard title="Detalle por moneda" subtitle="Aquí ves cuánto dinero tienes por activo, su costo promedio real y el PnL realizado/no realizado por moneda.">
             <div className="portfolio-toolbar">
               <SearchIcon className="portfolio-search-icon" />
               <label className="portfolio-filter-toggle">
@@ -94,17 +96,98 @@ export function BalanceView(props: BalanceViewProps) {
                     <th>Precio actual</th>
                     <th>Precio promedio</th>
                     <th>Valor actual</th>
-                    <th>Rendimiento abierto</th>
+                    <th>PnL abierto</th>
+                    <th>PnL realizado</th>
                     <th>Cambio del período</th>
                   </tr>
                 </thead>
                 <tbody>
                   {!visibleAssets.length ? (
                     <tr>
-                      <td colSpan={7}><EmptyState message={props.hideSmallAssets ? "No hay activos visibles por encima de 1 USD con el filtro actual." : "No hay balances disponibles para esta cuenta."} /></td>
+                      <td colSpan={8}><EmptyState message={props.hideSmallAssets ? "No hay activos visibles por encima de 1 USD con el filtro actual." : "No hay balances disponibles para esta cuenta."} /></td>
                     </tr>
                   ) : (
                     visibleAssets.map((asset) => <AssetRow asset={asset} key={asset.asset} />)
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Historial real" subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones.">
+            <div className="dashboard-main-grid">
+              <div className="dashboard-stack">
+                <div className="card-subtitle">Órdenes abiertas</div>
+                <div className="table-scroll">
+                  <table className="portfolio-table">
+                    <thead>
+                      <tr>
+                        <th>Par</th>
+                        <th>Lado</th>
+                        <th>Tipo</th>
+                        <th>Precio</th>
+                        <th>Cantidad</th>
+                        <th>Ejecutado</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {!props.payload?.openOrders?.length ? (
+                        <tr><td colSpan={7}><EmptyState message="No hay órdenes abiertas en esta cuenta." /></td></tr>
+                      ) : (
+                        props.payload.openOrders.map((order, index) => <OrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="dashboard-stack">
+                <div className="card-subtitle">Órdenes cerradas recientes</div>
+                <div className="table-scroll">
+                  <table className="portfolio-table">
+                    <thead>
+                      <tr>
+                        <th>Par</th>
+                        <th>Lado</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                        <th>Ejecutado</th>
+                        <th>Valor</th>
+                        <th>Hora</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {!props.payload?.recentOrders?.length ? (
+                        <tr><td colSpan={7}><EmptyState message="Todavía no hay órdenes cerradas recientes para los activos visibles." /></td></tr>
+                      ) : (
+                        props.payload.recentOrders.map((order, index) => <ClosedOrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div className="table-scroll">
+              <table className="portfolio-table">
+                <thead>
+                  <tr>
+                    <th>Trade</th>
+                    <th>Lado</th>
+                    <th>Precio</th>
+                    <th>Cantidad</th>
+                    <th>Valor</th>
+                    <th>Comisión</th>
+                    <th>PnL realizado</th>
+                    <th>Hora</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!props.payload?.recentTrades?.length ? (
+                    <tr><td colSpan={8}><EmptyState message="Aún no hay trades recientes para construir historial real." /></td></tr>
+                  ) : (
+                    props.payload.recentTrades.map((trade, index) => <TradeRow key={`${trade.symbol}-${trade.time}-${index}`} trade={trade} />)
                   )}
                 </tbody>
               </table>
@@ -124,7 +207,7 @@ export function BalanceView(props: BalanceViewProps) {
               {winner ? (
                 <div className="portfolio-highlight-card">
                   <div className="portfolio-highlight-title">Mejor abierta: {winner.asset}</div>
-                  <div className="portfolio-highlight-note">Ahora mismo va en <span className="portfolio-positive">{formatSignedPrice(winner.pnlValue)}</span> ({formatSignedPct(winner.pnlPct)}) frente a su costo promedio.</div>
+                  <div className="portfolio-highlight-note">Ahora mismo va en <span className="portfolio-positive">{formatSignedPrice(winner.pnlValue)}</span> ({formatSignedPct(winner.pnlPct)}) frente a su costo promedio real.</div>
                 </div>
               ) : null}
               {loser ? (
@@ -156,7 +239,7 @@ export function BalanceView(props: BalanceViewProps) {
               </div>
             </div>
             <div className="binance-status-note">
-              La comparación con {periodLabel} usa tus holdings actuales y el precio de referencia del activo en ese momento. El rendimiento abierto usa el costo promedio estimado según tus trades de Binance Demo Spot.
+              La comparación con {periodLabel} usa tus holdings actuales y el precio de referencia del activo en ese momento. El PnL abierto usa el costo promedio real según tus trades de Binance Demo Spot, y el PnL realizado sale de las ventas ya ejecutadas contra ese costo promedio histórico.
               {hiddenLockedAssetsCount
                 ? ` El total visible excluye ${hiddenLockedAssetsCount} activo${hiddenLockedAssetsCount > 1 ? "s" : ""} 100% bloqueado${hiddenLockedAssetsCount > 1 ? "s" : ""} por ${formatPrice(hiddenLockedValue)} para acercarse a la vista spot de Binance.`
                 : ""}
@@ -193,7 +276,51 @@ function AssetRow({ asset }: { asset: PortfolioAsset }) {
       <td><div className="portfolio-metric"><strong>{asset.avgEntryPrice > 0 ? formatPrice(asset.avgEntryPrice) : "--"}</strong><span>{asset.tradeCount || 0} trades</span></div></td>
       <td><div className="portfolio-metric"><strong>{formatPrice(asset.marketValue)}</strong><span>Costo est. {formatPrice(asset.investedValue)}</span></div></td>
       <td><div className="portfolio-metric"><strong className={pnlClass}>{formatSignedPrice(asset.pnlValue)}</strong><span className={pnlClass}>{formatSignedPct(asset.pnlPct)}</span></div></td>
+      <td><div className="portfolio-metric"><strong className={getPerformanceClass(asset.realizedPnl)}>{formatSignedPrice(asset.realizedPnl)}</strong><span>{asset.tradeCount || 0} ejecuciones</span></div></td>
       <td><div className="portfolio-metric"><strong className={periodClass}>{formatSignedPrice(asset.periodChangeValue)}</strong><span className={periodClass}>{formatSignedPct(asset.periodChangePct)}</span></div></td>
+    </tr>
+  );
+}
+
+function OrderRow({ order }: { order: BinanceOrderSummary }) {
+  return (
+    <tr>
+      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{new Date(order.updateTime).toLocaleString("es-DO")}</span></div></td>
+      <td><span className={order.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{order.side === "BUY" ? "Compra" : "Venta"}</span></td>
+      <td>{order.type}</td>
+      <td>{order.price > 0 ? formatPrice(order.price) : "Market"}</td>
+      <td>{formatAmount(order.origQty)}</td>
+      <td>{formatAmount(order.executedQty)}</td>
+      <td>{order.status}</td>
+    </tr>
+  );
+}
+
+function ClosedOrderRow({ order }: { order: BinanceOrderSummary }) {
+  return (
+    <tr>
+      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{order.price > 0 ? formatPrice(order.price) : "Market"}</span></div></td>
+      <td><span className={order.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{order.side === "BUY" ? "Compra" : "Venta"}</span></td>
+      <td>{order.type}</td>
+      <td>{order.status}</td>
+      <td>{formatAmount(order.executedQty)}</td>
+      <td>{formatPrice(order.quoteQty)}</td>
+      <td>{new Date(order.updateTime).toLocaleString("es-DO")}</td>
+    </tr>
+  );
+}
+
+function TradeRow({ trade }: { trade: BinanceTradeSummary }) {
+  return (
+    <tr>
+      <td><div className="portfolio-asset"><strong>{trade.symbol}</strong><span>{trade.orderId ? `Orden ${trade.orderId}` : "Trade"}</span></div></td>
+      <td><span className={trade.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{trade.side === "BUY" ? "Compra" : "Venta"}</span></td>
+      <td>{formatPrice(trade.price)}</td>
+      <td>{formatAmount(trade.qty)}</td>
+      <td>{formatPrice(trade.value)}</td>
+      <td>{formatAmount(trade.commission)} {trade.commissionAsset}</td>
+      <td><span className={getPerformanceClass(trade.realizedPnl || 0)}>{formatSignedPrice(trade.realizedPnl || 0)}</span></td>
+      <td>{new Date(trade.time).toLocaleString("es-DO")}</td>
     </tr>
   );
 }

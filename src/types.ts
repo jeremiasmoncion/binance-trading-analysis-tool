@@ -93,6 +93,7 @@ export interface PortfolioAsset {
   investedValue: number;
   pnlValue: number;
   pnlPct: number;
+  realizedPnl: number;
   periodChangeValue: number;
   periodChangePct: number;
 }
@@ -102,8 +103,10 @@ export interface PortfolioTotals {
   totalValue: number;
   periodChangeValue: number;
   periodChangePct: number;
+  realizedPnl: number;
   unrealizedPnl: number;
   unrealizedPnlPct: number;
+  totalPnl: number;
   winnersCount: number;
   openPositionsCount: number;
   cashValue: number;
@@ -118,6 +121,36 @@ export interface PortfolioPayload {
   summary?: BinanceSummary;
   portfolio?: PortfolioTotals;
   assets: PortfolioAsset[];
+  openOrders?: BinanceOrderSummary[];
+  recentOrders?: BinanceOrderSummary[];
+  recentTrades?: BinanceTradeSummary[];
+}
+
+export interface BinanceOrderSummary {
+  symbol: string;
+  side: "BUY" | "SELL";
+  type: string;
+  status: string;
+  price: number;
+  stopPrice: number;
+  origQty: number;
+  executedQty: number;
+  quoteQty: number;
+  time: number;
+  updateTime: number;
+}
+
+export interface BinanceTradeSummary {
+  symbol: string;
+  side: "BUY" | "SELL";
+  qty: number;
+  price: number;
+  value: number;
+  commission: number;
+  commissionAsset: string;
+  time: number;
+  orderId?: number;
+  realizedPnl?: number;
 }
 
 export interface AppState {

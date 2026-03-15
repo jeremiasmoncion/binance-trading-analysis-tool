@@ -127,6 +127,15 @@ export interface SignalSnapshot {
     analysis?: DashboardAnalysis;
     plan?: OperationPlan;
     multiTimeframes?: TimeframeSignal[];
+    context?: {
+      direction?: string;
+      marketRegime?: string;
+      timeframeBias?: string;
+      volumeCondition?: string;
+      levelContext?: string;
+      alignmentScore?: number;
+      contextSignature?: string;
+    };
   };
 }
 

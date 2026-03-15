@@ -88,6 +88,26 @@ async function createSignalSnapshot(req) {
   const signal = body.signal || {};
   const analysis = body.analysis || {};
   const plan = body.plan || {};
+  const direction = String(signal.label || "Esperar").toLowerCase();
+  const marketRegime =
+    String(analysis.setupType || "").includes("Contra")
+      ? "contra-tendencia"
+      : String(analysis.higherTimeframeBias || "").toLowerCase() === "mixto"
+        ? "mixto"
+        : "tendencia";
+  const levelContext =
+    direction === "comprar"
+      ? (Number(analysis.resistanceDistancePct || 0) < 1.2 ? "resistencia-cercana" : "espacio-limpio")
+      : direction === "vender"
+        ? (Number(analysis.supportDistancePct || 0) < 1.2 ? "soporte-cercano" : "espacio-limpio")
+        : "neutral";
+  const contextSignature = [
+    String(analysis.setupType || "sin-setup"),
+    String(analysis.setupQuality || "media"),
+    String(analysis.higherTimeframeBias || "mixto"),
+    String(analysis.volumeLabel || "volumen-normal"),
+    String(analysis.riskLabel || "controlado"),
+  ].join(" | ");
   const rows = await supabaseRequest(SIGNALS_TABLE, {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -118,6 +138,15 @@ async function createSignalSnapshot(req) {
         analysis,
         plan,
         multiTimeframes: body.multiTimeframes || [],
+        context: {
+          direction,
+          marketRegime,
+          timeframeBias: String(analysis.higherTimeframeBias || ""),
+          volumeCondition: String(analysis.volumeLabel || ""),
+          levelContext,
+          alignmentScore: Number(analysis.alignmentPct || 0),
+          contextSignature,
+        },
       },
     },
   });

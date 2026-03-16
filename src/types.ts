@@ -43,6 +43,15 @@ export interface Signal {
   reasons: string[];
 }
 
+export interface StrategyDescriptor {
+  id: string;
+  version: string;
+  label: string;
+  description: string;
+  category?: string;
+  parameters: Record<string, number | string | boolean>;
+}
+
 export interface OperationPlan {
   entry: number;
   tp: number;
@@ -102,6 +111,9 @@ export interface SignalSnapshot {
   id: number;
   coin: string;
   timeframe: string;
+  strategy_name?: string;
+  strategy_version?: string;
+  strategy_label?: string;
   signal_label: string;
   signal_score: number;
   trend?: string;
@@ -123,6 +135,7 @@ export interface SignalSnapshot {
   created_at: string;
   updated_at?: string;
   signal_payload?: {
+    strategy?: StrategyDescriptor;
     signal?: Signal;
     analysis?: DashboardAnalysis;
     plan?: OperationPlan;

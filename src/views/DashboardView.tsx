@@ -1,5 +1,5 @@
 import { formatPct, formatPrice, formatSignedPct } from "../lib/format";
-import type { Candle, DashboardAnalysis, OperationPlan, Signal, TimeframeSignal } from "../types";
+import type { Candle, DashboardAnalysis, OperationPlan, Signal, StrategyDescriptor, TimeframeSignal } from "../types";
 
 interface DashboardViewProps {
   currentCoin: string;
@@ -8,6 +8,7 @@ interface DashboardViewProps {
   signal: Signal | null;
   plan: OperationPlan | null;
   analysis: DashboardAnalysis | null;
+  strategy: StrategyDescriptor;
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
@@ -31,6 +32,7 @@ export function DashboardView(props: DashboardViewProps) {
               <h1 className="dashboard-headline">{signal?.title || "Esperar confirmación"}</h1>
               <p className="dashboard-subcopy">{signal?.reasons[0] || "Análisis en progreso."}</p>
               <div className="dashboard-chip-row">
+                <span className="dashboard-chip">{props.strategy.label}</span>
                 <span className="dashboard-chip">{analysis?.alignmentLabel || "Sin contexto"}</span>
                 <span className="dashboard-chip">{analysis?.setupType || "Setup pendiente"}</span>
                 <span className="dashboard-chip">{analysis?.volatilityLabel ? `Volatilidad ${analysis.volatilityLabel.toLowerCase()}` : "Volatilidad pendiente"}</span>
@@ -210,6 +212,7 @@ export function DashboardView(props: DashboardViewProps) {
                 </div>
                 <div className="inline-actions">
                   <span className="plan-chip">{analysis?.setupType || "Basado en señal + temporalidad + comisión"}</span>
+                  <span className="plan-chip">{props.strategy.version}</span>
                   <button className="btn-secondary-soft" type="button" onClick={props.onSaveSignal}>
                     Guardar señal
                   </button>

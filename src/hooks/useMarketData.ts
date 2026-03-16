@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
-import { buildDashboardAnalysis, calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
+import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
+import { defaultStrategy } from "../strategies";
 import { marketService } from "../services/api";
-import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, TimeframeSignal, ViewName } from "../types";
+import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, StrategyDescriptor, TimeframeSignal, ViewName } from "../types";
 
 interface UseMarketDataOptions {
   currentView: ViewName;
@@ -24,6 +25,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null);
+  const [strategy, setStrategy] = useState<StrategyDescriptor>(defaultStrategy.descriptor);
   const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
   const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
   const [currentPrice, setCurrentPrice] = useState(0);
@@ -42,8 +44,6 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     try {
       const fetchedCandles = (await marketService.fetchCandles(coin, nextTimeframe)) || generateFallbackCandles(nextTimeframe);
       const nextIndicators = calcIndicators(fetchedCandles);
-      const nextSignal = generateSignal(nextIndicators);
-
       const nextMultiTimeframes = await Promise.all(
         MAP_TIMEFRAMES.map(async (mapTf) => {
           const tfCandles = (await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf);
@@ -54,11 +54,21 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
             note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
             trend: tfSignal.trend,
             score: tfSignal.score,
-            aligned: tfSignal.label === nextSignal.label,
+            aligned: false,
           };
         }),
       );
-      const nextAnalysis = buildDashboardAnalysis(fetchedCandles, nextIndicators, nextSignal, nextMultiTimeframes);
+      const strategyExecution = defaultStrategy.execute({
+        candles: fetchedCandles,
+        indicators: nextIndicators,
+        multiTimeframes: nextMultiTimeframes,
+      });
+      const nextSignal = strategyExecution.signal;
+      const nextAnalysis = strategyExecution.analysis;
+      const alignedTimeframes = nextMultiTimeframes.map((item) => ({
+        ...item,
+        aligned: item.label === nextSignal.label,
+      }));
 
       const ticker = await marketService.fetch24h(coin);
       const nextComparison = await Promise.all(
@@ -81,7 +91,8 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setCurrentPrice(nextIndicators.current);
       setSignal(nextSignal);
       setAnalysis(nextAnalysis);
-      setMultiTimeframes(nextMultiTimeframes);
+      setStrategy(strategyExecution.strategy);
+      setMultiTimeframes(alignedTimeframes);
       setComparison(nextComparison);
       setMarket24h({
         change: Number(ticker.priceChangePercent || 0),
@@ -158,6 +169,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     indicators,
     signal,
     analysis,
+    strategy,
     multiTimeframes,
     comparison,
     availableCoins,

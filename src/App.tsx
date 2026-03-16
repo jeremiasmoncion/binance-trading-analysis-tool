@@ -64,6 +64,7 @@ export function App() {
       analysis: market.analysis,
       plan,
       multiTimeframes: market.multiTimeframes,
+      strategy: market.strategy,
     });
   }, [
     auth.currentUser,
@@ -159,6 +160,7 @@ export function App() {
           signal={market.signal}
           plan={plan}
           analysis={market.analysis}
+          strategy={market.strategy}
           multiTimeframes={market.multiTimeframes}
           candles={market.candles}
           chartRef={chartRef}
@@ -173,6 +175,7 @@ export function App() {
               analysis: market.analysis,
               plan,
               multiTimeframes: market.multiTimeframes,
+              strategy: market.strategy,
             });
           }}
           indicators={market.indicators}

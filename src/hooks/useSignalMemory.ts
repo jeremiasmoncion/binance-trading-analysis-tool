@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { marketService, signalService } from "../services/api";
-import type { DashboardAnalysis, OperationPlan, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, ViewName } from "../types";
+import type { DashboardAnalysis, OperationPlan, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyDescriptor, TimeframeSignal, UserSession, ViewName } from "../types";
 
 interface UseSignalMemoryOptions {
   currentUser: UserSession | null;
@@ -30,6 +30,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     analysis: DashboardAnalysis | null;
     plan: OperationPlan | null;
     multiTimeframes: TimeframeSignal[];
+    strategy?: StrategyDescriptor | null;
     note?: string;
   }) => {
     if (!currentUser || !payload.signal) return;
@@ -40,6 +41,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       analysis: payload.analysis,
       plan: payload.plan,
       multiTimeframes: payload.multiTimeframes,
+      strategy: payload.strategy || undefined,
       note: payload.note,
     });
     await refreshSignals();
@@ -52,6 +54,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     analysis: DashboardAnalysis | null;
     plan: OperationPlan | null;
     multiTimeframes: TimeframeSignal[];
+    strategy?: StrategyDescriptor | null;
   }) => {
     if (!currentUser || !payload.signal || !payload.analysis || !payload.plan) return;
     const shouldAutoSave =
@@ -97,6 +100,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
         analysis: payload.analysis,
         plan: payload.plan,
         multiTimeframes: payload.multiTimeframes,
+        strategy: payload.strategy || undefined,
         note: "Auto-guardada por CRYPE",
       });
       await refreshSignals();

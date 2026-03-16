@@ -277,6 +277,27 @@ export interface WatchlistScannerStatus {
   };
 }
 
+export interface WatchlistScanExecution {
+  mode: "manual" | "scheduler";
+  targets: Array<{
+    username: string;
+    activeListName: string;
+    coinsCount: number;
+    scannedFrames: number;
+    signalsCreated: number;
+    signalsClosed: number;
+    errors: string[];
+    runPersistError?: string | null;
+  }>;
+  summary: {
+    users: number;
+    signalsCreated: number;
+    signalsClosed: number;
+    framesScanned: number;
+    runPersistErrors?: string[];
+  };
+}
+
 export interface BinanceSummary {
   uid?: string | number;
   accountType?: string;

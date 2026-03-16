@@ -16,6 +16,7 @@ import type {
   TimeframeSignal,
   UserSession,
   WatchlistGroup,
+  WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
 
@@ -193,7 +194,7 @@ export const watchlistService = {
     return apiRequest<WatchlistScannerStatus>("/api/watchlist/scan");
   },
   runScan() {
-    return apiRequest<WatchlistScannerStatus>("/api/watchlist/scan", {
+    return apiRequest<WatchlistScanExecution>("/api/watchlist/scan", {
       method: "POST",
     });
   },

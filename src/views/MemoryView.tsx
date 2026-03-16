@@ -13,6 +13,7 @@ import type {
   StrategyRegistryEntry,
   StrategyRecommendationRecord,
   StrategyVersionRecord,
+  WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
 
@@ -50,6 +51,43 @@ interface ExperimentPaperStats {
   recommendation: string;
 }
 
+function buildScannerStatusFromExecution(
+  execution: WatchlistScanExecution,
+  previousStatus: WatchlistScannerStatus | null,
+): WatchlistScannerStatus {
+  const now = new Date().toISOString();
+  const firstTarget = execution.targets[0];
+  return {
+    username: previousStatus?.username || null,
+    targets: execution.targets.map((item) => ({
+      username: item.username,
+      activeListName: item.activeListName,
+      coinsCount: item.coinsCount,
+      coins: previousStatus?.targets.find((target) => target.username === item.username)?.coins || [],
+    })),
+    latestRun: firstTarget
+      ? {
+          id: previousStatus?.latestRun?.id || -1,
+          username: firstTarget.username,
+          active_list_name: firstTarget.activeListName,
+          scan_source: execution.mode,
+          coins_count: firstTarget.coinsCount,
+          frames_scanned: firstTarget.scannedFrames,
+          signals_created: firstTarget.signalsCreated,
+          signals_closed: firstTarget.signalsClosed,
+          status: firstTarget.errors.length ? "partial" : "ok",
+          errors: firstTarget.errors,
+          created_at: now,
+        }
+      : previousStatus?.latestRun || null,
+    runs: previousStatus?.runs || [],
+    summary: {
+      watchedUsers: execution.summary.users,
+      watchedCoins: execution.targets.reduce((sum, item) => sum + item.coinsCount, 0),
+    },
+  };
+}
+
 export function MemoryView(props: MemoryViewProps) {
   const [activeTab, setActiveTab] = useState<SignalsTab>("overview");
   const [search, setSearch] = useState("");
@@ -72,6 +110,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [activatingRecommendationKey, setActivatingRecommendationKey] = useState("");
   const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
+  const [scannerNotice, setScannerNotice] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -443,11 +482,18 @@ export function MemoryView(props: MemoryViewProps) {
   async function handleRunScanner() {
     setScannerBusy(true);
     try {
-      await watchlistService.runScan();
-      const refreshed = await watchlistService.scanStatus();
-      setScannerStatus(refreshed);
+      const execution = await watchlistService.runScan();
+      const refreshed = await watchlistService.scanStatus().catch(() => null);
+      setScannerStatus(refreshed || buildScannerStatusFromExecution(execution, scannerStatus));
+      const errorMessage = execution.summary.runPersistErrors?.[0]
+        || execution.targets.find((item) => item.runPersistError)?.runPersistError
+        || "";
+      setScannerNotice(errorMessage || "Vigilante ejecutado correctamente.");
+      if (errorMessage) {
+        window.alert(`El vigilante sí escaneó, pero no pudo guardar el resumen del run:\n\n${errorMessage}`);
+      }
     } catch {
-      // keep UI steady if API fails
+      setScannerNotice("No se pudo ejecutar el vigilante ahora mismo.");
     } finally {
       setScannerBusy(false);
     }
@@ -517,6 +563,11 @@ export function MemoryView(props: MemoryViewProps) {
               </button>
             )}
           >
+            {scannerNotice ? (
+              <div className="content-note" style={{ marginBottom: "1rem" }}>
+                {scannerNotice}
+              </div>
+            ) : null}
             <div className="stats-grid">
               <StatCard
                 label="Última ejecución"

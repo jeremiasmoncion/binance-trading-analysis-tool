@@ -226,6 +226,7 @@ export async function runWatchlistScan(req) {
       signalsCreated: results.reduce((sum, item) => sum + item.signalsCreated, 0),
       signalsClosed: results.reduce((sum, item) => sum + item.signalsClosed, 0),
       framesScanned: results.reduce((sum, item) => sum + item.scannedFrames, 0),
+      runPersistErrors: results.map((item) => item.runPersistError).filter(Boolean),
     },
   };
 }

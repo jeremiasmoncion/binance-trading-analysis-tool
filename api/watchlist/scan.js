@@ -1,8 +1,12 @@
-import { runWatchlistScan, sendJson } from "../_lib/watchlistScanner.js";
+import { getWatchlistScannerStatus, runWatchlistScan, sendJson } from "../_lib/watchlistScanner.js";
 
 export default async function handler(req, res) {
   try {
-    if (req.method === "GET" || req.method === "POST") {
+    if (req.method === "GET") {
+      return sendJson(res, 200, await getWatchlistScannerStatus(req));
+    }
+
+    if (req.method === "POST") {
       return sendJson(res, 200, await runWatchlistScan(req));
     }
 

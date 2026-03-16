@@ -4,7 +4,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatPrice, formatSignedPrice } from "../lib/format";
-import { strategyEngineService } from "../services/api";
+import { strategyEngineService, watchlistService } from "../services/api";
 import type {
   RecommendationActivationResult,
   SignalOutcomeStatus,
@@ -13,6 +13,7 @@ import type {
   StrategyRegistryEntry,
   StrategyRecommendationRecord,
   StrategyVersionRecord,
+  WatchlistScannerStatus,
 } from "../types";
 
 interface MemoryViewProps {
@@ -69,6 +70,8 @@ export function MemoryView(props: MemoryViewProps) {
   const [experimentTimeframeScope, setExperimentTimeframeScope] = useState("all");
   const [experimentSummary, setExperimentSummary] = useState("");
   const [activatingRecommendationKey, setActivatingRecommendationKey] = useState("");
+  const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
+  const [scannerBusy, setScannerBusy] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -87,6 +90,22 @@ export function MemoryView(props: MemoryViewProps) {
         setVersions([]);
         setExperiments([]);
         setRecommendations([]);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    void watchlistService.scanStatus()
+      .then((payload) => {
+        if (!ignore) setScannerStatus(payload);
+      })
+      .catch(() => {
+        if (!ignore) setScannerStatus(null);
       });
 
     return () => {
@@ -421,6 +440,18 @@ export function MemoryView(props: MemoryViewProps) {
     }
   }
 
+  async function handleRunScanner() {
+    setScannerBusy(true);
+    try {
+      const payload = await watchlistService.runScan();
+      setScannerStatus(payload);
+    } catch {
+      // keep UI steady if API fails
+    } finally {
+      setScannerBusy(false);
+    }
+  }
+
   return (
     <div id="memoryView" className="view-panel active">
       <section id="signals-overview">
@@ -455,8 +486,8 @@ export function MemoryView(props: MemoryViewProps) {
                 text="Es una foto completa de una oportunidad detectada por el sistema, con plan, estrategia usada y resultado final."
               />
               <InfoCard
-                title="Pendiente"
-                text="La señal sigue abierta. Todavía no llegó al objetivo ni al stop, o no se ha cerrado manualmente."
+                title="Abierta"
+                text="La señal sigue activa. Todavía no llegó al objetivo ni al stop, o no se ha cerrado manualmente."
               />
               <InfoCard
                 title="Tipo de entrada"
@@ -473,8 +504,69 @@ export function MemoryView(props: MemoryViewProps) {
             <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Historial técnico registrado" accentClass="accent-blue" />
             <StatCard label="Porcentaje de acierto" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas de ${completedSignals.length} cerradas`} accentClass="accent-green" />
             <StatCard label="Resultado neto" value={formatPrice(totalPnl)} sub={`${losses} pérdidas · ${invalidated} invalidadas`} toneClass={totalPnl > 0 ? "portfolio-positive" : totalPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
-            <StatCard label="Pendientes" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Señales todavía abiertas" accentClass="accent-amber" />
+            <StatCard label="Abiertas" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Señales todavía activas" accentClass="accent-amber" />
           </div>
+
+          <SectionCard
+            title="Vigilante del mercado"
+            subtitle="Este módulo vigila tu watchlist en backend para detectar oportunidades y cerrar señales aunque no tengas la app abierta."
+            actions={(
+              <button className="btn-secondary-soft" type="button" onClick={() => void handleRunScanner()} disabled={scannerBusy}>
+                {scannerBusy ? "Revisando..." : "Revisar ahora"}
+              </button>
+            )}
+          >
+            <div className="stats-grid">
+              <StatCard
+                label="Última ejecución"
+                value={scannerStatus?.latestRun ? new Date(scannerStatus.latestRun.created_at).toLocaleTimeString("es-DO", { hour: "2-digit", minute: "2-digit" }) : "--"}
+                sub={scannerStatus?.latestRun ? `Estado ${formatScannerStatus(scannerStatus.latestRun.status)}` : "Todavía no hay ejecuciones registradas"}
+                accentClass="accent-blue"
+              />
+              <StatCard
+                label="Monedas vigiladas"
+                value={String(scannerStatus?.summary.watchedCoins || 0)}
+                sub={scannerStatus?.targets?.[0] ? `Lista activa: ${scannerStatus.targets[0].activeListName}` : "Sin watchlist activa"}
+                accentClass="accent-emerald"
+              />
+              <StatCard
+                label="Monedas revisadas"
+                value={String(scannerStatus?.latestRun?.coins_count || 0)}
+                sub={scannerStatus?.latestRun ? `${scannerStatus.latestRun.frames_scanned} marcos revisados` : "Esperando la primera revisión"}
+                accentClass="accent-amber"
+              />
+              <StatCard
+                label="Señales creadas / cerradas"
+                value={scannerStatus?.latestRun ? `${scannerStatus.latestRun.signals_created} / ${scannerStatus.latestRun.signals_closed}` : "--"}
+                sub="Nuevas creadas / cerradas por objetivo o stop"
+                accentClass="accent-green"
+              />
+            </div>
+            <div className="signal-analytics-grid compact-top-gap">
+              <InfoCard
+                title="Qué está vigilando"
+                text={scannerStatus?.targets?.[0]?.coins?.length
+                  ? scannerStatus.targets[0].coins.join(", ")
+                  : "Todavía no hay monedas activas en la lista de seguimiento."}
+              />
+              <InfoCard
+                title="Cómo trabaja"
+                text="Revisa las monedas del watchlist en los marcos ideales de cada estrategia y guarda una señal si detecta una oportunidad fuerte."
+              />
+              <InfoCard
+                title="Cómo cambia el estado"
+                text="Cuando una señal está abierta, compara el precio actual con su TP y su SL. Si toca objetivo, la marca como ganada. Si toca stop, la marca como perdida."
+              />
+              <InfoCard
+                title="Origen de la revisión"
+                text={scannerStatus?.latestRun
+                  ? scannerStatus.latestRun.scan_source === "scheduler"
+                    ? "La última revisión la hizo el programador automático del sistema."
+                    : "La última revisión se ejecutó manualmente desde la app."
+                  : "Cuando corra el vigilante, aquí verás si fue automática o manual."}
+              />
+            </div>
+          </SectionCard>
 
           <div className="stats-grid">
             <StatCard label="Mejor tipo de entrada" value={bestSetup ? getSetupLabel(bestSetup.setup) : "--"} sub={bestSetup ? `${bestSetup.rate.toFixed(0)}% de efectividad` : "Todavía falta historial"} accentClass="accent-blue" />
@@ -487,7 +579,7 @@ export function MemoryView(props: MemoryViewProps) {
             <StatCard label="Ganadas en período" value={String(periodWins)} sub={`En ${periodLabel}`} accentClass="accent-green" />
             <StatCard label="Perdidas en período" value={String(periodLosses)} sub={`En ${periodLabel}`} accentClass="accent-amber" />
             <StatCard label="Invalidadas" value={String(periodInvalidated)} sub={`En ${periodLabel}`} accentClass="accent-blue" />
-            <StatCard label="Pendientes en período" value={String(periodPending)} sub={`Todavía abiertas en ${periodLabel}`} accentClass="accent-emerald" />
+            <StatCard label="Abiertas en período" value={String(periodPending)} sub={`Todavía activas en ${periodLabel}`} accentClass="accent-emerald" />
           </div>
 
           <div className="stats-grid">
@@ -775,7 +867,7 @@ export function MemoryView(props: MemoryViewProps) {
               Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
             </p>
             <p className="section-note with-bottom-gap">
-              `Pendiente` significa que la señal sigue abierta: todavía no ha tocado el objetivo ni la invalidación, o aún no la has cerrado manualmente.
+              `Abierta` significa que la señal sigue activa: todavía no ha tocado el objetivo ni la invalidación, o aún no la has cerrado manualmente.
             </p>
             <p className="section-note with-bottom-gap">
               `Activa` es la estrategia que ganó en esa lectura. `Alternativa` te enseña qué otra estrategia estuvo cerca para que entiendas por qué el motor eligió una y no otra.
@@ -801,7 +893,7 @@ export function MemoryView(props: MemoryViewProps) {
               </select>
               <select className="timeframe-select signal-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SignalOutcomeStatus | "all")}>
                 <option value="all">Todos los estados</option>
-                <option value="pending">Pendiente</option>
+                <option value="pending">Abierta</option>
                 <option value="win">Ganada</option>
                 <option value="loss">Perdida</option>
                 <option value="invalidated">Invalidada</option>
@@ -1145,7 +1237,7 @@ function SignalRow({
       <td>
         <div className="signal-status-block">
           <select className="timeframe-select signal-select" value={outcomeStatus} onChange={(e) => setOutcomeStatus(e.target.value as SignalOutcomeStatus)}>
-            <option value="pending">Pendiente</option>
+            <option value="pending">Abierta</option>
             <option value="win">Ganada</option>
             <option value="loss">Perdida</option>
             <option value="invalidated">Invalidada</option>
@@ -1399,6 +1491,13 @@ function getExperimentStatusLabel(status: string) {
   if (status === "paused") return "Observando";
   if (status === "archived") return "Archivada";
   return status;
+}
+
+function formatScannerStatus(status?: string) {
+  if (status === "ok") return "estable";
+  if (status === "partial") return "parcial";
+  if (status === "error") return "con errores";
+  return status || "desconocido";
 }
 
 function getExperimentTitle(item: StrategyExperimentRecord) {

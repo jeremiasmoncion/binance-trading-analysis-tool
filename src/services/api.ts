@@ -16,6 +16,7 @@ import type {
   TimeframeSignal,
   UserSession,
   WatchlistGroup,
+  WatchlistScannerStatus,
 } from "../types";
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -186,6 +187,14 @@ export const watchlistService = {
     return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
       method: "DELETE",
       body: JSON.stringify({ name }),
+    });
+  },
+  scanStatus() {
+    return apiRequest<WatchlistScannerStatus>("/api/watchlist/scan");
+  },
+  runScan() {
+    return apiRequest<WatchlistScannerStatus>("/api/watchlist/scan", {
+      method: "POST",
     });
   },
 };

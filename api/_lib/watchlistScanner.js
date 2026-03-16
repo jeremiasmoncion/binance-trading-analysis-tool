@@ -77,6 +77,16 @@ async function createScanRun(run) {
   }).catch(() => null);
 }
 
+async function listRecentRuns(username = null) {
+  const params = new URLSearchParams({
+    select: "*",
+    order: "created_at.desc",
+    limit: "10",
+  });
+  if (username) params.set("username", `eq.${username}`);
+  return supabaseRequest(`${WATCHLIST_SCAN_RUNS_TABLE}?${params.toString()}`).catch(() => []);
+}
+
 function shouldScanNow(lastScannedAt, timeframe) {
   if (!lastScannedAt) return true;
   const elapsed = Date.now() - new Date(lastScannedAt).getTime();
@@ -181,9 +191,10 @@ async function scanUserWatchlist(target, scanSource) {
 
 export async function runWatchlistScan(req) {
   const schedulerMode = canRunAsScheduler(req);
-  const username = req.query?.username ? String(req.query.username) : null;
+  const session = schedulerMode ? null : getSession(req);
+  const username = req.query?.username ? String(req.query.username) : session?.username || null;
 
-  if (!schedulerMode && !hasValidSession(req)) {
+  if (!schedulerMode && !session) {
     throw new Error("No autorizado para ejecutar el vigilante del watchlist");
   }
 
@@ -209,6 +220,36 @@ export async function runWatchlistScan(req) {
       signalsCreated: results.reduce((sum, item) => sum + item.signalsCreated, 0),
       signalsClosed: results.reduce((sum, item) => sum + item.signalsClosed, 0),
       framesScanned: results.reduce((sum, item) => sum + item.scannedFrames, 0),
+    },
+  };
+}
+
+export async function getWatchlistScannerStatus(req) {
+  const schedulerMode = canRunAsScheduler(req);
+  const session = schedulerMode ? null : getSession(req);
+  const username = req.query?.username ? String(req.query.username) : session?.username || null;
+
+  if (!schedulerMode && !session) {
+    throw new Error("No autorizado para consultar el vigilante del watchlist");
+  }
+
+  const targets = await listWatchlistScanTargets(username);
+  const runs = await listRecentRuns(username);
+  const latestRun = runs?.[0] || null;
+
+  return {
+    username,
+    targets: targets.map((item) => ({
+      username: item.username,
+      activeListName: item.activeListName,
+      coinsCount: item.coins.length,
+      coins: item.coins,
+    })),
+    latestRun,
+    runs: runs || [],
+    summary: {
+      watchedUsers: targets.length,
+      watchedCoins: targets.reduce((sum, item) => sum + item.coins.length, 0),
     },
   };
 }

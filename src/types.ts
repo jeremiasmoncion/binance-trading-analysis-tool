@@ -247,6 +247,36 @@ export interface WatchlistGroup {
   isActive: boolean;
 }
 
+export interface WatchlistScanRun {
+  id: number;
+  username: string;
+  active_list_name?: string;
+  scan_source: string;
+  coins_count: number;
+  frames_scanned: number;
+  signals_created: number;
+  signals_closed: number;
+  status: string;
+  errors?: string[];
+  created_at: string;
+}
+
+export interface WatchlistScannerStatus {
+  username?: string | null;
+  targets: Array<{
+    username: string;
+    activeListName: string;
+    coinsCount: number;
+    coins: string[];
+  }>;
+  latestRun: WatchlistScanRun | null;
+  runs: WatchlistScanRun[];
+  summary: {
+    watchedUsers: number;
+    watchedCoins: number;
+  };
+}
+
 export interface BinanceSummary {
   uid?: string | number;
   accountType?: string;

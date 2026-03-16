@@ -528,17 +528,17 @@ export function MemoryView(props: MemoryViewProps) {
       <section id="signals-overview">
         <SectionCard
           title="Centro de señales"
-          subtitle="Este es el corazón del sistema. Aquí ves el historial, el rendimiento y las pruebas de las señales para que entiendas qué está funcionando mejor."
+          subtitle="Este es el corazón del sistema. Aquí ves qué detectó el sistema, qué sigue abierto, qué está aprendiendo la IA y qué puedes controlar tú manualmente."
         />
       </section>
 
       <ModuleTabs
         items={[
           { key: "overview", label: "Resumen" },
-          { key: "performance", label: "Rendimiento" },
-          { key: "strategies", label: "Estrategias" },
-          { key: "adaptive", label: "Ajustes IA" },
-          { key: "experiments", label: "Pruebas" },
+          { key: "performance", label: "Resultados" },
+          { key: "strategies", label: "Motor" },
+          { key: "adaptive", label: "IA que aprende" },
+          { key: "experiments", label: "Automatización" },
           { key: "history", label: "Historial" },
         ]}
         activeKey={activeTab}
@@ -548,25 +548,25 @@ export function MemoryView(props: MemoryViewProps) {
       {activeTab === "overview" ? (
         <>
           <SectionCard
-            title="Cómo leer esta página"
-            subtitle="Lo dejamos simple para que cualquier persona entienda qué está viendo y qué significa cada bloque."
+            title="Cómo leer este centro"
+            subtitle="Aquí conviven dos capas: lo que el sistema hace solo por ti y lo que tú todavía puedes revisar o ajustar manualmente."
           >
             <div className="signal-analytics-grid">
               <InfoCard
-                title="Señal guardada"
-                text="Es una foto completa de una oportunidad detectada por el sistema, con plan, estrategia usada y resultado final."
+                title="Lo hace solo"
+                text="Vigila tu watchlist, detecta oportunidades, abre señales y les da seguimiento aunque no tengas la app abierta."
               />
               <InfoCard
-                title="Abierta"
-                text="La señal sigue activa. Todavía no llegó al objetivo ni al stop, o no se ha cerrado manualmente."
+                title="Lo revisas tú"
+                text="Puedes cambiar estados, corregir notas, crear pruebas manuales y decidir qué lista alimenta el sistema."
               />
               <InfoCard
-                title="Tipo de entrada"
-                text="Es la clase de oportunidad detectada. Por ejemplo, tendencia alineada o ruptura."
+                title="Señal abierta"
+                text="Es una oportunidad que sigue viva: aún no ha llegado al objetivo ni al stop, o no se ha cerrado manualmente."
               />
               <InfoCard
                 title="Prueba segura"
-                text="Es una variante que el sistema está observando con cuidado antes de recomendar usarla más fuerte."
+                text="Es una variante nueva que el sistema observa con cuidado antes de recomendar usarla más fuerte."
               />
             </div>
           </SectionCard>
@@ -672,8 +672,8 @@ export function MemoryView(props: MemoryViewProps) {
       {activeTab === "performance" ? (
         <section id="signals-performance">
           <SectionCard
-            title="Rendimiento del sistema"
-            subtitle={`Aquí ves qué está funcionando mejor y peor en ${periodLabel}.`}
+            title="Resultados del sistema"
+            subtitle={`Aquí ves qué está dejando mejores y peores resultados en ${periodLabel}.`}
           >
             <div className="stats-grid">
               <StatCard label="Par más rentable" value={periodAnalytics.bestCoin?.label || "--"} sub={periodAnalytics.bestCoin ? `${formatSignedPrice(periodAnalytics.bestCoin.pnl)} · ${periodAnalytics.bestCoin.winRate.toFixed(0)}% de acierto` : "Esperando cierres suficientes"} toneClass={periodAnalytics.bestCoin && periodAnalytics.bestCoin.pnl > 0 ? "portfolio-positive" : ""} accentClass="accent-green" />
@@ -695,28 +695,28 @@ export function MemoryView(props: MemoryViewProps) {
       {activeTab === "strategies" ? (
         <section id="signals-strategies">
           <SectionCard
-            title="Comparador de estrategias"
-            subtitle="Aquí ves qué estrategia está mandando, cuál le está compitiendo más cerca y qué conviene hacer con las variantes."
+            title="Motor de estrategias"
+            subtitle="Aquí ves qué estrategia está liderando, cuál le compite más de cerca y cuál parece más prometedora."
           >
             <div className="signal-analytics-grid">
               <InfoCard
-                title="Qué está mandando ahora"
+                title="La que más manda"
                 text={strategyPrimaryCounts[0]
                   ? `${strategyPrimaryCounts[0].label} es la estrategia que más veces terminó siendo la lectura principal en ${periodLabel}.`
                   : "Todavía no hay suficiente historial para definir una estrategia dominante."}
               />
               <InfoCard
-                title="Qué le está compitiendo"
+                title="La que más compite"
                 text={strongestAlternative
                   ? `${strongestAlternative.label} es la alternativa que más veces apareció cerca del resultado final del motor.`
                   : "Cuando varias estrategias compitan de verdad, aquí verás cuál está más cerca de destronar a la principal."}
               />
               <InfoCard
-                title="Qué conviene hacer"
+                title="Qué sugiere el sistema"
                 text={`${trendPromotionRecommendation.title}. ${trendPromotionRecommendation.reason}`}
               />
               <InfoCard
-                title="Estilo de trading"
+                title="Para qué tipo de trading sirve"
                 text={strategyPrimaryCounts[0]
                   ? getStrategyStyleSummary(strategyPrimaryCounts[0].label, versions)
                   : "Cuando haya suficiente historial, aquí verás si la estrategia dominante sirve mejor para scalping, intradía o swing."}
@@ -747,9 +747,20 @@ export function MemoryView(props: MemoryViewProps) {
       {activeTab === "experiments" ? (
         <section id="signals-experiments">
           <SectionCard
-            title="Recomendación del sistema"
-            subtitle="Aquí el sistema te indica si una variante debe seguir observándose, pasar a prueba segura o mantenerse como referencia."
+            title="Qué automatiza el sistema"
+            subtitle="Aquí ves qué pruebas propone solo, cuáles siguen bajo observación y cuáles todavía dependen de una decisión manual."
           >
+            <div className="signal-analytics-grid">
+              <InfoCard
+                title="Automático"
+                text="El sistema puede detectar una mejora, sugerirla y preparar una prueba segura sin que tengas que construirla a mano."
+              />
+              <InfoCard
+                title="Manual"
+                text="Tú todavía decides si crear una prueba propia, cambiar el enfoque o dejar una variante solo en observación."
+              />
+            </div>
+            <div className="with-top-gap" />
             <div className="signal-analytics-list">
               <div className="signal-analytics-item is-experiment">
                 <div className="signal-analytics-copy">
@@ -764,12 +775,12 @@ export function MemoryView(props: MemoryViewProps) {
             <div className="inline-actions with-top-gap">
               {!recommendedExperiment ? (
                 <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleCreateRecommendedExperiment()}>
-                  Crear prueba sugerida
+                  Crear prueba automática sugerida
                 </button>
               ) : (
                 <>
                   <span className="section-note">
-                    Prueba actual: <span className="text-strong">{getExperimentStatusLabel(recommendedExperiment.status)}</span> · {recommendedExperiment.market_scope || "all"} · {recommendedExperiment.timeframe_scope || "all"}
+                    Prueba actual: <span className="text-strong">{getExperimentStatusLabel(recommendedExperiment.status)}</span> · {formatMarketScope(recommendedExperiment.market_scope)} · {formatTimeframeScope(recommendedExperiment.timeframe_scope)}
                   </span>
                   {recommendedExperiment.status !== "sandbox" ? (
                     <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleSendRecommendedToSandbox()}>
@@ -784,8 +795,8 @@ export function MemoryView(props: MemoryViewProps) {
           </SectionCard>
 
           <SectionCard
-            title="Laboratorio de pruebas"
-            subtitle="Crea comparativas entre estrategias o versiones para ver cuál funciona mejor antes de fortalecerla."
+            title="Crear una prueba manual"
+            subtitle="Si quieres intervenir tú mismo, aquí comparas estrategias o versiones antes de dejarlas crecer dentro del sistema."
           >
             <div className="memory-filter-bar">
               <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
@@ -818,13 +829,13 @@ export function MemoryView(props: MemoryViewProps) {
             </div>
             <div className="signal-analytics-grid compact-top-gap">
               <InfoCard
-                title="Estilo de la candidata"
+                title="Cómo opera la candidata"
                 text={selectedCandidateVersionProfile
                   ? `${getFriendlyTradingStyle(selectedCandidateVersionProfile.trading_style || "")} · mejor en ${getPreferredTimeframeScopeForVersion(selectedCandidateVersionProfile).split(",").join(" / ")}.`
                   : "Selecciona una versión candidata para ver su estilo operativo."}
               />
               <InfoCard
-                title="Contexto ideal"
+                title="Dónde rinde mejor"
                 text={selectedCandidateVersionProfile?.ideal_market_conditions?.length
                   ? selectedCandidateVersionProfile.ideal_market_conditions.join(", ")
                   : "Todavía sin contexto ideal definido para esta variante."}
@@ -835,14 +846,14 @@ export function MemoryView(props: MemoryViewProps) {
                 className="signal-memory-input"
                 value={experimentSummary}
                 onChange={(event) => setExperimentSummary(event.target.value)}
-                placeholder="Qué quieres comparar o validar con esta prueba"
+                placeholder="Qué quieres validar con esta prueba manual"
               />
               <span className="signal-status-note">
-                La IA futura debería observar estas pruebas primero, no cambiar el sistema sola desde el inicio.
+                La idea es que primero pruebes aquí y luego la IA use ese resultado como evidencia real.
               </span>
             </div>
             <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
-              Crear prueba borrador
+              Crear prueba manual
             </button>
 
             <div className="signal-analytics-list with-top-gap">
@@ -865,13 +876,13 @@ export function MemoryView(props: MemoryViewProps) {
             </div>
 
             <p className="section-note with-top-gap">
-              Recomendación base del sistema: comparar `Tendencia alineada v1` vs `Tendencia alineada v2` en el watchlist y en marcos `1h` / `4h` antes de fortalecer cambios.
+              Recomendación base del sistema: comparar `Tendencia alineada v1` vs `Tendencia alineada v2` en tu watchlist y en marcos `1h` / `4h` antes de fortalecer cambios.
             </p>
           </SectionCard>
 
           <SectionCard
-            title="Seguimiento de prueba segura"
-            subtitle="Aquí ves cómo le va a cada variante que ya está en observación controlada."
+            title="Pruebas ya en observación"
+            subtitle="Aquí ves cómo le va a cada variante que ya entró en observación controlada."
           >
             {!sandboxStats.length ? (
               <p className="section-note">Todavía no hay pruebas seguras activas. Cuando una pase de borrador a prueba segura, aparecerá aquí con su lectura comparativa.</p>
@@ -889,8 +900,8 @@ export function MemoryView(props: MemoryViewProps) {
       {activeTab === "adaptive" ? (
         <section id="signals-adaptive">
           <SectionCard
-            title="Ajustes sugeridos por IA"
-            subtitle="Aquí el sistema observa el historial y propone cambios de parámetros. Todavía no toca producción: solo recomienda y deja evidencia."
+            title="IA que aprende del historial"
+            subtitle="Aquí el sistema observa resultados reales y propone cambios concretos. Todavía no toca producción: solo recomienda y deja evidencia."
             actions={
               <button className="btn-secondary-soft" type="button" onClick={() => void handleGenerateRecommendations()}>
                 Generar sugerencias
@@ -899,11 +910,11 @@ export function MemoryView(props: MemoryViewProps) {
           >
             <div className="signal-analytics-grid">
               <InfoCard
-                title="Cómo leer esto"
-                text="Cada sugerencia nace del rendimiento histórico real. La IA mira qué contextos funcionan mal o bien y propone un ajuste concreto para probarlo antes en sandbox."
+                title="Qué hace la IA aquí"
+                text="La IA revisa el historial real, detecta patrones y propone un ajuste concreto para probarlo antes en una prueba segura."
               />
               <InfoCard
-                title="Qué NO hace todavía"
+                title="Qué todavía no hace"
                 text="No cambia parámetros sola, no promueve versiones a producción y no opera por su cuenta. Solo recomienda el siguiente ajuste razonable."
               />
             </div>
@@ -937,7 +948,7 @@ export function MemoryView(props: MemoryViewProps) {
         <section id="signals-history">
           <SectionCard
             title="Historial de señales"
-            subtitle="Aquí revisas cada señal guardada, su plan, su estado y el resultado final. Solo trabaja con monedas de tu watchlist."
+            subtitle="Aquí revisas cada señal guardada, su plan, su estado y el resultado final. Solo trabaja con monedas de tu watchlist activa para señales."
           >
             <p className="section-note with-bottom-gap">
               Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.

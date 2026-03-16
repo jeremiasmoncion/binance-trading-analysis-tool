@@ -68,6 +68,18 @@ body.dark-theme .coin-combobox-feedback {
   border-color: rgba(248, 113, 113, 0.24);
   color: #fecaca;
 }
+body.dark-theme .module-subnav {
+  background: linear-gradient(180deg, rgba(7, 17, 31, 0.96) 0%, rgba(7, 17, 31, 0.88) 70%, rgba(7, 17, 31, 0) 100%);
+}
+body.dark-theme .module-subnav-item {
+  background: rgba(15, 23, 42, 0.84);
+  border-color: rgba(59, 130, 246, 0.18);
+  color: #cbd5e1;
+}
+body.dark-theme .module-subnav-item:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #bfdbfe;
+}
 body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
 body.dark-theme .quick-plan {
   background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%);

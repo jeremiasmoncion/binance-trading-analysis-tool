@@ -147,10 +147,12 @@ export function MemoryView(props: MemoryViewProps) {
 
   return (
     <div id="memoryView" className="view-panel active">
-      <SectionCard
-        title="Señales del sistema"
-        subtitle="Aquí el sistema guarda señales emitidas, su contexto técnico y el resultado que terminaron dando para medir qué setups funcionan mejor."
-      />
+      <section id="signals-overview">
+        <SectionCard
+          title="Señales del sistema"
+          subtitle="Aquí el sistema guarda señales emitidas, su contexto técnico y el resultado que terminaron dando para medir qué setups funcionan mejor."
+        />
+      </section>
 
       <div className="stats-grid">
         <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Snapshots técnicos registrados" accentClass="accent-blue" />
@@ -187,10 +189,11 @@ export function MemoryView(props: MemoryViewProps) {
         <StatCard label="Pendientes en período" value={String(periodPending)} sub={`Todavía abiertas en ${periodLabel}`} accentClass="accent-emerald" />
       </div>
 
-      <SectionCard
-        title="Analítica de señales"
-        subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
-      >
+      <section id="signals-analytics">
+        <SectionCard
+          title="Analítica de señales"
+          subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
+        >
         <div className="stats-grid">
           <StatCard
             label="Par más rentable"
@@ -245,12 +248,14 @@ export function MemoryView(props: MemoryViewProps) {
             truncateLabel
           />
         </div>
-      </SectionCard>
+        </SectionCard>
+      </section>
 
-      <SectionCard
-        title="Historial de señales"
-        subtitle="Se trabaja solo con monedas de tu watchlist. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
-      >
+      <section id="signals-history">
+        <SectionCard
+          title="Historial de señales"
+          subtitle="Se trabaja solo con monedas de tu watchlist. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
+        >
         <p className="section-note with-bottom-gap">
           Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
         </p>
@@ -333,7 +338,8 @@ export function MemoryView(props: MemoryViewProps) {
             </tbody>
           </table>
         </div>
-      </SectionCard>
+        </SectionCard>
+      </section>
 
       <div className="stats-grid">
         <StatCard

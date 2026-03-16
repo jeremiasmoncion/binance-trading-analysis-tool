@@ -63,20 +63,22 @@ export function BalanceView(props: BalanceViewProps) {
 
   return (
     <div id="balanceView" className="view-panel active">
-      <SectionCard
-        title="Balance"
-        subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."
-        actions={
-          <div className="inline-actions">
-            <select className="timeframe-select" value={props.period} onChange={(e) => props.onPeriodChange(e.target.value)}>
-              <option value="1d">Comparar con ayer</option>
-              <option value="7d">Comparar con 7 días</option>
-              <option value="30d">Comparar con 30 días</option>
-            </select>
-            <button className="btn-primary" onClick={props.onRefresh}>Actualizar capital</button>
-          </div>
-        }
-      />
+      <section id="balance-overview">
+        <SectionCard
+          title="Balance"
+          subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."
+          actions={
+            <div className="inline-actions">
+              <select className="timeframe-select" value={props.period} onChange={(e) => props.onPeriodChange(e.target.value)}>
+                <option value="1d">Comparar con ayer</option>
+                <option value="7d">Comparar con 7 días</option>
+                <option value="30d">Comparar con 30 días</option>
+              </select>
+              <button className="btn-primary" onClick={props.onRefresh}>Actualizar capital</button>
+            </div>
+          }
+        />
+      </section>
 
       <div className="stats-grid">
         <StatCard label="Capital total" value={formatPrice(portfolio?.totalValue || 0)} accentClass="accent-blue" sub={
@@ -103,7 +105,8 @@ export function BalanceView(props: BalanceViewProps) {
             </div>
           </SectionCard>
 
-          <SectionCard title="Detalle por moneda" subtitle="Aquí ves cuánto dinero tienes por activo, su costo promedio real y el PnL realizado/no realizado por moneda.">
+          <section id="balance-assets">
+            <SectionCard title="Detalle por moneda" subtitle="Aquí ves cuánto dinero tienes por activo, su costo promedio real y el PnL realizado/no realizado por moneda.">
             <div className="portfolio-toolbar">
               <SearchIcon className="portfolio-search-icon" />
               <label className="portfolio-filter-toggle">
@@ -143,9 +146,11 @@ export function BalanceView(props: BalanceViewProps) {
               label="activos"
               onPageChange={setAssetPage}
             />
-          </SectionCard>
+            </SectionCard>
+          </section>
 
-          <SectionCard title="Historial real" subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones.">
+          <section id="balance-history">
+            <SectionCard title="Historial real" subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones.">
             <div className="history-stack">
               <div className="history-panel">
                 <div className="history-panel-head">
@@ -265,7 +270,8 @@ export function BalanceView(props: BalanceViewProps) {
                 />
               </div>
             </div>
-          </SectionCard>
+            </SectionCard>
+          </section>
         </div>
 
         <aside className="dashboard-stack">

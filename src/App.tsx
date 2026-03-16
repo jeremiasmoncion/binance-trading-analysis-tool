@@ -117,11 +117,13 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${view.sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <Sidebar
         user={auth.currentUser}
         currentView={view.currentView}
+        collapsed={view.sidebarCollapsed}
         onViewChange={view.setCurrentView}
+        onToggleCollapse={view.toggleSidebar}
         onLogout={handleLogout}
       />
 

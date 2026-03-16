@@ -1,5 +1,6 @@
 import type { RefObject } from "react";
 import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, ViewName } from "../types";
+import { ModuleSubnav } from "./ModuleSubnav";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
@@ -61,6 +62,27 @@ interface AppViewProps {
 }
 
 export function AppView(props: AppViewProps) {
+  const moduleSubnavItems =
+    props.currentView === "balance"
+      ? [
+          { id: "balance-overview", label: "Resumen" },
+          { id: "balance-assets", label: "Activos" },
+          { id: "balance-history", label: "Historial" },
+        ]
+      : props.currentView === "memory"
+        ? [
+            { id: "signals-overview", label: "Resumen" },
+            { id: "signals-analytics", label: "Analitica" },
+            { id: "signals-history", label: "Historial" },
+          ]
+        : props.currentView === "profile"
+          ? [
+              { id: "profile-account", label: "Cuenta" },
+              { id: "profile-binance", label: "Binance" },
+              ...(props.user.role === "admin" ? [{ id: "profile-users", label: "Usuarios" }] : []),
+            ]
+          : [];
+
   switch (props.currentView) {
     case "dashboard":
       return (
@@ -79,11 +101,14 @@ export function AppView(props: AppViewProps) {
       );
     case "memory":
       return (
-        <MemoryView
-          signals={props.signalMemory}
-          watchlist={props.watchlist}
-          onUpdateSignal={props.onUpdateSignal}
-        />
+        <>
+          <ModuleSubnav items={moduleSubnavItems} />
+          <MemoryView
+            signals={props.signalMemory}
+            watchlist={props.watchlist}
+            onUpdateSignal={props.onUpdateSignal}
+          />
+        </>
       );
     case "market":
       return (
@@ -118,27 +143,33 @@ export function AppView(props: AppViewProps) {
       return <LearnView />;
     case "balance":
       return (
-        <BalanceView
-          payload={props.portfolioData}
-          period={props.portfolioPeriod}
-          hideSmallAssets={props.hideSmallAssets}
-          onPeriodChange={props.onPortfolioPeriodChange}
-          onRefresh={props.onRefreshPortfolio}
-          onToggleHideSmall={props.onToggleHideSmallAssets}
-        />
+        <>
+          <ModuleSubnav items={moduleSubnavItems} />
+          <BalanceView
+            payload={props.portfolioData}
+            period={props.portfolioPeriod}
+            hideSmallAssets={props.hideSmallAssets}
+            onPeriodChange={props.onPortfolioPeriodChange}
+            onRefresh={props.onRefreshPortfolio}
+            onToggleHideSmall={props.onToggleHideSmallAssets}
+          />
+        </>
       );
     case "profile":
       return (
-        <ProfileView
-          user={props.user}
-          users={props.users}
-          connection={props.connection}
-          binanceForm={props.binanceForm}
-          onBinanceFormChange={props.onBinanceFormChange}
-          onConnect={props.onConnectBinance}
-          onRefresh={props.onRefreshBinance}
-          onDisconnect={props.onDisconnectBinance}
-        />
+        <>
+          <ModuleSubnav items={moduleSubnavItems} />
+          <ProfileView
+            user={props.user}
+            users={props.users}
+            connection={props.connection}
+            binanceForm={props.binanceForm}
+            onBinanceFormChange={props.onBinanceFormChange}
+            onConnect={props.onConnectBinance}
+            onRefresh={props.onRefreshBinance}
+            onDisconnect={props.onDisconnectBinance}
+          />
+        </>
       );
     default:
       return null;

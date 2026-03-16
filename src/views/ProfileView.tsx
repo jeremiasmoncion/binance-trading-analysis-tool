@@ -22,7 +22,7 @@ export function ProfileView(props: ProfileViewProps) {
       <SectionCard title="Perfil y acceso" subtitle="Gestiona tu perfil, tu contraseña y, si eres admin, la administración de usuarios." />
 
       <div className="profile-grid">
-        <div className="profile-section">
+        <section id="profile-account" className="profile-section">
           <h3>Mi perfil</h3>
           <div className="calc-input-group"><label>Usuario</label><input type="text" value={props.user.username} readOnly /></div>
           <div className="calc-input-group"><label>Rol</label><input type="text" value={props.user.role === "admin" ? "Administrador" : "Genérico"} readOnly /></div>
@@ -30,9 +30,9 @@ export function ProfileView(props: ProfileViewProps) {
           <div className="calc-input-group"><label>Nueva contraseña</label><input type="password" placeholder="Disponible en la siguiente fase" disabled /></div>
           <p className="section-note with-top-gap">Fase 1 del backend: login y sesiones reales. La edición de perfil y contraseñas llegará cuando agreguemos persistencia.</p>
           <button className="btn-primary section-fill-button with-top-gap" disabled>Disponible próximamente</button>
-        </div>
+        </section>
 
-        <div className="profile-section">
+        <section id="profile-binance" className="profile-section">
           <h3>Binance Demo Spot</h3>
           <p className="section-note with-bottom-gap">Conecta tu cuenta de prueba de Binance Demo Spot en modo solo lectura. Tus claves se guardan cifradas en el backend.</p>
           <div className="binance-status-card">
@@ -51,10 +51,10 @@ export function ProfileView(props: ProfileViewProps) {
           <button className="btn-primary section-fill-button" onClick={props.onConnect}>Conectar Binance Demo Spot</button>
           <button className="btn-secondary-soft" type="button" onClick={props.onRefresh}>Actualizar resumen</button>
           <button className="btn-secondary-soft" type="button" onClick={props.onDisconnect}>Desconectar Binance Demo Spot</button>
-        </div>
+        </section>
 
         {props.user.role === "admin" ? (
-          <div className="profile-section">
+          <section id="profile-users" className="profile-section">
             <h3>Administración de usuarios</h3>
             <p className="section-note with-bottom-gap">La app ya está preparada para usuarios en base de datos externa. Mientras Supabase no esté configurado en Vercel, seguirá usando un fallback sembrado.</p>
             <h4 className="section-heading-sm">Usuarios disponibles</h4>
@@ -69,7 +69,7 @@ export function ProfileView(props: ProfileViewProps) {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         ) : null}
       </div>
     </div>

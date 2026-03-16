@@ -139,6 +139,12 @@ export interface SignalSnapshot {
   };
 }
 
+export interface WatchlistGroup {
+  name: string;
+  coins: string[];
+  isActive: boolean;
+}
+
 export interface BinanceSummary {
   uid?: string | number;
   accountType?: string;

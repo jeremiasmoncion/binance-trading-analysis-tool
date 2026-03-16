@@ -151,7 +151,9 @@ export function App() {
         <AppView
           currentView={view.currentView}
           currentCoin={market.currentCoin}
+          watchlists={watchlist.lists}
           watchlist={watchlist.watchlist}
+          activeWatchlistName={watchlist.activeListName}
           timeframe={market.timeframe}
           currentPrice={market.currentPrice || market.indicators?.current || 0}
           signal={market.signal}
@@ -185,6 +187,10 @@ export function App() {
           comparison={market.comparison}
           onSelectCoin={market.selectCoin}
           onToggleWatchlist={watchlist.toggleWatchlist}
+          onCreateWatchlist={watchlist.createList}
+          onRenameWatchlist={watchlist.renameList}
+          onDeleteWatchlist={watchlist.deleteList}
+          onSetActiveWatchlist={watchlist.setActiveList}
           portfolioData={binance.portfolioData}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}

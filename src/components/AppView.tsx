@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, ViewName } from "../types";
+import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
@@ -12,7 +12,9 @@ import { ProfileView } from "../views/ProfileView";
 interface AppViewProps {
   currentView: ViewName;
   currentCoin: string;
+  watchlists: WatchlistGroup[];
   watchlist: string[];
+  activeWatchlistName: string;
   timeframe: string;
   currentPrice: number;
   signal: Signal | null;
@@ -42,6 +44,10 @@ interface AppViewProps {
   comparison: ComparisonCoin[];
   onSelectCoin: (coin: string) => void;
   onToggleWatchlist: (coin: string) => void;
+  onCreateWatchlist: (name: string) => Promise<void>;
+  onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
+  onDeleteWatchlist: (name: string) => Promise<void>;
+  onSetActiveWatchlist: (name: string) => Promise<void>;
   portfolioData: PortfolioPayload | null;
   portfolioPeriod: string;
   hideSmallAssets: boolean;
@@ -90,7 +96,9 @@ export function AppView(props: AppViewProps) {
       return (
         <MarketView
           currentCoin={props.currentCoin}
+          watchlists={props.watchlists}
           watchlist={props.watchlist}
+          activeWatchlistName={props.activeWatchlistName}
           signal={props.signal}
           indicators={props.indicators}
           market24h={props.market24h}
@@ -98,6 +106,10 @@ export function AppView(props: AppViewProps) {
           resistance={props.resistance}
           onSelectCoin={props.onSelectCoin}
           onToggleWatchlist={props.onToggleWatchlist}
+          onCreateWatchlist={props.onCreateWatchlist}
+          onRenameWatchlist={props.onRenameWatchlist}
+          onDeleteWatchlist={props.onDeleteWatchlist}
+          onSetActiveWatchlist={props.onSetActiveWatchlist}
         />
       );
     case "calculator":

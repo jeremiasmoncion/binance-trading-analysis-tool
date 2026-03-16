@@ -1,4 +1,4 @@
-import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession } from "../types";
+import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, WatchlistGroup } from "../types";
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -96,12 +96,30 @@ export const signalService = {
 
 export const watchlistService = {
   list() {
-    return apiRequest<{ coins: string[] }>("/api/watchlist");
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist");
   },
-  replace(coins: string[]) {
-    return apiRequest<{ coins: string[] }>("/api/watchlist", {
+  replace(listName: string, coins: string[]) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
       method: "PUT",
-      body: JSON.stringify({ coins }),
+      body: JSON.stringify({ listName, coins }),
+    });
+  },
+  createList(name: string) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  },
+  updateList(name: string, payload: { nextName?: string; isActive?: boolean }) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
+      method: "PATCH",
+      body: JSON.stringify({ name, ...payload }),
+    });
+  },
+  deleteList(name: string) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
+      method: "DELETE",
+      body: JSON.stringify({ name }),
     });
   },
 };

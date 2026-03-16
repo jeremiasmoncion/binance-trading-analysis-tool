@@ -20,6 +20,7 @@ Agrega estas variables al proyecto en Vercel:
 - `SUPABASE_USERS_TABLE`
 - `SUPABASE_BINANCE_TABLE`
 - `SUPABASE_WATCHLIST_TABLE`
+- `SUPABASE_WATCHLIST_LISTS_TABLE`
 
 Puedes usar [/.env.example](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/.env.example) como referencia.
 
@@ -31,6 +32,6 @@ Cuando `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` estén definidos:
 - `/api/auth/login` valida contra `public.app_users`
 - `/api/users` lista usuarios desde Supabase
 - `/api/binance/connection` guarda y lee la conexión cifrada de Binance Testnet
-- `/api/watchlist` guarda y lee el watchlist persistente por usuario
+- `/api/watchlist` guarda y lee listas de seguimiento persistentes por usuario
 
 Mientras esas variables no existan, la app sigue usando el fallback local para no romper la preview.

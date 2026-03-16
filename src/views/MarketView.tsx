@@ -3,11 +3,13 @@ import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatPrice } from "../lib/format";
-import type { Indicators, Signal } from "../types";
+import type { Indicators, Signal, WatchlistGroup } from "../types";
 
 interface MarketViewProps {
   currentCoin: string;
+  watchlists: WatchlistGroup[];
   watchlist: string[];
+  activeWatchlistName: string;
   signal: Signal | null;
   indicators: Indicators | null;
   market24h: {
@@ -21,6 +23,10 @@ interface MarketViewProps {
   resistance: number;
   onSelectCoin: (coin: string) => void;
   onToggleWatchlist: (coin: string) => void;
+  onCreateWatchlist: (name: string) => Promise<void>;
+  onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
+  onDeleteWatchlist: (name: string) => Promise<void>;
+  onSetActiveWatchlist: (name: string) => Promise<void>;
 }
 
 export function MarketView(props: MarketViewProps) {
@@ -130,9 +136,58 @@ export function MarketView(props: MarketViewProps) {
           <div className="card-header">
             <div>
               <div className="card-title">Lista de seguimiento</div>
-              <div className="card-subtitle">Aquí ves tus monedas vigiladas. Más adelante podremos soportar varias listas de seguimiento.</div>
+              <div className="card-subtitle">Gestiona tus listas de seguimiento y decide cuál usa el sistema como lista activa para análisis y señales.</div>
             </div>
-            <div className="market-pill">{props.watchlist.length} activas</div>
+            <div className="market-pill">{props.watchlist.length} en {props.activeWatchlistName}</div>
+          </div>
+          <div className="watchlist-toolbar">
+            <div className="watchlist-list-tabs">
+              {props.watchlists.map((list) => (
+                <button
+                  key={list.name}
+                  type="button"
+                  className={`watchlist-list-tab${list.name === props.activeWatchlistName ? " active" : ""}`}
+                  onClick={() => void props.onSetActiveWatchlist(list.name)}
+                >
+                  <span>{list.name}</span>
+                  <strong>{list.coins.length}</strong>
+                </button>
+              ))}
+            </div>
+            <div className="watchlist-actions">
+              <button
+                type="button"
+                className="btn-primary btn-small"
+                onClick={() => {
+                  const name = window.prompt("Nombre de la nueva lista", "");
+                  if (name) void props.onCreateWatchlist(name);
+                }}
+              >
+                Nueva lista
+              </button>
+              <button
+                type="button"
+                className="btn-secondary-soft btn-small"
+                onClick={() => {
+                  const name = window.prompt("Renombrar lista", props.activeWatchlistName);
+                  if (name) void props.onRenameWatchlist(props.activeWatchlistName, name);
+                }}
+              >
+                Renombrar
+              </button>
+              <button
+                type="button"
+                className="btn-secondary-soft btn-small danger"
+                disabled={props.watchlists.length <= 1}
+                onClick={() => {
+                  if (window.confirm(`Eliminar la lista ${props.activeWatchlistName}?`)) {
+                    void props.onDeleteWatchlist(props.activeWatchlistName);
+                  }
+                }}
+              >
+                Eliminar
+              </button>
+            </div>
           </div>
           {props.watchlist.length ? (
             <div className="watchlist-grid">
@@ -154,7 +209,7 @@ export function MarketView(props: MarketViewProps) {
               ))}
             </div>
           ) : (
-            <div className="card-subtitle">Todavía no has marcado monedas con estrella. Cuando vigiles una, aparecerá aquí.</div>
+            <div className="card-subtitle">Esta lista todavía no tiene monedas. Usa la estrella de arriba para agregar el par actual a la lista activa.</div>
           )}
         </section>
       ) : null}

@@ -1,4 +1,4 @@
-import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyDescriptor, TimeframeSignal, UserSession, WatchlistGroup } from "../types";
+import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, WatchlistGroup } from "../types";
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -80,6 +80,7 @@ export const signalService = {
     plan: OperationPlan | null;
     multiTimeframes: TimeframeSignal[];
     strategy?: StrategyDescriptor;
+    strategyCandidates?: StrategyCandidate[];
     note?: string;
   }) {
     return apiRequest<{ signal: SignalSnapshot }>("/api/signals", {

@@ -89,6 +89,7 @@ async function createSignalSnapshot(req) {
   const analysis = body.analysis || {};
   const plan = body.plan || {};
   const strategy = body.strategy || {};
+  const candidates = Array.isArray(body.strategyCandidates) ? body.strategyCandidates : [];
   const direction = String(signal.label || "Esperar").toLowerCase();
   const marketRegime =
     String(analysis.setupType || "").includes("Contra")
@@ -139,6 +140,16 @@ async function createSignalSnapshot(req) {
       note: String(body.note || ""),
       signal_payload: {
         strategy,
+        candidates: candidates.map((candidate) => ({
+          strategy: candidate.strategy || {},
+          signalLabel: String(candidate.signal?.label || ""),
+          score: Number(candidate.signal?.score || 0),
+          setupType: String(candidate.analysis?.setupType || ""),
+          setupQuality: String(candidate.analysis?.setupQuality || ""),
+          riskLabel: String(candidate.analysis?.riskLabel || ""),
+          rankScore: Number(candidate.rankScore || 0),
+          isPrimary: Boolean(candidate.isPrimary),
+        })),
         signal,
         analysis,
         plan,

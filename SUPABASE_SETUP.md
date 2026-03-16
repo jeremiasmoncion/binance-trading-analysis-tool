@@ -9,6 +9,7 @@ Esta app ya puede leer usuarios desde una base de datos externa en Supabase.
 3. Ejecuta el contenido de [supabase/users_schema.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/users_schema.sql).
 4. Si vas a conectar Binance Testnet, ejecuta también [supabase/binance_testnet_connections.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/binance_testnet_connections.sql).
 5. Si vas a usar watchlist persistente y memoria automática, ejecuta también [supabase/watchlist_items.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/watchlist_items.sql).
+6. Si vas a usar el motor de estrategias y preparar experimentos/versionado, ejecuta también [supabase/strategy_engine.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/strategy_engine.sql).
 
 ## 2. Configurar Vercel
 

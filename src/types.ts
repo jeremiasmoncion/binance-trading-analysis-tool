@@ -144,6 +144,16 @@ export interface SignalSnapshot {
   updated_at?: string;
   signal_payload?: {
     strategy?: StrategyDescriptor;
+    candidates?: Array<{
+      strategy: StrategyDescriptor;
+      signalLabel: string;
+      score: number;
+      setupType?: string;
+      setupQuality?: string;
+      riskLabel?: string;
+      rankScore?: number;
+      isPrimary?: boolean;
+    }>;
     signal?: Signal;
     analysis?: DashboardAnalysis;
     plan?: OperationPlan;

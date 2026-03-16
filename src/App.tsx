@@ -65,6 +65,7 @@ export function App() {
       plan,
       multiTimeframes: market.multiTimeframes,
       strategy: market.strategy,
+      strategyCandidates: market.strategyCandidates,
     });
   }, [
     auth.currentUser,
@@ -177,6 +178,7 @@ export function App() {
               plan,
               multiTimeframes: market.multiTimeframes,
               strategy: market.strategy,
+              strategyCandidates: market.strategyCandidates,
             });
           }}
           indicators={market.indicators}

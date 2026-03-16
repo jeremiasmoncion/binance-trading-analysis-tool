@@ -148,6 +148,13 @@
   margin-bottom: 10px;
 }
 
+#balanceView .module-tabs,
+#memoryView .module-tabs {
+  position: sticky;
+  top: 76px;
+  z-index: 20;
+}
+
 .signal-select {
   min-width: 140px;
 }
@@ -192,12 +199,6 @@
 
 #memoryView .stats-grid {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-}
-
-#memoryView .module-tabs {
-  position: sticky;
-  top: 76px;
-  z-index: 20;
 }
 
 .signal-analytics-card {
@@ -367,6 +368,35 @@
   color: #166534;
 }
 
+#signals-strategies .stats-grid,
+#signals-experiments .stats-grid,
+#balanceView .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+#signals-strategies .signal-analytics-grid,
+#signals-experiments .signal-analytics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+#balanceView .history-panel,
+#signals-experiments .signal-analytics-card,
+#signals-strategies .signal-analytics-card {
+  padding: 13px;
+}
+
+.signal-analytics-card .stats-grid {
+  margin-bottom: 0;
+}
+
+.signal-analytics-grid + .stats-grid {
+  margin-top: 16px;
+}
+
+#signals-history .portfolio-asset {
+  gap: 5px;
+}
+
 .truncate-text {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -480,12 +510,19 @@ body.dark-theme .market-score-track {
     grid-template-columns: 1fr 1fr;
   }
 
+  #balanceView .module-tabs,
   #memoryView .module-tabs {
     top: 72px;
+  }
+
+  #signals-strategies .signal-analytics-grid,
+  #signals-experiments .signal-analytics-grid {
+    grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
+  #balanceView .module-tabs,
   #memoryView .module-tabs {
     position: static;
     margin-inline: 0;
@@ -493,6 +530,7 @@ body.dark-theme .market-score-track {
     border-radius: 12px;
   }
 
+  #balanceView .module-tab,
   #memoryView .module-tab {
     padding: 7px 12px;
     font-size: 11px;
@@ -506,6 +544,7 @@ body.dark-theme .market-score-track {
     grid-template-columns: 1fr;
   }
 
+  #balanceView .stats-grid,
   #memoryView .stats-grid,
   .compact-stats-grid {
     grid-template-columns: 1fr;
@@ -532,6 +571,10 @@ body.dark-theme .market-score-track {
   }
 
   #signals-history .portfolio-table {
+    min-width: 960px;
+  }
+
+  #balance-history .portfolio-table {
     min-width: 960px;
   }
 }

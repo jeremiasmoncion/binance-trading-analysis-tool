@@ -266,6 +266,11 @@ export function MemoryView(props: MemoryViewProps) {
     return Array.from(counters.entries()).map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total);
   }, [periodSignals]);
 
+  const strongestAlternative = useMemo(() => {
+    if (!strategyCandidateCounts.length) return undefined;
+    return strategyCandidateCounts.find((item) => item.label !== strategyPrimaryCounts[0]?.label) || strategyCandidateCounts[0];
+  }, [strategyCandidateCounts, strategyPrimaryCounts]);
+
   const trendVersionComparison = useMemo(() => {
     const closed = periodSignals.filter((item) => item.outcome_status !== "pending"
       && (item.strategy_name === "trend-alignment" || item.signal_payload?.strategy?.id === "trend-alignment"));
@@ -474,8 +479,27 @@ export function MemoryView(props: MemoryViewProps) {
         <section id="signals-strategies">
           <SectionCard
             title="Comparador de estrategias"
-            subtitle="Aquí ves qué estrategia domina, cuáles compiten y cómo se comparan sus versiones."
+            subtitle="Aquí ves qué estrategia está mandando, cuál le está compitiendo más cerca y qué conviene hacer con las variantes."
           >
+            <div className="signal-analytics-grid">
+              <InfoCard
+                title="Qué está mandando ahora"
+                text={strategyPrimaryCounts[0]
+                  ? `${strategyPrimaryCounts[0].label} es la estrategia que más veces terminó siendo la lectura principal en ${periodLabel}.`
+                  : "Todavía no hay suficiente historial para definir una estrategia dominante."}
+              />
+              <InfoCard
+                title="Qué le está compitiendo"
+                text={strongestAlternative
+                  ? `${strongestAlternative.label} es la alternativa que más veces apareció cerca del resultado final del motor.`
+                  : "Cuando varias estrategias compitan de verdad, aquí verás cuál está más cerca de destronar a la principal."}
+              />
+              <InfoCard
+                title="Qué conviene hacer"
+                text={`${trendPromotionRecommendation.title}. ${trendPromotionRecommendation.reason}`}
+              />
+            </div>
+
             <div className="stats-grid">
               <StatCard label="Estrategias activas" value={String(registry.filter((item) => item.is_active).length)} sub={`${registry.length} registradas en el motor`} accentClass="accent-blue" />
               <StatCard label="Versiones registradas" value={String(versions.length)} sub="Variantes disponibles para comparar" accentClass="accent-emerald" />
@@ -636,6 +660,9 @@ export function MemoryView(props: MemoryViewProps) {
             </p>
             <p className="section-note with-bottom-gap">
               `Pendiente` significa que la señal sigue abierta: todavía no ha tocado el objetivo ni la invalidación, o aún no la has cerrado manualmente.
+            </p>
+            <p className="section-note with-bottom-gap">
+              `Activa` es la estrategia que ganó en esa lectura. `Alternativa` te enseña qué otra estrategia estuvo cerca para que entiendas por qué el motor eligió una y no otra.
             </p>
             <div className="memory-filter-bar">
               <select className="timeframe-select signal-select" value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value as "all" | "1d" | "7d" | "30d")}>
@@ -890,6 +917,7 @@ function SignalRow({
   const [outcomePnl, setOutcomePnl] = useState(String(signal.outcome_pnl || 0));
   const [note, setNote] = useState(signal.note || "");
   const candidateSummary = getCandidateSummary(signal);
+  const decisionSummary = getStrategyDecisionSummary(signal);
 
   return (
     <tr>
@@ -902,11 +930,12 @@ function SignalRow({
             <div className="strategy-candidate-list">
               {candidateSummary.map((candidate) => (
                 <span key={`${signal.id}-${candidate.label}`} className={`strategy-candidate-pill ${candidate.isPrimary ? "is-primary" : ""}`}>
-                  {candidate.label} · {candidate.signalLabel} · {candidate.score}
+                  {candidate.isPrimary ? "Activa" : "Alternativa"}: {candidate.label} · {candidate.signalLabel} · {candidate.score}
                 </span>
               ))}
             </div>
           ) : null}
+          {decisionSummary ? <span className="signal-status-note">{decisionSummary}</span> : null}
         </div>
       </td>
       <td>
@@ -997,6 +1026,17 @@ function getCandidateSummary(signal: SignalSnapshot) {
     score: Number(candidate.score || 0),
     isPrimary: Boolean(candidate.isPrimary),
   }));
+}
+
+function getStrategyDecisionSummary(signal: SignalSnapshot) {
+  const candidates = getCandidateSummary(signal);
+  const primary = candidates.find((candidate) => candidate.isPrimary) || candidates[0];
+  const alternative = candidates.find((candidate) => !candidate.isPrimary);
+  if (!primary) return "";
+  if (!alternative) return `El motor dejó activa a ${primary.label} porque no encontró una candidata igual de fuerte en esa lectura.`;
+  const gap = primary.score - alternative.score;
+  if (gap <= 0) return `El motor vio una competencia muy pareja entre ${primary.label} y ${alternative.label}.`;
+  return `El motor eligió ${primary.label} porque superó a ${alternative.label} por ${gap} puntos de score.`;
 }
 
 function evaluatePromotion(baseline?: AggregateRow, candidate?: AggregateRow) {

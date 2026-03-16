@@ -111,6 +111,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
+  const [scannerToast, setScannerToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -135,6 +136,12 @@ export function MemoryView(props: MemoryViewProps) {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!scannerToast) return undefined;
+    const timer = window.setTimeout(() => setScannerToast(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [scannerToast]);
 
   useEffect(() => {
     let ignore = false;
@@ -490,10 +497,22 @@ export function MemoryView(props: MemoryViewProps) {
         || "";
       setScannerNotice(errorMessage || "Vigilante ejecutado correctamente.");
       if (errorMessage) {
-        window.alert(`El vigilante sí escaneó, pero no pudo guardar el resumen del run:\n\n${errorMessage}`);
+        setScannerToast({
+          tone: "error",
+          message: `El vigilante sí escaneó, pero no pudo guardar el resumen del run: ${errorMessage}`,
+        });
+      } else {
+        setScannerToast({
+          tone: "success",
+          message: "Vigilante ejecutado correctamente.",
+        });
       }
-    } catch {
+    } catch (error) {
       setScannerNotice("No se pudo ejecutar el vigilante ahora mismo.");
+      setScannerToast({
+        tone: "error",
+        message: error instanceof Error ? error.message : "No se pudo ejecutar el vigilante ahora mismo.",
+      });
     } finally {
       setScannerBusy(false);
     }
@@ -501,6 +520,11 @@ export function MemoryView(props: MemoryViewProps) {
 
   return (
     <div id="memoryView" className="view-panel active">
+      {scannerToast ? (
+        <div className={`system-toast ${scannerToast.tone === "error" ? "is-error" : "is-success"}`}>
+          {scannerToast.message}
+        </div>
+      ) : null}
       <section id="signals-overview">
         <SectionCard
           title="Centro de señales"

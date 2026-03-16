@@ -30,7 +30,13 @@ async function supabaseRequest(path, options = {}) {
   }
 
   if (response.status === 204) return null;
-  return response.json();
+  const text = await response.text().catch(() => "");
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Supabase devolvió una respuesta no JSON en ${path}`);
+  }
 }
 
 function hasValidSession(req) {

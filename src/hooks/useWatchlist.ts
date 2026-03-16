@@ -256,5 +256,12 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
       const nextActive = activeListName === normalizedName ? remaining[0].name : activeListName;
       await syncLists(remaining, nextActive, () => watchlistService.deleteList(normalizedName));
     },
+    async replaceListCoins(name: string, coins: string[]) {
+      const normalizedName = normalizeListName(name);
+      const nextCoins = normalizeWatchlist(coins);
+      if (!lists.some((item) => item.name === normalizedName)) return;
+      const nextLists = lists.map((item) => (item.name === normalizedName ? { ...item, coins: nextCoins } : item));
+      await syncLists(nextLists, activeListName, () => watchlistService.replace(normalizedName, nextCoins));
+    },
   };
 }

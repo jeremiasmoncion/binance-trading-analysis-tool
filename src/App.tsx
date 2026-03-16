@@ -194,6 +194,7 @@ export function App() {
           comparison={market.comparison}
           onSelectCoin={market.selectCoin}
           onToggleWatchlist={watchlist.toggleWatchlist}
+          onReplaceWatchlistCoins={watchlist.replaceListCoins}
           onCreateWatchlist={watchlist.createList}
           onRenameWatchlist={watchlist.renameList}
           onDeleteWatchlist={watchlist.deleteList}

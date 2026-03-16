@@ -143,8 +143,14 @@ body.dark-theme .timeframe-chip.sell { background: linear-gradient(135deg, #2a11
 body.dark-theme .timeframe-chip.sell .timeframe-chip-value { color: #fca5a5; }
 body.dark-theme .dashboard-active-coin { color: #94a3b8; }
 body.dark-theme .watchlist-chip { background: #111c31; border-color: #23314d; }
+body.dark-theme .watchlist-active-label { color:#94a3b8; }
+body.dark-theme .watchlist-active-pill strong,
+body.dark-theme .watchlist-status-title { color:#f8fafc; }
+body.dark-theme .watchlist-status-banner { background:linear-gradient(180deg, rgba(23,37,84,0.48) 0%, rgba(17,28,49,0.92) 100%); border-color:#23314d; }
+body.dark-theme .watchlist-status-chip { background:rgba(34,197,94,0.16); border-color:#166534; color:#86efac; }
 body.dark-theme .watchlist-list-tab { background:#111c31; border-color:#23314d; color:#e2e8f0; }
 body.dark-theme .watchlist-list-tab strong { background:#172554; color:#bfdbfe; }
+body.dark-theme .watchlist-list-tab em { color:#86efac; }
 body.dark-theme .watchlist-list-tab.active { border-color:#2563eb; color:#fff; }
 body.dark-theme .watchlist-chip.active { border-color: rgba(59,130,246,0.44); box-shadow: 0 10px 22px rgba(2,6,23,0.24); }
 body.dark-theme .watchlist-chip-symbol { color: #f8fafc; }

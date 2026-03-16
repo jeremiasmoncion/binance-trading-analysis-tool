@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -23,6 +23,7 @@ interface MarketViewProps {
   resistance: number;
   onSelectCoin: (coin: string) => void;
   onToggleWatchlist: (coin: string) => void;
+  onReplaceWatchlistCoins: (name: string, coins: string[]) => Promise<void>;
   onCreateWatchlist: (name: string) => Promise<void>;
   onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
   onDeleteWatchlist: (name: string) => Promise<void>;
@@ -31,8 +32,21 @@ interface MarketViewProps {
 
 export function MarketView(props: MarketViewProps) {
   const [activeTab, setActiveTab] = useState<"summary" | "watchlist">("summary");
+  const [selectedListName, setSelectedListName] = useState(props.activeWatchlistName);
   const signal = props.signal;
   const indicators = props.indicators;
+  const selectedList = useMemo(
+    () => props.watchlists.find((item) => item.name === selectedListName) || props.watchlists.find((item) => item.name === props.activeWatchlistName) || props.watchlists[0] || null,
+    [props.watchlists, selectedListName, props.activeWatchlistName],
+  );
+  const selectedCoins = selectedList?.coins || [];
+  const selectedIsActive = selectedList?.name === props.activeWatchlistName;
+
+  useEffect(() => {
+    if (!props.watchlists.some((item) => item.name === selectedListName)) {
+      setSelectedListName(props.activeWatchlistName);
+    }
+  }, [props.watchlists, props.activeWatchlistName, selectedListName]);
 
   return (
     <div id="marketView" className="view-panel active">
@@ -136,9 +150,33 @@ export function MarketView(props: MarketViewProps) {
           <div className="card-header">
             <div>
               <div className="card-title">Lista de seguimiento</div>
-              <div className="card-subtitle">Gestiona tus listas de seguimiento y decide cuál usa el sistema como lista activa para análisis y señales.</div>
+              <div className="card-subtitle">Selecciona una lista para verla o editarla. Luego marca explícitamente cuál alimenta las señales automáticas y el vigilante del mercado.</div>
             </div>
-            <div className="market-pill">{props.watchlist.length} en {props.activeWatchlistName}</div>
+            <div className="watchlist-active-pill">
+              <span className="watchlist-active-label">Lista activa para señales</span>
+              <strong>{props.activeWatchlistName}</strong>
+            </div>
+          </div>
+          <div className="watchlist-status-banner">
+            <div>
+              <div className="watchlist-status-title">
+                {selectedList?.name || "Lista"} {selectedIsActive ? "alimenta el sistema" : "está en edición"}
+              </div>
+              <div className="card-subtitle">
+                {selectedIsActive
+                  ? "El vigilante y las señales automáticas usan esta lista para revisar el mercado aunque no tengas la app abierta."
+                  : "Puedes revisar y organizar esta lista sin cambiar el motor. Si quieres que el sistema la use, actívala con el botón de abajo."}
+              </div>
+            </div>
+            {selectedList ? (
+              selectedIsActive ? (
+                <span className="watchlist-status-chip active">Activa para señales</span>
+              ) : (
+                <button type="button" className="btn-primary btn-small" onClick={() => void props.onSetActiveWatchlist(selectedList.name)}>
+                  Usar esta lista para señales
+                </button>
+              )
+            ) : null}
           </div>
           <div className="watchlist-toolbar">
             <div className="watchlist-list-tabs">
@@ -146,11 +184,12 @@ export function MarketView(props: MarketViewProps) {
                 <button
                   key={list.name}
                   type="button"
-                  className={`watchlist-list-tab${list.name === props.activeWatchlistName ? " active" : ""}`}
-                  onClick={() => void props.onSetActiveWatchlist(list.name)}
+                  className={`watchlist-list-tab${list.name === selectedList?.name ? " active" : ""}`}
+                  onClick={() => setSelectedListName(list.name)}
                 >
                   <span>{list.name}</span>
                   <strong>{list.coins.length}</strong>
+                  {list.name === props.activeWatchlistName ? <em>Activa</em> : null}
                 </button>
               ))}
             </div>
@@ -169,8 +208,9 @@ export function MarketView(props: MarketViewProps) {
                 type="button"
                 className="btn-secondary-soft btn-small"
                 onClick={() => {
-                  const name = window.prompt("Renombrar lista", props.activeWatchlistName);
-                  if (name) void props.onRenameWatchlist(props.activeWatchlistName, name);
+                  const currentName = selectedList?.name || props.activeWatchlistName;
+                  const name = window.prompt("Renombrar lista", currentName);
+                  if (name) void props.onRenameWatchlist(currentName, name);
                 }}
               >
                 Renombrar
@@ -180,8 +220,9 @@ export function MarketView(props: MarketViewProps) {
                 className="btn-secondary-soft btn-small danger"
                 disabled={props.watchlists.length <= 1}
                 onClick={() => {
-                  if (window.confirm(`Eliminar la lista ${props.activeWatchlistName}?`)) {
-                    void props.onDeleteWatchlist(props.activeWatchlistName);
+                  const currentName = selectedList?.name || props.activeWatchlistName;
+                  if (window.confirm(`Eliminar la lista ${currentName}?`)) {
+                    void props.onDeleteWatchlist(currentName);
                   }
                 }}
               >
@@ -189,9 +230,9 @@ export function MarketView(props: MarketViewProps) {
               </button>
             </div>
           </div>
-          {props.watchlist.length ? (
+          {selectedCoins.length ? (
             <div className="watchlist-grid">
-              {props.watchlist.map((coin) => (
+              {selectedCoins.map((coin) => (
                 <div className={`watchlist-chip${coin === props.currentCoin ? " active" : ""}`} key={coin}>
                   <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin(coin)}>
                     <span className="watchlist-chip-symbol">{coin}</span>
@@ -201,7 +242,7 @@ export function MarketView(props: MarketViewProps) {
                     type="button"
                     className="watchlist-chip-remove"
                     aria-label={`Quitar ${coin} del watchlist`}
-                    onClick={() => props.onToggleWatchlist(coin)}
+                    onClick={() => void props.onReplaceWatchlistCoins(selectedList?.name || props.activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
                   >
                     ×
                   </button>
@@ -209,7 +250,7 @@ export function MarketView(props: MarketViewProps) {
               ))}
             </div>
           ) : (
-            <div className="card-subtitle">Esta lista todavía no tiene monedas. Usa la estrella de arriba para agregar el par actual a la lista activa.</div>
+            <div className="card-subtitle">Esta lista todavía no tiene monedas. Usa la estrella de arriba para agregar el par actual a la lista que esté activa, o actívala primero si quieres que alimente las señales.</div>
           )}
         </section>
       ) : null}

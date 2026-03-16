@@ -47,6 +47,7 @@ interface AppViewProps {
   comparison: ComparisonCoin[];
   onSelectCoin: (coin: string) => void;
   onToggleWatchlist: (coin: string) => void;
+  onReplaceWatchlistCoins: (name: string, coins: string[]) => Promise<void>;
   onCreateWatchlist: (name: string) => Promise<void>;
   onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
   onDeleteWatchlist: (name: string) => Promise<void>;
@@ -112,6 +113,7 @@ export function AppView(props: AppViewProps) {
           resistance={props.resistance}
           onSelectCoin={props.onSelectCoin}
           onToggleWatchlist={props.onToggleWatchlist}
+          onReplaceWatchlistCoins={props.onReplaceWatchlistCoins}
           onCreateWatchlist={props.onCreateWatchlist}
           onRenameWatchlist={props.onRenameWatchlist}
           onDeleteWatchlist={props.onDeleteWatchlist}

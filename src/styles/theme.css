@@ -117,6 +117,7 @@ body.dark-theme .history-badge { background:#172554; color:#bfdbfe; }
 body.dark-theme .pagination-note,
 body.dark-theme .pagination-page { color:#cbd5e1; }
 body.dark-theme .timeframe-map,
+body.dark-theme .watchlist-card,
 body.dark-theme .dashboard-mini-card,
 body.dark-theme .timeframe-map,
 body.dark-theme .dashboard-mini-card,
@@ -141,6 +142,12 @@ body.dark-theme .timeframe-chip.wait { background: linear-gradient(135deg, #261d
 body.dark-theme .timeframe-chip.wait .timeframe-chip-value { color: #fcd34d; }
 body.dark-theme .timeframe-chip.sell { background: linear-gradient(135deg, #2a1113 0%, #331517 100%); border-color: #7f1d1d; }
 body.dark-theme .timeframe-chip.sell .timeframe-chip-value { color: #fca5a5; }
+body.dark-theme .watchlist-chip { background: #111c31; border-color: #23314d; }
+body.dark-theme .watchlist-chip.active { border-color: rgba(59,130,246,0.44); box-shadow: 0 10px 22px rgba(2,6,23,0.24); }
+body.dark-theme .watchlist-chip-symbol { color: #f8fafc; }
+body.dark-theme .watchlist-chip-note { color: #94a3b8; }
+body.dark-theme .watchlist-chip-remove { border-left-color: #23314d; color: #94a3b8; }
+body.dark-theme .watchlist-chip-remove:hover { background: #172554; color: #bfdbfe; }
 body.dark-theme .dashboard-hero {
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 32%),

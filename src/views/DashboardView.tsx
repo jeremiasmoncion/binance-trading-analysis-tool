@@ -3,6 +3,7 @@ import type { Candle, DashboardAnalysis, OperationPlan, Signal, TimeframeSignal 
 
 interface DashboardViewProps {
   currentCoin: string;
+  watchlist: string[];
   timeframe: string;
   currentPrice: number;
   signal: Signal | null;
@@ -12,6 +13,8 @@ interface DashboardViewProps {
   candles: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
   onSaveSignal: () => void;
+  onSelectCoin: (coin: string) => void;
+  onToggleWatchlist: (coin: string) => void;
 }
 
 export function DashboardView(props: DashboardViewProps) {
@@ -102,6 +105,38 @@ export function DashboardView(props: DashboardViewProps) {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="watchlist-card">
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Watchlist activa</div>
+                  <div className="card-subtitle">Estas monedas son las que el sistema vigila para señales y memoria automática.</div>
+                </div>
+                <div className="timeframe-map-score">{props.watchlist.length}</div>
+              </div>
+              {props.watchlist.length ? (
+                <div className="watchlist-grid">
+                  {props.watchlist.map((coin) => (
+                    <div className={`watchlist-chip${coin === props.currentCoin ? " active" : ""}`} key={coin}>
+                      <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin(coin)}>
+                        <span className="watchlist-chip-symbol">{coin}</span>
+                        <span className="watchlist-chip-note">{coin === props.currentCoin ? "En seguimiento" : "Cambiar a este par"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="watchlist-chip-remove"
+                        aria-label={`Quitar ${coin} del watchlist`}
+                        onClick={() => props.onToggleWatchlist(coin)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="card-subtitle">Todavía no has marcado monedas con estrella. Cuando vigiles una, aparecerá aquí.</div>
+              )}
             </div>
 
             <div className="analysis-grid">

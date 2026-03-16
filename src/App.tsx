@@ -151,6 +151,7 @@ export function App() {
         <AppView
           currentView={view.currentView}
           currentCoin={market.currentCoin}
+          watchlist={watchlist.watchlist}
           timeframe={market.timeframe}
           currentPrice={market.currentPrice || market.indicators?.current || 0}
           signal={market.signal}
@@ -183,6 +184,7 @@ export function App() {
           onUseCurrentPrice={calculatorState.useCurrentPrice}
           comparison={market.comparison}
           onSelectCoin={market.selectCoin}
+          onToggleWatchlist={watchlist.toggleWatchlist}
           portfolioData={binance.portfolioData}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}
@@ -191,7 +193,6 @@ export function App() {
           onToggleHideSmallAssets={binance.setHideSmallAssets}
           signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
-          watchlist={watchlist.watchlist}
           user={auth.currentUser}
           users={binance.availableUsers}
           connection={binance.binanceConnection}

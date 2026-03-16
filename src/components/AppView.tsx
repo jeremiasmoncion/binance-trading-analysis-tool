@@ -12,6 +12,7 @@ import { ProfileView } from "../views/ProfileView";
 interface AppViewProps {
   currentView: ViewName;
   currentCoin: string;
+  watchlist: string[];
   timeframe: string;
   currentPrice: number;
   signal: Signal | null;
@@ -40,6 +41,7 @@ interface AppViewProps {
   onUseCurrentPrice: () => void;
   comparison: ComparisonCoin[];
   onSelectCoin: (coin: string) => void;
+  onToggleWatchlist: (coin: string) => void;
   portfolioData: PortfolioPayload | null;
   portfolioPeriod: string;
   hideSmallAssets: boolean;
@@ -47,7 +49,6 @@ interface AppViewProps {
   onRefreshPortfolio: () => void;
   onToggleHideSmallAssets: (value: boolean) => void;
   signalMemory: SignalSnapshot[];
-  watchlist: string[];
   onSaveSignal: () => void;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
@@ -67,6 +68,7 @@ export function AppView(props: AppViewProps) {
         <DashboardView
           currentCoin={props.currentCoin}
           timeframe={props.timeframe}
+          watchlist={props.watchlist}
           currentPrice={props.currentPrice}
           signal={props.signal}
           plan={props.plan}
@@ -75,6 +77,8 @@ export function AppView(props: AppViewProps) {
           candles={props.candles}
           chartRef={props.chartRef}
           onSaveSignal={props.onSaveSignal}
+          onSelectCoin={props.onSelectCoin}
+          onToggleWatchlist={props.onToggleWatchlist}
         />
       );
     case "memory":

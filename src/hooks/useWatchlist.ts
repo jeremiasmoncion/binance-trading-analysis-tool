@@ -36,6 +36,7 @@ function normalizeWatchlist(value: unknown) {
 export function useWatchlist({ currentUser }: UseWatchlistOptions) {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [remoteReady, setRemoteReady] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -44,10 +45,15 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
       try {
         const globalRaw = window.localStorage.getItem(GLOBAL_WATCHLIST_KEY);
         const parsedGlobal = globalRaw ? normalizeWatchlist(JSON.parse(globalRaw)) : [];
+        const parsedLegacy = currentUser
+          ? normalizeWatchlist(JSON.parse(window.localStorage.getItem(getLegacyStorageKey(currentUser.username)) || "[]"))
+          : [];
+        const seedCoins = parsedGlobal.length ? parsedGlobal : parsedLegacy;
 
         if (active) {
-          setWatchlist(parsedGlobal);
+          setWatchlist(seedCoins);
           setHydrated(true);
+          setRemoteReady(!currentUser);
         }
 
         if (!currentUser) return;
@@ -55,30 +61,33 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
         try {
           const payload = await watchlistService.list();
           const remoteCoins = normalizeWatchlist(payload.coins || []);
-          if (active && remoteCoins.length) {
-            setWatchlist(remoteCoins);
-            window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(remoteCoins));
-            window.localStorage.setItem(getLegacyStorageKey(currentUser.username), JSON.stringify(remoteCoins));
-            return;
-          }
-
-          if (active && !remoteCoins.length && parsedGlobal.length) {
-            await watchlistService.replace(parsedGlobal);
+          if (remoteCoins.length) {
+            if (active) {
+              setWatchlist(remoteCoins);
+              window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(remoteCoins));
+              window.localStorage.setItem(getLegacyStorageKey(currentUser.username), JSON.stringify(remoteCoins));
+            }
+          } else if (seedCoins.length) {
+            await watchlistService.replace(seedCoins);
+            if (active) {
+              setWatchlist(seedCoins);
+            }
           }
         } catch {
-          if (!parsedGlobal.length && currentUser) {
-            const legacyRaw = window.localStorage.getItem(getLegacyStorageKey(currentUser.username));
-            const parsedLegacy = legacyRaw ? normalizeWatchlist(JSON.parse(legacyRaw)) : [];
-            if (active && parsedLegacy.length) {
-              setWatchlist(parsedLegacy);
-              window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(parsedLegacy));
-            }
+          if (active && seedCoins.length) {
+            setWatchlist(seedCoins);
+            window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(seedCoins));
+          }
+        } finally {
+          if (active) {
+            setRemoteReady(true);
           }
         }
       } catch {
         if (active) {
           setWatchlist([]);
           setHydrated(true);
+          setRemoteReady(!currentUser);
         }
       }
     }
@@ -90,7 +99,7 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || (currentUser && !remoteReady)) return;
     window.localStorage.setItem(GLOBAL_WATCHLIST_KEY, JSON.stringify(watchlist));
     if (currentUser) {
       window.localStorage.setItem(getLegacyStorageKey(currentUser.username), JSON.stringify(watchlist));
@@ -98,7 +107,7 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
         // keep local state if remote sync fails
       });
     }
-  }, [currentUser, hydrated, watchlist]);
+  }, [currentUser, hydrated, remoteReady, watchlist]);
 
   const watchlistSet = useMemo(() => new Set(watchlist), [watchlist]);
 

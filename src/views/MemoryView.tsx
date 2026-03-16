@@ -247,6 +247,11 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [periodSignals]);
 
+  const trendPromotionRecommendation = useMemo(
+    () => evaluatePromotion(trendVersionComparison.v1, trendVersionComparison.v2),
+    [trendVersionComparison.v1, trendVersionComparison.v2],
+  );
+
   const availableCandidateVersions = useMemo(
     () => versions.filter((item) => item.strategy_id === experimentCandidate),
     [experimentCandidate, versions],
@@ -488,6 +493,23 @@ export function MemoryView(props: MemoryViewProps) {
             accentClass="accent-amber"
           />
         </div>
+
+        <SectionCard
+          title="Recomendación de promoción"
+          subtitle="Lectura automática para decidir si una variante debe seguir observándose, pasar a sandbox o estar lista para promoción controlada."
+        >
+          <div className="signal-analytics-list">
+            <div className="signal-analytics-item is-experiment">
+              <div className="signal-analytics-copy">
+                <strong>{trendPromotionRecommendation.title}</strong>
+                <span>{trendPromotionRecommendation.reason}</span>
+              </div>
+              <div className={`signal-analytics-pill status-${trendPromotionRecommendation.statusClass}`}>
+                {trendPromotionRecommendation.statusLabel}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
 
         <SectionCard
           title="Laboratorio de estrategias"
@@ -948,6 +970,58 @@ function getCandidateSummary(signal: SignalSnapshot) {
       score: Number(candidate.score || 0),
       isPrimary: Boolean(candidate.isPrimary),
     }));
+}
+
+function evaluatePromotion(
+  baseline?: AggregateRow,
+  candidate?: AggregateRow,
+) {
+  if (!baseline || !candidate) {
+    return {
+      title: "Todavía no hay base suficiente",
+      reason: "Hace falta más histórico cerrado para comparar versiones de forma seria.",
+      statusLabel: "Observando",
+      statusClass: "paused",
+    };
+  }
+
+  const sampleReady = baseline.total >= 5 && candidate.total >= 5;
+  const pnlDelta = candidate.pnl - baseline.pnl;
+  const winRateDelta = candidate.winRate - baseline.winRate;
+
+  if (!sampleReady) {
+    return {
+      title: "Seguir observando",
+      reason: "Aún no hay suficiente muestra cerrada en ambas versiones para tomar una decisión confiable.",
+      statusLabel: "Observando",
+      statusClass: "paused",
+    };
+  }
+
+  if (candidate.pnl > baseline.pnl && candidate.winRate >= baseline.winRate && pnlDelta > 0) {
+    return {
+      title: "Lista para sandbox",
+      reason: `La variante candidata supera a la base por ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto. Conviene probarla en sandbox antes de promoverla.`,
+      statusLabel: "Sandbox",
+      statusClass: "sandbox",
+    };
+  }
+
+  if (candidate.pnl > baseline.pnl && candidate.total >= 10 && baseline.total >= 10) {
+    return {
+      title: "Promoción controlada posible",
+      reason: `La candidata ya muestra una ventaja de ${formatSignedPrice(pnlDelta)} con muestra suficiente. Todavía conviene validarla por contexto antes de promoverla globalmente.`,
+      statusLabel: "Activa",
+      statusClass: "active",
+    };
+  }
+
+  return {
+    title: "Mantener variante base",
+    reason: `La versión candidata todavía no mejora de forma consistente a la base. Diferencia actual: ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto.`,
+    statusLabel: "Base",
+    statusClass: "draft",
+  };
 }
 
 function describeSignalStatus(signal: SignalSnapshot, selectedStatus: SignalOutcomeStatus) {

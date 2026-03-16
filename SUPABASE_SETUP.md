@@ -10,6 +10,7 @@ Esta app ya puede leer usuarios desde una base de datos externa en Supabase.
 4. Si vas a conectar Binance Testnet, ejecuta también [supabase/binance_testnet_connections.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/binance_testnet_connections.sql).
 5. Si vas a usar watchlist persistente y memoria automática, ejecuta también [supabase/watchlist_items.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/watchlist_items.sql).
 6. Si vas a usar el motor de estrategias y preparar experimentos/versionado, ejecuta también [supabase/strategy_engine.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/strategy_engine.sql).
+7. Si quieres que el sistema vigile el watchlist automáticamente aunque la app no esté abierta, ejecuta también [supabase/watchlist_scanner.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/watchlist_scanner.sql).
 
 ## 2. Configurar Vercel
 
@@ -26,6 +27,9 @@ Agrega estas variables al proyecto en Vercel:
 - `SUPABASE_STRATEGY_VERSIONS_TABLE`
 - `SUPABASE_STRATEGY_EXPERIMENTS_TABLE`
 - `SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE`
+- `SUPABASE_WATCHLIST_SCAN_STATE_TABLE`
+- `SUPABASE_WATCHLIST_SCAN_RUNS_TABLE`
+- `CRON_SECRET`
 
 Puedes usar [/.env.example](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/.env.example) como referencia.
 
@@ -38,6 +42,7 @@ Cuando `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` estén definidos:
 - `/api/users` lista usuarios desde Supabase
 - `/api/binance/connection` guarda y lee la conexión cifrada de Binance Testnet
 - `/api/watchlist` guarda y lee listas de seguimiento persistentes por usuario
+- `/api/watchlist/scan` puede vigilar el watchlist en backend, generar señales automáticas y cerrar pendientes sin depender de la UI
 - `/api/strategy-engine` expone el registro, versionado y experimentos del motor de estrategias
 - `/api/strategy-engine/recommendations` genera y lee sugerencias adaptativas de parámetros
 

@@ -35,6 +35,10 @@ function requireSession(req) {
   return session;
 }
 
+function buildSession(username) {
+  return { username: String(username || "").trim() };
+}
+
 async function listSignalSnapshots(req) {
   const session = requireSession(req);
   const params = new URLSearchParams({
@@ -43,6 +47,19 @@ async function listSignalSnapshots(req) {
     order: "created_at.desc",
     limit: "200",
   });
+  return supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`);
+}
+
+async function listSignalSnapshotsForUser(username, options = {}) {
+  const params = new URLSearchParams({
+    select: "*",
+    username: `eq.${String(username)}`,
+    order: options.order || "created_at.desc",
+    limit: String(options.limit || 200),
+  });
+  if (options.outcomeStatus) {
+    params.set("outcome_status", `eq.${String(options.outcomeStatus)}`);
+  }
   return supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`);
 }
 
@@ -76,6 +93,11 @@ async function findRecentDuplicateSignal(session, body) {
 async function createSignalSnapshot(req) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
+  return createSignalSnapshotForUser(session.username, body);
+}
+
+async function createSignalSnapshotForUser(username, body) {
+  const session = buildSession(username);
   if (!body?.coin || !body?.timeframe || !body?.signal) {
     throw new Error("Faltan datos para guardar la señal");
   }
@@ -172,9 +194,13 @@ async function createSignalSnapshot(req) {
 async function updateSignalSnapshot(req, id) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
+  return updateSignalSnapshotForUser(session.username, id, body);
+}
+
+async function updateSignalSnapshotForUser(username, id, body) {
   const params = new URLSearchParams({
     id: `eq.${id}`,
-    username: `eq.${session.username}`,
+    username: `eq.${String(username)}`,
   });
 
   const rows = await supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`, {
@@ -189,9 +215,78 @@ async function updateSignalSnapshot(req, id) {
   return rows?.[0] || null;
 }
 
+async function evaluatePendingSignalsForUser(username, priceMap, options = {}) {
+  const pendingSignals = await listSignalSnapshotsForUser(username, {
+    outcomeStatus: "pending",
+    limit: options.limit || 200,
+  });
+
+  const updates = [];
+  for (const item of pendingSignals || []) {
+    const currentPrice = Number(priceMap?.[item.coin] || 0);
+    if (currentPrice <= 0 || !item.entry_price) continue;
+
+    const label = item.signal_label;
+    const entry = Number(item.entry_price || 0);
+    const tp = Number(item.tp_price || 0);
+    const tp2 = Number(item.tp2_price || 0);
+    const sl = Number(item.sl_price || 0);
+    const refCapital = Number(item.signal_payload?.plan?.refCapital || 100);
+    let outcomeStatus = null;
+    let exitPrice = 0;
+
+    if (label === "Comprar") {
+      if (tp2 > 0 && currentPrice >= tp2) {
+        outcomeStatus = "win";
+        exitPrice = tp2;
+      } else if (tp > 0 && currentPrice >= tp) {
+        outcomeStatus = "win";
+        exitPrice = tp;
+      } else if (sl > 0 && currentPrice <= sl) {
+        outcomeStatus = "loss";
+        exitPrice = sl;
+      }
+    } else if (label === "Vender") {
+      if (tp2 > 0 && currentPrice <= tp2) {
+        outcomeStatus = "win";
+        exitPrice = tp2;
+      } else if (tp > 0 && currentPrice <= tp) {
+        outcomeStatus = "win";
+        exitPrice = tp;
+      } else if (sl > 0 && currentPrice >= sl) {
+        outcomeStatus = "loss";
+        exitPrice = sl;
+      }
+    }
+
+    if (!outcomeStatus || exitPrice <= 0) continue;
+
+    const pnlPct = label === "Vender"
+      ? ((entry - exitPrice) / entry) * 100
+      : ((exitPrice - entry) / entry) * 100;
+    const outcomePnl = Number(((refCapital * pnlPct) / 100).toFixed(4));
+    const previousNote = item.note ? `${item.note} · ` : "";
+    const notePrefix = options.notePrefix || "Auto-cerrada por el vigilante";
+    const autoNote = `${previousNote}${notePrefix} el ${new Date().toLocaleString("es-DO")} a ${exitPrice.toFixed(6)}`;
+
+    updates.push(updateSignalSnapshotForUser(username, item.id, {
+      outcomeStatus,
+      outcomePnl,
+      note: autoNote,
+    }));
+  }
+
+  if (!updates.length) return [];
+  return Promise.all(updates);
+}
+
 export {
   createSignalSnapshot,
+  createSignalSnapshotForUser,
+  evaluatePendingSignalsForUser,
   listSignalSnapshots,
+  listSignalSnapshotsForUser,
   sendJson,
   updateSignalSnapshot,
+  updateSignalSnapshotForUser,
 };

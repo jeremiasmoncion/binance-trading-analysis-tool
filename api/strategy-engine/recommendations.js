@@ -1,4 +1,5 @@
 import {
+  activateAdaptiveRecommendation,
   generateAdaptiveRecommendations,
   listStrategyEngine,
   sendJson,
@@ -13,6 +14,10 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       return sendJson(res, 200, { recommendations: await generateAdaptiveRecommendations(req) });
+    }
+
+    if (req.method === "PATCH") {
+      return sendJson(res, 200, await activateAdaptiveRecommendation(req));
     }
 
     return sendJson(res, 405, { message: "Método no permitido" });

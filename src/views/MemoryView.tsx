@@ -6,6 +6,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { formatPrice, formatSignedPrice } from "../lib/format";
 import { strategyEngineService } from "../services/api";
 import type {
+  RecommendationActivationResult,
   SignalOutcomeStatus,
   SignalSnapshot,
   StrategyExperimentRecord,
@@ -67,6 +68,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [experimentMarketScope, setExperimentMarketScope] = useState("all");
   const [experimentTimeframeScope, setExperimentTimeframeScope] = useState("all");
   const [experimentSummary, setExperimentSummary] = useState("");
+  const [activatingRecommendationKey, setActivatingRecommendationKey] = useState("");
 
   useEffect(() => {
     let ignore = false;
@@ -386,6 +388,32 @@ export function MemoryView(props: MemoryViewProps) {
     }
   }
 
+  async function handleActivateRecommendation(item: StrategyRecommendationRecord) {
+    setActivatingRecommendationKey(item.recommendation_key);
+    try {
+      const payload: RecommendationActivationResult = await strategyEngineService.activateRecommendation(item.id);
+      setRecommendations((current) =>
+        current.map((entry) => (entry.id === payload.recommendation.id ? payload.recommendation : entry)),
+      );
+      setVersions((current) => {
+        const exists = current.some(
+          (entry) => entry.strategy_id === payload.version.strategy_id && entry.version === payload.version.version,
+        );
+        return exists ? current : [...current, payload.version];
+      });
+      setExperiments((current) => {
+        const exists = current.some((entry) => entry.id === payload.experiment.id);
+        return exists
+          ? current.map((entry) => (entry.id === payload.experiment.id ? payload.experiment : entry))
+          : [payload.experiment, ...current];
+      });
+    } catch {
+      // keep UI steady if API fails
+    } finally {
+      setActivatingRecommendationKey("");
+    }
+  }
+
   return (
     <div id="memoryView" className="view-panel active">
       <section id="signals-overview">
@@ -697,7 +725,12 @@ export function MemoryView(props: MemoryViewProps) {
             ) : (
               <div className="signal-analytics-grid">
                 {recommendations.map((item) => (
-                  <AdaptiveRecommendationCard key={`${item.recommendation_key}-${item.id}`} item={item} />
+                  <AdaptiveRecommendationCard
+                    key={`${item.recommendation_key}-${item.id}`}
+                    item={item}
+                    isActivating={activatingRecommendationKey === item.recommendation_key}
+                    onActivate={() => void handleActivateRecommendation(item)}
+                  />
                 ))}
               </div>
             )}
@@ -962,11 +995,22 @@ function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
   );
 }
 
-function AdaptiveRecommendationCard({ item }: { item: StrategyRecommendationRecord }) {
+function AdaptiveRecommendationCard({
+  item,
+  isActivating,
+  onActivate,
+}: {
+  item: StrategyRecommendationRecord;
+  isActivating: boolean;
+  onActivate: () => void;
+}) {
   const confidencePct = Math.round(Number(item.confidence || 0) * 100);
   const confidenceClass = confidencePct >= 75 ? "status-sandbox" : confidencePct >= 55 ? "status-draft" : "status-paused";
   const delta = Number(item.suggested_value || 0) - Number(item.current_value || 0);
   const evidence = item.evidence || {};
+  const candidateVersion = typeof evidence.candidateVersion === "string" ? evidence.candidateVersion : "";
+  const experimentId = typeof evidence.experimentId === "number" ? evidence.experimentId : 0;
+  const hasSandbox = item.status === "sandbox" && candidateVersion;
 
   return (
     <div className="signal-analytics-card">
@@ -995,6 +1039,23 @@ function AdaptiveRecommendationCard({ item }: { item: StrategyRecommendationReco
       <p className="section-note with-top-gap">
         Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}.
       </p>
+
+      <div className="inline-actions with-top-gap">
+        {hasSandbox ? (
+          <>
+            <span className="signal-status-note">
+              Variante candidata: <span className="text-strong">{getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion)}</span>
+            </span>
+            <span className="signal-analytics-pill status-sandbox">
+              Prueba segura #{experimentId || "--"}
+            </span>
+          </>
+        ) : (
+          <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onActivate} disabled={isActivating}>
+            {isActivating ? "Creando candidata..." : "Crear candidata y mandar a prueba segura"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

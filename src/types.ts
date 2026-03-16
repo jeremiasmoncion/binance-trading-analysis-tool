@@ -107,6 +107,12 @@ export interface StrategyRecommendationRecord {
   updated_at?: string;
 }
 
+export interface RecommendationActivationResult {
+  recommendation: StrategyRecommendationRecord;
+  version: StrategyVersionRecord;
+  experiment: StrategyExperimentRecord;
+}
+
 export interface StrategyCandidate {
   strategy: StrategyDescriptor;
   signal: Signal;

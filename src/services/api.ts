@@ -6,6 +6,7 @@ import type {
   Signal,
   SignalOutcomeStatus,
   SignalSnapshot,
+  RecommendationActivationResult,
   StrategyCandidate,
   StrategyDescriptor,
   StrategyExperimentRecord,
@@ -128,6 +129,12 @@ export const strategyEngineService = {
   generateRecommendations() {
     return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations", {
       method: "POST",
+    });
+  },
+  activateRecommendation(recommendationId: number) {
+    return apiRequest<RecommendationActivationResult>("/api/strategy-engine/recommendations", {
+      method: "PATCH",
+      body: JSON.stringify({ recommendationId }),
     });
   },
   createExperiment(payload: {

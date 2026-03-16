@@ -302,6 +302,149 @@ export async function generateAdaptiveRecommendations(req) {
   return rows || [];
 }
 
+function getRecommendationVariantVersion(baseVersion, versions, recommendationId) {
+  const prefix = `${baseVersion}-rec`;
+  const taken = new Set(
+    (versions || [])
+      .map((item) => item.version)
+      .filter((version) => typeof version === "string" && version.startsWith(prefix)),
+  );
+
+  let index = 1;
+  let candidate = `${prefix}${index}`;
+  while (taken.has(candidate) || taken.has(`${candidate}-r${recommendationId}`)) {
+    index += 1;
+    candidate = `${prefix}${index}`;
+  }
+
+  return `${candidate}-r${recommendationId}`;
+}
+
+export async function activateAdaptiveRecommendation(req) {
+  requireSession(req);
+  const body = parseJsonBody(req);
+  const recommendationId = Number(body.recommendationId || 0);
+  if (!recommendationId) {
+    throw new Error("Falta la recomendación a convertir");
+  }
+
+  const recommendationRows = await supabaseRequest(
+    `${STRATEGY_RECOMMENDATIONS_TABLE}?select=*&id=eq.${recommendationId}&limit=1`,
+  );
+  const versions = await supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?select=*`);
+
+  const recommendation = recommendationRows?.[0];
+  if (!recommendation) {
+    throw new Error("No se encontró la recomendación solicitada");
+  }
+
+  const baseVersion = (versions || []).find(
+    (item) => item.strategy_id === recommendation.strategy_id && item.version === recommendation.strategy_version,
+  );
+  if (!baseVersion) {
+    throw new Error("No se encontró la versión base para esta recomendación");
+  }
+
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  if (evidence.candidateVersion && evidence.experimentId) {
+    const experimentRows = await supabaseRequest(
+      `${STRATEGY_EXPERIMENTS_TABLE}?select=*&id=eq.${Number(evidence.experimentId)}&limit=1`,
+    ).catch(() => []);
+
+    return {
+      recommendation,
+      version: baseVersion,
+      experiment: experimentRows?.[0] || null,
+    };
+  }
+
+  const nextVersion = getRecommendationVariantVersion(recommendation.strategy_version, versions || [], recommendationId);
+  const nextParameters = {
+    ...(baseVersion.parameters || {}),
+    [recommendation.parameter_key]: recommendation.suggested_value,
+  };
+
+  const createdVersionRows = await supabaseRequest(STRATEGY_VERSIONS_TABLE, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: [{
+      strategy_id: recommendation.strategy_id,
+      version: nextVersion,
+      label: `${baseVersion.label || recommendation.strategy_id} candidata ${nextVersion}`,
+      parameters: nextParameters,
+      notes: `Variante creada desde la recomendación ${recommendation.recommendation_key}. Ajusta ${recommendation.parameter_key} de ${recommendation.current_value} a ${recommendation.suggested_value}.`,
+      status: "experimental",
+    }],
+  });
+
+  const createdVersion = createdVersionRows?.[0];
+  if (!createdVersion) {
+    throw new Error("No se pudo crear la variante candidata");
+  }
+
+  const experimentKey = [
+    recommendation.strategy_id,
+    recommendation.strategy_version,
+    nextVersion,
+    "watchlist",
+    "all",
+    Date.now(),
+  ].join(":");
+
+  const experimentRows = await supabaseRequest(STRATEGY_EXPERIMENTS_TABLE, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: [{
+      experiment_key: experimentKey,
+      base_strategy_id: recommendation.strategy_id,
+      candidate_strategy_id: recommendation.strategy_id,
+      candidate_version: nextVersion,
+      market_scope: "watchlist",
+      timeframe_scope: "all",
+      status: "sandbox",
+      summary: `Prueba segura creada desde ${recommendation.title}. Compara ${recommendation.strategy_version} contra ${nextVersion}.`,
+      metadata: {
+        createdFrom: "adaptive-recommendation",
+        recommendationId: recommendation.id,
+        recommendationKey: recommendation.recommendation_key,
+        parameterKey: recommendation.parameter_key,
+        currentValue: recommendation.current_value,
+        suggestedValue: recommendation.suggested_value,
+      },
+    }],
+  });
+
+  const experiment = experimentRows?.[0];
+  if (!experiment) {
+    throw new Error("No se pudo crear la prueba segura asociada");
+  }
+
+  const updatedEvidence = {
+    ...evidence,
+    candidateVersion: nextVersion,
+    experimentId: experiment.id,
+    activatedAt: new Date().toISOString(),
+  };
+
+  const updatedRecommendationRows = await supabaseRequest(
+    `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${recommendation.id}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        status: "sandbox",
+        evidence: updatedEvidence,
+      },
+    },
+  );
+
+  return {
+    recommendation: updatedRecommendationRows?.[0] || { ...recommendation, status: "sandbox", evidence: updatedEvidence },
+    version: createdVersion,
+    experiment,
+  };
+}
+
 export async function createStrategyExperiment(req) {
   requireSession(req);
   const body = parseJsonBody(req);

@@ -152,7 +152,7 @@ export function App() {
           currentView={view.currentView}
           currentCoin={market.currentCoin}
           timeframe={market.timeframe}
-          currentPrice={market.indicators?.current || 0}
+          currentPrice={market.currentPrice || market.indicators?.current || 0}
           signal={market.signal}
           plan={plan}
           analysis={market.analysis}

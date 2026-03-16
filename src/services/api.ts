@@ -114,6 +114,14 @@ export interface MarketTicker {
   volume?: string;
 }
 
+export interface MarketTickerStreamPayload {
+  c?: string;
+  P?: string;
+  h?: string;
+  l?: string;
+  v?: string;
+}
+
 export interface ExchangeSymbol {
   symbol: string;
   status: string;
@@ -164,6 +172,30 @@ export const marketService = {
         .map((item) => `${item.baseAsset}/${item.quoteAsset}`);
     } catch {
       return [];
+    }
+  },
+  openTickerStream(symbol: string, onMessage: (payload: MarketTickerStreamPayload) => void) {
+    try {
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.replace("/", "").toLowerCase()}@ticker`);
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as MarketTickerStreamPayload;
+          onMessage(payload);
+        } catch {
+          // ignore malformed frames
+        }
+      };
+      return () => {
+        try {
+          ws.close();
+        } catch {
+          // ignore close errors
+        }
+      };
+    } catch {
+      return () => {
+        // websocket unavailable
+      };
     }
   },
 };

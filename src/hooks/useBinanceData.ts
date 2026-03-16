@@ -115,6 +115,24 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     })();
   }, [currentUser, currentView, refreshPortfolio, refreshProfileData]);
 
+  useEffect(() => {
+    if (!currentUser || !binanceConnection?.connected) return undefined;
+
+    const refreshInterval =
+      currentView === "balance"
+        ? 30_000
+        : currentView === "dashboard"
+          ? 60_000
+          : 90_000;
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshPortfolio();
+    }, refreshInterval);
+
+    return () => window.clearInterval(intervalId);
+  }, [binanceConnection?.connected, currentUser, currentView, refreshPortfolio]);
+
   return {
     binanceConnection,
     portfolioData,

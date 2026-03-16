@@ -10,6 +10,7 @@ interface DashboardViewProps {
   analysis: DashboardAnalysis | null;
   strategy: StrategyDescriptor;
   strategyCandidates: StrategyCandidate[];
+  strategyRefreshIntervalMs: number;
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
@@ -119,6 +120,9 @@ export function DashboardView(props: DashboardViewProps) {
                 </div>
                 <div className="strategy-candidate-meta">
                   Contexto ideal: {props.strategy.idealMarketConditions.join(", ")}
+                </div>
+                <div className="strategy-candidate-meta">
+                  Ritmo del motor: {props.strategy.schedulerLabel || "revisión adaptable"} · cada {formatSchedulerInterval(props.strategyRefreshIntervalMs)}
                 </div>
                 <div className="strategy-candidate-list">
                   {props.strategyCandidates.slice(0, 3).map((candidate) => (
@@ -305,4 +309,13 @@ function getFriendlyTradingStyle(style: string) {
   if (style === "intradía") return "Intradía";
   if (style === "swing corto") return "Swing corto";
   return style || "Sin perfil";
+}
+
+function formatSchedulerInterval(intervalMs: number) {
+  const minutes = Math.round(intervalMs / 60000);
+  if (minutes >= 60) {
+    const hours = Math.round(minutes / 60);
+    return `${hours}h`;
+  }
+  return `${minutes}m`;
 }

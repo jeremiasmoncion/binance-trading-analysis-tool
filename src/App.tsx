@@ -163,6 +163,7 @@ export function App() {
           analysis={market.analysis}
           strategy={market.strategy}
           strategyCandidates={market.strategyCandidates}
+          strategyRefreshIntervalMs={market.refreshIntervalMs}
           multiTimeframes={market.multiTimeframes}
           candles={market.candles}
           chartRef={chartRef}

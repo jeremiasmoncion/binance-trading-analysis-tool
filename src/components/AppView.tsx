@@ -22,6 +22,7 @@ interface AppViewProps {
   analysis: DashboardAnalysis | null;
   strategy: StrategyDescriptor;
   strategyCandidates: StrategyCandidate[];
+  strategyRefreshIntervalMs: number;
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: RefObject<HTMLCanvasElement | null>;
@@ -82,6 +83,7 @@ export function AppView(props: AppViewProps) {
           analysis={props.analysis}
           strategy={props.strategy}
           strategyCandidates={props.strategyCandidates}
+          strategyRefreshIntervalMs={props.strategyRefreshIntervalMs}
           multiTimeframes={props.multiTimeframes}
           candles={props.candles}
           chartRef={props.chartRef}

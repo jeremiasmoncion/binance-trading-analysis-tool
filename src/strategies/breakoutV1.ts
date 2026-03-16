@@ -12,6 +12,7 @@ const descriptor: StrategyDescriptor = {
   tradingStyle: "scalping / intradía",
   holdingProfile: "rápido",
   idealMarketConditions: ["ruptura", "expansión", "volumen fuerte"],
+  schedulerLabel: "revisión rápida",
   parameters: {
     lookbackCandles: 20,
     breakoutBufferPct: 0.1,

@@ -1035,6 +1035,8 @@ function AdaptiveRecommendationCard({
   const confidenceClass = confidencePct >= 75 ? "status-sandbox" : confidencePct >= 55 ? "status-draft" : "status-paused";
   const delta = Number(item.suggested_value || 0) - Number(item.current_value || 0);
   const evidence = item.evidence || {};
+  const sampleSize = Number(evidence.sampleSize || 0);
+  const sampleStrength = getSampleStrength(sampleSize);
   const candidateVersion = typeof evidence.candidateVersion === "string" ? evidence.candidateVersion : "";
   const experimentId = typeof evidence.experimentId === "number" ? evidence.experimentId : 0;
   const hasSandbox = item.status === "sandbox" && candidateVersion;
@@ -1054,6 +1056,15 @@ function AdaptiveRecommendationCard({
           </div>
           <div className={`signal-analytics-pill ${confidenceClass}`}>
             {confidencePct}% confianza
+          </div>
+        </div>
+        <div className="signal-analytics-item is-experiment">
+          <div className="signal-analytics-copy">
+            <strong>Muestra {sampleStrength.label.toLowerCase()}</strong>
+            <span>{sampleSize ? `${sampleSize} señales usadas como evidencia` : "Aún falta historial para confiar fuerte en este ajuste"}</span>
+          </div>
+          <div className={`signal-analytics-pill status-${sampleStrength.className}`}>
+            {sampleStrength.label}
           </div>
         </div>
       </div>
@@ -1204,6 +1215,16 @@ function getFriendlyTradingStyle(style?: string) {
   if (style === "intradía") return "Intradía";
   if (style === "swing corto") return "Swing corto";
   return style || "Sin perfil";
+}
+
+function getSampleStrength(sampleSize: number) {
+  if (sampleSize >= 12) {
+    return { label: "Fuerte", className: "sandbox" };
+  }
+  if (sampleSize >= 6) {
+    return { label: "Aceptable", className: "draft" };
+  }
+  return { label: "Insuficiente", className: "paused" };
 }
 
 function getPreferredTimeframeScopeForVersion(version?: StrategyVersionRecord) {

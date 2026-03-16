@@ -12,6 +12,7 @@ const descriptor: StrategyDescriptor = {
   tradingStyle: "swing corto",
   holdingProfile: "medio",
   idealMarketConditions: ["tendencia limpia", "alta alineación", "volumen fuerte"],
+  schedulerLabel: "revisión pausada",
   parameters: {
     trendWeight: 24,
     oversoldBoost: 10,

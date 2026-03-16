@@ -17,6 +17,18 @@ const SMART_REFRESH_BY_TIMEFRAME: Record<string, number> = {
   "1d": 1_800_000,
 };
 
+const SMART_REFRESH_BY_STYLE: Record<string, number> = {
+  "scalping / intradía": 60_000,
+  "intradía": 180_000,
+  "swing corto": 900_000,
+};
+
+function getSmartRefreshInterval(timeframe: string, tradingStyle?: string) {
+  const timeframeBase = SMART_REFRESH_BY_TIMEFRAME[timeframe] || 300_000;
+  const styleBase = SMART_REFRESH_BY_STYLE[tradingStyle || ""] || timeframeBase;
+  return Math.max(60_000, Math.min(timeframeBase, styleBase));
+}
+
 export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState("1h");
@@ -132,13 +144,13 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
 
   useEffect(() => {
     if (currentView !== "dashboard" && currentView !== "market") return undefined;
-    const refreshInterval = SMART_REFRESH_BY_TIMEFRAME[timeframe] || 300_000;
+    const refreshInterval = getSmartRefreshInterval(timeframe, strategy?.tradingStyle);
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void fetchData();
     }, refreshInterval);
     return () => window.clearInterval(intervalId);
-  }, [currentView, fetchData, timeframe]);
+  }, [currentView, fetchData, timeframe, strategy?.tradingStyle]);
 
   useEffect(() => {
     const closeStream = marketService.openTickerStream(currentCoin, (payload) => {
@@ -185,6 +197,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     popularCoins: POPULAR_COINS.filter((coin) => coinLookup.has(coin)),
     market24h,
     supportResistance,
+    refreshIntervalMs: getSmartRefreshInterval(timeframe, strategy?.tradingStyle),
     fetchData,
     selectCoin(coin: string) {
       const normalized = coin.trim().toUpperCase();

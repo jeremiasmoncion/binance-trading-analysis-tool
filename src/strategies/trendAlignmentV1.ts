@@ -12,6 +12,7 @@ const descriptor: StrategyDescriptor = {
   tradingStyle: "intradía",
   holdingProfile: "corto a medio",
   idealMarketConditions: ["tendencia", "pullback ordenado"],
+  schedulerLabel: "revisión intermedia",
   parameters: {
     trendWeight: 20,
     oversoldBoost: 15,

@@ -19,6 +19,7 @@ create table if not exists public.strategy_versions (
   trading_style text,
   holding_profile text,
   ideal_market_conditions text[] not null default '{}'::text[],
+  scheduler_label text,
   notes text,
   status text not null default 'active',
   created_at timestamptz not null default now(),
@@ -37,6 +38,9 @@ alter table public.strategy_versions
 
 alter table public.strategy_versions
   add column if not exists ideal_market_conditions text[] not null default '{}'::text[];
+
+alter table public.strategy_versions
+  add column if not exists scheduler_label text;
 
 create table if not exists public.strategy_experiments (
   id bigint generated always as identity primary key,
@@ -126,6 +130,7 @@ values
     'intradía',
     'corto a medio',
     array['tendencia','pullback ordenado'],
+    'revisión intermedia',
     'Versión inicial basada en tendencia, RSI y alineación.',
     'active'
   ),
@@ -138,6 +143,7 @@ values
     'swing corto',
     'medio',
     array['tendencia limpia','alta alineación','volumen fuerte'],
+    'revisión pausada',
     'Variante más estricta que prioriza alineación de marcos altos y penaliza contextos mixtos.',
     'experimental'
   ),
@@ -150,6 +156,7 @@ values
     'scalping / intradía',
     'rápido',
     array['ruptura','expansión','volumen fuerte'],
+    'revisión rápida',
     'Versión inicial basada en ruptura de rango y volumen.',
     'active'
   )
@@ -161,5 +168,6 @@ set
   trading_style = excluded.trading_style,
   holding_profile = excluded.holding_profile,
   ideal_market_conditions = excluded.ideal_market_conditions,
+  scheduler_label = excluded.scheduler_label,
   notes = excluded.notes,
   status = excluded.status;

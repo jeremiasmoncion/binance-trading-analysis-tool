@@ -53,6 +53,7 @@ export interface StrategyDescriptor {
   tradingStyle: string;
   holdingProfile?: string;
   idealMarketConditions: string[];
+  schedulerLabel?: string;
   parameters: Record<string, number | string | boolean>;
 }
 
@@ -77,6 +78,7 @@ export interface StrategyVersionRecord {
   trading_style?: string;
   holding_profile?: string;
   ideal_market_conditions?: string[];
+  scheduler_label?: string;
   notes?: string;
   status: string;
   created_at: string;

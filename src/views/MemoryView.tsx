@@ -20,6 +20,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [statusFilter, setStatusFilter] = useState<SignalOutcomeStatus | "all">("all");
   const [timeframeFilter, setTimeframeFilter] = useState("all");
   const [setupFilter, setSetupFilter] = useState("all");
+  const [strategyFilter, setStrategyFilter] = useState("all");
 
   const timeframes = useMemo(
     () => Array.from(new Set(props.signals.map((item) => item.timeframe))).sort(),
@@ -31,6 +32,10 @@ export function MemoryView(props: MemoryViewProps) {
   );
   const coins = useMemo(
     () => Array.from(new Set(props.signals.map((item) => item.coin).filter(Boolean))).sort(),
+    [props.signals],
+  );
+  const strategies = useMemo(
+    () => Array.from(new Set(props.signals.map((item) => getStrategyDisplay(item)).filter(Boolean))).sort(),
     [props.signals],
   );
 
@@ -51,14 +56,16 @@ export function MemoryView(props: MemoryViewProps) {
         || item.coin.toLowerCase().includes(normalizedSearch)
         || (item.signal_label || "").toLowerCase().includes(normalizedSearch)
         || (item.setup_type || "").toLowerCase().includes(normalizedSearch)
+        || getStrategyDisplay(item).toLowerCase().includes(normalizedSearch)
         || (item.note || "").toLowerCase().includes(normalizedSearch);
       const matchesCoin = coinFilter === "all" || item.coin === coinFilter;
       const matchesStatus = statusFilter === "all" || item.outcome_status === statusFilter;
       const matchesTimeframe = timeframeFilter === "all" || item.timeframe === timeframeFilter;
       const matchesSetup = setupFilter === "all" || (item.setup_type || "") === setupFilter;
-      return matchesSearch && matchesCoin && matchesStatus && matchesTimeframe && matchesSetup;
+      const matchesStrategy = strategyFilter === "all" || getStrategyDisplay(item) === strategyFilter;
+      return matchesSearch && matchesCoin && matchesStatus && matchesTimeframe && matchesSetup && matchesStrategy;
     });
-  }, [coinFilter, periodSignals, search, setupFilter, statusFilter, timeframeFilter]);
+  }, [coinFilter, periodSignals, search, setupFilter, statusFilter, strategyFilter, timeframeFilter]);
 
   const completedSignals = props.signals.filter((item) => item.outcome_status !== "pending");
   const wins = props.signals.filter((item) => item.outcome_status === "win").length;
@@ -124,12 +131,27 @@ export function MemoryView(props: MemoryViewProps) {
       .map(([timeframe, stats]) => ({ timeframe, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
   }, [props.signals]);
+  const strongestStrategy = useMemo(() => {
+    const byStrategy = new Map<string, { wins: number; total: number }>();
+    props.signals.forEach((item) => {
+      if (item.outcome_status === "pending") return;
+      const key = getStrategyDisplay(item);
+      const bucket = byStrategy.get(key) || { wins: 0, total: 0 };
+      bucket.total += 1;
+      if (item.outcome_status === "win") bucket.wins += 1;
+      byStrategy.set(key, bucket);
+    });
+    return Array.from(byStrategy.entries())
+      .map(([strategy, stats]) => ({ strategy, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
+      .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
+  }, [props.signals]);
   const periodAnalytics = useMemo(() => {
     const closed = periodSignals.filter((item) => item.outcome_status !== "pending");
 
     const byCoin = summarizeByKey(closed, (item) => item.coin);
     const bySetup = summarizeByKey(closed, (item) => item.setup_type || "Sin setup");
     const byTimeframe = summarizeByKey(closed, (item) => item.timeframe);
+    const byStrategy = summarizeByKey(closed, (item) => getStrategyDisplay(item));
     const byContext = summarizeByKey(
       closed,
       (item) => item.signal_payload?.context?.contextSignature || "Contexto no clasificado",
@@ -140,9 +162,11 @@ export function MemoryView(props: MemoryViewProps) {
       worstCoin: [...byCoin].sort((a, b) => a.pnl - b.pnl || a.winRate - b.winRate)[0],
       bestSetupPnl: bySetup[0],
       bestTimeframePnl: byTimeframe[0],
+      bestStrategyPnl: byStrategy[0],
       topCoins: byCoin.slice(0, 3),
       topSetups: bySetup.slice(0, 3),
       topTimeframes: byTimeframe.slice(0, 3),
+      topStrategies: byStrategy.slice(0, 3),
       topContexts: byContext.slice(0, 3),
     };
   }, [periodSignals]);
@@ -187,6 +211,12 @@ export function MemoryView(props: MemoryViewProps) {
               value={strongestTimeframe?.timeframe || "--"}
               sub={strongestTimeframe ? `${strongestTimeframe.rate.toFixed(0)}% de win rate` : "Esperando más señales cerradas"}
               accentClass="accent-amber"
+            />
+            <StatCard
+              label="Estrategia más fuerte"
+              value={strongestStrategy?.strategy || "--"}
+              sub={strongestStrategy ? `${strongestStrategy.rate.toFixed(0)}% de win rate en ${strongestStrategy.total} señales` : "Esperando cierres por estrategia"}
+              accentClass="accent-blue"
             />
             <StatCard
               label="Mejor contexto"
@@ -240,6 +270,13 @@ export function MemoryView(props: MemoryViewProps) {
             toneClass={periodAnalytics.bestTimeframePnl && periodAnalytics.bestTimeframePnl.pnl > 0 ? "portfolio-positive" : ""}
             accentClass="accent-emerald"
           />
+          <StatCard
+            label="Estrategia con mejor PnL"
+            value={periodAnalytics.bestStrategyPnl?.label || "--"}
+            sub={periodAnalytics.bestStrategyPnl ? `${formatSignedPrice(periodAnalytics.bestStrategyPnl.pnl)} en ${periodAnalytics.bestStrategyPnl.total} señales` : "Sin historial suficiente"}
+            toneClass={periodAnalytics.bestStrategyPnl && periodAnalytics.bestStrategyPnl.pnl > 0 ? "portfolio-positive" : ""}
+            accentClass="accent-blue"
+          />
         </div>
 
         <div className="signal-analytics-grid">
@@ -257,6 +294,12 @@ export function MemoryView(props: MemoryViewProps) {
             title="Top marcos"
             subtitle="Qué timeframe está siendo más eficiente."
             items={periodAnalytics.topTimeframes}
+          />
+          <AnalyticsListCard
+            title="Top estrategias"
+            subtitle="Qué estrategia/version está dejando mejor resultado."
+            items={periodAnalytics.topStrategies}
+            truncateLabel
           />
           <AnalyticsListCard
             title="Top contextos"
@@ -316,6 +359,12 @@ export function MemoryView(props: MemoryViewProps) {
           <select className="timeframe-select signal-select" value={setupFilter} onChange={(event) => setSetupFilter(event.target.value)}>
             <option value="all">Todos los setups</option>
             {setups.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <select className="timeframe-select signal-select" value={strategyFilter} onChange={(event) => setStrategyFilter(event.target.value)}>
+            <option value="all">Todas las estrategias</option>
+            {strategies.map((item) => (
               <option key={item} value={item}>{item}</option>
             ))}
           </select>
@@ -508,6 +557,7 @@ function SignalRow({
         <div className="portfolio-asset">
           <strong>{signal.coin}</strong>
           <span>{signal.timeframe} · {signal.signal_label} · {new Date(signal.created_at).toLocaleString("es-DO")}</span>
+          <span>{getStrategyDisplay(signal)}</span>
         </div>
       </td>
       <td>
@@ -572,6 +622,23 @@ function SignalRow({
       </td>
     </tr>
   );
+}
+
+function getStrategyDisplay(signal: SignalSnapshot) {
+  if (signal.strategy_label && signal.strategy_version) {
+    return `${signal.strategy_label} ${signal.strategy_version}`;
+  }
+  if (signal.strategy_name && signal.strategy_version) {
+    return `${signal.strategy_name} ${signal.strategy_version}`;
+  }
+  if (signal.strategy_label) return signal.strategy_label;
+  if (signal.strategy_name) return signal.strategy_name;
+  const payloadStrategy = signal.signal_payload?.strategy;
+  if (payloadStrategy?.label && payloadStrategy?.version) {
+    return `${payloadStrategy.label} ${payloadStrategy.version}`;
+  }
+  if (payloadStrategy?.label) return payloadStrategy.label;
+  return "Legacy";
 }
 
 function describeSignalStatus(signal: SignalSnapshot, selectedStatus: SignalOutcomeStatus) {

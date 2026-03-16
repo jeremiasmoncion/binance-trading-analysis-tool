@@ -443,8 +443,9 @@ export function MemoryView(props: MemoryViewProps) {
   async function handleRunScanner() {
     setScannerBusy(true);
     try {
-      const payload = await watchlistService.runScan();
-      setScannerStatus(payload);
+      await watchlistService.runScan();
+      const refreshed = await watchlistService.scanStatus();
+      setScannerStatus(refreshed);
     } catch {
       // keep UI steady if API fails
     } finally {

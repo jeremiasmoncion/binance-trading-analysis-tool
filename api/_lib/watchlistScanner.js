@@ -74,7 +74,7 @@ async function createScanRun(run) {
     method: "POST",
     headers: { Prefer: "return=minimal" },
     body: [run],
-  }).catch(() => null);
+  });
 }
 
 async function listRecentRuns(username = null) {
@@ -165,18 +165,23 @@ async function scanUserWatchlist(target, scanSource) {
   }).catch(() => []);
 
   await upsertScanState(stateUpdates);
-  await createScanRun({
-    username: target.username,
-    active_list_name: target.activeListName,
-    scan_source: scanSource,
-    coins_count: coins.length,
-    frames_scanned: scannedFrames,
-    signals_created: signalRows.length,
-    signals_closed: closedSignals.length,
-    status: errors.length ? "partial" : "ok",
-    errors,
-    created_at: new Date().toISOString(),
-  });
+  let runPersistError = null;
+  try {
+    await createScanRun({
+      username: target.username,
+      active_list_name: target.activeListName,
+      scan_source: scanSource,
+      coins_count: coins.length,
+      frames_scanned: scannedFrames,
+      signals_created: signalRows.length,
+      signals_closed: closedSignals.length,
+      status: errors.length ? "partial" : "ok",
+      errors,
+      created_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    runPersistError = error.message || "No se pudo guardar el resumen del vigilante";
+  }
 
   return {
     username: target.username,
@@ -186,6 +191,7 @@ async function scanUserWatchlist(target, scanSource) {
     signalsCreated: signalRows.length,
     signalsClosed: closedSignals.length,
     errors,
+    runPersistError,
   };
 }
 

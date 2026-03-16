@@ -30,6 +30,7 @@ Agrega estas variables al proyecto en Vercel:
 - `SUPABASE_WATCHLIST_SCAN_STATE_TABLE`
 - `SUPABASE_WATCHLIST_SCAN_RUNS_TABLE`
 - `CRON_SECRET`
+- `BINANCE_MARKET_DATA_URL` (opcional, recomendado `https://demo-api.binance.com` si el backend no puede consultar `api.binance.com`)
 
 Puedes usar [/.env.example](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/.env.example) como referencia.
 

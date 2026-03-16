@@ -1,4 +1,8 @@
 const BINANCE_PUBLIC_API_URL = "https://api.binance.com";
+const BINANCE_PUBLIC_FALLBACK_URLS = [
+  BINANCE_PUBLIC_API_URL,
+  process.env.BINANCE_MARKET_DATA_URL || "https://demo-api.binance.com",
+];
 const MAP_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"];
 
 const STRATEGY_DEFINITIONS = [
@@ -78,12 +82,23 @@ async function fetchBinancePublic(path, params = {}) {
   const search = new URLSearchParams(
     Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)])),
   );
-  const response = await fetch(`${BINANCE_PUBLIC_API_URL}${path}${search.toString() ? `?${search.toString()}` : ""}`);
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.msg || "No se pudo consultar Binance Spot");
+
+  let lastError = null;
+
+  for (const baseUrl of BINANCE_PUBLIC_FALLBACK_URLS) {
+    try {
+      const response = await fetch(`${baseUrl}${path}${search.toString() ? `?${search.toString()}` : ""}`);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.msg || `No se pudo consultar Binance Spot en ${baseUrl}`);
+      }
+      return payload;
+    } catch (error) {
+      lastError = error;
+    }
   }
-  return payload;
+
+  throw lastError || new Error("No se pudo consultar Binance Spot");
 }
 
 function calcSMA(data, period) {

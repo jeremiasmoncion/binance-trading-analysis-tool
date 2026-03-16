@@ -229,6 +229,24 @@ export function MemoryView(props: MemoryViewProps) {
       .sort((a, b) => b.total - a.total);
   }, [periodSignals]);
 
+  const trendVersionComparison = useMemo(() => {
+    const closed = periodSignals.filter(
+      (item) => item.outcome_status !== "pending"
+        && (item.strategy_name === "trend-alignment"
+          || item.signal_payload?.strategy?.id === "trend-alignment"),
+    );
+
+    const byVersion = summarizeByKey(closed, (item) => {
+      const version = item.strategy_version || item.signal_payload?.strategy?.version || "sin-version";
+      return `Trend Alignment ${version}`;
+    });
+
+    return {
+      v1: byVersion.find((item) => item.label === "Trend Alignment v1"),
+      v2: byVersion.find((item) => item.label === "Trend Alignment v2"),
+    };
+  }, [periodSignals]);
+
   const availableCandidateVersions = useMemo(
     () => versions.filter((item) => item.strategy_id === experimentCandidate),
     [experimentCandidate, versions],
@@ -433,6 +451,41 @@ export function MemoryView(props: MemoryViewProps) {
             title="Presencia como candidata"
             subtitle="Cuántas veces apareció cada estrategia en la comparación interna del motor."
             items={strategyCandidateCounts}
+          />
+        </div>
+
+        <div className="stats-grid">
+          <StatCard
+            label="Trend Alignment v1"
+            value={trendVersionComparison.v1 ? formatSignedPrice(trendVersionComparison.v1.pnl) : "--"}
+            sub={trendVersionComparison.v1 ? `${trendVersionComparison.v1.winRate.toFixed(0)}% acierto · ${trendVersionComparison.v1.total} señales` : "Sin suficientes cierres todavía"}
+            toneClass={trendVersionComparison.v1 && trendVersionComparison.v1.pnl > 0 ? "portfolio-positive" : trendVersionComparison.v1 && trendVersionComparison.v1.pnl < 0 ? "portfolio-negative" : ""}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Trend Alignment v2"
+            value={trendVersionComparison.v2 ? formatSignedPrice(trendVersionComparison.v2.pnl) : "--"}
+            sub={trendVersionComparison.v2 ? `${trendVersionComparison.v2.winRate.toFixed(0)}% acierto · ${trendVersionComparison.v2.total} señales` : "Sin suficientes cierres todavía"}
+            toneClass={trendVersionComparison.v2 && trendVersionComparison.v2.pnl > 0 ? "portfolio-positive" : trendVersionComparison.v2 && trendVersionComparison.v2.pnl < 0 ? "portfolio-negative" : ""}
+            accentClass="accent-emerald"
+          />
+          <StatCard
+            label="Ventaja actual"
+            value={
+              trendVersionComparison.v1 && trendVersionComparison.v2
+                ? (trendVersionComparison.v2.pnl === trendVersionComparison.v1.pnl
+                  ? "Empate"
+                  : trendVersionComparison.v2.pnl > trendVersionComparison.v1.pnl
+                    ? "v2 arriba"
+                    : "v1 arriba")
+                : "--"
+            }
+            sub={
+              trendVersionComparison.v1 && trendVersionComparison.v2
+                ? `${formatSignedPrice((trendVersionComparison.v2.pnl || 0) - (trendVersionComparison.v1.pnl || 0))} de diferencia`
+                : "Esperando suficiente histórico comparativo"
+            }
+            accentClass="accent-amber"
           />
         </div>
 
@@ -781,6 +834,7 @@ function SignalRow({
   const [outcomeStatus, setOutcomeStatus] = useState<SignalOutcomeStatus>(signal.outcome_status);
   const [outcomePnl, setOutcomePnl] = useState(String(signal.outcome_pnl || 0));
   const [note, setNote] = useState(signal.note || "");
+  const candidateSummary = getCandidateSummary(signal);
 
   return (
     <tr>
@@ -789,6 +843,15 @@ function SignalRow({
           <strong>{signal.coin}</strong>
           <span>{signal.timeframe} · {signal.signal_label} · {new Date(signal.created_at).toLocaleString("es-DO")}</span>
           <span>{getStrategyDisplay(signal)}</span>
+          {candidateSummary.length ? (
+            <div className="strategy-candidate-list">
+              {candidateSummary.map((candidate) => (
+                <span key={`${signal.id}-${candidate.label}`} className={`strategy-candidate-pill ${candidate.isPrimary ? "is-primary" : ""}`}>
+                  {candidate.label} · {candidate.signalLabel} · {candidate.score}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </td>
       <td>
@@ -870,6 +933,21 @@ function getStrategyDisplay(signal: SignalSnapshot) {
   }
   if (payloadStrategy?.label) return payloadStrategy.label;
   return "Legacy";
+}
+
+function getCandidateSummary(signal: SignalSnapshot) {
+  const candidates = signal.signal_payload?.candidates || [];
+  return candidates
+    .slice(0, 3)
+    .map((candidate) => ({
+      label:
+        candidate.strategy?.label && candidate.strategy?.version
+          ? `${candidate.strategy.label} ${candidate.strategy.version}`
+          : candidate.strategy?.label || candidate.strategy?.id || "Sin estrategia",
+      signalLabel: candidate.signalLabel || "--",
+      score: Number(candidate.score || 0),
+      isPrimary: Boolean(candidate.isPrimary),
+    }));
 }
 
 function describeSignalStatus(signal: SignalSnapshot, selectedStatus: SignalOutcomeStatus) {

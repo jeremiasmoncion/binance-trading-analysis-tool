@@ -7,7 +7,7 @@
       "regions": ["fra1"]
     },
     "api/watchlist/scan.js": {
-      "regions": ["iad1"]
+      "regions": ["fra1"]
     }
   },
   "crons": [

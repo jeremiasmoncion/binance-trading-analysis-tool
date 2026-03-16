@@ -68,7 +68,6 @@ export function AppView(props: AppViewProps) {
         <DashboardView
           currentCoin={props.currentCoin}
           timeframe={props.timeframe}
-          watchlist={props.watchlist}
           currentPrice={props.currentPrice}
           signal={props.signal}
           plan={props.plan}
@@ -77,8 +76,6 @@ export function AppView(props: AppViewProps) {
           candles={props.candles}
           chartRef={props.chartRef}
           onSaveSignal={props.onSaveSignal}
-          onSelectCoin={props.onSelectCoin}
-          onToggleWatchlist={props.onToggleWatchlist}
         />
       );
     case "memory":
@@ -93,11 +90,14 @@ export function AppView(props: AppViewProps) {
       return (
         <MarketView
           currentCoin={props.currentCoin}
+          watchlist={props.watchlist}
           signal={props.signal}
           indicators={props.indicators}
           market24h={props.market24h}
           support={props.support}
           resistance={props.resistance}
+          onSelectCoin={props.onSelectCoin}
+          onToggleWatchlist={props.onToggleWatchlist}
         />
       );
     case "calculator":

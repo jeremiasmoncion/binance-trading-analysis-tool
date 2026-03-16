@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatPrice, formatSignedPrice } from "../lib/format";
-import type { SignalOutcomeStatus, SignalSnapshot } from "../types";
+import { strategyEngineService } from "../services/api";
+import type { SignalOutcomeStatus, SignalSnapshot, StrategyExperimentRecord, StrategyRegistryEntry, StrategyVersionRecord } from "../types";
 
 interface MemoryViewProps {
   signals: SignalSnapshot[];
@@ -21,6 +22,37 @@ export function MemoryView(props: MemoryViewProps) {
   const [timeframeFilter, setTimeframeFilter] = useState("all");
   const [setupFilter, setSetupFilter] = useState("all");
   const [strategyFilter, setStrategyFilter] = useState("all");
+  const [registry, setRegistry] = useState<StrategyRegistryEntry[]>([]);
+  const [versions, setVersions] = useState<StrategyVersionRecord[]>([]);
+  const [experiments, setExperiments] = useState<StrategyExperimentRecord[]>([]);
+  const [experimentBase, setExperimentBase] = useState("trend-alignment");
+  const [experimentCandidate, setExperimentCandidate] = useState("breakout");
+  const [experimentVersion, setExperimentVersion] = useState("v1");
+  const [experimentMarketScope, setExperimentMarketScope] = useState("all");
+  const [experimentTimeframeScope, setExperimentTimeframeScope] = useState("all");
+  const [experimentSummary, setExperimentSummary] = useState("");
+
+  useEffect(() => {
+    let ignore = false;
+
+    void strategyEngineService.list()
+      .then((payload) => {
+        if (ignore) return;
+        setRegistry(payload.registry || []);
+        setVersions(payload.versions || []);
+        setExperiments(payload.experiments || []);
+      })
+      .catch(() => {
+        if (ignore) return;
+        setRegistry([]);
+        setVersions([]);
+        setExperiments([]);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const timeframes = useMemo(
     () => Array.from(new Set(props.signals.map((item) => item.timeframe))).sort(),
@@ -171,6 +203,61 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [periodSignals]);
 
+  const strategyPrimaryCounts = useMemo(() => {
+    const counters = new Map<string, number>();
+    periodSignals.forEach((item) => {
+      const key = getStrategyDisplay(item);
+      counters.set(key, (counters.get(key) || 0) + 1);
+    });
+    return Array.from(counters.entries())
+      .map(([label, total]) => ({ label, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [periodSignals]);
+
+  const strategyCandidateCounts = useMemo(() => {
+    const counters = new Map<string, number>();
+    periodSignals.forEach((item) => {
+      (item.signal_payload?.candidates || []).forEach((candidate) => {
+        const label = candidate.strategy?.label && candidate.strategy?.version
+          ? `${candidate.strategy.label} ${candidate.strategy.version}`
+          : candidate.strategy?.label || candidate.strategy?.id || "Sin estrategia";
+        counters.set(label, (counters.get(label) || 0) + 1);
+      });
+    });
+    return Array.from(counters.entries())
+      .map(([label, total]) => ({ label, total }))
+      .sort((a, b) => b.total - a.total);
+  }, [periodSignals]);
+
+  const availableCandidateVersions = useMemo(
+    () => versions.filter((item) => item.strategy_id === experimentCandidate),
+    [experimentCandidate, versions],
+  );
+
+  useEffect(() => {
+    if (!availableCandidateVersions.length) return;
+    if (!availableCandidateVersions.some((item) => item.version === experimentVersion)) {
+      setExperimentVersion(availableCandidateVersions[0].version);
+    }
+  }, [availableCandidateVersions, experimentVersion]);
+
+  async function handleCreateExperiment() {
+    try {
+      const payload = await strategyEngineService.createExperiment({
+        baseStrategyId: experimentBase,
+        candidateStrategyId: experimentCandidate,
+        candidateVersion: experimentVersion,
+        marketScope: experimentMarketScope,
+        timeframeScope: experimentTimeframeScope,
+        summary: experimentSummary,
+      });
+      setExperiments((current) => [payload.experiment, ...current]);
+      setExperimentSummary("");
+    } catch {
+      // keep UI steady if API fails
+    }
+  }
+
   return (
     <div id="memoryView" className="view-panel active">
       <section id="signals-overview">
@@ -308,6 +395,111 @@ export function MemoryView(props: MemoryViewProps) {
             truncateLabel
           />
         </div>
+
+        <div className="stats-grid">
+          <StatCard
+            label="Estrategias activas"
+            value={String(registry.filter((item) => item.is_active).length || 0)}
+            sub={`${registry.length} estrategias registradas`}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Versiones registradas"
+            value={String(versions.length || 0)}
+            sub="Versionado base del motor"
+            accentClass="accent-emerald"
+          />
+          <StatCard
+            label="Experimentos abiertos"
+            value={String(experiments.filter((item) => item.status !== "archived").length || 0)}
+            sub="Drafts, sandbox y comparativas activas"
+            accentClass="accent-amber"
+          />
+          <StatCard
+            label="Estrategia dominante"
+            value={strategyPrimaryCounts[0]?.label || "--"}
+            sub={strategyPrimaryCounts[0] ? `${strategyPrimaryCounts[0].total} señales en ${periodLabel}` : "Esperando más snapshots"}
+            accentClass="accent-blue"
+          />
+        </div>
+
+        <div className="signal-analytics-grid">
+          <StrategyLabCard
+            title="Presencia como estrategia primaria"
+            subtitle="Cuántas veces cada estrategia quedó seleccionada como motor principal de la señal."
+            items={strategyPrimaryCounts}
+          />
+          <StrategyLabCard
+            title="Presencia como candidata"
+            subtitle="Cuántas veces apareció cada estrategia en la comparación interna del motor."
+            items={strategyCandidateCounts}
+          />
+        </div>
+
+        <SectionCard
+          title="Laboratorio de estrategias"
+          subtitle="Prepara comparativas entre versiones para observar, simular y luego promover mejoras con evidencia."
+        >
+          <div className="memory-filter-bar">
+            <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
+              {registry.map((item) => (
+                <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{item.label}</option>
+              ))}
+            </select>
+            <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
+              {registry.map((item) => (
+                <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{item.label}</option>
+              ))}
+            </select>
+            <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
+              {availableCandidateVersions.map((item) => (
+                <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{item.label}</option>
+              ))}
+            </select>
+            <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
+              <option value="all">Todo el mercado</option>
+              <option value="watchlist">Solo watchlist</option>
+              <option value="trend">Tendencia</option>
+              <option value="range">Rango</option>
+            </select>
+            <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
+              <option value="all">Todos los marcos</option>
+              {timeframes.map((item) => (
+                <option key={`scope-${item}`} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+          <div className="signal-note-block with-bottom-gap">
+            <input
+              className="signal-memory-input"
+              value={experimentSummary}
+              onChange={(event) => setExperimentSummary(event.target.value)}
+              placeholder="Qué quieres comparar o validar con este experimento"
+            />
+            <span className="signal-status-note">
+              La IA futura debería observar estos experimentos, no promover cambios sola de entrada.
+            </span>
+          </div>
+          <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
+            Crear experimento draft
+          </button>
+
+          <div className="signal-analytics-list with-top-gap">
+            {!experiments.length ? (
+              <p className="section-note">Todavía no hay experimentos guardados. Crea el primero para empezar a comparar variantes.</p>
+            ) : (
+              experiments.map((item) => (
+                <div key={`experiment-${item.id}`} className="signal-analytics-item is-experiment">
+                  <div className="signal-analytics-copy">
+                    <strong>{item.base_strategy_id} vs {item.candidate_strategy_id} {item.candidate_version}</strong>
+                    <span>{item.market_scope || "all"} · {item.timeframe_scope || "all"} · {item.summary || "Sin resumen todavía"}</span>
+                  </div>
+                  <div className={`signal-analytics-pill status-${item.status}`}>{item.status}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </SectionCard>
           </SectionCard>
         </section>
       ) : null}
@@ -531,6 +723,41 @@ function AnalyticsListCard({
               </div>
               <div className={`signal-analytics-pnl ${item.pnl > 0 ? "is-positive" : item.pnl < 0 ? "is-negative" : ""}`}>
                 {formatSignedPrice(item.pnl)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StrategyLabCard({
+  title,
+  subtitle,
+  items,
+}: {
+  title: string;
+  subtitle: string;
+  items: Array<{ label: string; total: number }>;
+}) {
+  return (
+    <div className="signal-analytics-card">
+      <div className="signal-analytics-head">
+        <h4>{title}</h4>
+        <p>{subtitle}</p>
+      </div>
+
+      {!items.length ? (
+        <p className="section-note">Todavía no hay suficiente histórico para comparar estrategias.</p>
+      ) : (
+        <div className="signal-analytics-list">
+          {items.slice(0, 5).map((item, index) => (
+            <div key={`${title}-${item.label}`} className="signal-analytics-item">
+              <div className="signal-analytics-rank">{index + 1}</div>
+              <div className="signal-analytics-copy">
+                <strong>{item.label}</strong>
+                <span>{item.total} apariciones en el período</span>
               </div>
             </div>
           ))}

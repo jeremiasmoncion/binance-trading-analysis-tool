@@ -52,6 +52,44 @@ export interface StrategyDescriptor {
   parameters: Record<string, number | string | boolean>;
 }
 
+export interface StrategyRegistryEntry {
+  id: number;
+  strategy_id: string;
+  label: string;
+  description?: string;
+  category?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StrategyVersionRecord {
+  id: number;
+  strategy_id: string;
+  version: string;
+  label: string;
+  parameters: Record<string, number | string | boolean>;
+  notes?: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StrategyExperimentRecord {
+  id: number;
+  experiment_key: string;
+  base_strategy_id: string;
+  candidate_strategy_id: string;
+  candidate_version: string;
+  market_scope?: string;
+  timeframe_scope?: string;
+  status: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface StrategyCandidate {
   strategy: StrategyDescriptor;
   signal: Signal;

@@ -1,4 +1,20 @@
-import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, WatchlistGroup } from "../types";
+import type {
+  BinanceConnection,
+  DashboardAnalysis,
+  OperationPlan,
+  PortfolioPayload,
+  Signal,
+  SignalOutcomeStatus,
+  SignalSnapshot,
+  StrategyCandidate,
+  StrategyDescriptor,
+  StrategyExperimentRecord,
+  StrategyRegistryEntry,
+  StrategyVersionRecord,
+  TimeframeSignal,
+  UserSession,
+  WatchlistGroup,
+} from "../types";
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -92,6 +108,35 @@ export const signalService = {
     return apiRequest<{ signal: SignalSnapshot }>(`/api/signals/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  },
+};
+
+export const strategyEngineService = {
+  list() {
+    return apiRequest<{
+      registry: StrategyRegistryEntry[];
+      versions: StrategyVersionRecord[];
+      experiments: StrategyExperimentRecord[];
+    }>("/api/strategy-engine");
+  },
+  createExperiment(payload: {
+    baseStrategyId: string;
+    candidateStrategyId: string;
+    candidateVersion: string;
+    marketScope?: string;
+    timeframeScope?: string;
+    summary?: string;
+  }) {
+    return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  updateExperiment(id: number, payload: { status?: string; summary?: string }) {
+    return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
+      method: "PATCH",
+      body: JSON.stringify({ id, ...payload }),
     });
   },
 };

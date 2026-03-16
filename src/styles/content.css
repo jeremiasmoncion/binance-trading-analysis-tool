@@ -7,6 +7,10 @@
   margin-top: 8px;
 }
 
+.inline-actions.with-top-gap {
+  margin-top: 12px;
+}
+
 .section-note.with-bottom-gap {
   margin-bottom: 16px;
 }
@@ -297,6 +301,12 @@
 .signal-analytics-pill.status-archived {
   background: #e2e8f0;
   color: #475569;
+}
+
+.signal-inline-button {
+  width: auto;
+  margin-top: 0;
+  padding: 10px 14px;
 }
 
 .strategy-candidate-list {

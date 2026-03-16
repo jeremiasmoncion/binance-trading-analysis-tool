@@ -251,6 +251,12 @@ export function MemoryView(props: MemoryViewProps) {
     () => evaluatePromotion(trendVersionComparison.v1, trendVersionComparison.v2),
     [trendVersionComparison.v1, trendVersionComparison.v2],
   );
+  const recommendedExperiment = useMemo(
+    () => experiments.find((item) => item.base_strategy_id === "trend-alignment"
+      && item.candidate_strategy_id === "trend-alignment"
+      && item.candidate_version === "v2"),
+    [experiments],
+  );
 
   const availableCandidateVersions = useMemo(
     () => versions.filter((item) => item.strategy_id === experimentCandidate),
@@ -276,6 +282,48 @@ export function MemoryView(props: MemoryViewProps) {
       });
       setExperiments((current) => [payload.experiment, ...current]);
       setExperimentSummary("");
+    } catch {
+      // keep UI steady if API fails
+    }
+  }
+
+  async function handleCreateRecommendedExperiment() {
+    try {
+      const payload = await strategyEngineService.createExperiment({
+        baseStrategyId: "trend-alignment",
+        candidateStrategyId: "trend-alignment",
+        candidateVersion: "v2",
+        marketScope: "watchlist",
+        timeframeScope: "1h,4h",
+        summary: `Comparar Trend Alignment v1 vs v2 en watchlist con recomendación actual: ${trendPromotionRecommendation.title}.`,
+        status: "draft",
+        metadata: {
+          recommendationStatus: trendPromotionRecommendation.statusLabel,
+          recommendationClass: trendPromotionRecommendation.statusClass,
+          recommendationReason: trendPromotionRecommendation.reason,
+        },
+      });
+      setExperiments((current) => [payload.experiment, ...current.filter((item) => item.id !== payload.experiment.id)]);
+    } catch {
+      // keep UI steady if API fails
+    }
+  }
+
+  async function handleSendRecommendedToSandbox() {
+    if (!recommendedExperiment) return;
+
+    try {
+      const payload = await strategyEngineService.updateExperiment(recommendedExperiment.id, {
+        status: "sandbox",
+        metadata: {
+          ...(recommendedExperiment.metadata || {}),
+          recommendationStatus: trendPromotionRecommendation.statusLabel,
+          recommendationClass: trendPromotionRecommendation.statusClass,
+          recommendationReason: trendPromotionRecommendation.reason,
+          promotedAt: new Date().toISOString(),
+        },
+      });
+      setExperiments((current) => current.map((item) => (item.id === payload.experiment.id ? payload.experiment : item)));
     } catch {
       // keep UI steady if API fails
     }
@@ -509,6 +557,26 @@ export function MemoryView(props: MemoryViewProps) {
               </div>
             </div>
           </div>
+          <div className="inline-actions with-top-gap">
+            {!recommendedExperiment ? (
+              <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleCreateRecommendedExperiment()}>
+                Crear experimento sugerido
+              </button>
+            ) : (
+              <>
+                <span className="section-note">
+                  Experimento actual: <span className="text-strong">{recommendedExperiment.status}</span> · {recommendedExperiment.market_scope || "all"} · {recommendedExperiment.timeframe_scope || "all"}
+                </span>
+                {recommendedExperiment.status !== "sandbox" ? (
+                  <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleSendRecommendedToSandbox()}>
+                    Enviar a sandbox
+                  </button>
+                ) : (
+                  <span className="signal-analytics-pill status-sandbox">Sandbox activo</span>
+                )}
+              </>
+            )}
+          </div>
         </SectionCard>
 
         <SectionCard
@@ -567,7 +635,10 @@ export function MemoryView(props: MemoryViewProps) {
                 <div key={`experiment-${item.id}`} className="signal-analytics-item is-experiment">
                   <div className="signal-analytics-copy">
                     <strong>{item.base_strategy_id} vs {item.candidate_strategy_id} {item.candidate_version}</strong>
-                    <span>{item.market_scope || "all"} · {item.timeframe_scope || "all"} · {item.summary || "Sin resumen todavía"}</span>
+                    <span>
+                      {item.market_scope || "all"} · {item.timeframe_scope || "all"} · {item.summary || "Sin resumen todavía"}
+                      {item.metadata?.recommendationStatus ? ` · ${String(item.metadata.recommendationStatus)}` : ""}
+                    </span>
                   </div>
                   <div className={`signal-analytics-pill status-${item.status}`}>{item.status}</div>
                 </div>

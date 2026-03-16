@@ -127,13 +127,15 @@ export const strategyEngineService = {
     marketScope?: string;
     timeframeScope?: string;
     summary?: string;
+    status?: string;
+    metadata?: Record<string, unknown>;
   }) {
     return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
       method: "POST",
       body: JSON.stringify(payload),
     });
   },
-  updateExperiment(id: number, payload: { status?: string; summary?: string }) {
+  updateExperiment(id: number, payload: { status?: string; summary?: string; metadata?: Record<string, unknown> }) {
     return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
       method: "PATCH",
       body: JSON.stringify({ id, ...payload }),

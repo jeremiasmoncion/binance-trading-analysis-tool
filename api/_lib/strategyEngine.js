@@ -159,6 +159,8 @@ export async function createStrategyExperiment(req) {
   const marketScope = String(body.marketScope || "all").trim();
   const timeframeScope = String(body.timeframeScope || "all").trim();
   const summary = String(body.summary || "").trim();
+  const status = String(body.status || "draft").trim();
+  const metadata = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
 
   if (!baseStrategyId || !candidateStrategyId || !candidateVersion) {
     throw new Error("Faltan datos para crear el experimento");
@@ -184,10 +186,11 @@ export async function createStrategyExperiment(req) {
         candidate_version: candidateVersion,
         market_scope: marketScope,
         timeframe_scope: timeframeScope,
-        status: "draft",
+        status,
         summary,
         metadata: {
           createdFrom: "signals-lab",
+          ...metadata,
         },
       }],
     });
@@ -202,9 +205,9 @@ export async function createStrategyExperiment(req) {
       candidate_version: candidateVersion,
       market_scope: marketScope,
       timeframe_scope: timeframeScope,
-      status: "draft",
+      status,
       summary,
-      metadata: { createdFrom: "signals-lab", fallback: true },
+      metadata: { createdFrom: "signals-lab", fallback: true, ...metadata },
       created_at: new Date().toISOString(),
     };
   }
@@ -219,6 +222,7 @@ export async function updateStrategyExperiment(req) {
   const patch = {};
   if (body.status) patch.status = String(body.status);
   if (typeof body.summary === "string") patch.summary = String(body.summary);
+  if (body.metadata && typeof body.metadata === "object") patch.metadata = body.metadata;
   if (!Object.keys(patch).length) {
     throw new Error("No hay cambios para actualizar");
   }

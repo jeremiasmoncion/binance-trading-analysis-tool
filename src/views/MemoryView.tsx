@@ -257,6 +257,14 @@ export function MemoryView(props: MemoryViewProps) {
       && item.candidate_version === "v2"),
     [experiments],
   );
+  const sandboxExperiments = useMemo(
+    () => experiments.filter((item) => item.status === "sandbox"),
+    [experiments],
+  );
+  const sandboxStats = useMemo(
+    () => sandboxExperiments.map((item) => buildExperimentPaperStats(item, periodSignals, props.watchlist)),
+    [periodSignals, props.watchlist, sandboxExperiments],
+  );
 
   const availableCandidateVersions = useMemo(
     () => versions.filter((item) => item.strategy_id === experimentCandidate),
@@ -650,6 +658,21 @@ export function MemoryView(props: MemoryViewProps) {
             Recomendación inicial del sistema: comparar `Trend Alignment v1` vs `Trend Alignment v2` dentro del watchlist y en marcos `1h` / `4h` antes de promover cambios automáticos.
           </p>
         </SectionCard>
+
+        <SectionCard
+          title="Paper testing en sandbox"
+          subtitle="Seguimiento temprano de los experimentos ya promovidos a sandbox para ver muestra, presencia y diferencia base vs candidata."
+        >
+          {!sandboxStats.length ? (
+            <p className="section-note">Todavía no hay experimentos en sandbox. Cuando uno pase de draft a sandbox, aparecerá aquí con su lectura comparativa.</p>
+          ) : (
+            <div className="signal-analytics-grid">
+              {sandboxStats.map((item) => (
+                <PaperTestingCard key={`sandbox-${item.experiment.id}`} item={item} />
+              ))}
+            </div>
+          )}
+        </SectionCard>
           </SectionCard>
         </section>
       ) : null}
@@ -917,6 +940,72 @@ function StrategyLabCard({
   );
 }
 
+interface ExperimentPaperStats {
+  experiment: StrategyExperimentRecord;
+  baseLabel: string;
+  candidateLabel: string;
+  sampleSize: number;
+  basePrimaryCount: number;
+  candidatePrimaryCount: number;
+  basePrimaryPnl: number;
+  candidatePrimaryPnl: number;
+  baseWinRate: number;
+  candidateWinRate: number;
+  candidateAppearances: number;
+  recommendation: string;
+}
+
+function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
+  const delta = item.candidatePrimaryPnl - item.basePrimaryPnl;
+  const deltaClass = delta > 0 ? "portfolio-positive" : delta < 0 ? "portfolio-negative" : "";
+
+  return (
+    <div className="signal-analytics-card">
+      <div className="signal-analytics-head">
+        <h4>{item.baseLabel} vs {item.candidateLabel}</h4>
+        <p>{item.experiment.market_scope || "all"} · {item.experiment.timeframe_scope || "all"} · muestra {item.sampleSize}</p>
+      </div>
+
+      <div className="signal-analytics-list">
+        <div className="signal-analytics-item is-experiment">
+          <div className="signal-analytics-copy">
+            <strong>Base</strong>
+            <span>{item.basePrimaryCount} primarias · {item.baseWinRate.toFixed(0)}% acierto</span>
+          </div>
+          <div className={`signal-analytics-pnl ${item.basePrimaryPnl > 0 ? "is-positive" : item.basePrimaryPnl < 0 ? "is-negative" : ""}`}>
+            {formatSignedPrice(item.basePrimaryPnl)}
+          </div>
+        </div>
+        <div className="signal-analytics-item is-experiment">
+          <div className="signal-analytics-copy">
+            <strong>Candidata</strong>
+            <span>{item.candidatePrimaryCount} primarias · {item.candidateWinRate.toFixed(0)}% acierto · {item.candidateAppearances} apariciones</span>
+          </div>
+          <div className={`signal-analytics-pnl ${item.candidatePrimaryPnl > 0 ? "is-positive" : item.candidatePrimaryPnl < 0 ? "is-negative" : ""}`}>
+            {formatSignedPrice(item.candidatePrimaryPnl)}
+          </div>
+        </div>
+      </div>
+
+      <div className="stats-grid compact-stats-grid no-bottom-gap">
+        <StatCard
+          label="Ventaja candidata"
+          value={formatSignedPrice(delta)}
+          sub="PnL candidata menos PnL base"
+          toneClass={deltaClass}
+          accentClass="accent-blue"
+        />
+        <StatCard
+          label="Lectura actual"
+          value={item.recommendation}
+          sub="Sandbox compara evidencia antes de promover"
+          accentClass="accent-amber"
+        />
+      </div>
+    </div>
+  );
+}
+
 function SignalRow({
   signal,
   onSave,
@@ -1109,4 +1198,73 @@ function describeSignalStatus(signal: SignalSnapshot, selectedStatus: SignalOutc
         : "Invalidada";
 
   return `${closeLabel} el ${new Date(closedAt).toLocaleString("es-DO")}`;
+}
+
+function buildExperimentPaperStats(
+  experiment: StrategyExperimentRecord,
+  signals: SignalSnapshot[],
+  watchlist: string[],
+): ExperimentPaperStats {
+  const metadata = experiment.metadata || {};
+  const baseVersion = typeof metadata.baseVersion === "string"
+    ? metadata.baseVersion
+    : experiment.base_strategy_id === experiment.candidate_strategy_id && experiment.candidate_version !== "v1"
+      ? "v1"
+      : undefined;
+
+  const relevantSignals = signals.filter((signal) => {
+    const inMarketScope = experiment.market_scope !== "watchlist" || !watchlist.length || watchlist.includes(signal.coin);
+    const inTimeframeScope = !experiment.timeframe_scope
+      || experiment.timeframe_scope === "all"
+      || experiment.timeframe_scope.split(",").map((item) => item.trim()).includes(signal.timeframe);
+    return inMarketScope && inTimeframeScope;
+  });
+
+  const basePrimarySignals = relevantSignals.filter((signal) => matchesStrategy(signal, experiment.base_strategy_id, baseVersion, true));
+  const candidatePrimarySignals = relevantSignals.filter((signal) => matchesStrategy(signal, experiment.candidate_strategy_id, experiment.candidate_version, true));
+  const candidateAppearances = relevantSignals.filter((signal) => matchesStrategy(signal, experiment.candidate_strategy_id, experiment.candidate_version, false)).length;
+
+  const baseClosed = basePrimarySignals.filter((signal) => signal.outcome_status !== "pending");
+  const candidateClosed = candidatePrimarySignals.filter((signal) => signal.outcome_status !== "pending");
+  const basePrimaryPnl = baseClosed.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0);
+  const candidatePrimaryPnl = candidateClosed.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0);
+  const baseWinRate = baseClosed.length ? (baseClosed.filter((signal) => signal.outcome_status === "win").length / baseClosed.length) * 100 : 0;
+  const candidateWinRate = candidateClosed.length ? (candidateClosed.filter((signal) => signal.outcome_status === "win").length / candidateClosed.length) * 100 : 0;
+
+  const recommendation = candidateClosed.length < 3
+    ? "Muestra corta"
+    : candidatePrimaryPnl > basePrimaryPnl && candidateWinRate >= baseWinRate
+      ? "Candidata arriba"
+      : candidatePrimaryPnl < basePrimaryPnl
+        ? "Base resiste mejor"
+        : "Empate técnico";
+
+  return {
+    experiment,
+    baseLabel: baseVersion ? `${experiment.base_strategy_id} ${baseVersion}` : experiment.base_strategy_id,
+    candidateLabel: `${experiment.candidate_strategy_id} ${experiment.candidate_version}`,
+    sampleSize: relevantSignals.length,
+    basePrimaryCount: basePrimarySignals.length,
+    candidatePrimaryCount: candidatePrimarySignals.length,
+    basePrimaryPnl,
+    candidatePrimaryPnl,
+    baseWinRate,
+    candidateWinRate,
+    candidateAppearances,
+    recommendation,
+  };
+}
+
+function matchesStrategy(signal: SignalSnapshot, strategyId: string, version?: string, primaryOnly = false) {
+  const primaryId = signal.signal_payload?.strategy?.id || signal.strategy_name;
+  const primaryVersion = signal.signal_payload?.strategy?.version || signal.strategy_version;
+
+  if (primaryId === strategyId && (!version || primaryVersion === version)) {
+    return true;
+  }
+
+  if (primaryOnly) return false;
+
+  return (signal.signal_payload?.candidates || []).some((candidate) =>
+    candidate.strategy?.id === strategyId && (!version || candidate.strategy?.version === version));
 }

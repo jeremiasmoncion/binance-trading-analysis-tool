@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -12,6 +13,7 @@ interface MemoryViewProps {
 }
 
 export function MemoryView(props: MemoryViewProps) {
+  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "history">("overview");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
   const [coinFilter, setCoinFilter] = useState("all");
@@ -154,46 +156,61 @@ export function MemoryView(props: MemoryViewProps) {
         />
       </section>
 
-      <div className="stats-grid">
-        <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Snapshots técnicos registrados" accentClass="accent-blue" />
-        <StatCard label="Win rate" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas / ${completedSignals.length} cerradas`} accentClass="accent-green" />
-        <StatCard label="PnL registrado" value={formatPrice(totalPnl)} sub={`${losses} pérdidas · ${invalidated} invalidadas`} toneClass={totalPnl > 0 ? "portfolio-positive" : totalPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
-        <StatCard label="Pendientes" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Esperando evaluación" accentClass="accent-amber" />
-      </div>
+      <ModuleTabs
+        items={[
+          { key: "overview", label: "Resumen" },
+          { key: "analytics", label: "Analitica" },
+          { key: "history", label: "Historial" },
+        ]}
+        activeKey={activeTab}
+        onChange={(key) => setActiveTab(key as "overview" | "analytics" | "history")}
+      />
 
-      <div className="stats-grid">
-        <StatCard
-          label="Mejor setup"
-          value={bestSetup?.setup || "--"}
-          sub={bestSetup ? `${bestSetup.rate.toFixed(0)}% de efectividad en ${bestSetup.total} señales` : "Todavía faltan cierres para medirlo"}
-          accentClass="accent-blue"
-        />
-        <StatCard
-          label="Marco más fuerte"
-          value={strongestTimeframe?.timeframe || "--"}
-          sub={strongestTimeframe ? `${strongestTimeframe.rate.toFixed(0)}% de win rate` : "Esperando más señales cerradas"}
-          accentClass="accent-amber"
-        />
-        <StatCard
-          label="Mejor contexto"
-          value={bestContext?.signature?.split(" | ")[0] || "--"}
-          sub={bestContext ? `${bestContext.rate.toFixed(0)}% en ${bestContext.total} señales · ${bestContext.signature}` : "Esperando suficiente historial"}
-          accentClass="accent-emerald"
-        />
-      </div>
+      {activeTab === "overview" ? (
+        <>
+          <div className="stats-grid">
+            <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Snapshots técnicos registrados" accentClass="accent-blue" />
+            <StatCard label="Win rate" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas / ${completedSignals.length} cerradas`} accentClass="accent-green" />
+            <StatCard label="PnL registrado" value={formatPrice(totalPnl)} sub={`${losses} pérdidas · ${invalidated} invalidadas`} toneClass={totalPnl > 0 ? "portfolio-positive" : totalPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
+            <StatCard label="Pendientes" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Esperando evaluación" accentClass="accent-amber" />
+          </div>
 
-      <div className="stats-grid">
-        <StatCard label="Ganadas en período" value={String(periodWins)} sub={`Cierres ganadores en ${periodLabel}`} accentClass="accent-green" />
-        <StatCard label="Perdidas en período" value={String(periodLosses)} sub={`Cierres perdedores en ${periodLabel}`} accentClass="accent-amber" />
-        <StatCard label="Invalidadas" value={String(periodInvalidated)} sub={`Señales descartadas en ${periodLabel}`} accentClass="accent-blue" />
-        <StatCard label="Pendientes en período" value={String(periodPending)} sub={`Todavía abiertas en ${periodLabel}`} accentClass="accent-emerald" />
-      </div>
+          <div className="stats-grid">
+            <StatCard
+              label="Mejor setup"
+              value={bestSetup?.setup || "--"}
+              sub={bestSetup ? `${bestSetup.rate.toFixed(0)}% de efectividad en ${bestSetup.total} señales` : "Todavía faltan cierres para medirlo"}
+              accentClass="accent-blue"
+            />
+            <StatCard
+              label="Marco más fuerte"
+              value={strongestTimeframe?.timeframe || "--"}
+              sub={strongestTimeframe ? `${strongestTimeframe.rate.toFixed(0)}% de win rate` : "Esperando más señales cerradas"}
+              accentClass="accent-amber"
+            />
+            <StatCard
+              label="Mejor contexto"
+              value={bestContext?.signature?.split(" | ")[0] || "--"}
+              sub={bestContext ? `${bestContext.rate.toFixed(0)}% en ${bestContext.total} señales · ${bestContext.signature}` : "Esperando suficiente historial"}
+              accentClass="accent-emerald"
+            />
+          </div>
 
-      <section id="signals-analytics">
-        <SectionCard
-          title="Analítica de señales"
-          subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
-        >
+          <div className="stats-grid">
+            <StatCard label="Ganadas en período" value={String(periodWins)} sub={`Cierres ganadores en ${periodLabel}`} accentClass="accent-green" />
+            <StatCard label="Perdidas en período" value={String(periodLosses)} sub={`Cierres perdedores en ${periodLabel}`} accentClass="accent-amber" />
+            <StatCard label="Invalidadas" value={String(periodInvalidated)} sub={`Señales descartadas en ${periodLabel}`} accentClass="accent-blue" />
+            <StatCard label="Pendientes en período" value={String(periodPending)} sub={`Todavía abiertas en ${periodLabel}`} accentClass="accent-emerald" />
+          </div>
+        </>
+      ) : null}
+
+      {activeTab === "analytics" ? (
+        <section id="signals-analytics">
+          <SectionCard
+            title="Analítica de señales"
+            subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
+          >
         <div className="stats-grid">
           <StatCard
             label="Par más rentable"
@@ -248,14 +265,16 @@ export function MemoryView(props: MemoryViewProps) {
             truncateLabel
           />
         </div>
-        </SectionCard>
-      </section>
+          </SectionCard>
+        </section>
+      ) : null}
 
-      <section id="signals-history">
-        <SectionCard
-          title="Historial de señales"
-          subtitle="Se trabaja solo con monedas de tu watchlist. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
-        >
+      {activeTab === "history" ? (
+        <section id="signals-history">
+          <SectionCard
+            title="Historial de señales"
+            subtitle="Se trabaja solo con monedas de tu watchlist. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
+          >
         <p className="section-note with-bottom-gap">
           Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
         </p>
@@ -338,53 +357,56 @@ export function MemoryView(props: MemoryViewProps) {
             </tbody>
           </table>
         </div>
-        </SectionCard>
-      </section>
+          </SectionCard>
+        </section>
+      ) : null}
 
-      <div className="stats-grid">
-        <StatCard
-          label="Total ganado"
-          value={periodGrossWins ? formatSignedPrice(periodGrossWins) : "--"}
-          sub={periodGrossWins ? `Suma de cierres ganadores en ${periodLabel}` : `Sin ganancias cerradas en ${periodLabel}`}
-          toneClass="portfolio-positive"
-          accentClass="accent-green"
-        />
-        <StatCard
-          label="Total perdido"
-          value={periodGrossLosses ? `-${formatPrice(periodGrossLosses)}` : "--"}
-          sub={periodGrossLosses ? `Suma de cierres perdedores en ${periodLabel}` : `Sin pérdidas cerradas en ${periodLabel}`}
-          toneClass="portfolio-negative"
-          accentClass="accent-amber"
-        />
-        <StatCard
-          label="Ganancia promedio"
-          value={periodGrossWins ? formatSignedPrice(periodAvgWin) : "--"}
-          sub={periodGrossWins ? `Ganancia media por operación ganada en ${periodLabel}` : "Todavía no hay ganancias cerradas"}
-          toneClass="portfolio-positive"
-          accentClass="accent-green"
-        />
-        <StatCard
-          label="Pérdida promedio"
-          value={periodGrossLosses ? `-${formatPrice(periodAvgLoss)}` : "--"}
-          sub={periodGrossLosses ? `Pérdida media por operación perdida en ${periodLabel}` : "Todavía no hay pérdidas cerradas"}
-          toneClass="portfolio-negative"
-          accentClass="accent-amber"
-        />
-        <StatCard
-          label="Expectativa por señal"
-          value={periodCompletedSignals.length ? formatSignedPrice((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) : "--"}
-          sub={periodCompletedSignals.length ? `Lo que deja el sistema por señal cerrada en ${periodLabel}` : "Esperando más cierres"}
-          toneClass={periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) > 0 ? "portfolio-positive" : periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) < 0 ? "portfolio-negative" : ""}
-          accentClass="accent-blue"
-        />
-        <StatCard
-          label="Profit factor"
-          value={periodCompletedSignals.length ? (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses).toFixed(2) : periodGrossWins > 0 ? periodGrossWins.toFixed(2) : "--") : "--"}
-          sub={periodGrossLosses > 0 ? `${formatSignedPrice(periodGrossWins)} frente a -${formatPrice(periodGrossLosses)}` : "Sin pérdidas cerradas para compararlo"}
-          toneClass={periodCompletedSignals.length && (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses) : periodGrossWins) > 1 ? "portfolio-positive" : periodCompletedSignals.length ? "portfolio-negative" : ""}
-          accentClass="accent-emerald"
-        />
-      </div>
+      {activeTab === "overview" ? (
+        <div className="stats-grid">
+          <StatCard
+            label="Total ganado"
+            value={periodGrossWins ? formatSignedPrice(periodGrossWins) : "--"}
+            sub={periodGrossWins ? `Suma de cierres ganadores en ${periodLabel}` : `Sin ganancias cerradas en ${periodLabel}`}
+            toneClass="portfolio-positive"
+            accentClass="accent-green"
+          />
+          <StatCard
+            label="Total perdido"
+            value={periodGrossLosses ? `-${formatPrice(periodGrossLosses)}` : "--"}
+            sub={periodGrossLosses ? `Suma de cierres perdedores en ${periodLabel}` : `Sin pérdidas cerradas en ${periodLabel}`}
+            toneClass="portfolio-negative"
+            accentClass="accent-amber"
+          />
+          <StatCard
+            label="Ganancia promedio"
+            value={periodGrossWins ? formatSignedPrice(periodAvgWin) : "--"}
+            sub={periodGrossWins ? `Ganancia media por operación ganada en ${periodLabel}` : "Todavía no hay ganancias cerradas"}
+            toneClass="portfolio-positive"
+            accentClass="accent-green"
+          />
+          <StatCard
+            label="Pérdida promedio"
+            value={periodGrossLosses ? `-${formatPrice(periodAvgLoss)}` : "--"}
+            sub={periodGrossLosses ? `Pérdida media por operación perdida en ${periodLabel}` : "Todavía no hay pérdidas cerradas"}
+            toneClass="portfolio-negative"
+            accentClass="accent-amber"
+          />
+          <StatCard
+            label="Expectativa por señal"
+            value={periodCompletedSignals.length ? formatSignedPrice((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) : "--"}
+            sub={periodCompletedSignals.length ? `Lo que deja el sistema por señal cerrada en ${periodLabel}` : "Esperando más cierres"}
+            toneClass={periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) > 0 ? "portfolio-positive" : periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) < 0 ? "portfolio-negative" : ""}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Profit factor"
+            value={periodCompletedSignals.length ? (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses).toFixed(2) : periodGrossWins > 0 ? periodGrossWins.toFixed(2) : "--") : "--"}
+            sub={periodGrossLosses > 0 ? `${formatSignedPrice(periodGrossWins)} frente a -${formatPrice(periodGrossLosses)}` : "Sin pérdidas cerradas para compararlo"}
+            toneClass={periodCompletedSignals.length && (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses) : periodGrossWins) > 1 ? "portfolio-positive" : periodCompletedSignals.length ? "portfolio-negative" : ""}
+            accentClass="accent-emerald"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

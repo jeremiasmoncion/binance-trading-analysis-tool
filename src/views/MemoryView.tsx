@@ -314,6 +314,11 @@ export function MemoryView(props: MemoryViewProps) {
     [experimentCandidate, versions],
   );
 
+  const selectedCandidateVersionProfile = useMemo(
+    () => versions.find((item) => item.strategy_id === experimentCandidate && item.version === experimentVersion),
+    [experimentCandidate, experimentVersion, versions],
+  );
+
   useEffect(() => {
     if (!availableCandidateVersions.length) return;
     if (!availableCandidateVersions.some((item) => item.version === experimentVersion)) {
@@ -345,7 +350,9 @@ export function MemoryView(props: MemoryViewProps) {
         candidateStrategyId: "trend-alignment",
         candidateVersion: "v2",
         marketScope: "watchlist",
-        timeframeScope: "1h,4h",
+        timeframeScope: getPreferredTimeframeScopeForVersion(
+          versions.find((item) => item.strategy_id === "trend-alignment" && item.version === "v2"),
+        ),
         summary: `Comparar Tendencia alineada v1 vs v2 en watchlist con recomendación actual: ${trendPromotionRecommendation.title}.`,
         status: "draft",
         metadata: {
@@ -540,6 +547,12 @@ export function MemoryView(props: MemoryViewProps) {
                 title="Qué conviene hacer"
                 text={`${trendPromotionRecommendation.title}. ${trendPromotionRecommendation.reason}`}
               />
+              <InfoCard
+                title="Estilo de trading"
+                text={strategyPrimaryCounts[0]
+                  ? getStrategyStyleSummary(strategyPrimaryCounts[0].label, versions)
+                  : "Cuando haya suficiente historial, aquí verás si la estrategia dominante sirve mejor para scalping, intradía o swing."}
+              />
             </div>
 
             <div className="stats-grid">
@@ -634,6 +647,20 @@ export function MemoryView(props: MemoryViewProps) {
                   <option key={`scope-${item}`} value={item}>{item}</option>
                 ))}
               </select>
+            </div>
+            <div className="signal-analytics-grid compact-top-gap">
+              <InfoCard
+                title="Estilo de la candidata"
+                text={selectedCandidateVersionProfile
+                  ? `${getFriendlyTradingStyle(selectedCandidateVersionProfile.trading_style || "")} · mejor en ${getPreferredTimeframeScopeForVersion(selectedCandidateVersionProfile).split(",").join(" / ")}.`
+                  : "Selecciona una versión candidata para ver su estilo operativo."}
+              />
+              <InfoCard
+                title="Contexto ideal"
+                text={selectedCandidateVersionProfile?.ideal_market_conditions?.length
+                  ? selectedCandidateVersionProfile.ideal_market_conditions.join(", ")
+                  : "Todavía sin contexto ideal definido para esta variante."}
+              />
             </div>
             <div className="signal-note-block with-bottom-gap">
               <input
@@ -1170,6 +1197,32 @@ function getFriendlyStrategyName(strategyId?: string, label?: string) {
 
 function getFriendlyStrategyVersionLabel(strategyId: string, version: string, label?: string) {
   return `${getFriendlyStrategyName(strategyId, label)} ${version}`;
+}
+
+function getFriendlyTradingStyle(style?: string) {
+  if (style === "scalping / intradía") return "Scalping / intradía";
+  if (style === "intradía") return "Intradía";
+  if (style === "swing corto") return "Swing corto";
+  return style || "Sin perfil";
+}
+
+function getPreferredTimeframeScopeForVersion(version?: StrategyVersionRecord) {
+  return version?.preferred_timeframes?.length ? version.preferred_timeframes.join(",") : "all";
+}
+
+function getStrategyStyleSummary(strategyLabel: string, versions: StrategyVersionRecord[]) {
+  const normalized = strategyLabel.toLowerCase();
+  const version = versions.find((item) => {
+    const candidateLabel = getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label).toLowerCase();
+    return candidateLabel === normalized;
+  });
+
+  if (!version) {
+    return "Todavía no hay perfil operativo claro guardado para esa estrategia.";
+  }
+
+  const frames = getPreferredTimeframeScopeForVersion(version).split(",").join(" / ");
+  return `${getFriendlyTradingStyle(version.trading_style || "")} · mejor en ${frames} · perfil ${version.holding_profile || "mixto"}.`;
 }
 
 function getCandidateSummary(signal: SignalSnapshot) {

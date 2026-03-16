@@ -34,6 +34,7 @@ export function DashboardView(props: DashboardViewProps) {
               <p className="dashboard-subcopy">{signal?.reasons[0] || "Análisis en progreso."}</p>
               <div className="dashboard-chip-row">
                 <span className="dashboard-chip">{props.strategy.label}</span>
+                <span className="dashboard-chip">{getFriendlyTradingStyle(props.strategy.tradingStyle)}</span>
                 <span className="dashboard-chip">{analysis?.alignmentLabel || "Sin contexto"}</span>
                 <span className="dashboard-chip">{analysis?.setupType || "Setup pendiente"}</span>
                 <span className="dashboard-chip">{analysis?.volatilityLabel ? `Volatilidad ${analysis.volatilityLabel.toLowerCase()}` : "Volatilidad pendiente"}</span>
@@ -113,6 +114,12 @@ export function DashboardView(props: DashboardViewProps) {
                 <div className="analysis-card-label">Motor de estrategias</div>
                 <div className="analysis-card-value">{props.strategy.label}</div>
                 <div className="analysis-card-note">{props.strategy.description}</div>
+                <div className="strategy-candidate-meta">
+                  Mejor en {props.strategy.preferredTimeframes.join(" / ")} · {getFriendlyTradingStyle(props.strategy.tradingStyle)} · Perfil {props.strategy.holdingProfile || "mixto"}
+                </div>
+                <div className="strategy-candidate-meta">
+                  Contexto ideal: {props.strategy.idealMarketConditions.join(", ")}
+                </div>
                 <div className="strategy-candidate-list">
                   {props.strategyCandidates.slice(0, 3).map((candidate) => (
                     <div key={`${candidate.strategy.id}-${candidate.strategy.version}`} className={`strategy-candidate ${candidate.isPrimary ? "is-primary" : ""}`}>
@@ -121,7 +128,10 @@ export function DashboardView(props: DashboardViewProps) {
                         {candidate.isPrimary ? <span className="strategy-candidate-badge">Activa</span> : null}
                       </div>
                       <div className="strategy-candidate-meta">
-                        {candidate.signal.label} · {candidate.signal.score}% · {candidate.analysis.setupType}
+                        {candidate.signal.label} · {candidate.signal.score}% · {candidate.analysis.setupType} · {getFriendlyTradingStyle(candidate.strategy.tradingStyle)}
+                      </div>
+                      <div className="strategy-candidate-meta">
+                        Marcos: {candidate.strategy.preferredTimeframes.join(" / ")}
                       </div>
                     </div>
                   ))}
@@ -288,4 +298,11 @@ export function DashboardView(props: DashboardViewProps) {
       </div>
     </div>
   );
+}
+
+function getFriendlyTradingStyle(style: string) {
+  if (style === "scalping / intradía") return "Scalping / intradía";
+  if (style === "intradía") return "Intradía";
+  if (style === "swing corto") return "Swing corto";
+  return style || "Sin perfil";
 }

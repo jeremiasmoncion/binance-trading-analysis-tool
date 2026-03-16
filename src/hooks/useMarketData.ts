@@ -28,6 +28,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [strategy, setStrategy] = useState<StrategyDescriptor>(runStrategyEngine({
     candles: generateFallbackCandles("1h"),
     indicators: calcIndicators(generateFallbackCandles("1h")),
+    timeframe: "1h",
     multiTimeframes: [],
   }).primary.strategy);
   const [strategyCandidates, setStrategyCandidates] = useState<StrategyCandidate[]>([]);
@@ -66,6 +67,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       const strategyExecution = runStrategyEngine({
         candles: fetchedCandles,
         indicators: nextIndicators,
+        timeframe: nextTimeframe,
         multiTimeframes: nextMultiTimeframes,
       });
       const nextSignal = strategyExecution.primary.signal;

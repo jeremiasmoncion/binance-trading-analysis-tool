@@ -35,6 +35,10 @@ const FALLBACK_VERSIONS = [
     strategy_id: "trend-alignment",
     version: "v1",
     label: "Trend Alignment v1",
+    preferred_timeframes: ["15m", "1h", "4h"],
+    trading_style: "intradía",
+    holding_profile: "corto a medio",
+    ideal_market_conditions: ["tendencia", "pullback ordenado"],
     parameters: {
       trendWeight: 20,
       oversoldBoost: 15,
@@ -51,6 +55,10 @@ const FALLBACK_VERSIONS = [
     strategy_id: "trend-alignment",
     version: "v2",
     label: "Trend Alignment v2",
+    preferred_timeframes: ["1h", "4h", "1d"],
+    trading_style: "swing corto",
+    holding_profile: "medio",
+    ideal_market_conditions: ["tendencia limpia", "alta alineación", "volumen fuerte"],
     parameters: {
       trendWeight: 24,
       oversoldBoost: 10,
@@ -69,6 +77,10 @@ const FALLBACK_VERSIONS = [
     strategy_id: "breakout",
     version: "v1",
     label: "Breakout v1",
+    preferred_timeframes: ["5m", "15m", "1h"],
+    trading_style: "scalping / intradía",
+    holding_profile: "rápido",
+    ideal_market_conditions: ["ruptura", "expansión", "volumen fuerte"],
     parameters: {
       lookbackCandles: 20,
       breakoutBufferPct: 0.1,
@@ -162,6 +174,16 @@ export async function listStrategyEngine(req) {
 function getVersionParameters(versions, strategyId, version) {
   const match = (versions || []).find((item) => item.strategy_id === strategyId && item.version === version);
   return match?.parameters || {};
+}
+
+function getVersionProfile(versions, strategyId, version) {
+  const match = (versions || []).find((item) => item.strategy_id === strategyId && item.version === version);
+  return {
+    preferredTimeframes: Array.isArray(match?.preferred_timeframes) ? match.preferred_timeframes : [],
+    tradingStyle: match?.trading_style || "",
+    holdingProfile: match?.holding_profile || "",
+    idealMarketConditions: Array.isArray(match?.ideal_market_conditions) ? match.ideal_market_conditions : [],
+  };
 }
 
 function summarizeSignals(signals) {
@@ -271,6 +293,11 @@ function buildRecommendationRows(signals, versions) {
   return recommendations;
 }
 
+function getPreferredTimeframeScope(versions, strategyId, version) {
+  const profile = getVersionProfile(versions, strategyId, version);
+  return profile.preferredTimeframes.length ? profile.preferredTimeframes.join(",") : "all";
+}
+
 export async function generateAdaptiveRecommendations(req) {
   const session = requireSession(req);
 
@@ -359,6 +386,7 @@ export async function activateAdaptiveRecommendation(req) {
   }
 
   const nextVersion = getRecommendationVariantVersion(recommendation.strategy_version, versions || [], recommendationId);
+  const baseProfile = getVersionProfile(versions || [], recommendation.strategy_id, recommendation.strategy_version);
   const nextParameters = {
     ...(baseVersion.parameters || {}),
     [recommendation.parameter_key]: recommendation.suggested_value,
@@ -372,6 +400,10 @@ export async function activateAdaptiveRecommendation(req) {
       version: nextVersion,
       label: `${baseVersion.label || recommendation.strategy_id} candidata ${nextVersion}`,
       parameters: nextParameters,
+      preferred_timeframes: baseProfile.preferredTimeframes,
+      trading_style: baseProfile.tradingStyle,
+      holding_profile: baseProfile.holdingProfile,
+      ideal_market_conditions: baseProfile.idealMarketConditions,
       notes: `Variante creada desde la recomendación ${recommendation.recommendation_key}. Ajusta ${recommendation.parameter_key} de ${recommendation.current_value} a ${recommendation.suggested_value}.`,
       status: "experimental",
     }],
@@ -400,7 +432,7 @@ export async function activateAdaptiveRecommendation(req) {
       candidate_strategy_id: recommendation.strategy_id,
       candidate_version: nextVersion,
       market_scope: "watchlist",
-      timeframe_scope: "all",
+      timeframe_scope: getPreferredTimeframeScope(versions || [], recommendation.strategy_id, recommendation.strategy_version),
       status: "sandbox",
       summary: `Prueba segura creada desde ${recommendation.title}. Compara ${recommendation.strategy_version} contra ${nextVersion}.`,
       metadata: {
@@ -462,12 +494,17 @@ export async function createStrategyExperiment(req) {
     throw new Error("Faltan datos para crear el experimento");
   }
 
+  const versions = await supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?select=*`).catch(() => []);
+  const resolvedTimeframeScope = timeframeScope === "all"
+    ? getPreferredTimeframeScope(versions || [], candidateStrategyId, candidateVersion)
+    : timeframeScope;
+
   const experimentKey = [
     baseStrategyId,
     candidateStrategyId,
     candidateVersion,
     marketScope || "all",
-    timeframeScope || "all",
+    resolvedTimeframeScope || "all",
     Date.now(),
   ].join(":");
 
@@ -481,7 +518,7 @@ export async function createStrategyExperiment(req) {
         candidate_strategy_id: candidateStrategyId,
         candidate_version: candidateVersion,
         market_scope: marketScope,
-        timeframe_scope: timeframeScope,
+        timeframe_scope: resolvedTimeframeScope,
         status,
         summary,
         metadata: {

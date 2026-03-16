@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
 import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
-import { defaultStrategy } from "../strategies";
+import { runStrategyEngine } from "../strategies";
 import { marketService } from "../services/api";
-import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, StrategyDescriptor, TimeframeSignal, ViewName } from "../types";
+import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, StrategyCandidate, StrategyDescriptor, TimeframeSignal, ViewName } from "../types";
 
 interface UseMarketDataOptions {
   currentView: ViewName;
@@ -25,7 +25,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null);
-  const [strategy, setStrategy] = useState<StrategyDescriptor>(defaultStrategy.descriptor);
+  const [strategy, setStrategy] = useState<StrategyDescriptor>(runStrategyEngine({
+    candles: generateFallbackCandles("1h"),
+    indicators: calcIndicators(generateFallbackCandles("1h")),
+    multiTimeframes: [],
+  }).primary.strategy);
+  const [strategyCandidates, setStrategyCandidates] = useState<StrategyCandidate[]>([]);
   const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
   const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
   const [currentPrice, setCurrentPrice] = useState(0);
@@ -58,13 +63,13 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           };
         }),
       );
-      const strategyExecution = defaultStrategy.execute({
+      const strategyExecution = runStrategyEngine({
         candles: fetchedCandles,
         indicators: nextIndicators,
         multiTimeframes: nextMultiTimeframes,
       });
-      const nextSignal = strategyExecution.signal;
-      const nextAnalysis = strategyExecution.analysis;
+      const nextSignal = strategyExecution.primary.signal;
+      const nextAnalysis = strategyExecution.primary.analysis;
       const alignedTimeframes = nextMultiTimeframes.map((item) => ({
         ...item,
         aligned: item.label === nextSignal.label,
@@ -91,7 +96,8 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setCurrentPrice(nextIndicators.current);
       setSignal(nextSignal);
       setAnalysis(nextAnalysis);
-      setStrategy(strategyExecution.strategy);
+      setStrategy(strategyExecution.primary.strategy);
+      setStrategyCandidates(strategyExecution.candidates);
       setMultiTimeframes(alignedTimeframes);
       setComparison(nextComparison);
       setMarket24h({
@@ -170,6 +176,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     signal,
     analysis,
     strategy,
+    strategyCandidates,
     multiTimeframes,
     comparison,
     availableCoins,

@@ -52,6 +52,14 @@ export interface StrategyDescriptor {
   parameters: Record<string, number | string | boolean>;
 }
 
+export interface StrategyCandidate {
+  strategy: StrategyDescriptor;
+  signal: Signal;
+  analysis: DashboardAnalysis;
+  rankScore: number;
+  isPrimary?: boolean;
+}
+
 export interface OperationPlan {
   entry: number;
   tp: number;

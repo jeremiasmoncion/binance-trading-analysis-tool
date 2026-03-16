@@ -190,10 +190,20 @@
   gap: 16px;
 }
 
+#memoryView .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+#memoryView .module-tabs {
+  position: sticky;
+  top: 76px;
+  z-index: 20;
+}
+
 .signal-analytics-card {
   border: 1px solid rgba(59, 130, 246, 0.16);
   border-radius: 14px;
-  padding: 16px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -312,6 +322,23 @@
   width: auto;
   margin-top: 0;
   padding: 10px 14px;
+}
+
+#signals-history .portfolio-table th,
+#signals-history .portfolio-table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  vertical-align: top;
+}
+
+#signals-history .portfolio-asset strong,
+#signals-history .portfolio-metric strong {
+  font-size: 14px;
+}
+
+#signals-history .portfolio-asset span,
+#signals-history .portfolio-metric span {
+  font-size: 11px;
 }
 
 .strategy-candidate-list {
@@ -452,14 +479,59 @@ body.dark-theme .market-score-track {
   .memory-filter-bar {
     grid-template-columns: 1fr 1fr;
   }
+
+  #memoryView .module-tabs {
+    top: 72px;
+  }
 }
 
 @media (max-width: 760px) {
+  #memoryView .module-tabs {
+    position: static;
+    margin-inline: 0;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  #memoryView .module-tab {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+
   .memory-filter-bar {
     grid-template-columns: 1fr;
   }
 
   .signal-analytics-grid {
     grid-template-columns: 1fr;
+  }
+
+  #memoryView .stats-grid,
+  .compact-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-analytics-card {
+    padding: 12px;
+  }
+
+  .signal-analytics-item {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .signal-analytics-item.is-experiment {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-analytics-pnl {
+    text-align: left;
+  }
+
+  .signal-inline-button {
+    width: 100%;
+  }
+
+  #signals-history .portfolio-table {
+    min-width: 960px;
   }
 }

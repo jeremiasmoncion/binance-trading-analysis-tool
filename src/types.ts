@@ -90,6 +90,23 @@ export interface StrategyExperimentRecord {
   updated_at?: string;
 }
 
+export interface StrategyRecommendationRecord {
+  id: number;
+  recommendation_key: string;
+  strategy_id: string;
+  strategy_version: string;
+  parameter_key: string;
+  title: string;
+  summary?: string;
+  current_value?: number;
+  suggested_value?: number;
+  confidence?: number;
+  status: string;
+  evidence?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface StrategyCandidate {
   strategy: StrategyDescriptor;
   signal: Signal;

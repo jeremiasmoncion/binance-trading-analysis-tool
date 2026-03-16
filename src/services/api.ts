@@ -10,6 +10,7 @@ import type {
   StrategyDescriptor,
   StrategyExperimentRecord,
   StrategyRegistryEntry,
+  StrategyRecommendationRecord,
   StrategyVersionRecord,
   TimeframeSignal,
   UserSession,
@@ -118,7 +119,16 @@ export const strategyEngineService = {
       registry: StrategyRegistryEntry[];
       versions: StrategyVersionRecord[];
       experiments: StrategyExperimentRecord[];
+      recommendations: StrategyRecommendationRecord[];
     }>("/api/strategy-engine");
+  },
+  listRecommendations() {
+    return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations");
+  },
+  generateRecommendations() {
+    return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations", {
+      method: "POST",
+    });
   },
   createExperiment(payload: {
     baseStrategyId: string;

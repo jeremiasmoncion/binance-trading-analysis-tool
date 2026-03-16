@@ -10,6 +10,7 @@ import type {
   SignalSnapshot,
   StrategyExperimentRecord,
   StrategyRegistryEntry,
+  StrategyRecommendationRecord,
   StrategyVersionRecord,
 } from "../types";
 
@@ -19,7 +20,7 @@ interface MemoryViewProps {
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
-type SignalsTab = "overview" | "performance" | "strategies" | "experiments" | "history";
+type SignalsTab = "overview" | "performance" | "strategies" | "adaptive" | "experiments" | "history";
 
 interface AggregateRow {
   label: string;
@@ -59,6 +60,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [registry, setRegistry] = useState<StrategyRegistryEntry[]>([]);
   const [versions, setVersions] = useState<StrategyVersionRecord[]>([]);
   const [experiments, setExperiments] = useState<StrategyExperimentRecord[]>([]);
+  const [recommendations, setRecommendations] = useState<StrategyRecommendationRecord[]>([]);
   const [experimentBase, setExperimentBase] = useState("trend-alignment");
   const [experimentCandidate, setExperimentCandidate] = useState("breakout");
   const [experimentVersion, setExperimentVersion] = useState("v1");
@@ -75,12 +77,14 @@ export function MemoryView(props: MemoryViewProps) {
         setRegistry(payload.registry || []);
         setVersions(payload.versions || []);
         setExperiments(payload.experiments || []);
+        setRecommendations(payload.recommendations || []);
       })
       .catch(() => {
         if (ignore) return;
         setRegistry([]);
         setVersions([]);
         setExperiments([]);
+        setRecommendations([]);
       });
 
     return () => {
@@ -373,6 +377,15 @@ export function MemoryView(props: MemoryViewProps) {
     }
   }
 
+  async function handleGenerateRecommendations() {
+    try {
+      const payload = await strategyEngineService.generateRecommendations();
+      setRecommendations(payload.recommendations || []);
+    } catch {
+      // keep UI steady if API fails
+    }
+  }
+
   return (
     <div id="memoryView" className="view-panel active">
       <section id="signals-overview">
@@ -387,6 +400,7 @@ export function MemoryView(props: MemoryViewProps) {
           { key: "overview", label: "Resumen" },
           { key: "performance", label: "Rendimiento" },
           { key: "strategies", label: "Estrategias" },
+          { key: "adaptive", label: "Ajustes IA" },
           { key: "experiments", label: "Pruebas" },
           { key: "history", label: "Historial" },
         ]}
@@ -649,6 +663,48 @@ export function MemoryView(props: MemoryViewProps) {
         </section>
       ) : null}
 
+      {activeTab === "adaptive" ? (
+        <section id="signals-adaptive">
+          <SectionCard
+            title="Ajustes sugeridos por IA"
+            subtitle="Aquí el sistema observa el historial y propone cambios de parámetros. Todavía no toca producción: solo recomienda y deja evidencia."
+            actions={
+              <button className="btn-secondary-soft" type="button" onClick={() => void handleGenerateRecommendations()}>
+                Generar sugerencias
+              </button>
+            }
+          >
+            <div className="signal-analytics-grid">
+              <InfoCard
+                title="Cómo leer esto"
+                text="Cada sugerencia nace del rendimiento histórico real. La IA mira qué contextos funcionan mal o bien y propone un ajuste concreto para probarlo antes en sandbox."
+              />
+              <InfoCard
+                title="Qué NO hace todavía"
+                text="No cambia parámetros sola, no promueve versiones a producción y no opera por su cuenta. Solo recomienda el siguiente ajuste razonable."
+              />
+            </div>
+
+            <div className="stats-grid">
+              <StatCard label="Sugerencias activas" value={String(recommendations.length)} sub="Ajustes abiertos en observación" accentClass="accent-blue" />
+              <StatCard label="Confianza alta" value={String(recommendations.filter((item) => Number(item.confidence || 0) >= 0.75).length)} sub="Sugerencias con evidencia más fuerte" accentClass="accent-emerald" />
+              <StatCard label="Estrategias tocadas" value={String(new Set(recommendations.map((item) => item.strategy_id)).size)} sub="Cuántas familias reciben ajustes" accentClass="accent-amber" />
+              <StatCard label="Promedio de confianza" value={recommendations.length ? `${Math.round((recommendations.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / recommendations.length) * 100)}%` : "--"} sub="Lectura agregada de seguridad" accentClass="accent-blue" />
+            </div>
+
+            {!recommendations.length ? (
+              <EmptyState message="Todavía no hay sugerencias adaptativas. Usa el botón Generar sugerencias cuando ya tengas suficiente historial cerrado." />
+            ) : (
+              <div className="signal-analytics-grid">
+                {recommendations.map((item) => (
+                  <AdaptiveRecommendationCard key={`${item.recommendation_key}-${item.id}`} item={item} />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </section>
+      ) : null}
+
       {activeTab === "history" ? (
         <section id="signals-history">
           <SectionCard
@@ -902,6 +958,43 @@ function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
         <StatCard label="Ventaja candidata" value={formatSignedPrice(delta)} sub="Resultado candidata menos base" toneClass={deltaClass} accentClass="accent-blue" />
         <StatCard label="Lectura actual" value={item.recommendation} sub="La prueba segura compara antes de promover" accentClass="accent-amber" />
       </div>
+    </div>
+  );
+}
+
+function AdaptiveRecommendationCard({ item }: { item: StrategyRecommendationRecord }) {
+  const confidencePct = Math.round(Number(item.confidence || 0) * 100);
+  const confidenceClass = confidencePct >= 75 ? "status-sandbox" : confidencePct >= 55 ? "status-draft" : "status-paused";
+  const delta = Number(item.suggested_value || 0) - Number(item.current_value || 0);
+  const evidence = item.evidence || {};
+
+  return (
+    <div className="signal-analytics-card">
+      <div className="signal-analytics-head">
+        <h4>{item.title}</h4>
+        <p>{item.summary || "Sin resumen todavía."}</p>
+      </div>
+
+      <div className="signal-analytics-list">
+        <div className="signal-analytics-item is-experiment">
+          <div className="signal-analytics-copy">
+            <strong>{getFriendlyStrategyVersionLabel(item.strategy_id, item.strategy_version)}</strong>
+            <span>Parámetro: {item.parameter_key}</span>
+          </div>
+          <div className={`signal-analytics-pill ${confidenceClass}`}>
+            {confidencePct}% confianza
+          </div>
+        </div>
+      </div>
+
+      <div className="stats-grid compact-stats-grid no-bottom-gap">
+        <StatCard label="Valor actual" value={String(item.current_value ?? "--")} sub="Parámetro vigente" accentClass="accent-blue" />
+        <StatCard label="Valor sugerido" value={String(item.suggested_value ?? "--")} sub={delta === 0 ? "Sin cambio" : delta > 0 ? `Sube ${delta}` : `Baja ${Math.abs(delta)}`} accentClass="accent-emerald" />
+      </div>
+
+      <p className="section-note with-top-gap">
+        Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}.
+      </p>
     </div>
   );
 }

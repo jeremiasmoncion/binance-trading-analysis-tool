@@ -25,6 +25,7 @@ Agrega estas variables al proyecto en Vercel:
 - `SUPABASE_STRATEGY_REGISTRY_TABLE`
 - `SUPABASE_STRATEGY_VERSIONS_TABLE`
 - `SUPABASE_STRATEGY_EXPERIMENTS_TABLE`
+- `SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE`
 
 Puedes usar [/.env.example](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/.env.example) como referencia.
 
@@ -38,5 +39,6 @@ Cuando `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` estén definidos:
 - `/api/binance/connection` guarda y lee la conexión cifrada de Binance Testnet
 - `/api/watchlist` guarda y lee listas de seguimiento persistentes por usuario
 - `/api/strategy-engine` expone el registro, versionado y experimentos del motor de estrategias
+- `/api/strategy-engine/recommendations` genera y lee sugerencias adaptativas de parámetros
 
 Mientras esas variables no existan, la app sigue usando el fallback local para no romper la preview.

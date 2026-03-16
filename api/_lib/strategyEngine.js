@@ -5,6 +5,8 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const STRATEGY_REGISTRY_TABLE = process.env.SUPABASE_STRATEGY_REGISTRY_TABLE || "strategy_registry";
 const STRATEGY_VERSIONS_TABLE = process.env.SUPABASE_STRATEGY_VERSIONS_TABLE || "strategy_versions";
 const STRATEGY_EXPERIMENTS_TABLE = process.env.SUPABASE_STRATEGY_EXPERIMENTS_TABLE || "strategy_experiments";
+const STRATEGY_RECOMMENDATIONS_TABLE = process.env.SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE || "strategy_recommendations";
+const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
 
 const FALLBACK_REGISTRY = [
   {
@@ -128,25 +130,176 @@ export async function listStrategyEngine(req) {
       order: "created_at.desc",
       limit: "50",
     });
+    const recommendationsParams = new URLSearchParams({
+      select: "*",
+      order: "created_at.desc",
+      limit: "50",
+    });
 
-    const [registry, versions, experiments] = await Promise.all([
+    const [registry, versions, experiments, recommendations] = await Promise.all([
       supabaseRequest(`${STRATEGY_REGISTRY_TABLE}?${registryParams.toString()}`),
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`),
+      supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?${recommendationsParams.toString()}`),
     ]);
 
     return {
       registry: registry || [],
       versions: versions || [],
       experiments: experiments || [],
+      recommendations: recommendations || [],
     };
   } catch {
     return {
       registry: FALLBACK_REGISTRY,
       versions: FALLBACK_VERSIONS,
       experiments: [],
+      recommendations: [],
     };
   }
+}
+
+function getVersionParameters(versions, strategyId, version) {
+  const match = (versions || []).find((item) => item.strategy_id === strategyId && item.version === version);
+  return match?.parameters || {};
+}
+
+function summarizeSignals(signals) {
+  const total = signals.length;
+  const wins = signals.filter((item) => item.outcome_status === "win").length;
+  const losses = signals.filter((item) => item.outcome_status === "loss").length;
+  const pnl = signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
+  const winRate = total ? (wins / total) * 100 : 0;
+  return { total, wins, losses, pnl, winRate };
+}
+
+function buildRecommendationRows(signals, versions) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  if (!closedSignals.length) return [];
+
+  const trendV2Signals = closedSignals.filter((item) => item.strategy_name === "trend-alignment" && item.strategy_version === "v2");
+  const breakoutSignals = closedSignals.filter((item) => item.strategy_name === "breakout" && item.strategy_version === "v1");
+
+  const mixedTrendSignals = trendV2Signals.filter((item) => {
+    const context = item.signal_payload?.context || {};
+    return context.marketRegime === "mixto" || context.timeframeBias === "Mixto";
+  });
+  const alignedTrendSignals = trendV2Signals.filter((item) => {
+    const context = item.signal_payload?.context || {};
+    const alignment = Number(context.alignmentScore || 0);
+    return alignment >= 70 && String(context.volumeCondition || "").toLowerCase().includes("fuerte");
+  });
+  const weakBreakoutSignals = breakoutSignals.filter((item) => {
+    const context = item.signal_payload?.context || {};
+    const volumeCondition = String(context.volumeCondition || "").toLowerCase();
+    return volumeCondition.includes("débil") || volumeCondition.includes("debil");
+  });
+
+  const trendV2Params = getVersionParameters(versions, "trend-alignment", "v2");
+  const breakoutV1Params = getVersionParameters(versions, "breakout", "v1");
+  const recommendations = [];
+
+  const mixedStats = summarizeSignals(mixedTrendSignals);
+  if (mixedStats.total >= 4 && (mixedStats.pnl < 0 || mixedStats.winRate < 45)) {
+    const currentValue = Number(trendV2Params.mixedFramePenalty || 8);
+    recommendations.push({
+      recommendation_key: "trend-alignment:v2:mixed-frame-penalty",
+      strategy_id: "trend-alignment",
+      strategy_version: "v2",
+      parameter_key: "mixedFramePenalty",
+      title: "Ser más estricto cuando el mercado está mezclado",
+      summary: "La versión v2 está fallando más en contextos donde los marcos se contradicen. Conviene subir el castigo a ese escenario antes de dejar pasar una señal fuerte.",
+      current_value: currentValue,
+      suggested_value: currentValue + 2,
+      confidence: Math.min(0.92, 0.55 + mixedStats.total * 0.03 + Math.abs(mixedStats.pnl) / 100),
+      status: "draft",
+      evidence: {
+        sampleSize: mixedStats.total,
+        winRate: mixedStats.winRate,
+        pnl: mixedStats.pnl,
+        marketRegime: "mixto",
+      },
+    });
+  }
+
+  const alignedStats = summarizeSignals(alignedTrendSignals);
+  if (alignedStats.total >= 4 && alignedStats.pnl > 0 && alignedStats.winRate >= 50) {
+    const currentValue = Number(trendV2Params.higherFrameBonus || 12);
+    recommendations.push({
+      recommendation_key: "trend-alignment:v2:higher-frame-bonus",
+      strategy_id: "trend-alignment",
+      strategy_version: "v2",
+      parameter_key: "higherFrameBonus",
+      title: "Dar más peso a marcos altos bien alineados",
+      summary: "Cuando la alineación alta viene con volumen fuerte, la estrategia responde bien. Vale la pena premiar un poco más ese contexto para reforzar señales limpias.",
+      current_value: currentValue,
+      suggested_value: currentValue + 2,
+      confidence: Math.min(0.94, 0.58 + alignedStats.total * 0.03 + alignedStats.winRate / 200),
+      status: "draft",
+      evidence: {
+        sampleSize: alignedStats.total,
+        winRate: alignedStats.winRate,
+        pnl: alignedStats.pnl,
+        alignmentBand: "alta",
+      },
+    });
+  }
+
+  const breakoutStats = summarizeSignals(weakBreakoutSignals);
+  if (breakoutStats.total >= 4 && (breakoutStats.pnl < 0 || breakoutStats.winRate < 45)) {
+    const currentValue = Number(breakoutV1Params.volumeThreshold || 1.15);
+    recommendations.push({
+      recommendation_key: "breakout:v1:volume-threshold",
+      strategy_id: "breakout",
+      strategy_version: "v1",
+      parameter_key: "volumeThreshold",
+      title: "Exigir más volumen en las rupturas",
+      summary: "Las rupturas con volumen débil están dejando demasiadas señales flojas. Conviene subir el filtro antes de tratarlas como oportunidad válida.",
+      current_value: currentValue,
+      suggested_value: Number((currentValue + 0.1).toFixed(2)),
+      confidence: Math.min(0.9, 0.56 + breakoutStats.total * 0.03 + Math.abs(breakoutStats.pnl) / 100),
+      status: "draft",
+      evidence: {
+        sampleSize: breakoutStats.total,
+        winRate: breakoutStats.winRate,
+        pnl: breakoutStats.pnl,
+        volumeCondition: "débil",
+      },
+    });
+  }
+
+  return recommendations;
+}
+
+export async function generateAdaptiveRecommendations(req) {
+  const session = requireSession(req);
+
+  const versionParams = new URLSearchParams({
+    select: "*",
+    order: "strategy_id.asc,version.asc",
+  });
+  const signalsParams = new URLSearchParams({
+    select: "strategy_name,strategy_version,outcome_status,outcome_pnl,signal_payload",
+    username: `eq.${session.username}`,
+    order: "created_at.desc",
+    limit: "300",
+  });
+
+  const [versions, signals] = await Promise.all([
+    supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionParams.toString()}`),
+    supabaseRequest(`${SIGNALS_TABLE}?${signalsParams.toString()}`),
+  ]);
+
+  const rowsToUpsert = buildRecommendationRows(signals || [], versions || []);
+  if (!rowsToUpsert.length) return [];
+
+  const rows = await supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?on_conflict=recommendation_key`, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: rowsToUpsert,
+  });
+
+  return rows || [];
 }
 
 export async function createStrategyExperiment(req) {

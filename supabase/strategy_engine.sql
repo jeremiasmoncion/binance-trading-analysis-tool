@@ -37,6 +37,23 @@ create table if not exists public.strategy_experiments (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.strategy_recommendations (
+  id bigint generated always as identity primary key,
+  recommendation_key text not null unique,
+  strategy_id text not null,
+  strategy_version text not null,
+  parameter_key text not null,
+  title text not null,
+  summary text,
+  current_value numeric(18,8),
+  suggested_value numeric(18,8),
+  confidence numeric(6,4) not null default 0,
+  status text not null default 'draft',
+  evidence jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create or replace function public.set_strategy_engine_updated_at()
 returns trigger
 language plpgsql
@@ -62,6 +79,12 @@ execute function public.set_strategy_engine_updated_at();
 drop trigger if exists trg_strategy_experiments_updated_at on public.strategy_experiments;
 create trigger trg_strategy_experiments_updated_at
 before update on public.strategy_experiments
+for each row
+execute function public.set_strategy_engine_updated_at();
+
+drop trigger if exists trg_strategy_recommendations_updated_at on public.strategy_recommendations;
+create trigger trg_strategy_recommendations_updated_at
+before update on public.strategy_recommendations
 for each row
 execute function public.set_strategy_engine_updated_at();
 

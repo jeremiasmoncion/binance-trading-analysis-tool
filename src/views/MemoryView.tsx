@@ -5,7 +5,13 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatPrice, formatSignedPrice } from "../lib/format";
 import { strategyEngineService } from "../services/api";
-import type { SignalOutcomeStatus, SignalSnapshot, StrategyExperimentRecord, StrategyRegistryEntry, StrategyVersionRecord } from "../types";
+import type {
+  SignalOutcomeStatus,
+  SignalSnapshot,
+  StrategyExperimentRecord,
+  StrategyRegistryEntry,
+  StrategyVersionRecord,
+} from "../types";
 
 interface MemoryViewProps {
   signals: SignalSnapshot[];
@@ -13,8 +19,36 @@ interface MemoryViewProps {
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
+type SignalsTab = "overview" | "performance" | "strategies" | "experiments" | "history";
+
+interface AggregateRow {
+  label: string;
+  total: number;
+  wins: number;
+  losses: number;
+  invalidated: number;
+  pnl: number;
+  avgPnl: number;
+  winRate: number;
+}
+
+interface ExperimentPaperStats {
+  experiment: StrategyExperimentRecord;
+  baseLabel: string;
+  candidateLabel: string;
+  sampleSize: number;
+  basePrimaryCount: number;
+  candidatePrimaryCount: number;
+  basePrimaryPnl: number;
+  candidatePrimaryPnl: number;
+  baseWinRate: number;
+  candidateWinRate: number;
+  candidateAppearances: number;
+  recommendation: string;
+}
+
 export function MemoryView(props: MemoryViewProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "analytics" | "history">("overview");
+  const [activeTab, setActiveTab] = useState<SignalsTab>("overview");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
   const [coinFilter, setCoinFilter] = useState("all");
@@ -59,7 +93,7 @@ export function MemoryView(props: MemoryViewProps) {
     [props.signals],
   );
   const setups = useMemo(
-    () => Array.from(new Set(props.signals.map((item) => item.setup_type).filter(Boolean))).sort(),
+    () => Array.from(new Set(props.signals.map((item) => item.setup_type).filter((item): item is string => Boolean(item)))).sort(),
     [props.signals],
   );
   const coins = useMemo(
@@ -87,7 +121,7 @@ export function MemoryView(props: MemoryViewProps) {
       const matchesSearch = !normalizedSearch
         || item.coin.toLowerCase().includes(normalizedSearch)
         || (item.signal_label || "").toLowerCase().includes(normalizedSearch)
-        || (item.setup_type || "").toLowerCase().includes(normalizedSearch)
+        || getSetupLabel(item.setup_type || "").toLowerCase().includes(normalizedSearch)
         || getStrategyDisplay(item).toLowerCase().includes(normalizedSearch)
         || (item.note || "").toLowerCase().includes(normalizedSearch);
       const matchesCoin = coinFilter === "all" || item.coin === coinFilter;
@@ -105,6 +139,7 @@ export function MemoryView(props: MemoryViewProps) {
   const invalidated = props.signals.filter((item) => item.outcome_status === "invalidated").length;
   const totalPnl = props.signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
   const winRate = completedSignals.length ? (wins / completedSignals.length) * 100 : 0;
+
   const periodCompletedSignals = periodSignals.filter((item) => item.outcome_status !== "pending");
   const periodWins = periodSignals.filter((item) => item.outcome_status === "win").length;
   const periodLosses = periodSignals.filter((item) => item.outcome_status === "loss").length;
@@ -122,7 +157,15 @@ export function MemoryView(props: MemoryViewProps) {
   const periodAvgLoss = periodSignals.filter((item) => Number(item.outcome_pnl || 0) < 0).length
     ? periodGrossLosses / periodSignals.filter((item) => Number(item.outcome_pnl || 0) < 0).length
     : 0;
-  const periodLabel = periodFilter === "30d" ? "últimos 30 días" : periodFilter === "7d" ? "últimos 7 días" : periodFilter === "1d" ? "últimas 24h" : "todo el historial";
+
+  const periodLabel = periodFilter === "30d"
+    ? "últimos 30 días"
+    : periodFilter === "7d"
+      ? "últimos 7 días"
+      : periodFilter === "1d"
+        ? "últimas 24h"
+        : "todo el historial";
+
   const bestSetup = useMemo(() => {
     const bySetup = new Map<string, { wins: number; total: number }>();
     props.signals.forEach((item) => {
@@ -136,6 +179,7 @@ export function MemoryView(props: MemoryViewProps) {
       .map(([setup, stats]) => ({ setup, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
   }, [props.signals]);
+
   const bestContext = useMemo(() => {
     const byContext = new Map<string, { wins: number; total: number }>();
     props.signals.forEach((item) => {
@@ -150,6 +194,7 @@ export function MemoryView(props: MemoryViewProps) {
       .map(([signature, stats]) => ({ signature, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
   }, [props.signals]);
+
   const strongestTimeframe = useMemo(() => {
     const byTimeframe = new Map<string, { wins: number; total: number }>();
     props.signals.forEach((item) => {
@@ -163,6 +208,7 @@ export function MemoryView(props: MemoryViewProps) {
       .map(([timeframe, stats]) => ({ timeframe, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
   }, [props.signals]);
+
   const strongestStrategy = useMemo(() => {
     const byStrategy = new Map<string, { wins: number; total: number }>();
     props.signals.forEach((item) => {
@@ -177,17 +223,14 @@ export function MemoryView(props: MemoryViewProps) {
       .map(([strategy, stats]) => ({ strategy, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
   }, [props.signals]);
+
   const periodAnalytics = useMemo(() => {
     const closed = periodSignals.filter((item) => item.outcome_status !== "pending");
-
     const byCoin = summarizeByKey(closed, (item) => item.coin);
-    const bySetup = summarizeByKey(closed, (item) => item.setup_type || "Sin setup");
+    const bySetup = summarizeByKey(closed, (item) => getSetupLabel(item.setup_type || "Sin setup"));
     const byTimeframe = summarizeByKey(closed, (item) => item.timeframe);
     const byStrategy = summarizeByKey(closed, (item) => getStrategyDisplay(item));
-    const byContext = summarizeByKey(
-      closed,
-      (item) => item.signal_payload?.context?.contextSignature || "Contexto no clasificado",
-    );
+    const byContext = summarizeByKey(closed, (item) => item.signal_payload?.context?.contextSignature || "Contexto no clasificado");
 
     return {
       bestCoin: byCoin[0],
@@ -209,41 +252,27 @@ export function MemoryView(props: MemoryViewProps) {
       const key = getStrategyDisplay(item);
       counters.set(key, (counters.get(key) || 0) + 1);
     });
-    return Array.from(counters.entries())
-      .map(([label, total]) => ({ label, total }))
-      .sort((a, b) => b.total - a.total);
+    return Array.from(counters.entries()).map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total);
   }, [periodSignals]);
 
   const strategyCandidateCounts = useMemo(() => {
     const counters = new Map<string, number>();
     periodSignals.forEach((item) => {
       (item.signal_payload?.candidates || []).forEach((candidate) => {
-        const label = candidate.strategy?.label && candidate.strategy?.version
-          ? `${candidate.strategy.label} ${candidate.strategy.version}`
-          : candidate.strategy?.label || candidate.strategy?.id || "Sin estrategia";
+        const label = getStrategyCandidateLabel(candidate.strategy?.id, candidate.strategy?.version, candidate.strategy?.label);
         counters.set(label, (counters.get(label) || 0) + 1);
       });
     });
-    return Array.from(counters.entries())
-      .map(([label, total]) => ({ label, total }))
-      .sort((a, b) => b.total - a.total);
+    return Array.from(counters.entries()).map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total);
   }, [periodSignals]);
 
   const trendVersionComparison = useMemo(() => {
-    const closed = periodSignals.filter(
-      (item) => item.outcome_status !== "pending"
-        && (item.strategy_name === "trend-alignment"
-          || item.signal_payload?.strategy?.id === "trend-alignment"),
-    );
-
-    const byVersion = summarizeByKey(closed, (item) => {
-      const version = item.strategy_version || item.signal_payload?.strategy?.version || "sin-version";
-      return `Trend Alignment ${version}`;
-    });
-
+    const closed = periodSignals.filter((item) => item.outcome_status !== "pending"
+      && (item.strategy_name === "trend-alignment" || item.signal_payload?.strategy?.id === "trend-alignment"));
+    const byVersion = summarizeByKey(closed, (item) => getStrategyCandidateLabel("trend-alignment", item.strategy_version || item.signal_payload?.strategy?.version, "Trend Alignment"));
     return {
-      v1: byVersion.find((item) => item.label === "Trend Alignment v1"),
-      v2: byVersion.find((item) => item.label === "Trend Alignment v2"),
+      v1: byVersion.find((item) => item.label === "Tendencia alineada v1"),
+      v2: byVersion.find((item) => item.label === "Tendencia alineada v2"),
     };
   }, [periodSignals]);
 
@@ -251,16 +280,19 @@ export function MemoryView(props: MemoryViewProps) {
     () => evaluatePromotion(trendVersionComparison.v1, trendVersionComparison.v2),
     [trendVersionComparison.v1, trendVersionComparison.v2],
   );
+
   const recommendedExperiment = useMemo(
     () => experiments.find((item) => item.base_strategy_id === "trend-alignment"
       && item.candidate_strategy_id === "trend-alignment"
       && item.candidate_version === "v2"),
     [experiments],
   );
+
   const sandboxExperiments = useMemo(
     () => experiments.filter((item) => item.status === "sandbox"),
     [experiments],
   );
+
   const sandboxStats = useMemo(
     () => sandboxExperiments.map((item) => buildExperimentPaperStats(item, periodSignals, props.watchlist)),
     [periodSignals, props.watchlist, sandboxExperiments],
@@ -303,7 +335,7 @@ export function MemoryView(props: MemoryViewProps) {
         candidateVersion: "v2",
         marketScope: "watchlist",
         timeframeScope: "1h,4h",
-        summary: `Comparar Trend Alignment v1 vs v2 en watchlist con recomendación actual: ${trendPromotionRecommendation.title}.`,
+        summary: `Comparar Tendencia alineada v1 vs v2 en watchlist con recomendación actual: ${trendPromotionRecommendation.title}.`,
         status: "draft",
         metadata: {
           recommendationStatus: trendPromotionRecommendation.statusLabel,
@@ -319,7 +351,6 @@ export function MemoryView(props: MemoryViewProps) {
 
   async function handleSendRecommendedToSandbox() {
     if (!recommendedExperiment) return;
-
     try {
       const payload = await strategyEngineService.updateExperiment(recommendedExperiment.id, {
         status: "sandbox",
@@ -341,338 +372,255 @@ export function MemoryView(props: MemoryViewProps) {
     <div id="memoryView" className="view-panel active">
       <section id="signals-overview">
         <SectionCard
-          title="Señales del sistema"
-          subtitle="Aquí el sistema guarda señales emitidas, su contexto técnico y el resultado que terminaron dando para medir qué setups funcionan mejor."
+          title="Centro de señales"
+          subtitle="Este es el corazón del sistema. Aquí ves el historial, el rendimiento y las pruebas de las señales para que entiendas qué está funcionando mejor."
         />
       </section>
 
       <ModuleTabs
         items={[
           { key: "overview", label: "Resumen" },
-          { key: "analytics", label: "Analitica" },
+          { key: "performance", label: "Rendimiento" },
+          { key: "strategies", label: "Estrategias" },
+          { key: "experiments", label: "Pruebas" },
           { key: "history", label: "Historial" },
         ]}
         activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as "overview" | "analytics" | "history")}
+        onChange={(key) => setActiveTab(key as SignalsTab)}
       />
 
       {activeTab === "overview" ? (
         <>
+          <SectionCard
+            title="Cómo leer esta página"
+            subtitle="Lo dejamos simple para que cualquier persona entienda qué está viendo y qué significa cada bloque."
+          >
+            <div className="signal-analytics-grid">
+              <InfoCard
+                title="Señal guardada"
+                text="Es una foto completa de una oportunidad detectada por el sistema, con plan, estrategia usada y resultado final."
+              />
+              <InfoCard
+                title="Pendiente"
+                text="La señal sigue abierta. Todavía no llegó al objetivo ni al stop, o no se ha cerrado manualmente."
+              />
+              <InfoCard
+                title="Tipo de entrada"
+                text="Es la clase de oportunidad detectada. Por ejemplo, tendencia alineada o ruptura."
+              />
+              <InfoCard
+                title="Prueba segura"
+                text="Es una variante que el sistema está observando con cuidado antes de recomendar usarla más fuerte."
+              />
+            </div>
+          </SectionCard>
+
           <div className="stats-grid">
-            <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Snapshots técnicos registrados" accentClass="accent-blue" />
-            <StatCard label="Win rate" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas / ${completedSignals.length} cerradas`} accentClass="accent-green" />
-            <StatCard label="PnL registrado" value={formatPrice(totalPnl)} sub={`${losses} pérdidas · ${invalidated} invalidadas`} toneClass={totalPnl > 0 ? "portfolio-positive" : totalPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
-            <StatCard label="Pendientes" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Esperando evaluación" accentClass="accent-amber" />
+            <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Historial técnico registrado" accentClass="accent-blue" />
+            <StatCard label="Porcentaje de acierto" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas de ${completedSignals.length} cerradas`} accentClass="accent-green" />
+            <StatCard label="Resultado neto" value={formatPrice(totalPnl)} sub={`${losses} pérdidas · ${invalidated} invalidadas`} toneClass={totalPnl > 0 ? "portfolio-positive" : totalPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
+            <StatCard label="Pendientes" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Señales todavía abiertas" accentClass="accent-amber" />
           </div>
 
           <div className="stats-grid">
-            <StatCard
-              label="Mejor setup"
-              value={bestSetup?.setup || "--"}
-              sub={bestSetup ? `${bestSetup.rate.toFixed(0)}% de efectividad en ${bestSetup.total} señales` : "Todavía faltan cierres para medirlo"}
-              accentClass="accent-blue"
-            />
-            <StatCard
-              label="Marco más fuerte"
-              value={strongestTimeframe?.timeframe || "--"}
-              sub={strongestTimeframe ? `${strongestTimeframe.rate.toFixed(0)}% de win rate` : "Esperando más señales cerradas"}
-              accentClass="accent-amber"
-            />
-            <StatCard
-              label="Estrategia más fuerte"
-              value={strongestStrategy?.strategy || "--"}
-              sub={strongestStrategy ? `${strongestStrategy.rate.toFixed(0)}% de win rate en ${strongestStrategy.total} señales` : "Esperando cierres por estrategia"}
-              accentClass="accent-blue"
-            />
-            <StatCard
-              label="Mejor contexto"
-              value={bestContext?.signature?.split(" | ")[0] || "--"}
-              sub={bestContext ? `${bestContext.rate.toFixed(0)}% en ${bestContext.total} señales · ${bestContext.signature}` : "Esperando suficiente historial"}
-              accentClass="accent-emerald"
-            />
+            <StatCard label="Mejor tipo de entrada" value={bestSetup ? getSetupLabel(bestSetup.setup) : "--"} sub={bestSetup ? `${bestSetup.rate.toFixed(0)}% de efectividad` : "Todavía falta historial"} accentClass="accent-blue" />
+            <StatCard label="Marco más fuerte" value={strongestTimeframe?.timeframe || "--"} sub={strongestTimeframe ? `${strongestTimeframe.rate.toFixed(0)}% de acierto` : "Esperando más señales"} accentClass="accent-amber" />
+            <StatCard label="Estrategia más fuerte" value={strongestStrategy?.strategy || "--"} sub={strongestStrategy ? `${strongestStrategy.rate.toFixed(0)}% de acierto` : "Esperando más cierres"} accentClass="accent-blue" />
+            <StatCard label="Mejor contexto" value={bestContext?.signature?.split(" | ")[0] || "--"} sub={bestContext ? `${bestContext.rate.toFixed(0)}% en ${bestContext.total} señales` : "Esperando suficiente historial"} accentClass="accent-emerald" />
           </div>
 
           <div className="stats-grid">
-            <StatCard label="Ganadas en período" value={String(periodWins)} sub={`Cierres ganadores en ${periodLabel}`} accentClass="accent-green" />
-            <StatCard label="Perdidas en período" value={String(periodLosses)} sub={`Cierres perdedores en ${periodLabel}`} accentClass="accent-amber" />
-            <StatCard label="Invalidadas" value={String(periodInvalidated)} sub={`Señales descartadas en ${periodLabel}`} accentClass="accent-blue" />
+            <StatCard label="Ganadas en período" value={String(periodWins)} sub={`En ${periodLabel}`} accentClass="accent-green" />
+            <StatCard label="Perdidas en período" value={String(periodLosses)} sub={`En ${periodLabel}`} accentClass="accent-amber" />
+            <StatCard label="Invalidadas" value={String(periodInvalidated)} sub={`En ${periodLabel}`} accentClass="accent-blue" />
             <StatCard label="Pendientes en período" value={String(periodPending)} sub={`Todavía abiertas en ${periodLabel}`} accentClass="accent-emerald" />
+          </div>
+
+          <div className="stats-grid">
+            <StatCard label="Total ganado" value={periodGrossWins ? formatSignedPrice(periodGrossWins) : "--"} sub={`Ganancias cerradas en ${periodLabel}`} toneClass="portfolio-positive" accentClass="accent-green" />
+            <StatCard label="Total perdido" value={periodGrossLosses ? `-${formatPrice(periodGrossLosses)}` : "--"} sub={`Pérdidas cerradas en ${periodLabel}`} toneClass="portfolio-negative" accentClass="accent-amber" />
+            <StatCard label="Ganancia promedio" value={periodGrossWins ? formatSignedPrice(periodAvgWin) : "--"} sub="Promedio por operación ganada" toneClass="portfolio-positive" accentClass="accent-green" />
+            <StatCard label="Pérdida promedio" value={periodGrossLosses ? `-${formatPrice(periodAvgLoss)}` : "--"} sub="Promedio por operación perdida" toneClass="portfolio-negative" accentClass="accent-amber" />
+            <StatCard label="Expectativa por señal" value={periodCompletedSignals.length ? formatSignedPrice((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) : "--"} sub="Lo que deja cada señal cerrada" toneClass={periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) > 0 ? "portfolio-positive" : periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) < 0 ? "portfolio-negative" : ""} accentClass="accent-blue" />
+            <StatCard label="Profit factor" value={periodCompletedSignals.length ? (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses).toFixed(2) : periodGrossWins > 0 ? periodGrossWins.toFixed(2) : "--") : "--"} sub="Qué tanto cubren las ganancias a las pérdidas" toneClass={periodCompletedSignals.length && (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses) : periodGrossWins) > 1 ? "portfolio-positive" : periodCompletedSignals.length ? "portfolio-negative" : ""} accentClass="accent-emerald" />
           </div>
         </>
       ) : null}
 
-      {activeTab === "analytics" ? (
-        <section id="signals-analytics">
+      {activeTab === "performance" ? (
+        <section id="signals-performance">
           <SectionCard
-            title="Analítica de señales"
-            subtitle={`Lectura resumida de qué está rindiendo mejor y peor en ${periodLabel}.`}
+            title="Rendimiento del sistema"
+            subtitle={`Aquí ves qué está funcionando mejor y peor en ${periodLabel}.`}
           >
-        <div className="stats-grid">
-          <StatCard
-            label="Par más rentable"
-            value={periodAnalytics.bestCoin?.label || "--"}
-            sub={periodAnalytics.bestCoin ? `${formatSignedPrice(periodAnalytics.bestCoin.pnl)} · ${periodAnalytics.bestCoin.winRate.toFixed(0)}% win rate` : "Esperando cierres suficientes"}
-            toneClass={periodAnalytics.bestCoin && periodAnalytics.bestCoin.pnl > 0 ? "portfolio-positive" : ""}
-            accentClass="accent-green"
-          />
-          <StatCard
-            label="Par más débil"
-            value={periodAnalytics.worstCoin?.label || "--"}
-            sub={periodAnalytics.worstCoin ? `${formatSignedPrice(periodAnalytics.worstCoin.pnl)} · ${periodAnalytics.worstCoin.winRate.toFixed(0)}% win rate` : "Todavía no hay pérdidas cerradas"}
-            toneClass={periodAnalytics.worstCoin && periodAnalytics.worstCoin.pnl < 0 ? "portfolio-negative" : ""}
-            accentClass="accent-amber"
-          />
-          <StatCard
-            label="Setup más rentable"
-            value={periodAnalytics.bestSetupPnl?.label || "--"}
-            sub={periodAnalytics.bestSetupPnl ? `${formatSignedPrice(periodAnalytics.bestSetupPnl.pnl)} en ${periodAnalytics.bestSetupPnl.total} señales` : "Sin historial suficiente"}
-            toneClass={periodAnalytics.bestSetupPnl && periodAnalytics.bestSetupPnl.pnl > 0 ? "portfolio-positive" : ""}
-            accentClass="accent-blue"
-          />
-          <StatCard
-            label="Marco con mejor PnL"
-            value={periodAnalytics.bestTimeframePnl?.label || "--"}
-            sub={periodAnalytics.bestTimeframePnl ? `${formatSignedPrice(periodAnalytics.bestTimeframePnl.pnl)} · ${periodAnalytics.bestTimeframePnl.winRate.toFixed(0)}% de acierto` : "Sin datos cerrados todavía"}
-            toneClass={periodAnalytics.bestTimeframePnl && periodAnalytics.bestTimeframePnl.pnl > 0 ? "portfolio-positive" : ""}
-            accentClass="accent-emerald"
-          />
-          <StatCard
-            label="Estrategia con mejor PnL"
-            value={periodAnalytics.bestStrategyPnl?.label || "--"}
-            sub={periodAnalytics.bestStrategyPnl ? `${formatSignedPrice(periodAnalytics.bestStrategyPnl.pnl)} en ${periodAnalytics.bestStrategyPnl.total} señales` : "Sin historial suficiente"}
-            toneClass={periodAnalytics.bestStrategyPnl && periodAnalytics.bestStrategyPnl.pnl > 0 ? "portfolio-positive" : ""}
-            accentClass="accent-blue"
-          />
-        </div>
-
-        <div className="signal-analytics-grid">
-          <AnalyticsListCard
-            title="Top pares"
-            subtitle="Qué monedas están dejando mejor resultado neto."
-            items={periodAnalytics.topCoins}
-          />
-          <AnalyticsListCard
-            title="Top setups"
-            subtitle="Qué tipo de entrada está funcionando mejor."
-            items={periodAnalytics.topSetups}
-          />
-          <AnalyticsListCard
-            title="Top marcos"
-            subtitle="Qué timeframe está siendo más eficiente."
-            items={periodAnalytics.topTimeframes}
-          />
-          <AnalyticsListCard
-            title="Top estrategias"
-            subtitle="Qué estrategia/version está dejando mejor resultado."
-            items={periodAnalytics.topStrategies}
-            truncateLabel
-          />
-          <AnalyticsListCard
-            title="Top contextos"
-            subtitle="Combinaciones de contexto con mejor rendimiento."
-            items={periodAnalytics.topContexts}
-            truncateLabel
-          />
-        </div>
-
-        <div className="stats-grid">
-          <StatCard
-            label="Estrategias activas"
-            value={String(registry.filter((item) => item.is_active).length || 0)}
-            sub={`${registry.length} estrategias registradas`}
-            accentClass="accent-blue"
-          />
-          <StatCard
-            label="Versiones registradas"
-            value={String(versions.length || 0)}
-            sub="Versionado base del motor"
-            accentClass="accent-emerald"
-          />
-          <StatCard
-            label="Experimentos abiertos"
-            value={String(experiments.filter((item) => item.status !== "archived").length || 0)}
-            sub="Drafts, sandbox y comparativas activas"
-            accentClass="accent-amber"
-          />
-          <StatCard
-            label="Estrategia dominante"
-            value={strategyPrimaryCounts[0]?.label || "--"}
-            sub={strategyPrimaryCounts[0] ? `${strategyPrimaryCounts[0].total} señales en ${periodLabel}` : "Esperando más snapshots"}
-            accentClass="accent-blue"
-          />
-        </div>
-
-        <div className="signal-analytics-grid">
-          <StrategyLabCard
-            title="Presencia como estrategia primaria"
-            subtitle="Cuántas veces cada estrategia quedó seleccionada como motor principal de la señal."
-            items={strategyPrimaryCounts}
-          />
-          <StrategyLabCard
-            title="Presencia como candidata"
-            subtitle="Cuántas veces apareció cada estrategia en la comparación interna del motor."
-            items={strategyCandidateCounts}
-          />
-        </div>
-
-        <div className="stats-grid">
-          <StatCard
-            label="Trend Alignment v1"
-            value={trendVersionComparison.v1 ? formatSignedPrice(trendVersionComparison.v1.pnl) : "--"}
-            sub={trendVersionComparison.v1 ? `${trendVersionComparison.v1.winRate.toFixed(0)}% acierto · ${trendVersionComparison.v1.total} señales` : "Sin suficientes cierres todavía"}
-            toneClass={trendVersionComparison.v1 && trendVersionComparison.v1.pnl > 0 ? "portfolio-positive" : trendVersionComparison.v1 && trendVersionComparison.v1.pnl < 0 ? "portfolio-negative" : ""}
-            accentClass="accent-blue"
-          />
-          <StatCard
-            label="Trend Alignment v2"
-            value={trendVersionComparison.v2 ? formatSignedPrice(trendVersionComparison.v2.pnl) : "--"}
-            sub={trendVersionComparison.v2 ? `${trendVersionComparison.v2.winRate.toFixed(0)}% acierto · ${trendVersionComparison.v2.total} señales` : "Sin suficientes cierres todavía"}
-            toneClass={trendVersionComparison.v2 && trendVersionComparison.v2.pnl > 0 ? "portfolio-positive" : trendVersionComparison.v2 && trendVersionComparison.v2.pnl < 0 ? "portfolio-negative" : ""}
-            accentClass="accent-emerald"
-          />
-          <StatCard
-            label="Ventaja actual"
-            value={
-              trendVersionComparison.v1 && trendVersionComparison.v2
-                ? (trendVersionComparison.v2.pnl === trendVersionComparison.v1.pnl
-                  ? "Empate"
-                  : trendVersionComparison.v2.pnl > trendVersionComparison.v1.pnl
-                    ? "v2 arriba"
-                    : "v1 arriba")
-                : "--"
-            }
-            sub={
-              trendVersionComparison.v1 && trendVersionComparison.v2
-                ? `${formatSignedPrice((trendVersionComparison.v2.pnl || 0) - (trendVersionComparison.v1.pnl || 0))} de diferencia`
-                : "Esperando suficiente histórico comparativo"
-            }
-            accentClass="accent-amber"
-          />
-        </div>
-
-        <SectionCard
-          title="Recomendación de promoción"
-          subtitle="Lectura automática para decidir si una variante debe seguir observándose, pasar a sandbox o estar lista para promoción controlada."
-        >
-          <div className="signal-analytics-list">
-            <div className="signal-analytics-item is-experiment">
-              <div className="signal-analytics-copy">
-                <strong>{trendPromotionRecommendation.title}</strong>
-                <span>{trendPromotionRecommendation.reason}</span>
-              </div>
-              <div className={`signal-analytics-pill status-${trendPromotionRecommendation.statusClass}`}>
-                {trendPromotionRecommendation.statusLabel}
-              </div>
+            <div className="stats-grid">
+              <StatCard label="Par más rentable" value={periodAnalytics.bestCoin?.label || "--"} sub={periodAnalytics.bestCoin ? `${formatSignedPrice(periodAnalytics.bestCoin.pnl)} · ${periodAnalytics.bestCoin.winRate.toFixed(0)}% de acierto` : "Esperando cierres suficientes"} toneClass={periodAnalytics.bestCoin && periodAnalytics.bestCoin.pnl > 0 ? "portfolio-positive" : ""} accentClass="accent-green" />
+              <StatCard label="Par más débil" value={periodAnalytics.worstCoin?.label || "--"} sub={periodAnalytics.worstCoin ? `${formatSignedPrice(periodAnalytics.worstCoin.pnl)} · ${periodAnalytics.worstCoin.winRate.toFixed(0)}% de acierto` : "Todavía no hay pérdidas cerradas"} toneClass={periodAnalytics.worstCoin && periodAnalytics.worstCoin.pnl < 0 ? "portfolio-negative" : ""} accentClass="accent-amber" />
+              <StatCard label="Tipo de entrada más rentable" value={periodAnalytics.bestSetupPnl?.label || "--"} sub={periodAnalytics.bestSetupPnl ? `${formatSignedPrice(periodAnalytics.bestSetupPnl.pnl)} en ${periodAnalytics.bestSetupPnl.total} señales` : "Sin historial suficiente"} toneClass={periodAnalytics.bestSetupPnl && periodAnalytics.bestSetupPnl.pnl > 0 ? "portfolio-positive" : ""} accentClass="accent-blue" />
+              <StatCard label="Marco con mejor resultado" value={periodAnalytics.bestTimeframePnl?.label || "--"} sub={periodAnalytics.bestTimeframePnl ? `${formatSignedPrice(periodAnalytics.bestTimeframePnl.pnl)} · ${periodAnalytics.bestTimeframePnl.winRate.toFixed(0)}% de acierto` : "Sin datos cerrados"} toneClass={periodAnalytics.bestTimeframePnl && periodAnalytics.bestTimeframePnl.pnl > 0 ? "portfolio-positive" : ""} accentClass="accent-emerald" />
             </div>
-          </div>
-          <div className="inline-actions with-top-gap">
-            {!recommendedExperiment ? (
-              <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleCreateRecommendedExperiment()}>
-                Crear experimento sugerido
-              </button>
-            ) : (
-              <>
-                <span className="section-note">
-                  Experimento actual: <span className="text-strong">{recommendedExperiment.status}</span> · {recommendedExperiment.market_scope || "all"} · {recommendedExperiment.timeframe_scope || "all"}
-                </span>
-                {recommendedExperiment.status !== "sandbox" ? (
-                  <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleSendRecommendedToSandbox()}>
-                    Enviar a sandbox
-                  </button>
-                ) : (
-                  <span className="signal-analytics-pill status-sandbox">Sandbox activo</span>
-                )}
-              </>
-            )}
-          </div>
-        </SectionCard>
 
-        <SectionCard
-          title="Laboratorio de estrategias"
-          subtitle="Prepara comparativas entre versiones para observar, simular y luego promover mejoras con evidencia."
-        >
-          <div className="memory-filter-bar">
-            <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
-              {registry.map((item) => (
-                <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{item.label}</option>
-              ))}
-            </select>
-            <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
-              {registry.map((item) => (
-                <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{item.label}</option>
-              ))}
-            </select>
-            <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
-              {availableCandidateVersions.map((item) => (
-                <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{item.label}</option>
-              ))}
-            </select>
-            <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
-              <option value="all">Todo el mercado</option>
-              <option value="watchlist">Solo watchlist</option>
-              <option value="trend">Tendencia</option>
-              <option value="range">Rango</option>
-            </select>
-            <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
-              <option value="all">Todos los marcos</option>
-              {timeframes.map((item) => (
-                <option key={`scope-${item}`} value={item}>{item}</option>
-              ))}
-            </select>
-          </div>
-          <div className="signal-note-block with-bottom-gap">
-            <input
-              className="signal-memory-input"
-              value={experimentSummary}
-              onChange={(event) => setExperimentSummary(event.target.value)}
-              placeholder="Qué quieres comparar o validar con este experimento"
-            />
-            <span className="signal-status-note">
-              La IA futura debería observar estos experimentos, no promover cambios sola de entrada.
-            </span>
-          </div>
-          <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
-            Crear experimento draft
-          </button>
-
-          <div className="signal-analytics-list with-top-gap">
-            {!experiments.length ? (
-              <p className="section-note">Todavía no hay experimentos guardados. Crea el primero para empezar a comparar variantes.</p>
-            ) : (
-              experiments.map((item) => (
-                <div key={`experiment-${item.id}`} className="signal-analytics-item is-experiment">
-                  <div className="signal-analytics-copy">
-                    <strong>{item.base_strategy_id} vs {item.candidate_strategy_id} {item.candidate_version}</strong>
-                    <span>
-                      {item.market_scope || "all"} · {item.timeframe_scope || "all"} · {item.summary || "Sin resumen todavía"}
-                      {item.metadata?.recommendationStatus ? ` · ${String(item.metadata.recommendationStatus)}` : ""}
-                    </span>
-                  </div>
-                  <div className={`signal-analytics-pill status-${item.status}`}>{item.status}</div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <p className="section-note with-top-gap">
-            Recomendación inicial del sistema: comparar `Trend Alignment v1` vs `Trend Alignment v2` dentro del watchlist y en marcos `1h` / `4h` antes de promover cambios automáticos.
-          </p>
-        </SectionCard>
-
-        <SectionCard
-          title="Paper testing en sandbox"
-          subtitle="Seguimiento temprano de los experimentos ya promovidos a sandbox para ver muestra, presencia y diferencia base vs candidata."
-        >
-          {!sandboxStats.length ? (
-            <p className="section-note">Todavía no hay experimentos en sandbox. Cuando uno pase de draft a sandbox, aparecerá aquí con su lectura comparativa.</p>
-          ) : (
             <div className="signal-analytics-grid">
-              {sandboxStats.map((item) => (
-                <PaperTestingCard key={`sandbox-${item.experiment.id}`} item={item} />
-              ))}
+              <AnalyticsListCard title="Top monedas" subtitle="Qué monedas están dejando mejor resultado neto." items={periodAnalytics.topCoins} />
+              <AnalyticsListCard title="Top tipos de entrada" subtitle="Qué clase de señal está funcionando mejor." items={periodAnalytics.topSetups} />
+              <AnalyticsListCard title="Top marcos" subtitle="Qué marco de tiempo está siendo más eficiente." items={periodAnalytics.topTimeframes} />
+              <AnalyticsListCard title="Top contextos" subtitle="Qué combinación de mercado está funcionando mejor." items={periodAnalytics.topContexts} truncateLabel />
             </div>
-          )}
-        </SectionCard>
+          </SectionCard>
+        </section>
+      ) : null}
+
+      {activeTab === "strategies" ? (
+        <section id="signals-strategies">
+          <SectionCard
+            title="Comparador de estrategias"
+            subtitle="Aquí ves qué estrategia domina, cuáles compiten y cómo se comparan sus versiones."
+          >
+            <div className="stats-grid">
+              <StatCard label="Estrategias activas" value={String(registry.filter((item) => item.is_active).length)} sub={`${registry.length} registradas en el motor`} accentClass="accent-blue" />
+              <StatCard label="Versiones registradas" value={String(versions.length)} sub="Variantes disponibles para comparar" accentClass="accent-emerald" />
+              <StatCard label="Pruebas activas" value={String(experiments.filter((item) => item.status !== "archived").length)} sub="Borradores y pruebas seguras" accentClass="accent-amber" />
+              <StatCard label="Estrategia dominante" value={strategyPrimaryCounts[0]?.label || "--"} sub={strategyPrimaryCounts[0] ? `${strategyPrimaryCounts[0].total} veces como estrategia principal` : "Esperando más señales"} accentClass="accent-blue" />
+            </div>
+
+            <div className="signal-analytics-grid">
+              <StrategyLabCard title="Estrategia principal" subtitle="Cuántas veces cada estrategia quedó como lectura principal." items={strategyPrimaryCounts} />
+              <StrategyLabCard title="Estrategia alternativa" subtitle="Cuántas veces apareció como alternativa dentro del motor." items={strategyCandidateCounts} />
+            </div>
+
+            <div className="stats-grid">
+              <StatCard label="Tendencia alineada v1" value={trendVersionComparison.v1 ? formatSignedPrice(trendVersionComparison.v1.pnl) : "--"} sub={trendVersionComparison.v1 ? `${trendVersionComparison.v1.winRate.toFixed(0)}% de acierto · ${trendVersionComparison.v1.total} señales` : "Sin suficientes cierres"} toneClass={trendVersionComparison.v1 && trendVersionComparison.v1.pnl > 0 ? "portfolio-positive" : trendVersionComparison.v1 && trendVersionComparison.v1.pnl < 0 ? "portfolio-negative" : ""} accentClass="accent-blue" />
+              <StatCard label="Tendencia alineada v2" value={trendVersionComparison.v2 ? formatSignedPrice(trendVersionComparison.v2.pnl) : "--"} sub={trendVersionComparison.v2 ? `${trendVersionComparison.v2.winRate.toFixed(0)}% de acierto · ${trendVersionComparison.v2.total} señales` : "Sin suficientes cierres"} toneClass={trendVersionComparison.v2 && trendVersionComparison.v2.pnl > 0 ? "portfolio-positive" : trendVersionComparison.v2 && trendVersionComparison.v2.pnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
+              <StatCard label="Ventaja actual" value={trendVersionComparison.v1 && trendVersionComparison.v2 ? (trendVersionComparison.v2.pnl === trendVersionComparison.v1.pnl ? "Empate" : trendVersionComparison.v2.pnl > trendVersionComparison.v1.pnl ? "v2 arriba" : "v1 arriba") : "--"} sub={trendVersionComparison.v1 && trendVersionComparison.v2 ? `${formatSignedPrice((trendVersionComparison.v2.pnl || 0) - (trendVersionComparison.v1.pnl || 0))} de diferencia` : "Esperando suficiente histórico"} accentClass="accent-amber" />
+            </div>
+          </SectionCard>
+        </section>
+      ) : null}
+
+      {activeTab === "experiments" ? (
+        <section id="signals-experiments">
+          <SectionCard
+            title="Recomendación del sistema"
+            subtitle="Aquí el sistema te indica si una variante debe seguir observándose, pasar a prueba segura o mantenerse como referencia."
+          >
+            <div className="signal-analytics-list">
+              <div className="signal-analytics-item is-experiment">
+                <div className="signal-analytics-copy">
+                  <strong>{trendPromotionRecommendation.title}</strong>
+                  <span>{trendPromotionRecommendation.reason}</span>
+                </div>
+                <div className={`signal-analytics-pill status-${trendPromotionRecommendation.statusClass}`}>
+                  {trendPromotionRecommendation.statusLabel}
+                </div>
+              </div>
+            </div>
+            <div className="inline-actions with-top-gap">
+              {!recommendedExperiment ? (
+                <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleCreateRecommendedExperiment()}>
+                  Crear prueba sugerida
+                </button>
+              ) : (
+                <>
+                  <span className="section-note">
+                    Prueba actual: <span className="text-strong">{getExperimentStatusLabel(recommendedExperiment.status)}</span> · {recommendedExperiment.market_scope || "all"} · {recommendedExperiment.timeframe_scope || "all"}
+                  </span>
+                  {recommendedExperiment.status !== "sandbox" ? (
+                    <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleSendRecommendedToSandbox()}>
+                      Enviar a prueba segura
+                    </button>
+                  ) : (
+                    <span className="signal-analytics-pill status-sandbox">Prueba segura activa</span>
+                  )}
+                </>
+              )}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Laboratorio de pruebas"
+            subtitle="Crea comparativas entre estrategias o versiones para ver cuál funciona mejor antes de fortalecerla."
+          >
+            <div className="memory-filter-bar">
+              <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
+                {registry.map((item) => (
+                  <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
+                ))}
+              </select>
+              <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
+                {registry.map((item) => (
+                  <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
+                ))}
+              </select>
+              <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
+                {availableCandidateVersions.map((item) => (
+                  <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label)}</option>
+                ))}
+              </select>
+              <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
+                <option value="all">Todo el mercado</option>
+                <option value="watchlist">Solo watchlist</option>
+                <option value="trend">Mercado en tendencia</option>
+                <option value="range">Mercado en rango</option>
+              </select>
+              <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
+                <option value="all">Todos los marcos</option>
+                {timeframes.map((item) => (
+                  <option key={`scope-${item}`} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <div className="signal-note-block with-bottom-gap">
+              <input
+                className="signal-memory-input"
+                value={experimentSummary}
+                onChange={(event) => setExperimentSummary(event.target.value)}
+                placeholder="Qué quieres comparar o validar con esta prueba"
+              />
+              <span className="signal-status-note">
+                La IA futura debería observar estas pruebas primero, no cambiar el sistema sola desde el inicio.
+              </span>
+            </div>
+            <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
+              Crear prueba borrador
+            </button>
+
+            <div className="signal-analytics-list with-top-gap">
+              {!experiments.length ? (
+                <p className="section-note">Todavía no hay pruebas guardadas. Crea la primera para empezar a comparar variantes.</p>
+              ) : (
+                experiments.map((item) => (
+                  <div key={`experiment-${item.id}`} className="signal-analytics-item is-experiment">
+                    <div className="signal-analytics-copy">
+                      <strong>{getExperimentTitle(item)}</strong>
+                      <span>
+                        {item.market_scope || "all"} · {item.timeframe_scope || "all"} · {item.summary || "Sin resumen todavía"}
+                        {item.metadata?.recommendationStatus ? ` · ${String(item.metadata.recommendationStatus)}` : ""}
+                      </span>
+                    </div>
+                    <div className={`signal-analytics-pill status-${item.status}`}>{getExperimentStatusLabel(item.status)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <p className="section-note with-top-gap">
+              Recomendación base del sistema: comparar `Tendencia alineada v1` vs `Tendencia alineada v2` en el watchlist y en marcos `1h` / `4h` antes de fortalecer cambios.
+            </p>
+          </SectionCard>
+
+          <SectionCard
+            title="Seguimiento de prueba segura"
+            subtitle="Aquí ves cómo le va a cada variante que ya está en observación controlada."
+          >
+            {!sandboxStats.length ? (
+              <p className="section-note">Todavía no hay pruebas seguras activas. Cuando una pase de borrador a prueba segura, aparecerá aquí con su lectura comparativa.</p>
+            ) : (
+              <div className="signal-analytics-grid">
+                {sandboxStats.map((item) => (
+                  <PaperTestingCard key={`sandbox-${item.experiment.id}`} item={item} />
+                ))}
+              </div>
+            )}
           </SectionCard>
         </section>
       ) : null}
@@ -681,159 +629,101 @@ export function MemoryView(props: MemoryViewProps) {
         <section id="signals-history">
           <SectionCard
             title="Historial de señales"
-            subtitle="Se trabaja solo con monedas de tu watchlist. Las señales fuertes se registran solas y el sistema intenta cerrar pendientes automáticamente cuando el precio toca TP o SL."
+            subtitle="Aquí revisas cada señal guardada, su plan, su estado y el resultado final. Solo trabaja con monedas de tu watchlist."
           >
-        <p className="section-note with-bottom-gap">
-          Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
-        </p>
-        <p className="section-note with-bottom-gap">
-          `Pendiente` significa que la señal sigue abierta: todavía no ha tocado `TP` ni `SL`, o aún no la has cerrado manualmente.
-        </p>
-        <div className="memory-filter-bar">
-          <select className="timeframe-select signal-select" value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value as "all" | "1d" | "7d" | "30d")}>
-            <option value="all">Todo el historial</option>
-            <option value="1d">Últimas 24h</option>
-            <option value="7d">Últimos 7 días</option>
-            <option value="30d">Últimos 30 días</option>
-          </select>
-          <input
-            className="signal-memory-input"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por par, señal, setup o nota"
-          />
-          <select className="timeframe-select signal-select" value={coinFilter} onChange={(event) => setCoinFilter(event.target.value)}>
-            <option value="all">Todas las monedas</option>
-            {coins.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-          <select className="timeframe-select signal-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SignalOutcomeStatus | "all")}>
-            <option value="all">Todos los estados</option>
-            <option value="pending">Pendiente</option>
-            <option value="win">Ganada</option>
-            <option value="loss">Perdida</option>
-            <option value="invalidated">Invalidada</option>
-          </select>
-          <select className="timeframe-select signal-select" value={timeframeFilter} onChange={(event) => setTimeframeFilter(event.target.value)}>
-            <option value="all">Todos los marcos</option>
-            {timeframes.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-          <select className="timeframe-select signal-select" value={setupFilter} onChange={(event) => setSetupFilter(event.target.value)}>
-            <option value="all">Todos los setups</option>
-            {setups.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-          <select className="timeframe-select signal-select" value={strategyFilter} onChange={(event) => setStrategyFilter(event.target.value)}>
-            <option value="all">Todas las estrategias</option>
-            {strategies.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-        </div>
-        <p className="section-note with-bottom-gap">
-          Mostrando {filteredSignals.length} de {periodSignals.length} señales en {periodLabel}.
-        </p>
-        <div className="table-scroll">
-          <table className="portfolio-table">
-            <thead>
-              <tr>
-                <th>Señal</th>
-                <th>Setup</th>
-                <th>Plan</th>
-                <th>Estado</th>
-                <th>PnL</th>
-                <th>Nota</th>
-                <th>Guardar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!props.signals.length ? (
-                <tr>
-                  <td colSpan={7}>
-                    <EmptyState message="Todavía no hay señales guardadas. Puedes empezar desde Inicio con el botón Guardar señal." />
-                  </td>
-                </tr>
-              ) : !filteredSignals.length ? (
-                <tr>
-                  <td colSpan={7}>
-                    <EmptyState message="No hay señales que coincidan con los filtros actuales." />
-                  </td>
-                </tr>
-              ) : (
-                filteredSignals.map((signal) => (
-                  <SignalRow key={signal.id} signal={signal} onSave={props.onUpdateSignal} />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+            <p className="section-note with-bottom-gap">
+              Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
+            </p>
+            <p className="section-note with-bottom-gap">
+              `Pendiente` significa que la señal sigue abierta: todavía no ha tocado el objetivo ni la invalidación, o aún no la has cerrado manualmente.
+            </p>
+            <div className="memory-filter-bar">
+              <select className="timeframe-select signal-select" value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value as "all" | "1d" | "7d" | "30d")}>
+                <option value="all">Todo el historial</option>
+                <option value="1d">Últimas 24h</option>
+                <option value="7d">Últimos 7 días</option>
+                <option value="30d">Últimos 30 días</option>
+              </select>
+              <input
+                className="signal-memory-input"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por moneda, señal, tipo de entrada, estrategia o nota"
+              />
+              <select className="timeframe-select signal-select" value={coinFilter} onChange={(event) => setCoinFilter(event.target.value)}>
+                <option value="all">Todas las monedas</option>
+                {coins.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              <select className="timeframe-select signal-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as SignalOutcomeStatus | "all")}>
+                <option value="all">Todos los estados</option>
+                <option value="pending">Pendiente</option>
+                <option value="win">Ganada</option>
+                <option value="loss">Perdida</option>
+                <option value="invalidated">Invalidada</option>
+              </select>
+              <select className="timeframe-select signal-select" value={timeframeFilter} onChange={(event) => setTimeframeFilter(event.target.value)}>
+                <option value="all">Todos los marcos</option>
+                {timeframes.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+              <select className="timeframe-select signal-select" value={setupFilter} onChange={(event) => setSetupFilter(event.target.value)}>
+                <option value="all">Todos los tipos de entrada</option>
+                {setups.map((item) => (
+                  <option key={item} value={item}>{getSetupLabel(item)}</option>
+                ))}
+              </select>
+              <select className="timeframe-select signal-select" value={strategyFilter} onChange={(event) => setStrategyFilter(event.target.value)}>
+                <option value="all">Todas las estrategias</option>
+                {strategies.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+            <p className="section-note with-bottom-gap">
+              Mostrando {filteredSignals.length} de {periodSignals.length} señales en {periodLabel}.
+            </p>
+            <div className="table-scroll">
+              <table className="portfolio-table">
+                <thead>
+                  <tr>
+                    <th>Señal</th>
+                    <th>Tipo de entrada</th>
+                    <th>Plan</th>
+                    <th>Estado</th>
+                    <th>PnL</th>
+                    <th>Nota</th>
+                    <th>Guardar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!props.signals.length ? (
+                    <tr>
+                      <td colSpan={7}>
+                        <EmptyState message="Todavía no hay señales guardadas. Puedes empezar desde Inicio con el botón Guardar señal." />
+                      </td>
+                    </tr>
+                  ) : !filteredSignals.length ? (
+                    <tr>
+                      <td colSpan={7}>
+                        <EmptyState message="No hay señales que coincidan con los filtros actuales." />
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSignals.map((signal) => (
+                      <SignalRow key={signal.id} signal={signal} onSave={props.onUpdateSignal} />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </SectionCard>
         </section>
       ) : null}
-
-      {activeTab === "overview" ? (
-        <div className="stats-grid">
-          <StatCard
-            label="Total ganado"
-            value={periodGrossWins ? formatSignedPrice(periodGrossWins) : "--"}
-            sub={periodGrossWins ? `Suma de cierres ganadores en ${periodLabel}` : `Sin ganancias cerradas en ${periodLabel}`}
-            toneClass="portfolio-positive"
-            accentClass="accent-green"
-          />
-          <StatCard
-            label="Total perdido"
-            value={periodGrossLosses ? `-${formatPrice(periodGrossLosses)}` : "--"}
-            sub={periodGrossLosses ? `Suma de cierres perdedores en ${periodLabel}` : `Sin pérdidas cerradas en ${periodLabel}`}
-            toneClass="portfolio-negative"
-            accentClass="accent-amber"
-          />
-          <StatCard
-            label="Ganancia promedio"
-            value={periodGrossWins ? formatSignedPrice(periodAvgWin) : "--"}
-            sub={periodGrossWins ? `Ganancia media por operación ganada en ${periodLabel}` : "Todavía no hay ganancias cerradas"}
-            toneClass="portfolio-positive"
-            accentClass="accent-green"
-          />
-          <StatCard
-            label="Pérdida promedio"
-            value={periodGrossLosses ? `-${formatPrice(periodAvgLoss)}` : "--"}
-            sub={periodGrossLosses ? `Pérdida media por operación perdida en ${periodLabel}` : "Todavía no hay pérdidas cerradas"}
-            toneClass="portfolio-negative"
-            accentClass="accent-amber"
-          />
-          <StatCard
-            label="Expectativa por señal"
-            value={periodCompletedSignals.length ? formatSignedPrice((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) : "--"}
-            sub={periodCompletedSignals.length ? `Lo que deja el sistema por señal cerrada en ${periodLabel}` : "Esperando más cierres"}
-            toneClass={periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) > 0 ? "portfolio-positive" : periodCompletedSignals.length && ((periodGrossWins - periodGrossLosses) / periodCompletedSignals.length) < 0 ? "portfolio-negative" : ""}
-            accentClass="accent-blue"
-          />
-          <StatCard
-            label="Profit factor"
-            value={periodCompletedSignals.length ? (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses).toFixed(2) : periodGrossWins > 0 ? periodGrossWins.toFixed(2) : "--") : "--"}
-            sub={periodGrossLosses > 0 ? `${formatSignedPrice(periodGrossWins)} frente a -${formatPrice(periodGrossLosses)}` : "Sin pérdidas cerradas para compararlo"}
-            toneClass={periodCompletedSignals.length && (periodGrossLosses > 0 ? (periodGrossWins / periodGrossLosses) : periodGrossWins) > 1 ? "portfolio-positive" : periodCompletedSignals.length ? "portfolio-negative" : ""}
-            accentClass="accent-emerald"
-          />
-        </div>
-      ) : null}
     </div>
   );
-}
-
-interface AggregateRow {
-  label: string;
-  total: number;
-  wins: number;
-  losses: number;
-  invalidated: number;
-  pnl: number;
-  avgPnl: number;
-  winRate: number;
 }
 
 function summarizeByKey(signals: SignalSnapshot[], getKey: (signal: SignalSnapshot) => string): AggregateRow[] {
@@ -865,6 +755,17 @@ function summarizeByKey(signals: SignalSnapshot[], getKey: (signal: SignalSnapsh
     .sort((a, b) => b.pnl - a.pnl || b.winRate - a.winRate || b.total - a.total);
 }
 
+function InfoCard({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="signal-analytics-card">
+      <div className="signal-analytics-head">
+        <h4>{title}</h4>
+        <p>{text}</p>
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsListCard({
   title,
   subtitle,
@@ -882,7 +783,6 @@ function AnalyticsListCard({
         <h4>{title}</h4>
         <p>{subtitle}</p>
       </div>
-
       {!items.length ? (
         <p className="section-note">Todavía no hay suficientes señales cerradas para esta lectura.</p>
       ) : (
@@ -920,7 +820,6 @@ function StrategyLabCard({
         <h4>{title}</h4>
         <p>{subtitle}</p>
       </div>
-
       {!items.length ? (
         <p className="section-note">Todavía no hay suficiente histórico para comparar estrategias.</p>
       ) : (
@@ -940,21 +839,6 @@ function StrategyLabCard({
   );
 }
 
-interface ExperimentPaperStats {
-  experiment: StrategyExperimentRecord;
-  baseLabel: string;
-  candidateLabel: string;
-  sampleSize: number;
-  basePrimaryCount: number;
-  candidatePrimaryCount: number;
-  basePrimaryPnl: number;
-  candidatePrimaryPnl: number;
-  baseWinRate: number;
-  candidateWinRate: number;
-  candidateAppearances: number;
-  recommendation: string;
-}
-
 function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
   const delta = item.candidatePrimaryPnl - item.basePrimaryPnl;
   const deltaClass = delta > 0 ? "portfolio-positive" : delta < 0 ? "portfolio-negative" : "";
@@ -963,7 +847,7 @@ function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
     <div className="signal-analytics-card">
       <div className="signal-analytics-head">
         <h4>{item.baseLabel} vs {item.candidateLabel}</h4>
-        <p>{item.experiment.market_scope || "all"} · {item.experiment.timeframe_scope || "all"} · muestra {item.sampleSize}</p>
+        <p>{formatMarketScope(item.experiment.market_scope)} · {formatTimeframeScope(item.experiment.timeframe_scope)} · muestra {item.sampleSize}</p>
       </div>
 
       <div className="signal-analytics-list">
@@ -988,19 +872,8 @@ function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
       </div>
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
-        <StatCard
-          label="Ventaja candidata"
-          value={formatSignedPrice(delta)}
-          sub="PnL candidata menos PnL base"
-          toneClass={deltaClass}
-          accentClass="accent-blue"
-        />
-        <StatCard
-          label="Lectura actual"
-          value={item.recommendation}
-          sub="Sandbox compara evidencia antes de promover"
-          accentClass="accent-amber"
-        />
+        <StatCard label="Ventaja candidata" value={formatSignedPrice(delta)} sub="Resultado candidata menos base" toneClass={deltaClass} accentClass="accent-blue" />
+        <StatCard label="Lectura actual" value={item.recommendation} sub="La prueba segura compara antes de promover" accentClass="accent-amber" />
       </div>
     </div>
   );
@@ -1038,16 +911,14 @@ function SignalRow({
       </td>
       <td>
         <div className="portfolio-metric">
-          <strong>{signal.setup_type || "Sin setup"}</strong>
+          <strong>{getSetupLabel(signal.setup_type || "Sin setup")}</strong>
           <span>{signal.setup_quality || "Media"} · Riesgo {signal.risk_label || "controlado"}</span>
         </div>
       </td>
       <td>
         <div className="portfolio-metric">
           <strong>{signal.entry_price ? formatPrice(signal.entry_price) : "--"}</strong>
-          <span>
-            TP1 {signal.tp_price ? formatPrice(signal.tp_price) : "--"} · SL {signal.sl_price ? formatPrice(signal.sl_price) : "--"}
-          </span>
+          <span>TP1 {signal.tp_price ? formatPrice(signal.tp_price) : "--"} · SL {signal.sl_price ? formatPrice(signal.sl_price) : "--"}</span>
         </div>
       </td>
       <td>
@@ -1063,12 +934,7 @@ function SignalRow({
       </td>
       <td>
         <div className="signal-pnl-block">
-          <input
-            className="signal-memory-input"
-            value={outcomePnl}
-            onChange={(e) => setOutcomePnl(e.target.value)}
-            placeholder="0.00"
-          />
+          <input className="signal-memory-input" value={outcomePnl} onChange={(e) => setOutcomePnl(e.target.value)} placeholder="0.00" />
           <span className={`signal-status-note ${Number(outcomePnl || 0) > 0 ? "is-positive" : Number(outcomePnl || 0) < 0 ? "is-negative" : ""}`}>
             {Number(outcomePnl || 0) !== 0 ? formatSignedPrice(Number(outcomePnl || 0)) : "Sin PnL registrado"}
           </span>
@@ -1076,12 +942,7 @@ function SignalRow({
       </td>
       <td>
         <div className="signal-note-block">
-          <input
-            className="signal-memory-input"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Qué pasó con esta señal"
-          />
+          <input className="signal-memory-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Qué pasó con esta señal" />
           <span className="signal-status-note">
             {note.includes("Auto-cerrada")
               ? "Cierre automático detectado"
@@ -1101,45 +962,48 @@ function SignalRow({
 }
 
 function getStrategyDisplay(signal: SignalSnapshot) {
-  if (signal.strategy_label && signal.strategy_version) {
-    return `${signal.strategy_label} ${signal.strategy_version}`;
-  }
-  if (signal.strategy_name && signal.strategy_version) {
-    return `${signal.strategy_name} ${signal.strategy_version}`;
-  }
-  if (signal.strategy_label) return signal.strategy_label;
-  if (signal.strategy_name) return signal.strategy_name;
   const payloadStrategy = signal.signal_payload?.strategy;
-  if (payloadStrategy?.label && payloadStrategy?.version) {
-    return `${payloadStrategy.label} ${payloadStrategy.version}`;
-  }
-  if (payloadStrategy?.label) return payloadStrategy.label;
-  return "Legacy";
+  return getStrategyCandidateLabel(
+    payloadStrategy?.id || signal.strategy_name,
+    payloadStrategy?.version || signal.strategy_version,
+    payloadStrategy?.label || signal.strategy_label,
+  );
+}
+
+function getStrategyCandidateLabel(strategyId?: string, version?: string, label?: string) {
+  const friendlyBase = getFriendlyStrategyName(strategyId, label);
+  if (friendlyBase && version) return `${friendlyBase} ${version}`;
+  if (friendlyBase) return friendlyBase;
+  return "Sin estrategia";
+}
+
+function getFriendlyStrategyName(strategyId?: string, label?: string) {
+  if (strategyId === "trend-alignment") return "Tendencia alineada";
+  if (strategyId === "breakout") return "Ruptura";
+  if (label === "Trend Alignment") return "Tendencia alineada";
+  if (label === "Breakout") return "Ruptura";
+  return label || strategyId || "Sin estrategia";
+}
+
+function getFriendlyStrategyVersionLabel(strategyId: string, version: string, label?: string) {
+  return `${getFriendlyStrategyName(strategyId, label)} ${version}`;
 }
 
 function getCandidateSummary(signal: SignalSnapshot) {
   const candidates = signal.signal_payload?.candidates || [];
-  return candidates
-    .slice(0, 3)
-    .map((candidate) => ({
-      label:
-        candidate.strategy?.label && candidate.strategy?.version
-          ? `${candidate.strategy.label} ${candidate.strategy.version}`
-          : candidate.strategy?.label || candidate.strategy?.id || "Sin estrategia",
-      signalLabel: candidate.signalLabel || "--",
-      score: Number(candidate.score || 0),
-      isPrimary: Boolean(candidate.isPrimary),
-    }));
+  return candidates.slice(0, 3).map((candidate) => ({
+    label: getStrategyCandidateLabel(candidate.strategy?.id, candidate.strategy?.version, candidate.strategy?.label),
+    signalLabel: candidate.signalLabel || "--",
+    score: Number(candidate.score || 0),
+    isPrimary: Boolean(candidate.isPrimary),
+  }));
 }
 
-function evaluatePromotion(
-  baseline?: AggregateRow,
-  candidate?: AggregateRow,
-) {
+function evaluatePromotion(baseline?: AggregateRow, candidate?: AggregateRow) {
   if (!baseline || !candidate) {
     return {
       title: "Todavía no hay base suficiente",
-      reason: "Hace falta más histórico cerrado para comparar versiones de forma seria.",
+      reason: "Hace falta más historial cerrado para comparar versiones con confianza.",
       statusLabel: "Observando",
       statusClass: "paused",
     };
@@ -1152,7 +1016,7 @@ function evaluatePromotion(
   if (!sampleReady) {
     return {
       title: "Seguir observando",
-      reason: "Aún no hay suficiente muestra cerrada en ambas versiones para tomar una decisión confiable.",
+      reason: "Todavía no hay suficiente muestra cerrada en ambas versiones para tomar una decisión seria.",
       statusLabel: "Observando",
       statusClass: "paused",
     };
@@ -1160,9 +1024,9 @@ function evaluatePromotion(
 
   if (candidate.pnl > baseline.pnl && candidate.winRate >= baseline.winRate && pnlDelta > 0) {
     return {
-      title: "Lista para sandbox",
-      reason: `La variante candidata supera a la base por ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto. Conviene probarla en sandbox antes de promoverla.`,
-      statusLabel: "Sandbox",
+      title: "Lista para prueba segura",
+      reason: `La variante candidata supera a la base por ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto.`,
+      statusLabel: "Prueba segura",
       statusClass: "sandbox",
     };
   }
@@ -1170,15 +1034,15 @@ function evaluatePromotion(
   if (candidate.pnl > baseline.pnl && candidate.total >= 10 && baseline.total >= 10) {
     return {
       title: "Promoción controlada posible",
-      reason: `La candidata ya muestra una ventaja de ${formatSignedPrice(pnlDelta)} con muestra suficiente. Todavía conviene validarla por contexto antes de promoverla globalmente.`,
+      reason: `La candidata ya muestra una ventaja de ${formatSignedPrice(pnlDelta)} con muestra suficiente, pero todavía conviene validarla por contexto.`,
       statusLabel: "Activa",
       statusClass: "active",
     };
   }
 
   return {
-    title: "Mantener variante base",
-    reason: `La versión candidata todavía no mejora de forma consistente a la base. Diferencia actual: ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto.`,
+    title: "Mantener versión base",
+    reason: `La candidata todavía no mejora de forma consistente a la base. Diferencia actual: ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto.`,
     statusLabel: "Base",
     statusClass: "draft",
   };
@@ -1190,13 +1054,7 @@ function describeSignalStatus(signal: SignalSnapshot, selectedStatus: SignalOutc
   }
 
   const closedAt = signal.updated_at || signal.created_at;
-  const closeLabel =
-    selectedStatus === "win"
-      ? "Cerrada en ganancia"
-      : selectedStatus === "loss"
-        ? "Cerrada en pérdida"
-        : "Invalidada";
-
+  const closeLabel = selectedStatus === "win" ? "Cerrada en ganancia" : selectedStatus === "loss" ? "Cerrada en pérdida" : "Invalidada";
   return `${closeLabel} el ${new Date(closedAt).toLocaleString("es-DO")}`;
 }
 
@@ -1241,8 +1099,8 @@ function buildExperimentPaperStats(
 
   return {
     experiment,
-    baseLabel: baseVersion ? `${experiment.base_strategy_id} ${baseVersion}` : experiment.base_strategy_id,
-    candidateLabel: `${experiment.candidate_strategy_id} ${experiment.candidate_version}`,
+    baseLabel: baseVersion ? getStrategyCandidateLabel(experiment.base_strategy_id, baseVersion) : getFriendlyStrategyName(experiment.base_strategy_id),
+    candidateLabel: getStrategyCandidateLabel(experiment.candidate_strategy_id, experiment.candidate_version),
     sampleSize: relevantSignals.length,
     basePrimaryCount: basePrimarySignals.length,
     candidatePrimaryCount: candidatePrimarySignals.length,
@@ -1259,12 +1117,49 @@ function matchesStrategy(signal: SignalSnapshot, strategyId: string, version?: s
   const primaryId = signal.signal_payload?.strategy?.id || signal.strategy_name;
   const primaryVersion = signal.signal_payload?.strategy?.version || signal.strategy_version;
 
-  if (primaryId === strategyId && (!version || primaryVersion === version)) {
-    return true;
-  }
-
+  if (primaryId === strategyId && (!version || primaryVersion === version)) return true;
   if (primaryOnly) return false;
 
   return (signal.signal_payload?.candidates || []).some((candidate) =>
     candidate.strategy?.id === strategyId && (!version || candidate.strategy?.version === version));
+}
+
+function getExperimentStatusLabel(status: string) {
+  if (status === "draft") return "Borrador";
+  if (status === "sandbox") return "Prueba segura";
+  if (status === "active" || status === "running") return "Activa";
+  if (status === "paused") return "Observando";
+  if (status === "archived") return "Archivada";
+  return status;
+}
+
+function getExperimentTitle(item: StrategyExperimentRecord) {
+  const baseVersion = typeof item.metadata?.baseVersion === "string" ? String(item.metadata.baseVersion) : item.base_strategy_id === item.candidate_strategy_id ? "v1" : undefined;
+  const baseLabel = baseVersion ? getStrategyCandidateLabel(item.base_strategy_id, baseVersion) : getFriendlyStrategyName(item.base_strategy_id);
+  const candidateLabel = getStrategyCandidateLabel(item.candidate_strategy_id, item.candidate_version);
+  return `${baseLabel} vs ${candidateLabel}`;
+}
+
+function getSetupLabel(setup: string) {
+  if (!setup) return "Sin clasificar";
+  const normalized = setup.toLowerCase();
+  if (normalized.includes("breakout")) return "Ruptura";
+  if (normalized.includes("pullback")) return "Retroceso";
+  if (normalized.includes("contra")) return "Contra tendencia";
+  if (normalized.includes("continu")) return "Continuación";
+  if (normalized.includes("espera")) return "Espera";
+  return setup;
+}
+
+function formatMarketScope(scope?: string) {
+  if (!scope || scope === "all") return "Todo el mercado";
+  if (scope === "watchlist") return "Solo watchlist";
+  if (scope === "trend") return "Mercado en tendencia";
+  if (scope === "range") return "Mercado en rango";
+  return scope;
+}
+
+function formatTimeframeScope(scope?: string) {
+  if (!scope || scope === "all") return "Todos los marcos";
+  return scope;
 }

@@ -3,6 +3,9 @@ create table if not exists public.signal_snapshots (
   username text not null,
   coin text not null,
   timeframe text not null,
+  strategy_name text,
+  strategy_version text,
+  strategy_label text,
   signal_label text not null,
   signal_score numeric(10,2) not null default 0,
   trend text,
@@ -25,6 +28,10 @@ create table if not exists public.signal_snapshots (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.signal_snapshots add column if not exists strategy_name text;
+alter table public.signal_snapshots add column if not exists strategy_version text;
+alter table public.signal_snapshots add column if not exists strategy_label text;
 
 create index if not exists signal_snapshots_username_created_at_idx
   on public.signal_snapshots (username, created_at desc);

@@ -7,6 +7,10 @@
   margin-top: 8px;
 }
 
+.inline-actions.with-top-gap {
+  margin-top: 12px;
+}
+
 .section-note.with-bottom-gap {
   margin-bottom: 16px;
 }
@@ -128,15 +132,27 @@
   margin-bottom: 0;
 }
 
+.compact-stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
 
 .memory-filter-bar {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   margin-bottom: 10px;
+}
+
+#balanceView .module-tabs,
+#memoryView .module-tabs {
+  position: sticky;
+  top: 76px;
+  z-index: 20;
 }
 
 .signal-select {
@@ -181,10 +197,14 @@
   gap: 16px;
 }
 
+#memoryView .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
 .signal-analytics-card {
   border: 1px solid rgba(59, 130, 246, 0.16);
   border-radius: 14px;
-  padding: 16px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -212,6 +232,10 @@
   align-items: center;
   padding: 10px 0;
   border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.signal-analytics-item.is-experiment {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .signal-analytics-item:first-child {
@@ -260,6 +284,117 @@
 
 .signal-analytics-pnl.is-negative {
   color: #ef4444;
+}
+
+.signal-analytics-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.signal-analytics-pill.status-draft {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.signal-analytics-pill.status-active,
+.signal-analytics-pill.status-running,
+.signal-analytics-pill.status-sandbox {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.signal-analytics-pill.status-paused,
+.signal-analytics-pill.status-archived {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.signal-inline-button {
+  width: auto;
+  margin-top: 0;
+  padding: 10px 14px;
+}
+
+#signals-history .portfolio-table th,
+#signals-history .portfolio-table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  vertical-align: top;
+}
+
+#signals-history .portfolio-asset strong,
+#signals-history .portfolio-metric strong {
+  font-size: 14px;
+}
+
+#signals-history .portfolio-asset span,
+#signals-history .portfolio-metric span {
+  font-size: 11px;
+}
+
+.strategy-candidate-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.strategy-candidate-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  color: #1e3a8a;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.strategy-candidate-pill.is-primary {
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.18);
+  color: #166534;
+}
+
+#signals-strategies .stats-grid,
+#signals-experiments .stats-grid,
+#balanceView .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+#signals-strategies .signal-analytics-grid,
+#signals-experiments .signal-analytics-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+#balanceView .history-panel,
+#signals-experiments .signal-analytics-card,
+#signals-strategies .signal-analytics-card {
+  padding: 13px;
+}
+
+.signal-analytics-card .stats-grid {
+  margin-bottom: 0;
+}
+
+.signal-analytics-grid + .stats-grid {
+  margin-top: 16px;
+}
+
+#signals-history .portfolio-asset {
+  gap: 5px;
 }
 
 .truncate-text {
@@ -326,6 +461,41 @@ body.dark-theme .signal-analytics-pnl.is-negative {
   color: #f87171;
 }
 
+body.dark-theme .signal-analytics-pill {
+  background: #172554;
+  color: #bfdbfe;
+}
+
+body.dark-theme .signal-analytics-pill.status-draft {
+  background: rgba(180, 83, 9, 0.18);
+  color: #fbbf24;
+}
+
+body.dark-theme .signal-analytics-pill.status-active,
+body.dark-theme .signal-analytics-pill.status-running,
+body.dark-theme .signal-analytics-pill.status-sandbox {
+  background: rgba(22, 163, 74, 0.18);
+  color: #4ade80;
+}
+
+body.dark-theme .signal-analytics-pill.status-paused,
+body.dark-theme .signal-analytics-pill.status-archived {
+  background: rgba(71, 85, 105, 0.35);
+  color: #cbd5e1;
+}
+
+body.dark-theme .strategy-candidate-pill {
+  background: rgba(37, 99, 235, 0.14);
+  border-color: rgba(96, 165, 250, 0.18);
+  color: #bfdbfe;
+}
+
+body.dark-theme .strategy-candidate-pill.is-primary {
+  background: rgba(22, 163, 74, 0.16);
+  border-color: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+}
+
 body.dark-theme .market-pill {
   background: #172554;
   color: #bfdbfe;
@@ -339,14 +509,72 @@ body.dark-theme .market-score-track {
   .memory-filter-bar {
     grid-template-columns: 1fr 1fr;
   }
+
+  #balanceView .module-tabs,
+  #memoryView .module-tabs {
+    top: 72px;
+  }
+
+  #signals-strategies .signal-analytics-grid,
+  #signals-experiments .signal-analytics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
+  #balanceView .module-tabs,
+  #memoryView .module-tabs {
+    position: static;
+    margin-inline: 0;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  #balanceView .module-tab,
+  #memoryView .module-tab {
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+
   .memory-filter-bar {
     grid-template-columns: 1fr;
   }
 
   .signal-analytics-grid {
     grid-template-columns: 1fr;
+  }
+
+  #balanceView .stats-grid,
+  #memoryView .stats-grid,
+  .compact-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-analytics-card {
+    padding: 12px;
+  }
+
+  .signal-analytics-item {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .signal-analytics-item.is-experiment {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-analytics-pnl {
+    text-align: left;
+  }
+
+  .signal-inline-button {
+    width: 100%;
+  }
+
+  #signals-history .portfolio-table {
+    min-width: 960px;
+  }
+
+  #balance-history .portfolio-table {
+    min-width: 960px;
   }
 }

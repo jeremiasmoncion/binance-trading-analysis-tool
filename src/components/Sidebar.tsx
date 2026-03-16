@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { UserSession, ViewName } from "../types";
+import { PanelLeftIcon } from "./Icons";
 
 const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: ReactNode }> = [
   {
@@ -79,20 +80,33 @@ const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: ReactNode }> = [
 interface SidebarProps {
   user: UserSession;
   currentView: ViewName;
+  collapsed: boolean;
   onViewChange: (view: ViewName) => void;
+  onToggleCollapse: () => void;
   onLogout: () => void;
 }
 
-export function Sidebar({ user, currentView, onViewChange, onLogout }: SidebarProps) {
+export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCollapse, onLogout }: SidebarProps) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-header">
+        <div className="sidebar-header-row">
         <div className="sidebar-logo">
           <div className="logo-icon">C</div>
           <div className="logo-text">
             <h1>CRYPE</h1>
             <p>Trading simple con identidad propia</p>
           </div>
+        </div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={onToggleCollapse}
+            aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+            title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+          >
+            <PanelLeftIcon className={collapsed ? "is-collapsed" : ""} />
+          </button>
         </div>
       </div>
 
@@ -103,6 +117,7 @@ export function Sidebar({ user, currentView, onViewChange, onLogout }: SidebarPr
             className={`nav-item ${currentView === item.view ? "active" : ""}`}
             data-view={item.view}
             onClick={() => onViewChange(item.view)}
+            title={collapsed ? item.label : undefined}
           >
             {item.icon}
             <span>{item.label}</span>

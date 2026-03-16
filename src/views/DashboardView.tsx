@@ -1,5 +1,5 @@
 import { formatPct, formatPrice, formatSignedPct } from "../lib/format";
-import type { Candle, DashboardAnalysis, OperationPlan, Signal, TimeframeSignal } from "../types";
+import type { Candle, DashboardAnalysis, OperationPlan, Signal, StrategyCandidate, StrategyDescriptor, TimeframeSignal } from "../types";
 
 interface DashboardViewProps {
   currentCoin: string;
@@ -8,6 +8,8 @@ interface DashboardViewProps {
   signal: Signal | null;
   plan: OperationPlan | null;
   analysis: DashboardAnalysis | null;
+  strategy: StrategyDescriptor;
+  strategyCandidates: StrategyCandidate[];
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
@@ -26,10 +28,12 @@ export function DashboardView(props: DashboardViewProps) {
         <section className={`dashboard-hero ${tone}`}>
           <div className="dashboard-hero-top">
             <div>
+              <div className="dashboard-active-coin">{props.currentCoin}</div>
               <div className={`dashboard-eyebrow ${tone}`}>{signal?.label || "Esperar"}</div>
               <h1 className="dashboard-headline">{signal?.title || "Esperar confirmación"}</h1>
               <p className="dashboard-subcopy">{signal?.reasons[0] || "Análisis en progreso."}</p>
               <div className="dashboard-chip-row">
+                <span className="dashboard-chip">{props.strategy.label}</span>
                 <span className="dashboard-chip">{analysis?.alignmentLabel || "Sin contexto"}</span>
                 <span className="dashboard-chip">{analysis?.setupType || "Setup pendiente"}</span>
                 <span className="dashboard-chip">{analysis?.volatilityLabel ? `Volatilidad ${analysis.volatilityLabel.toLowerCase()}` : "Volatilidad pendiente"}</span>
@@ -105,6 +109,24 @@ export function DashboardView(props: DashboardViewProps) {
             </div>
 
             <div className="analysis-grid">
+              <div className="analysis-card strategy-engine-card">
+                <div className="analysis-card-label">Motor de estrategias</div>
+                <div className="analysis-card-value">{props.strategy.label}</div>
+                <div className="analysis-card-note">{props.strategy.description}</div>
+                <div className="strategy-candidate-list">
+                  {props.strategyCandidates.slice(0, 3).map((candidate) => (
+                    <div key={`${candidate.strategy.id}-${candidate.strategy.version}`} className={`strategy-candidate ${candidate.isPrimary ? "is-primary" : ""}`}>
+                      <div className="strategy-candidate-name">
+                        {candidate.strategy.label}
+                        {candidate.isPrimary ? <span className="strategy-candidate-badge">Activa</span> : null}
+                      </div>
+                      <div className="strategy-candidate-meta">
+                        {candidate.signal.label} · {candidate.signal.score}% · {candidate.analysis.setupType}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="analysis-card">
                 <div className="analysis-card-label">Calidad del setup</div>
                 <div className="analysis-card-value">{analysis?.setupQuality || "Media"}</div>
@@ -209,6 +231,7 @@ export function DashboardView(props: DashboardViewProps) {
                 </div>
                 <div className="inline-actions">
                   <span className="plan-chip">{analysis?.setupType || "Basado en señal + temporalidad + comisión"}</span>
+                  <span className="plan-chip">{props.strategy.version}</span>
                   <button className="btn-secondary-soft" type="button" onClick={props.onSaveSignal}>
                     Guardar señal
                   </button>

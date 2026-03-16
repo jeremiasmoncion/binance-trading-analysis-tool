@@ -1,4 +1,20 @@
-import type { BinanceConnection, DashboardAnalysis, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession } from "../types";
+import type {
+  BinanceConnection,
+  DashboardAnalysis,
+  OperationPlan,
+  PortfolioPayload,
+  Signal,
+  SignalOutcomeStatus,
+  SignalSnapshot,
+  StrategyCandidate,
+  StrategyDescriptor,
+  StrategyExperimentRecord,
+  StrategyRegistryEntry,
+  StrategyVersionRecord,
+  TimeframeSignal,
+  UserSession,
+  WatchlistGroup,
+} from "../types";
 
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers || {});
@@ -79,6 +95,8 @@ export const signalService = {
     analysis: DashboardAnalysis | null;
     plan: OperationPlan | null;
     multiTimeframes: TimeframeSignal[];
+    strategy?: StrategyDescriptor;
+    strategyCandidates?: StrategyCandidate[];
     note?: string;
   }) {
     return apiRequest<{ signal: SignalSnapshot }>("/api/signals", {
@@ -94,14 +112,63 @@ export const signalService = {
   },
 };
 
+export const strategyEngineService = {
+  list() {
+    return apiRequest<{
+      registry: StrategyRegistryEntry[];
+      versions: StrategyVersionRecord[];
+      experiments: StrategyExperimentRecord[];
+    }>("/api/strategy-engine");
+  },
+  createExperiment(payload: {
+    baseStrategyId: string;
+    candidateStrategyId: string;
+    candidateVersion: string;
+    marketScope?: string;
+    timeframeScope?: string;
+    summary?: string;
+    status?: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  updateExperiment(id: number, payload: { status?: string; summary?: string; metadata?: Record<string, unknown> }) {
+    return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
+      method: "PATCH",
+      body: JSON.stringify({ id, ...payload }),
+    });
+  },
+};
+
 export const watchlistService = {
   list() {
-    return apiRequest<{ coins: string[] }>("/api/watchlist");
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist");
   },
-  replace(coins: string[]) {
-    return apiRequest<{ coins: string[] }>("/api/watchlist", {
+  replace(listName: string, coins: string[]) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
       method: "PUT",
-      body: JSON.stringify({ coins }),
+      body: JSON.stringify({ listName, coins }),
+    });
+  },
+  createList(name: string) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  },
+  updateList(name: string, payload: { nextName?: string; isActive?: boolean }) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
+      method: "PATCH",
+      body: JSON.stringify({ name, ...payload }),
+    });
+  },
+  deleteList(name: string) {
+    return apiRequest<{ lists: WatchlistGroup[]; activeListName: string | null }>("/api/watchlist", {
+      method: "DELETE",
+      body: JSON.stringify({ name }),
     });
   },
 };
@@ -112,6 +179,14 @@ export interface MarketTicker {
   highPrice?: string;
   lowPrice?: string;
   volume?: string;
+}
+
+export interface MarketTickerStreamPayload {
+  c?: string;
+  P?: string;
+  h?: string;
+  l?: string;
+  v?: string;
 }
 
 export interface ExchangeSymbol {
@@ -164,6 +239,30 @@ export const marketService = {
         .map((item) => `${item.baseAsset}/${item.quoteAsset}`);
     } catch {
       return [];
+    }
+  },
+  openTickerStream(symbol: string, onMessage: (payload: MarketTickerStreamPayload) => void) {
+    try {
+      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.replace("/", "").toLowerCase()}@ticker`);
+      ws.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as MarketTickerStreamPayload;
+          onMessage(payload);
+        } catch {
+          // ignore malformed frames
+        }
+      };
+      return () => {
+        try {
+          ws.close();
+        } catch {
+          // ignore close errors
+        }
+      };
+    } catch {
+      return () => {
+        // websocket unavailable
+      };
     }
   },
 };

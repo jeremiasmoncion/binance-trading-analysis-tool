@@ -43,6 +43,61 @@ export interface Signal {
   reasons: string[];
 }
 
+export interface StrategyDescriptor {
+  id: string;
+  version: string;
+  label: string;
+  description: string;
+  category?: string;
+  parameters: Record<string, number | string | boolean>;
+}
+
+export interface StrategyRegistryEntry {
+  id: number;
+  strategy_id: string;
+  label: string;
+  description?: string;
+  category?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StrategyVersionRecord {
+  id: number;
+  strategy_id: string;
+  version: string;
+  label: string;
+  parameters: Record<string, number | string | boolean>;
+  notes?: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StrategyExperimentRecord {
+  id: number;
+  experiment_key: string;
+  base_strategy_id: string;
+  candidate_strategy_id: string;
+  candidate_version: string;
+  market_scope?: string;
+  timeframe_scope?: string;
+  status: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface StrategyCandidate {
+  strategy: StrategyDescriptor;
+  signal: Signal;
+  analysis: DashboardAnalysis;
+  rankScore: number;
+  isPrimary?: boolean;
+}
+
 export interface OperationPlan {
   entry: number;
   tp: number;
@@ -102,6 +157,9 @@ export interface SignalSnapshot {
   id: number;
   coin: string;
   timeframe: string;
+  strategy_name?: string;
+  strategy_version?: string;
+  strategy_label?: string;
   signal_label: string;
   signal_score: number;
   trend?: string;
@@ -123,6 +181,17 @@ export interface SignalSnapshot {
   created_at: string;
   updated_at?: string;
   signal_payload?: {
+    strategy?: StrategyDescriptor;
+    candidates?: Array<{
+      strategy: StrategyDescriptor;
+      signalLabel: string;
+      score: number;
+      setupType?: string;
+      setupQuality?: string;
+      riskLabel?: string;
+      rankScore?: number;
+      isPrimary?: boolean;
+    }>;
     signal?: Signal;
     analysis?: DashboardAnalysis;
     plan?: OperationPlan;
@@ -137,6 +206,12 @@ export interface SignalSnapshot {
       contextSignature?: string;
     };
   };
+}
+
+export interface WatchlistGroup {
+  name: string;
+  coins: string[];
+  isActive: boolean;
 }
 
 export interface BinanceSummary {

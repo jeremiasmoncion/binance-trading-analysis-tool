@@ -68,6 +68,24 @@ body.dark-theme .coin-combobox-feedback {
   border-color: rgba(248, 113, 113, 0.24);
   color: #fecaca;
 }
+body.dark-theme .module-tabs {
+  background: rgba(15, 23, 42, 0.82);
+  border-color: rgba(59, 130, 246, 0.12);
+}
+body.dark-theme .module-tab {
+  background: rgba(15, 23, 42, 0.84);
+  border-color: rgba(59, 130, 246, 0.18);
+  color: #cbd5e1;
+}
+body.dark-theme .module-tab:hover {
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #bfdbfe;
+}
+body.dark-theme .module-tab.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #3b82f6;
+  color: #eff6ff;
+}
 body.dark-theme .user-pill { background: #162338; color: #e2e8f0; }
 body.dark-theme .quick-plan {
   background: linear-gradient(160deg, #131d31 0%, #18243a 55%, #1b2940 100%);
@@ -123,6 +141,17 @@ body.dark-theme .timeframe-chip.wait { background: linear-gradient(135deg, #261d
 body.dark-theme .timeframe-chip.wait .timeframe-chip-value { color: #fcd34d; }
 body.dark-theme .timeframe-chip.sell { background: linear-gradient(135deg, #2a1113 0%, #331517 100%); border-color: #7f1d1d; }
 body.dark-theme .timeframe-chip.sell .timeframe-chip-value { color: #fca5a5; }
+body.dark-theme .dashboard-active-coin { color: #94a3b8; }
+body.dark-theme .watchlist-chip { background: #111c31; border-color: #23314d; }
+body.dark-theme .watchlist-list-tab { background:#111c31; border-color:#23314d; color:#e2e8f0; }
+body.dark-theme .watchlist-list-tab strong { background:#172554; color:#bfdbfe; }
+body.dark-theme .watchlist-list-tab.active { border-color:#2563eb; color:#fff; }
+body.dark-theme .watchlist-chip.active { border-color: rgba(59,130,246,0.44); box-shadow: 0 10px 22px rgba(2,6,23,0.24); }
+body.dark-theme .watchlist-chip-symbol { color: #f8fafc; }
+body.dark-theme .watchlist-chip-note { color: #94a3b8; }
+body.dark-theme .watchlist-chip-remove { border-left-color: #23314d; color: #94a3b8; }
+body.dark-theme .watchlist-chip-remove:hover { background: #172554; color: #bfdbfe; }
+body.dark-theme .watchlist-actions .danger { background:#3b1218; color:#fca5a5; }
 body.dark-theme .dashboard-hero {
   background:
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.24), transparent 32%),

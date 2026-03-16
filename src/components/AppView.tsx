@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, TimeframeSignal, UserSession, ViewName } from "../types";
+import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
@@ -12,11 +12,16 @@ import { ProfileView } from "../views/ProfileView";
 interface AppViewProps {
   currentView: ViewName;
   currentCoin: string;
+  watchlists: WatchlistGroup[];
+  watchlist: string[];
+  activeWatchlistName: string;
   timeframe: string;
   currentPrice: number;
   signal: Signal | null;
   plan: OperationPlan | null;
   analysis: DashboardAnalysis | null;
+  strategy: StrategyDescriptor;
+  strategyCandidates: StrategyCandidate[];
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: RefObject<HTMLCanvasElement | null>;
@@ -40,6 +45,11 @@ interface AppViewProps {
   onUseCurrentPrice: () => void;
   comparison: ComparisonCoin[];
   onSelectCoin: (coin: string) => void;
+  onToggleWatchlist: (coin: string) => void;
+  onCreateWatchlist: (name: string) => Promise<void>;
+  onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
+  onDeleteWatchlist: (name: string) => Promise<void>;
+  onSetActiveWatchlist: (name: string) => Promise<void>;
   portfolioData: PortfolioPayload | null;
   portfolioPeriod: string;
   hideSmallAssets: boolean;
@@ -47,7 +57,6 @@ interface AppViewProps {
   onRefreshPortfolio: () => void;
   onToggleHideSmallAssets: (value: boolean) => void;
   signalMemory: SignalSnapshot[];
-  watchlist: string[];
   onSaveSignal: () => void;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
@@ -71,6 +80,8 @@ export function AppView(props: AppViewProps) {
           signal={props.signal}
           plan={props.plan}
           analysis={props.analysis}
+          strategy={props.strategy}
+          strategyCandidates={props.strategyCandidates}
           multiTimeframes={props.multiTimeframes}
           candles={props.candles}
           chartRef={props.chartRef}
@@ -89,11 +100,20 @@ export function AppView(props: AppViewProps) {
       return (
         <MarketView
           currentCoin={props.currentCoin}
+          watchlists={props.watchlists}
+          watchlist={props.watchlist}
+          activeWatchlistName={props.activeWatchlistName}
           signal={props.signal}
           indicators={props.indicators}
           market24h={props.market24h}
           support={props.support}
           resistance={props.resistance}
+          onSelectCoin={props.onSelectCoin}
+          onToggleWatchlist={props.onToggleWatchlist}
+          onCreateWatchlist={props.onCreateWatchlist}
+          onRenameWatchlist={props.onRenameWatchlist}
+          onDeleteWatchlist={props.onDeleteWatchlist}
+          onSetActiveWatchlist={props.onSetActiveWatchlist}
         />
       );
     case "calculator":

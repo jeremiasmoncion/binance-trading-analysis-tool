@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
-import { buildDashboardAnalysis, calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
+import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
+import { runStrategyEngine } from "../strategies";
 import { marketService } from "../services/api";
-import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, TimeframeSignal, ViewName } from "../types";
+import type { Candle, ComparisonCoin, DashboardAnalysis, Indicators, Signal, StrategyCandidate, StrategyDescriptor, TimeframeSignal, ViewName } from "../types";
 
 interface UseMarketDataOptions {
   currentView: ViewName;
 }
+
+const SMART_REFRESH_BY_TIMEFRAME: Record<string, number> = {
+  "5m": 60_000,
+  "15m": 120_000,
+  "1h": 300_000,
+  "4h": 900_000,
+  "1d": 1_800_000,
+};
 
 export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
@@ -16,8 +25,15 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
   const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null);
+  const [strategy, setStrategy] = useState<StrategyDescriptor>(runStrategyEngine({
+    candles: generateFallbackCandles("1h"),
+    indicators: calcIndicators(generateFallbackCandles("1h")),
+    multiTimeframes: [],
+  }).primary.strategy);
+  const [strategyCandidates, setStrategyCandidates] = useState<StrategyCandidate[]>([]);
   const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
   const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
+  const [currentPrice, setCurrentPrice] = useState(0);
   const [market24h, setMarket24h] = useState({ change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" });
   const [availableCoins, setAvailableCoins] = useState<string[]>(POPULAR_COINS);
 
@@ -33,8 +49,6 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     try {
       const fetchedCandles = (await marketService.fetchCandles(coin, nextTimeframe)) || generateFallbackCandles(nextTimeframe);
       const nextIndicators = calcIndicators(fetchedCandles);
-      const nextSignal = generateSignal(nextIndicators);
-
       const nextMultiTimeframes = await Promise.all(
         MAP_TIMEFRAMES.map(async (mapTf) => {
           const tfCandles = (await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf);
@@ -45,11 +59,21 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
             note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
             trend: tfSignal.trend,
             score: tfSignal.score,
-            aligned: tfSignal.label === nextSignal.label,
+            aligned: false,
           };
         }),
       );
-      const nextAnalysis = buildDashboardAnalysis(fetchedCandles, nextIndicators, nextSignal, nextMultiTimeframes);
+      const strategyExecution = runStrategyEngine({
+        candles: fetchedCandles,
+        indicators: nextIndicators,
+        multiTimeframes: nextMultiTimeframes,
+      });
+      const nextSignal = strategyExecution.primary.signal;
+      const nextAnalysis = strategyExecution.primary.analysis;
+      const alignedTimeframes = nextMultiTimeframes.map((item) => ({
+        ...item,
+        aligned: item.label === nextSignal.label,
+      }));
 
       const ticker = await marketService.fetch24h(coin);
       const nextComparison = await Promise.all(
@@ -69,9 +93,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setTimeframe(nextTimeframe);
       setCandles(fetchedCandles);
       setIndicators(nextIndicators);
+      setCurrentPrice(nextIndicators.current);
       setSignal(nextSignal);
       setAnalysis(nextAnalysis);
-      setMultiTimeframes(nextMultiTimeframes);
+      setStrategy(strategyExecution.primary.strategy);
+      setStrategyCandidates(strategyExecution.candidates);
+      setMultiTimeframes(alignedTimeframes);
       setComparison(nextComparison);
       setMarket24h({
         change: Number(ticker.priceChangePercent || 0),
@@ -103,20 +130,53 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
 
   useEffect(() => {
     if (currentView !== "dashboard" && currentView !== "market") return undefined;
+    const refreshInterval = SMART_REFRESH_BY_TIMEFRAME[timeframe] || 300_000;
     const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
       void fetchData();
-    }, 45000);
+    }, refreshInterval);
     return () => window.clearInterval(intervalId);
-  }, [currentView, fetchData]);
+  }, [currentView, fetchData, timeframe]);
+
+  useEffect(() => {
+    const closeStream = marketService.openTickerStream(currentCoin, (payload) => {
+      const nextPrice = Number(payload.c || 0);
+      const nextChange = Number(payload.P || 0);
+      const nextHigh = Number(payload.h || 0);
+      const nextLow = Number(payload.l || 0);
+      const nextVolume = Number(payload.v || 0);
+
+      if (nextPrice > 0) {
+        setCurrentPrice(nextPrice);
+      }
+
+      if (nextPrice > 0 || nextHigh > 0 || nextLow > 0 || nextVolume > 0) {
+        setMarket24h({
+          change: nextChange || 0,
+          high: nextHigh || 0,
+          low: nextLow || 0,
+          volume: `${(nextVolume / 1000).toFixed(1)} BTC`,
+          updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+      }
+    });
+
+    return () => {
+      closeStream();
+    };
+  }, [currentCoin]);
 
   return {
     currentCoin,
     timeframe,
     status,
     candles,
+    currentPrice,
     indicators,
     signal,
     analysis,
+    strategy,
+    strategyCandidates,
     multiTimeframes,
     comparison,
     availableCoins,

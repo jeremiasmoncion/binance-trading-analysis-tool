@@ -64,6 +64,8 @@ export function App() {
       analysis: market.analysis,
       plan,
       multiTimeframes: market.multiTimeframes,
+      strategy: market.strategy,
+      strategyCandidates: market.strategyCandidates,
     });
   }, [
     auth.currentUser,
@@ -117,11 +119,13 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${view.sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <Sidebar
         user={auth.currentUser}
         currentView={view.currentView}
+        collapsed={view.sidebarCollapsed}
         onViewChange={view.setCurrentView}
+        onToggleCollapse={view.toggleSidebar}
         onLogout={handleLogout}
       />
 
@@ -149,11 +153,16 @@ export function App() {
         <AppView
           currentView={view.currentView}
           currentCoin={market.currentCoin}
+          watchlists={watchlist.lists}
+          watchlist={watchlist.watchlist}
+          activeWatchlistName={watchlist.activeListName}
           timeframe={market.timeframe}
-          currentPrice={market.indicators?.current || 0}
+          currentPrice={market.currentPrice || market.indicators?.current || 0}
           signal={market.signal}
           plan={plan}
           analysis={market.analysis}
+          strategy={market.strategy}
+          strategyCandidates={market.strategyCandidates}
           multiTimeframes={market.multiTimeframes}
           candles={market.candles}
           chartRef={chartRef}
@@ -168,6 +177,8 @@ export function App() {
               analysis: market.analysis,
               plan,
               multiTimeframes: market.multiTimeframes,
+              strategy: market.strategy,
+              strategyCandidates: market.strategyCandidates,
             });
           }}
           indicators={market.indicators}
@@ -181,6 +192,11 @@ export function App() {
           onUseCurrentPrice={calculatorState.useCurrentPrice}
           comparison={market.comparison}
           onSelectCoin={market.selectCoin}
+          onToggleWatchlist={watchlist.toggleWatchlist}
+          onCreateWatchlist={watchlist.createList}
+          onRenameWatchlist={watchlist.renameList}
+          onDeleteWatchlist={watchlist.deleteList}
+          onSetActiveWatchlist={watchlist.setActiveList}
           portfolioData={binance.portfolioData}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}
@@ -189,7 +205,6 @@ export function App() {
           onToggleHideSmallAssets={binance.setHideSmallAssets}
           signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
-          watchlist={watchlist.watchlist}
           user={auth.currentUser}
           users={binance.availableUsers}
           connection={binance.binanceConnection}

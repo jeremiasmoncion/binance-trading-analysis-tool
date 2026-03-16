@@ -88,6 +88,8 @@ async function createSignalSnapshot(req) {
   const signal = body.signal || {};
   const analysis = body.analysis || {};
   const plan = body.plan || {};
+  const strategy = body.strategy || {};
+  const candidates = Array.isArray(body.strategyCandidates) ? body.strategyCandidates : [];
   const direction = String(signal.label || "Esperar").toLowerCase();
   const marketRegime =
     String(analysis.setupType || "").includes("Contra")
@@ -115,6 +117,9 @@ async function createSignalSnapshot(req) {
       username: session.username,
       coin: String(body.coin),
       timeframe: String(body.timeframe),
+      strategy_name: String(strategy.id || ""),
+      strategy_version: String(strategy.version || ""),
+      strategy_label: String(strategy.label || ""),
       signal_label: String(signal.label || "Esperar"),
       signal_score: Number(signal.score || 0),
       trend: String(signal.trend || ""),
@@ -134,6 +139,17 @@ async function createSignalSnapshot(req) {
       outcome_pnl: 0,
       note: String(body.note || ""),
       signal_payload: {
+        strategy,
+        candidates: candidates.map((candidate) => ({
+          strategy: candidate.strategy || {},
+          signalLabel: String(candidate.signal?.label || ""),
+          score: Number(candidate.signal?.score || 0),
+          setupType: String(candidate.analysis?.setupType || ""),
+          setupQuality: String(candidate.analysis?.setupQuality || ""),
+          riskLabel: String(candidate.analysis?.riskLabel || ""),
+          rankScore: Number(candidate.rankScore || 0),
+          isPrimary: Boolean(candidate.isPrimary),
+        })),
         signal,
         analysis,
         plan,

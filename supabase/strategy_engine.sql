@@ -87,6 +87,14 @@ values
     'active'
   ),
   (
+    'trend-alignment',
+    'v2',
+    'Trend Alignment v2',
+    '{"trendWeight":24,"oversoldBoost":10,"overboughtPenalty":10,"higherFrameBonus":12,"mixedFramePenalty":8,"buyThreshold":69,"sellThreshold":31}'::jsonb,
+    'Variante más estricta que prioriza alineación de marcos altos y penaliza contextos mixtos.',
+    'experimental'
+  ),
+  (
     'breakout',
     'v1',
     'Breakout v1',

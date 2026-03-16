@@ -1,18 +1,27 @@
 import type { StrategyCandidate } from "../types";
 import { breakoutV1Strategy } from "./breakoutV1";
 import { trendAlignmentV1Strategy } from "./trendAlignmentV1";
+import { trendAlignmentV2Strategy } from "./trendAlignmentV2";
 import type { StrategyDefinition, StrategyExecutionInput, StrategyExecutionResult } from "./types";
 
+function strategyKey(strategy: StrategyDefinition) {
+  return `${strategy.descriptor.id}:${strategy.descriptor.version}`;
+}
+
 export const strategyRegistry: Record<string, StrategyDefinition> = {
-  [breakoutV1Strategy.descriptor.id]: breakoutV1Strategy,
-  [trendAlignmentV1Strategy.descriptor.id]: trendAlignmentV1Strategy,
+  [strategyKey(breakoutV1Strategy)]: breakoutV1Strategy,
+  [strategyKey(trendAlignmentV1Strategy)]: trendAlignmentV1Strategy,
+  [strategyKey(trendAlignmentV2Strategy)]: trendAlignmentV2Strategy,
 };
 
-export const defaultStrategy = trendAlignmentV1Strategy;
+export const defaultStrategy = trendAlignmentV2Strategy;
 
 export function getStrategy(id?: string) {
   if (!id) return defaultStrategy;
-  return strategyRegistry[id] || defaultStrategy;
+  const byVersion = strategyRegistry[id];
+  if (byVersion) return byVersion;
+  const byId = Object.values(strategyRegistry).find((strategy) => strategy.descriptor.id === id);
+  return byId || defaultStrategy;
 }
 
 function getRankScore(result: StrategyExecutionResult) {

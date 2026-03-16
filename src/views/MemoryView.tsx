@@ -499,6 +499,10 @@ export function MemoryView(props: MemoryViewProps) {
               ))
             )}
           </div>
+
+          <p className="section-note with-top-gap">
+            Recomendación inicial del sistema: comparar `Trend Alignment v1` vs `Trend Alignment v2` dentro del watchlist y en marcos `1h` / `4h` antes de promover cambios automáticos.
+          </p>
         </SectionCard>
           </SectionCard>
         </section>

@@ -1463,13 +1463,16 @@ export function MemoryView(props: MemoryViewProps) {
 
   function handleAddScopeOverride() {
     if (!executionProfileForm) return;
+    const nextScore = Number(scopeOverrideScore || executionProfileForm.minSignalScore);
+    const nextRr = Number(scopeOverrideRr || executionProfileForm.minRrRatio);
     const nextOverride: ExecutionScopeOverride = {
       id: `${scopeOverrideStrategy}-${scopeOverrideTimeframe}`,
       strategyId: scopeOverrideStrategy,
       timeframe: scopeOverrideTimeframe,
       enabled: true,
-      minSignalScore: Number(scopeOverrideScore || executionProfileForm.minSignalScore),
-      minRrRatio: Number(scopeOverrideRr || executionProfileForm.minRrRatio),
+      action: nextScore >= executionProfileForm.minSignalScore || nextRr >= executionProfileForm.minRrRatio ? "tighten" : "relax",
+      minSignalScore: nextScore,
+      minRrRatio: nextRr,
       note: scopeOverrideNote.trim(),
     };
 
@@ -2447,6 +2450,9 @@ export function MemoryView(props: MemoryViewProps) {
                               <div key={item.id} className="execution-override-card">
                                 <div className="execution-override-copy">
                                   <strong>{item.strategyId} · {item.timeframe}</strong>
+                                  {item.action ? (
+                                    <span>{item.action === "cut" ? "Corte activo" : item.action === "tighten" ? "Filtro endurecido" : item.action === "relax" ? "Filtro abierto" : "Ajuste custom"}</span>
+                                  ) : null}
                                   <span>Score {item.minSignalScore ?? executionProfileForm.minSignalScore} · RR {item.minRrRatio ?? executionProfileForm.minRrRatio}</span>
                                   {item.note ? <span>{item.note}</span> : null}
                                 </div>
@@ -3243,7 +3249,7 @@ function ExecutionCandidateCard({
         </span>
         {item.profileOverride ? (
           <span className="signal-status-note">
-            Override activo: {item.profileOverride.strategyId} · {item.profileOverride.timeframe} · Score {item.profileOverride.minSignalScore}+ · RR {item.profileOverride.minRrRatio.toFixed(2)}+
+            Override activo: {item.profileOverride.strategyId} · {item.profileOverride.timeframe} · {item.profileOverride.action === "cut" ? "corte" : item.profileOverride.action === "tighten" ? "endurecido" : item.profileOverride.action === "relax" ? "abierto" : "custom"} · Score {item.profileOverride.minSignalScore}+ · RR {item.profileOverride.minRrRatio.toFixed(2)}+
           </span>
         ) : null}
       </div>

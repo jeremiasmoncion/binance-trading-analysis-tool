@@ -477,6 +477,7 @@ export interface ExecutionScopeOverride {
   strategyId: string;
   timeframe: string;
   enabled: boolean;
+  action?: string;
   minSignalScore?: number;
   minRrRatio?: number;
   note?: string;
@@ -499,6 +500,7 @@ export interface ExecutionCandidate {
     timeframe: string;
     minSignalScore: number;
     minRrRatio: number;
+    action?: string;
     note?: string;
   } | null;
   side: "BUY" | "SELL" | "";

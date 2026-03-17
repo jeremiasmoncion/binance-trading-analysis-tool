@@ -106,6 +106,7 @@ function parseProfileNoteEnvelope(rawNote) {
             strategyId: String(item?.strategyId || ""),
             timeframe: String(item?.timeframe || ""),
             enabled: item?.enabled !== false,
+            action: String(item?.action || ""),
             minSignalScore: item?.minSignalScore == null ? undefined : Number(item.minSignalScore),
             minRrRatio: item?.minRrRatio == null ? undefined : Number(item.minRrRatio),
             note: String(item?.note || ""),
@@ -131,6 +132,7 @@ function buildProfileNoteEnvelope(profile) {
       strategyId: String(item.strategyId || ""),
       timeframe: String(item.timeframe || ""),
       enabled: item.enabled !== false,
+      action: String(item.action || ""),
       minSignalScore: item.minSignalScore == null ? undefined : Number(item.minSignalScore),
       minRrRatio: item.minRrRatio == null ? undefined : Number(item.minRrRatio),
       note: String(item.note || ""),
@@ -534,6 +536,9 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   if (decision && decision.executionEligible === false) {
     reasons.push(String(decision.executionReason || "La señal quedó fuera del flujo operativo actual del sistema."));
   }
+  if (String(effectiveProfile.override?.action || "") === "cut") {
+    reasons.push(`Este scope (${signal.strategy_name || "estrategia"} · ${signal.timeframe || "--"}) quedó cortado por el motor adaptativo.`);
+  }
   if (Number(signal.signal_score || 0) < effectiveProfile.minSignalScore) {
     reasons.push(`La convicción (${signal.signal_score || 0}) está por debajo del mínimo ${effectiveProfile.minSignalScore}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
   }
@@ -603,6 +608,7 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
         timeframe: effectiveProfile.override.timeframe,
         minSignalScore: effectiveProfile.minSignalScore,
         minRrRatio: effectiveProfile.minRrRatio,
+        action: String(effectiveProfile.override.action || ""),
         note: effectiveProfile.override.note || "",
       }
       : null,

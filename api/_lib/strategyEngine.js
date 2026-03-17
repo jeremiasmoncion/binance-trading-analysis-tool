@@ -169,6 +169,7 @@ function parseProfileNoteEnvelope(rawNote) {
             strategyId: String(item?.strategyId || ""),
             timeframe: String(item?.timeframe || ""),
             enabled: item?.enabled !== false,
+            action: String(item?.action || ""),
             minSignalScore: item?.minSignalScore == null ? undefined : Number(item.minSignalScore),
             minRrRatio: item?.minRrRatio == null ? undefined : Number(item.minRrRatio),
             note: String(item?.note || ""),
@@ -194,6 +195,7 @@ function buildProfileNoteEnvelope(profile) {
       strategyId: String(item.strategyId || ""),
       timeframe: String(item.timeframe || ""),
       enabled: item.enabled !== false,
+      action: String(item.action || ""),
       minSignalScore: item.minSignalScore == null ? undefined : Number(item.minSignalScore),
       minRrRatio: item.minRrRatio == null ? undefined : Number(item.minRrRatio),
       note: String(item.note || ""),
@@ -243,8 +245,19 @@ function getExecutionScopeThresholds(profile, strategyId, timeframe) {
     minRrRatio: override?.enabled !== false && override?.minRrRatio != null
       ? Number(override.minRrRatio)
       : Number(profile.minRrRatio || DEFAULT_EXECUTION_PROFILE.minRrRatio),
+    action: String(override?.action || ""),
     override: override || null,
   };
+}
+
+function getScopeOverrideAction(override) {
+  const explicitAction = String(override?.action || "").trim();
+  if (explicitAction) return explicitAction;
+  const note = String(override?.note || "").toLowerCase();
+  if (note.includes("corte")) return "cut";
+  if (note.includes("apertura")) return "relax";
+  if (note.includes("ajuste")) return "tighten";
+  return "";
 }
 
 function roundToStep(value, step = 1) {
@@ -320,6 +333,7 @@ function pickActiveVersions(versions) {
 export async function getSystemStrategyDecisionState(username) {
   let versions = [];
   let experiments = [];
+  let executionProfile = null;
 
   try {
     const versionsParams = new URLSearchParams({
@@ -336,9 +350,11 @@ export async function getSystemStrategyDecisionState(username) {
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
     ]);
+    executionProfile = await getExecutionProfileForUser(username).catch(() => null);
   } catch {
     versions = [];
     experiments = [];
+    executionProfile = null;
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -389,6 +405,15 @@ export async function getSystemStrategyDecisionState(username) {
         marketScope: item.market_scope || "all",
         timeframeScope: item.timeframe_scope || "all",
       })),
+    scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
+      strategyId: item.strategyId,
+      timeframe: item.timeframe,
+      enabled: item.enabled !== false,
+      action: getScopeOverrideAction(item),
+      minSignalScore: item.minSignalScore == null ? null : Number(item.minSignalScore),
+      minRrRatio: item.minRrRatio == null ? null : Number(item.minRrRatio),
+      note: String(item.note || ""),
+    })),
   };
 }
 
@@ -399,6 +424,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
   const activeStrategies = Array.isArray(decisionState?.activeStrategyByScope) ? decisionState.activeStrategyByScope : [];
   const sandboxExperiments = Array.isArray(decisionState?.sandboxExperimentsByScope) ? decisionState.sandboxExperimentsByScope : [];
   const executionEligibleScopes = Array.isArray(decisionState?.executionEligibleScopes) ? decisionState.executionEligibleScopes : [];
+  const scopeTuningByScope = Array.isArray(decisionState?.scopeTuningByScope) ? decisionState.scopeTuningByScope : [];
   const candidates = Array.isArray(snapshot?.candidates) ? snapshot.candidates : [];
 
   const enrichedCandidates = candidates.map((candidate) => {
@@ -420,25 +446,60 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
         && item.version === version
         && scopeMatches(item, { marketScope, timeframe }),
     );
+    const scopeTuning = scopeTuningByScope.find((item) =>
+      item.strategyId === strategyId
+        && item.timeframe === timeframe
+        && item.enabled !== false
+    );
+    const scopeAction = String(scopeTuning?.action || "");
+    const candidateBaseRank = Number(candidate.rankScore || candidate.signal?.score || candidate.signal?.signalScore || 0);
+    const scopeBias = scopeAction === "cut"
+      ? -1000
+      : scopeAction === "tighten"
+        ? -18
+        : scopeAction === "relax"
+          ? 8
+          : 0;
 
     let decisionSource = "inactive";
     if (executionRule) decisionSource = "experiment-active";
     else if (promotedVersionByStrategy[strategyId] === version) decisionSource = "promoted";
     else if (activeRule) decisionSource = "active";
     else if (sandboxRule) decisionSource = "sandbox";
+    if (scopeAction === "cut") decisionSource = "suppressed";
 
     return {
       ...candidate,
       decisionSource,
       experimentId: sandboxRule?.id || executionRule?.experimentId || null,
-      executionEligible: Boolean(executionRule || activeRule || promotedVersionByStrategy[strategyId] === version),
+      scopeAction,
+      scopeBias,
+      scopeTuning,
+      effectiveRank: candidateBaseRank + scopeBias,
+      executionEligible: scopeAction === "cut"
+        ? false
+        : Boolean(executionRule || activeRule || promotedVersionByStrategy[strategyId] === version),
     };
   });
 
-  const operationalPrimary = enrichedCandidates.find((candidate) => candidate.decisionSource === "experiment-active")
-    || enrichedCandidates.find((candidate) => candidate.decisionSource === "promoted")
-    || enrichedCandidates.find((candidate) => candidate.decisionSource === "active")
-    || enrichedCandidates[0]
+  const rankedCandidates = [...enrichedCandidates].sort((left, right) => {
+    const priority = (candidate) => {
+      if (candidate.decisionSource === "experiment-active") return 4;
+      if (candidate.decisionSource === "promoted") return 3;
+      if (candidate.decisionSource === "active") return 2;
+      if (candidate.decisionSource === "sandbox") return 1;
+      if (candidate.decisionSource === "suppressed") return -1;
+      return 0;
+    };
+    return priority(right) - priority(left) || Number(right.effectiveRank || 0) - Number(left.effectiveRank || 0);
+  });
+
+  const operationalPrimary = rankedCandidates.find((candidate) => candidate.decisionSource === "experiment-active" && candidate.executionEligible)
+    || rankedCandidates.find((candidate) => candidate.decisionSource === "promoted" && candidate.executionEligible)
+    || rankedCandidates.find((candidate) => candidate.decisionSource === "active" && candidate.executionEligible)
+    || rankedCandidates.find((candidate) => candidate.executionEligible)
+    || rankedCandidates.find((candidate) => candidate.decisionSource !== "suppressed")
+    || rankedCandidates[0]
     || snapshot?.primary;
 
   const strategyCandidates = enrichedCandidates.map((candidate) => ({
@@ -454,11 +515,14 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     timeframeScope: timeframe,
     source: operationalPrimary?.decisionSource || "fallback",
     executionEligible: Boolean(operationalPrimary?.executionEligible),
-    executionReason: operationalPrimary?.executionEligible
+    executionReason: operationalPrimary?.scopeAction === "cut"
+      ? "Este scope quedó cortado por el motor adaptativo y se guarda solo como observación."
+      : operationalPrimary?.executionEligible
       ? "La señal pertenece al flujo operativo actual del sistema."
       : "La lectura quedó fuera del motor activo y se guarda solo como observación.",
     primaryStrategy: operationalPrimary?.strategy || snapshot?.primary?.strategy || {},
     primaryExperimentId: operationalPrimary?.experimentId || null,
+    primaryScopeAction: operationalPrimary?.scopeAction || "",
     activeStrategies: activeStrategies
       .filter((item) => scopeMatches(item, { marketScope, timeframe }))
       .map((item) => ({
@@ -467,6 +531,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
         label: item.label,
         status: item.status,
       })),
+    scopeTuning: operationalPrimary?.scopeTuning || null,
     sandboxExperimentIds: sandboxExperiments
       .filter((item) => item.candidateRunnable && scopeMatches(item, { marketScope, timeframe }))
       .map((item) => item.id),
@@ -1080,6 +1145,7 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
     strategyId: recommendation.strategy_id,
     timeframe,
     enabled: true,
+    action: scopeAction,
     minSignalScore,
     minRrRatio,
     note: `${scopeAction === "cut" ? "Corte" : scopeAction === "relax" ? "Apertura" : "Ajuste"} aplicado desde ${recommendation.recommendation_key}`,

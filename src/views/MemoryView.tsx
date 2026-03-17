@@ -846,18 +846,26 @@ export function MemoryView(props: MemoryViewProps) {
       setRecommendations((current) =>
         current.map((entry) => (entry.id === payload.recommendation.id ? payload.recommendation : entry)),
       );
-      setVersions((current) => {
-        const exists = current.some(
-          (entry) => entry.strategy_id === payload.version.strategy_id && entry.version === payload.version.version,
-        );
-        return exists ? current : [...current, payload.version];
-      });
-      setExperiments((current) => {
-        const exists = current.some((entry) => entry.id === payload.experiment.id);
-        return exists
-          ? current.map((entry) => (entry.id === payload.experiment.id ? payload.experiment : entry))
-          : [payload.experiment, ...current];
-      });
+      if (payload.version) {
+        setVersions((current) => {
+          const exists = current.some(
+            (entry) => entry.strategy_id === payload.version?.strategy_id && entry.version === payload.version?.version,
+          );
+          return exists ? current : [...current, payload.version as typeof current[number]];
+        });
+      }
+      if (payload.experiment) {
+        setExperiments((current) => {
+          const exists = current.some((entry) => entry.id === payload.experiment?.id);
+          return exists
+            ? current.map((entry) => (entry.id === payload.experiment?.id ? payload.experiment as typeof entry : entry))
+            : [payload.experiment as typeof current[number], ...current];
+        });
+      }
+      if (payload.profile) {
+        setExecutionProfileForm(payload.profile);
+        await props.onRefreshExecutionCenter();
+      }
     } catch {
       // keep UI steady if API fails
     } finally {
@@ -2355,6 +2363,22 @@ function AdaptiveRecommendationCard({
   const candidateVersion = typeof evidence.candidateVersion === "string" ? evidence.candidateVersion : "";
   const experimentId = typeof evidence.experimentId === "number" ? evidence.experimentId : 0;
   const hasSandbox = item.status === "sandbox" && candidateVersion;
+  const isScopeRecommendation = evidence.recommendationType === "execution-scope-override";
+  const timeframe = String(evidence.timeframe || "");
+  const currentMinRrRatio = Number(evidence.currentMinRrRatio || 0);
+  const suggestedMinRrRatio = Number(evidence.suggestedMinRrRatio || 0);
+  const appliedScope = evidence.appliedOverride && typeof evidence.appliedOverride === "object"
+    ? evidence.appliedOverride as { strategyId?: string; timeframe?: string }
+    : null;
+  const activationLabel = isScopeRecommendation
+    ? isActivating
+      ? "Aplicando override..."
+      : item.status === "active"
+        ? "Override aplicado al perfil demo"
+        : "Aplicar al perfil demo"
+    : isActivating
+      ? "Creando candidata..."
+      : "Crear candidata y mandar a prueba segura";
 
   return (
     <div className="signal-analytics-card">
@@ -2367,7 +2391,7 @@ function AdaptiveRecommendationCard({
         <div className="signal-analytics-item is-experiment">
           <div className="signal-analytics-copy">
             <strong>{getFriendlyStrategyVersionLabel(item.strategy_id, item.strategy_version)}</strong>
-            <span>Parámetro: {item.parameter_key}</span>
+            <span>{isScopeRecommendation ? `Scope demo: ${item.strategy_id} · ${timeframe}` : `Parámetro: ${item.parameter_key}`}</span>
           </div>
           <div className={`signal-analytics-pill ${confidenceClass}`}>
             {confidencePct}% confianza
@@ -2385,12 +2409,24 @@ function AdaptiveRecommendationCard({
       </div>
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
-        <StatCard label="Valor actual" value={String(item.current_value ?? "--")} sub="Parámetro vigente" accentClass="accent-blue" />
-        <StatCard label="Valor sugerido" value={String(item.suggested_value ?? "--")} sub={delta === 0 ? "Sin cambio" : delta > 0 ? `Sube ${delta}` : `Baja ${Math.abs(delta)}`} accentClass="accent-emerald" />
+        <StatCard
+          label={isScopeRecommendation ? "Score demo actual" : "Valor actual"}
+          value={String(item.current_value ?? "--")}
+          sub={isScopeRecommendation ? `RR actual ${currentMinRrRatio.toFixed(2)}` : "Parámetro vigente"}
+          accentClass="accent-blue"
+        />
+        <StatCard
+          label={isScopeRecommendation ? "Score demo sugerido" : "Valor sugerido"}
+          value={String(item.suggested_value ?? "--")}
+          sub={isScopeRecommendation
+            ? `RR sugerido ${suggestedMinRrRatio.toFixed(2)}`
+            : delta === 0 ? "Sin cambio" : delta > 0 ? `Sube ${delta}` : `Baja ${Math.abs(delta)}`}
+          accentClass="accent-emerald"
+        />
       </div>
 
       <p className="section-note with-top-gap">
-        Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}.
+        Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}{isScopeRecommendation && typeof evidence.avgScore === "number" ? ` · score medio ${Number(evidence.avgScore).toFixed(1)}` : ""}{isScopeRecommendation && typeof evidence.avgRr === "number" ? ` · RR medio ${Number(evidence.avgRr).toFixed(2)}` : ""}.
       </p>
 
       <div className="inline-actions with-top-gap">
@@ -2403,9 +2439,18 @@ function AdaptiveRecommendationCard({
               Prueba segura #{experimentId || "--"}
             </span>
           </>
+        ) : isScopeRecommendation && item.status === "active" && appliedScope ? (
+          <>
+            <span className="signal-status-note">
+              Override activo: <span className="text-strong">{appliedScope.strategyId} · {appliedScope.timeframe}</span>
+            </span>
+            <span className="signal-analytics-pill status-running">
+              Perfil demo actualizado
+            </span>
+          </>
         ) : (
           <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onActivate} disabled={isActivating}>
-            {isActivating ? "Creando candidata..." : "Crear candidata y mandar a prueba segura"}
+            {activationLabel}
           </button>
         )}
       </div>

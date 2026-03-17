@@ -8,8 +8,26 @@ const STRATEGY_VERSIONS_TABLE = process.env.SUPABASE_STRATEGY_VERSIONS_TABLE || 
 const STRATEGY_EXPERIMENTS_TABLE = process.env.SUPABASE_STRATEGY_EXPERIMENTS_TABLE || "strategy_experiments";
 const STRATEGY_RECOMMENDATIONS_TABLE = process.env.SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE || "strategy_recommendations";
 const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
+const EXECUTION_PROFILES_TABLE = process.env.SUPABASE_EXECUTION_PROFILES_TABLE || "execution_profiles";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
+const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
+
+const DEFAULT_EXECUTION_PROFILE = {
+  enabled: true,
+  autoExecuteEnabled: false,
+  riskPerTradePct: 5,
+  maxOpenPositions: 2,
+  maxPositionUsd: 150,
+  maxDailyLossPct: 3,
+  minSignalScore: 60,
+  minRrRatio: 1.5,
+  maxDailyAutoExecutions: 3,
+  cooldownAfterLosses: 2,
+  allowedStrategies: ["trend-alignment", "breakout"],
+  allowedTimeframes: ["15m", "1h", "4h"],
+  note: "Perfil base para ejecutar Demo con control humano.",
+};
 
 const FALLBACK_REGISTRY = [
   {
@@ -120,6 +138,118 @@ async function supabaseRequest(path, options = {}) {
 
   if (response.status === 204) return null;
   return response.json();
+}
+
+function normalizeArray(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (!value) return [];
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseProfileNoteEnvelope(rawNote) {
+  const noteValue = String(rawNote || "");
+  if (!noteValue.startsWith(PROFILE_METADATA_PREFIX)) {
+    return {
+      note: noteValue,
+      scopeOverrides: [],
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(noteValue.slice(PROFILE_METADATA_PREFIX.length));
+    return {
+      note: String(parsed?.note || ""),
+      scopeOverrides: Array.isArray(parsed?.scopeOverrides)
+        ? parsed.scopeOverrides
+          .map((item) => ({
+            id: String(item?.id || `${item?.strategyId || "scope"}-${item?.timeframe || "all"}`),
+            strategyId: String(item?.strategyId || ""),
+            timeframe: String(item?.timeframe || ""),
+            enabled: item?.enabled !== false,
+            minSignalScore: item?.minSignalScore == null ? undefined : Number(item.minSignalScore),
+            minRrRatio: item?.minRrRatio == null ? undefined : Number(item.minRrRatio),
+            note: String(item?.note || ""),
+          }))
+          .filter((item) => item.strategyId && item.timeframe)
+        : [],
+    };
+  } catch {
+    return {
+      note: noteValue,
+      scopeOverrides: [],
+    };
+  }
+}
+
+function buildProfileNoteEnvelope(profile) {
+  const note = String(profile.note || DEFAULT_EXECUTION_PROFILE.note);
+  const scopeOverrides = Array.isArray(profile.scopeOverrides) ? profile.scopeOverrides : [];
+  return `${PROFILE_METADATA_PREFIX}${JSON.stringify({
+    note,
+    scopeOverrides: scopeOverrides.map((item) => ({
+      id: String(item.id || `${item.strategyId || "scope"}-${item.timeframe || "all"}`),
+      strategyId: String(item.strategyId || ""),
+      timeframe: String(item.timeframe || ""),
+      enabled: item.enabled !== false,
+      minSignalScore: item.minSignalScore == null ? undefined : Number(item.minSignalScore),
+      minRrRatio: item.minRrRatio == null ? undefined : Number(item.minRrRatio),
+      note: String(item.note || ""),
+    })),
+  })}`;
+}
+
+function normalizeExecutionProfile(row, username) {
+  const parsedNote = parseProfileNoteEnvelope(row?.note);
+  return {
+    username,
+    enabled: row?.enabled ?? DEFAULT_EXECUTION_PROFILE.enabled,
+    autoExecuteEnabled: row?.auto_execute_enabled ?? DEFAULT_EXECUTION_PROFILE.autoExecuteEnabled,
+    riskPerTradePct: Number(row?.risk_per_trade_pct ?? DEFAULT_EXECUTION_PROFILE.riskPerTradePct),
+    maxOpenPositions: Number(row?.max_open_positions ?? DEFAULT_EXECUTION_PROFILE.maxOpenPositions),
+    maxPositionUsd: Number(row?.max_position_usd ?? DEFAULT_EXECUTION_PROFILE.maxPositionUsd),
+    maxDailyLossPct: Number(row?.max_daily_loss_pct ?? DEFAULT_EXECUTION_PROFILE.maxDailyLossPct),
+    minSignalScore: Number(row?.min_signal_score ?? DEFAULT_EXECUTION_PROFILE.minSignalScore),
+    minRrRatio: Number(row?.min_rr_ratio ?? DEFAULT_EXECUTION_PROFILE.minRrRatio),
+    maxDailyAutoExecutions: Number(row?.max_daily_auto_executions ?? DEFAULT_EXECUTION_PROFILE.maxDailyAutoExecutions),
+    cooldownAfterLosses: Number(row?.cooldown_after_losses ?? DEFAULT_EXECUTION_PROFILE.cooldownAfterLosses),
+    allowedStrategies: normalizeArray(row?.allowed_strategies).length ? normalizeArray(row?.allowed_strategies) : DEFAULT_EXECUTION_PROFILE.allowedStrategies,
+    allowedTimeframes: normalizeArray(row?.allowed_timeframes).length ? normalizeArray(row?.allowed_timeframes) : DEFAULT_EXECUTION_PROFILE.allowedTimeframes,
+    scopeOverrides: parsedNote.scopeOverrides,
+    note: parsedNote.note || DEFAULT_EXECUTION_PROFILE.note,
+    updatedAt: row?.updated_at || row?.created_at || null,
+  };
+}
+
+async function getExecutionProfileForUser(username) {
+  const params = new URLSearchParams({
+    select: "*",
+    username: `eq.${String(username)}`,
+    limit: "1",
+  });
+  const rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`).catch(() => []);
+  return normalizeExecutionProfile(rows?.[0] || null, username);
+}
+
+function getExecutionScopeThresholds(profile, strategyId, timeframe) {
+  const override = (profile.scopeOverrides || []).find((item) => item.strategyId === strategyId && item.timeframe === timeframe);
+  return {
+    minSignalScore: override?.enabled !== false && override?.minSignalScore != null
+      ? Number(override.minSignalScore)
+      : Number(profile.minSignalScore || DEFAULT_EXECUTION_PROFILE.minSignalScore),
+    minRrRatio: override?.enabled !== false && override?.minRrRatio != null
+      ? Number(override.minRrRatio)
+      : Number(profile.minRrRatio || DEFAULT_EXECUTION_PROFILE.minRrRatio),
+    override: override || null,
+  };
+}
+
+function roundToStep(value, step = 1) {
+  const numericValue = Number(value || 0);
+  if (!Number.isFinite(numericValue)) return 0;
+  return Number((Math.round(numericValue / step) * step).toFixed(step >= 1 ? 0 : 2));
 }
 
 function requireSession(req) {
@@ -524,7 +654,89 @@ function buildBreakoutBufferRecommendation(params, signals) {
   };
 }
 
-function buildRecommendationRows(signals, versions) {
+function buildExecutionScopeOverrideRecommendations(signals, profile) {
+  const scopedGroups = new Map();
+  for (const signal of signals) {
+    const strategyId = String(signal.strategy_name || "");
+    const timeframe = String(signal.timeframe || "");
+    if (!strategyId || !timeframe) continue;
+    const key = `${strategyId}:${timeframe}`;
+    const current = scopedGroups.get(key) || {
+      strategyId,
+      timeframe,
+      versionCounts: new Map(),
+      signals: [],
+    };
+    const versionKey = String(signal.strategy_version || "v1");
+    current.versionCounts.set(versionKey, Number(current.versionCounts.get(versionKey) || 0) + 1);
+    current.signals.push(signal);
+    scopedGroups.set(key, current);
+  }
+
+  const recommendations = [];
+  for (const group of scopedGroups.values()) {
+    const stats = summarizeSignals(group.signals);
+    if (stats.total < 6) continue;
+
+    const thresholds = getExecutionScopeThresholds(profile, group.strategyId, group.timeframe);
+    const avgScore = group.signals.reduce((sum, item) => sum + Number(item.signal_score || 0), 0) / stats.total;
+    const avgRr = group.signals.reduce((sum, item) => sum + Number(item.rr_ratio || 0), 0) / stats.total;
+    const strongPerformance = stats.pnl > 0 && stats.winRate >= 56;
+    const weakPerformance = stats.pnl < 0 || stats.winRate <= 43;
+    if (!strongPerformance && !weakPerformance) continue;
+
+    const dominantVersion = [...group.versionCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || "v1";
+    const suggestedScore = strongPerformance
+      ? Math.max(18, Math.min(thresholds.minSignalScore - 6, roundToStep(avgScore - 2)))
+      : Math.min(92, Math.max(thresholds.minSignalScore + 6, roundToStep(avgScore + 4)));
+    const suggestedRr = strongPerformance
+      ? Math.max(0.15, Math.min(thresholds.minRrRatio - 0.12, roundToStep(avgRr - 0.05, 0.05)))
+      : Math.min(3, Math.max(thresholds.minRrRatio + 0.15, roundToStep(avgRr + 0.1, 0.05)));
+
+    if (
+      Math.abs(suggestedScore - thresholds.minSignalScore) < 2
+      && Math.abs(suggestedRr - thresholds.minRrRatio) < 0.05
+    ) {
+      continue;
+    }
+
+    recommendations.push({
+      recommendation_key: `execution-scope:${group.strategyId}:${group.timeframe}:${strongPerformance ? "relax" : "tighten"}`,
+      strategy_id: group.strategyId,
+      strategy_version: dominantVersion,
+      parameter_key: "executionScope",
+      title: strongPerformance
+        ? `Abrir más ${group.strategyId} en ${group.timeframe}`
+        : `Endurecer ${group.strategyId} en ${group.timeframe}`,
+      summary: strongPerformance
+        ? `Este scope está respondiendo mejor que la media con muestra suficiente. Conviene darle un filtro demo más flexible para capturar más setups útiles.`
+        : `Este scope está dejando una lectura floja. Conviene subir el filtro demo aquí antes de seguir ejecutándolo igual que el resto.`,
+      current_value: thresholds.minSignalScore,
+      suggested_value: suggestedScore,
+      confidence: Math.min(0.94, 0.54 + stats.total * 0.025 + Math.abs(stats.pnl) / 180),
+      status: "draft",
+      evidence: {
+        recommendationType: "execution-scope-override",
+        timeframe: group.timeframe,
+        sampleSize: stats.total,
+        winRate: stats.winRate,
+        pnl: stats.pnl,
+        avgScore: Number(avgScore.toFixed(1)),
+        avgRr: Number(avgRr.toFixed(2)),
+        currentMinSignalScore: thresholds.minSignalScore,
+        suggestedMinSignalScore: suggestedScore,
+        currentMinRrRatio: Number(thresholds.minRrRatio.toFixed(2)),
+        suggestedMinRrRatio: Number(suggestedRr.toFixed(2)),
+        scopeStrength: strongPerformance ? "strong" : "weak",
+        overrideAlreadyPresent: Boolean(thresholds.override),
+      },
+    });
+  }
+
+  return recommendations;
+}
+
+function buildRecommendationRows(signals, versions, executionProfile) {
   const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
   if (!closedSignals.length) return [];
 
@@ -650,6 +862,9 @@ function buildRecommendationRows(signals, versions) {
   );
 
   pushRecommendation(recommendations, buildBreakoutBufferRecommendation(breakoutV1Params, breakoutSignals));
+  for (const row of buildExecutionScopeOverrideRecommendations(closedSignals, executionProfile)) {
+    pushRecommendation(recommendations, row);
+  }
 
   return recommendations;
 }
@@ -678,12 +893,13 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     limit: "300",
   });
 
-  const [versions, signals] = await Promise.all([
+  const [versions, signals, executionProfile] = await Promise.all([
     supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionParams.toString()}`),
     supabaseRequest(`${SIGNALS_TABLE}?${signalsParams.toString()}`),
+    getExecutionProfileForUser(normalizedUsername),
   ]);
 
-  const rowsToUpsert = buildRecommendationRows(signals || [], versions || []);
+  const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile);
   if (!rowsToUpsert.length) return [];
 
   const rows = await supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?on_conflict=recommendation_key`, {
@@ -713,8 +929,80 @@ function getRecommendationVariantVersion(baseVersion, versions, recommendationId
   return `${candidate}-r${recommendationId}`;
 }
 
+async function applyExecutionScopeRecommendation(username, recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const timeframe = String(evidence.timeframe || "");
+  const minSignalScore = Number(evidence.suggestedMinSignalScore ?? recommendation.suggested_value);
+  const minRrRatio = Number(evidence.suggestedMinRrRatio ?? evidence.currentMinRrRatio ?? 0);
+  if (!timeframe || !Number.isFinite(minSignalScore) || !Number.isFinite(minRrRatio)) {
+    throw new Error("La recomendación no trae un scope demo válido para aplicar");
+  }
+
+  const currentProfile = await getExecutionProfileForUser(username);
+  const nextOverride = {
+    id: `${recommendation.strategy_id}-${timeframe}`,
+    strategyId: recommendation.strategy_id,
+    timeframe,
+    enabled: true,
+    minSignalScore,
+    minRrRatio,
+    note: `Aplicado desde ${recommendation.recommendation_key}`,
+  };
+  const scopeOverrides = (currentProfile.scopeOverrides || []).filter(
+    (item) => !(item.strategyId === nextOverride.strategyId && item.timeframe === nextOverride.timeframe),
+  );
+  scopeOverrides.push(nextOverride);
+
+  const rows = await supabaseRequest(EXECUTION_PROFILES_TABLE, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: [{
+      username,
+      enabled: currentProfile.enabled,
+      auto_execute_enabled: currentProfile.autoExecuteEnabled,
+      risk_per_trade_pct: currentProfile.riskPerTradePct,
+      max_open_positions: currentProfile.maxOpenPositions,
+      max_position_usd: currentProfile.maxPositionUsd,
+      max_daily_loss_pct: currentProfile.maxDailyLossPct,
+      min_signal_score: currentProfile.minSignalScore,
+      min_rr_ratio: currentProfile.minRrRatio,
+      max_daily_auto_executions: currentProfile.maxDailyAutoExecutions,
+      cooldown_after_losses: currentProfile.cooldownAfterLosses,
+      allowed_strategies: currentProfile.allowedStrategies,
+      allowed_timeframes: currentProfile.allowedTimeframes,
+      note: buildProfileNoteEnvelope({
+        note: currentProfile.note,
+        scopeOverrides,
+      }),
+    }],
+  });
+
+  const updatedProfile = normalizeExecutionProfile(rows?.[0] || null, username);
+  const recommendationRows = await supabaseRequest(
+    `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        status: "active",
+        evidence: {
+          ...evidence,
+          appliedAt: new Date().toISOString(),
+          appliedOverride: nextOverride,
+        },
+      },
+    },
+  );
+
+  return {
+    recommendation: recommendationRows?.[0] || recommendation,
+    profile: updatedProfile,
+    activationMode: "execution-scope-override",
+  };
+}
+
 export async function activateAdaptiveRecommendation(req) {
-  requireSession(req);
+  const session = requireSession(req);
   const body = parseJsonBody(req);
   const recommendationId = Number(body.recommendationId || 0);
   if (!recommendationId) {
@@ -731,6 +1019,11 @@ export async function activateAdaptiveRecommendation(req) {
     throw new Error("No se encontró la recomendación solicitada");
   }
 
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  if (evidence.recommendationType === "execution-scope-override") {
+    return applyExecutionScopeRecommendation(session.username, recommendation);
+  }
+
   const baseVersion = (versions || []).find(
     (item) => item.strategy_id === recommendation.strategy_id && item.version === recommendation.strategy_version,
   );
@@ -738,7 +1031,6 @@ export async function activateAdaptiveRecommendation(req) {
     throw new Error("No se encontró la versión base para esta recomendación");
   }
 
-  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
   if (evidence.candidateVersion && evidence.experimentId) {
     const experimentRows = await supabaseRequest(
       `${STRATEGY_EXPERIMENTS_TABLE}?select=*&id=eq.${Number(evidence.experimentId)}&limit=1`,

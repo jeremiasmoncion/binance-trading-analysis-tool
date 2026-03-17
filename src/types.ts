@@ -152,8 +152,10 @@ export interface StrategyDecisionState {
 
 export interface RecommendationActivationResult {
   recommendation: StrategyRecommendationRecord;
-  version: StrategyVersionRecord;
-  experiment: StrategyExperimentRecord;
+  version?: StrategyVersionRecord | null;
+  experiment?: StrategyExperimentRecord | null;
+  profile?: ExecutionProfile | null;
+  activationMode?: "strategy-experiment" | "execution-scope-override";
 }
 
 export interface StrategyCandidate {

@@ -248,6 +248,19 @@ export interface DashboardAnalysis {
   warnings: string[];
 }
 
+export interface AdaptiveScorerBreakdown {
+  label?: string;
+  baseScore?: number;
+  adaptivePrimaryBias?: number;
+  contextualBias?: number;
+  scopeBias?: number;
+  finalScore?: number;
+  confidence?: number;
+  usedAdaptivePrimary?: boolean;
+  usedContextBias?: boolean;
+  scopeAction?: string;
+}
+
 export type SignalOutcomeStatus = "pending" | "win" | "loss" | "invalidated";
 
 export interface SignalSnapshot {
@@ -309,6 +322,7 @@ export interface SignalSnapshot {
       primaryStrategy?: StrategyDescriptor;
       primaryExperimentId?: number | null;
       adaptiveScore?: number | null;
+      scorer?: AdaptiveScorerBreakdown | null;
       contextBias?: {
         strategyId?: string;
         version?: string;
@@ -573,6 +587,7 @@ export interface ExecutionCandidate {
   score: number;
   baseScore?: number;
   adaptiveScore?: number | null;
+  scorer?: AdaptiveScorerBreakdown | null;
   rrRatio: number;
   decisionSource?: string;
   decisionExperimentId?: number | null;

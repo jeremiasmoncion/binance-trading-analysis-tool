@@ -3437,6 +3437,11 @@ function ExecutionCandidateCard({
             Score adaptativo: {Number(item.adaptiveScore).toFixed(1)} {Number(item.adaptiveScore) >= Number(item.baseScore || 0) ? "↑" : "↓"} frente al base {Number(item.baseScore || 0).toFixed(1)}
           </span>
         ) : null}
+        {item.scorer ? (
+          <span className="signal-status-note">
+            Scorer {item.scorer.label || "adaptive"} · confianza {Math.round(Number(item.scorer.confidence || 0) * 100)}% · primaria {Number(item.scorer.adaptivePrimaryBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.adaptivePrimaryBias || 0).toFixed(1)} · contexto {Number(item.scorer.contextualBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.contextualBias || 0).toFixed(1)} · scope {Number(item.scorer.scopeBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.scopeBias || 0).toFixed(1)}
+          </span>
+        ) : null}
         {item.profileOverride ? (
           <span className="signal-status-note">
             Override activo: {item.profileOverride.strategyId} · {item.profileOverride.timeframe} · {item.profileOverride.action === "cut" ? "corte" : item.profileOverride.action === "tighten" ? "endurecido" : item.profileOverride.action === "relax" ? "abierto" : "custom"} · Score {item.profileOverride.minSignalScore}+ · RR {item.profileOverride.minRrRatio.toFixed(2)}+

@@ -666,6 +666,7 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
     score: effectiveScore,
     baseScore,
     adaptiveScore,
+    scorer: decision?.scorer || null,
     rrRatio: Number(signal.rr_ratio || 0),
     decisionSource: String(decision?.source || "legacy"),
     decisionExperimentId: Number(decision?.primaryExperimentId || 0) || null,

@@ -637,6 +637,50 @@ function buildContextBiasByScope(signals) {
   return rows.sort((left, right) => Math.abs(right.biasScore) - Math.abs(left.biasScore)).slice(0, 60);
 }
 
+function clampScore(value, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, Number(value || 0)));
+}
+
+function buildAdaptiveScorer({
+  baseSignalScore,
+  adaptivePrimary,
+  contextBias,
+  scopeAction,
+}) {
+  const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
+  const contextualBias = contextBias ? Math.max(-18, Math.min(18, Number(contextBias.biasScore || 0) * 0.6)) : 0;
+  const scopeBias = scopeAction === "cut"
+    ? -1000
+    : scopeAction === "tighten"
+      ? -18
+      : scopeAction === "relax"
+        ? 8
+        : 0;
+  const finalScore = scopeAction === "cut"
+    ? 0
+    : clampScore(baseSignalScore + adaptiveBias + contextualBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0));
+  const confidence = clampScore(
+    (adaptivePrimary ? Number(adaptivePrimary.confidence || 0) * 55 : 0)
+    + (contextBias ? Math.min(35, Number(contextBias.sampleSize || 0) * 3 + Math.max(0, Number(contextBias.winRate || 0) - 50) * 0.4) : 0)
+    + (scopeAction ? 10 : 0),
+    0,
+    100,
+  );
+
+  return {
+    label: "adaptive-v1",
+    baseScore: Number(baseSignalScore.toFixed(1)),
+    adaptivePrimaryBias: Number(adaptiveBias.toFixed(1)),
+    contextualBias: Number(contextualBias.toFixed(1)),
+    scopeBias: Number(scopeBias.toFixed(1)),
+    finalScore: Number(finalScore.toFixed(1)),
+    confidence: Number(confidence.toFixed(1)),
+    usedAdaptivePrimary: Boolean(adaptivePrimary),
+    usedContextBias: Boolean(contextBias),
+    scopeAction: String(scopeAction || ""),
+  };
+}
+
 export function applySystemStrategyDecision(snapshot, decisionState, context = {}) {
   const marketScope = context.marketScope || "watchlist";
   const timeframe = context.timeframe || snapshot?.timeframe || "";
@@ -702,15 +746,12 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     const scopeAction = String(scopeTuning?.action || "");
     const candidateBaseRank = Number(candidate.rankScore || candidate.signal?.score || candidate.signal?.signalScore || 0);
     const baseSignalScore = Number(candidate.signal?.score || candidate.signal?.signalScore || 0);
-    const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
-    const contextualBias = contextBias ? Math.max(-18, Math.min(18, Number(contextBias.biasScore || 0) * 0.6)) : 0;
-    const scopeBias = scopeAction === "cut"
-      ? -1000
-      : scopeAction === "tighten"
-        ? -18
-        : scopeAction === "relax"
-          ? 8
-          : 0;
+    const scorer = buildAdaptiveScorer({
+      baseSignalScore,
+      adaptivePrimary,
+      contextBias,
+      scopeAction,
+    });
 
     let decisionSource = "inactive";
     if (executionRule) decisionSource = "experiment-active";
@@ -724,15 +765,13 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
       decisionSource,
       experimentId: sandboxRule?.id || executionRule?.experimentId || null,
       scopeAction,
-      scopeBias,
       adaptivePrimary,
-      adaptiveBias,
       scopeTuning,
-      effectiveRank: candidateBaseRank + scopeBias + adaptiveBias,
       contextBias,
-      contextualBias,
-      adaptiveScore: Number((baseSignalScore + adaptiveBias + contextualBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0)).toFixed(1)),
-      featureAdjustedRank: candidateBaseRank + scopeBias + adaptiveBias + contextualBias,
+      scorer,
+      effectiveRank: candidateBaseRank + scorer.scopeBias + scorer.adaptivePrimaryBias,
+      adaptiveScore: scorer.finalScore,
+      featureAdjustedRank: candidateBaseRank + scorer.scopeBias + scorer.adaptivePrimaryBias + scorer.contextualBias,
       executionEligible: scopeAction === "cut"
         ? false
         : Boolean(executionRule || activeRule || promotedVersionByStrategy[strategyId] === version),
@@ -783,6 +822,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     adaptivePrimary: operationalPrimary?.adaptivePrimary || null,
     contextBias: operationalPrimary?.contextBias || null,
     adaptiveScore: operationalPrimary?.adaptiveScore ?? null,
+    scorer: operationalPrimary?.scorer || null,
     activeStrategies: activeStrategies
       .filter((item) => scopeMatches(item, { marketScope, timeframe }))
       .map((item) => ({

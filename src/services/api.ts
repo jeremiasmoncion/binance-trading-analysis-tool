@@ -22,24 +22,46 @@ import type {
   WatchlistScannerStatus,
 } from "../types";
 
-async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers || {});
-  if (options.body && !headers.has("Content-Type")) {
+interface ApiRequestOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
+async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  const { timeoutMs, ...requestOptions } = options;
+  const headers = new Headers(requestOptions.headers || {});
+  if (requestOptions.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    ...options,
-    headers,
-  });
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = timeoutMs && controller
+    ? window.setTimeout(() => controller.abort(new DOMException("La solicitud tardó demasiado.", "AbortError")), timeoutMs)
+    : null;
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.message || "No se pudo completar la solicitud");
+  try {
+    const response = await fetch(path, {
+      credentials: "same-origin",
+      ...requestOptions,
+      headers,
+      signal: controller?.signal || requestOptions.signal,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.message || "No se pudo completar la solicitud");
+    }
+
+    return payload as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("La operación tardó demasiado. Inténtalo otra vez en unos segundos.");
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
   }
-
-  return payload as T;
 }
 
 const marketCache = {
@@ -264,6 +286,7 @@ export const watchlistService = {
   runScan() {
     return apiRequest<WatchlistScanExecution>("/api/watchlist/scan", {
       method: "POST",
+      timeoutMs: 55_000,
     });
   },
 };

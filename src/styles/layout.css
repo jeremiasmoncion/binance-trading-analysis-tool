@@ -178,8 +178,24 @@
 .theme-toggle svg { width: 18px; height: 18px; }
 .theme-toggle .moon-icon { display: none; }
 .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
-.status-indicator.loading { background: #f59e0b; }
+.status-indicator.loading {
+  background: #f59e0b;
+  animation: crype-status-pulse 1.2s ease-in-out infinite;
+}
 .status-indicator.error { background: #ef4444; }
+
+@keyframes crype-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.32);
+  }
+
+  50% {
+    opacity: 0.72;
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
 
 .view-panel { display: none; padding: 18px; }
 .view-panel.active { display: block; }

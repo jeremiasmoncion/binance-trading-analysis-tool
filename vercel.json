@@ -10,7 +10,8 @@
       "regions": ["fra1"]
     },
     "api/watchlist/scan.js": {
-      "regions": ["fra1"]
+      "regions": ["fra1"],
+      "maxDuration": 60
     }
   },
   "crons": [

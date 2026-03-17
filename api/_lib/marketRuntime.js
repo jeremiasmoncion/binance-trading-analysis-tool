@@ -70,6 +70,10 @@ const STRATEGY_DEFINITIONS = [
   },
 ];
 
+const RUNNABLE_STRATEGY_VERSION_KEYS = new Set(
+  STRATEGY_DEFINITIONS.map((item) => `${item.id}:${item.version}`),
+);
+
 const TIMEFRAME_SCAN_INTERVAL_MS = {
   "5m": 5 * 60 * 1000,
   "15m": 10 * 60 * 1000,
@@ -526,6 +530,10 @@ export function getScannableTimeframes() {
   return Array.from(new Set(STRATEGY_DEFINITIONS.flatMap((item) => item.preferredTimeframes)));
 }
 
+export function isRunnableStrategyVersion(strategyId, version) {
+  return RUNNABLE_STRATEGY_VERSION_KEYS.has(`${String(strategyId || "")}:${String(version || "")}`);
+}
+
 export function getTimeframeScanInterval(timeframe) {
   return TIMEFRAME_SCAN_INTERVAL_MS[timeframe] || 15 * 60 * 1000;
 }
@@ -578,7 +586,8 @@ export async function buildMarketSnapshot(coin, timeframe, options = {}) {
   const candidates = STRATEGY_DEFINITIONS
     .map((strategy) => {
       const result = executeStrategy(strategy, { candles, indicators, timeframe, multiTimeframes });
-      return { ...result, rankScore: getRankScore(result, timeframe) };
+      const plan = getOperationPlan(indicators, result.signal, 100, timeframe, result.analysis);
+      return { ...result, plan, rankScore: getRankScore(result, timeframe) };
     })
     .sort((a, b) => b.rankScore - a.rankScore || b.signal.score - a.signal.score)
     .map((item, index) => ({ ...item, isPrimary: index === 0 }));
@@ -589,7 +598,7 @@ export async function buildMarketSnapshot(coin, timeframe, options = {}) {
     aligned: item.label === primary.signal.label,
   }));
   const analysis = primary.analysis;
-  const plan = getOperationPlan(indicators, primary.signal, 100, timeframe, analysis);
+  const plan = primary.plan;
 
   return {
     coin,

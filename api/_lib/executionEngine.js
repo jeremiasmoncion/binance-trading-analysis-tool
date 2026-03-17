@@ -392,9 +392,15 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   const dailyLossPct = Number(riskContext.dailyLossPct || 0);
   const dailyAutoExecutions = Number(riskContext.dailyAutoExecutions || 0);
   const recentLossStreak = Number(riskContext.recentLossStreak || 0);
+  const decision = signal.signal_payload?.decision && typeof signal.signal_payload.decision === "object"
+    ? signal.signal_payload.decision
+    : null;
 
   if (!profile.enabled) reasons.push("El perfil de ejecución está desactivado.");
   if (!side) reasons.push("La señal actual no tiene dirección operable.");
+  if (decision && decision.executionEligible === false) {
+    reasons.push(String(decision.executionReason || "La señal quedó fuera del flujo operativo actual del sistema."));
+  }
   if (Number(signal.signal_score || 0) < profile.minSignalScore) {
     reasons.push(`La convicción (${signal.signal_score || 0}) está por debajo del mínimo ${profile.minSignalScore}.`);
   }
@@ -456,6 +462,8 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
     signalLabel: signal.signal_label,
     score: Number(signal.signal_score || 0),
     rrRatio: Number(signal.rr_ratio || 0),
+    decisionSource: String(decision?.source || "legacy"),
+    decisionExperimentId: Number(decision?.primaryExperimentId || 0) || null,
     side,
     currentPrice,
     qty,

@@ -10,6 +10,7 @@ import type {
   SignalSnapshot,
   RecommendationActivationResult,
   StrategyCandidate,
+  StrategyDecisionState,
   StrategyDescriptor,
   StrategyExperimentRecord,
   StrategyRegistryEntry,
@@ -213,6 +214,7 @@ export const strategyEngineService = {
       versions: StrategyVersionRecord[];
       experiments: StrategyExperimentRecord[];
       recommendations: StrategyRecommendationRecord[];
+      decision: StrategyDecisionState;
     }>("/api/strategy-engine");
   },
   listRecommendations() {

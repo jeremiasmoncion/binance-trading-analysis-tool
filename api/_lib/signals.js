@@ -112,6 +112,7 @@ async function createSignalSnapshotForUser(username, body) {
   const plan = body.plan || {};
   const strategy = body.strategy || {};
   const candidates = Array.isArray(body.strategyCandidates) ? body.strategyCandidates : [];
+  const decision = body.decision && typeof body.decision === "object" ? body.decision : null;
   const direction = String(signal.label || "Esperar").toLowerCase();
   const marketRegime =
     String(analysis.setupType || "").includes("Contra")
@@ -171,11 +172,15 @@ async function createSignalSnapshotForUser(username, body) {
           riskLabel: String(candidate.analysis?.riskLabel || ""),
           rankScore: Number(candidate.rankScore || 0),
           isPrimary: Boolean(candidate.isPrimary),
+          decisionSource: String(candidate.decisionSource || ""),
+          experimentId: candidate.experimentId ?? null,
+          executionEligible: Boolean(candidate.executionEligible),
         })),
         signal,
         analysis,
         plan,
         multiTimeframes: body.multiTimeframes || [],
+        decision,
         context: {
           direction,
           marketRegime,

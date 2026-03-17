@@ -2,6 +2,7 @@ import { getSession, sendJson } from "./auth.js";
 import { executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
 import { buildMarketSnapshot, fetchTickerPrice, getScannableTimeframes, getTimeframeScanInterval } from "./marketRuntime.js";
 import { createSignalSnapshotForUser, evaluatePendingSignalsForUser } from "./signals.js";
+import { applySystemStrategyDecision, getSystemStrategyDecisionState } from "./strategyEngine.js";
 import { listWatchlistScanTargets } from "./watchlist.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
@@ -119,6 +120,7 @@ async function runWithConcurrency(items, limit, worker) {
 async function scanUserWatchlist(target, scanSource) {
   const scanState = await getScanState(target.username);
   const executionProfile = await getExecutionProfileForUser(target.username).catch(() => null);
+  const decisionState = await getSystemStrategyDecisionState(target.username).catch(() => null);
   const coins = Array.from(new Set(target.coins || []));
   const timeframes = getScannableTimeframes();
   const priceMap = {};
@@ -177,19 +179,32 @@ async function scanUserWatchlist(target, scanSource) {
       const previousState = scanState.get(`${coin}|${timeframe}`);
       try {
         const snapshot = candleCache.get(`${coin}|${timeframe}|snapshot`) || await buildMarketSnapshot(coin, timeframe, { candleCache });
+        const resolvedDecision = applySystemStrategyDecision(snapshot, decisionState, {
+          marketScope: "watchlist",
+          timeframe,
+        });
         nextScannedFrames += 1;
         let createdSignalAt = previousState?.last_signal_created_at || null;
 
-        if (isActionableSignal(snapshot)) {
+        if (isActionableSignal({
+          ...snapshot,
+          primary: {
+            ...snapshot.primary,
+            signal: resolvedDecision.signal,
+            analysis: resolvedDecision.analysis,
+            strategy: resolvedDecision.strategy,
+          },
+        })) {
           const createdSignal = await createSignalSnapshotForUser(target.username, {
             coin,
             timeframe,
-            signal: snapshot.primary.signal,
-            analysis: snapshot.primary.analysis,
-            plan: snapshot.plan,
+            signal: resolvedDecision.signal,
+            analysis: resolvedDecision.analysis,
+            plan: resolvedDecision.plan,
             multiTimeframes: snapshot.multiTimeframes,
-            strategy: snapshot.primary.strategy,
-            strategyCandidates: snapshot.candidates,
+            strategy: resolvedDecision.strategy,
+            strategyCandidates: resolvedDecision.strategyCandidates,
+            decision: resolvedDecision.decision,
             note: `Auto-guardada por el vigilante del watchlist (${target.activeListName})`,
           });
           if (createdSignal?.id) {
@@ -218,14 +233,14 @@ async function scanUserWatchlist(target, scanSource) {
           coin,
           timeframe,
           last_scanned_at: new Date().toISOString(),
-          last_strategy_id: snapshot.primary.strategy.id,
-          last_strategy_version: snapshot.primary.strategy.version,
+          last_strategy_id: resolvedDecision.strategy?.id || snapshot.primary.strategy.id,
+          last_strategy_version: resolvedDecision.strategy?.version || snapshot.primary.strategy.version,
           last_signal_created_at: createdSignalAt,
           last_summary: {
-            signalLabel: snapshot.primary.signal.label,
-            score: snapshot.primary.signal.score,
-            setupType: snapshot.primary.analysis.setupType,
-            strategy: snapshot.primary.strategy.label,
+            signalLabel: resolvedDecision.signal?.label || snapshot.primary.signal.label,
+            score: resolvedDecision.signal?.score || snapshot.primary.signal.score,
+            setupType: resolvedDecision.analysis?.setupType || snapshot.primary.analysis.setupType,
+            strategy: resolvedDecision.strategy?.label || snapshot.primary.strategy.label,
           },
         });
       } catch (error) {

@@ -1,4 +1,5 @@
 import { getSession, parseJsonBody, sendJson } from "./auth.js";
+import { isRunnableStrategyVersion } from "./marketRuntime.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -7,6 +8,8 @@ const STRATEGY_VERSIONS_TABLE = process.env.SUPABASE_STRATEGY_VERSIONS_TABLE || 
 const STRATEGY_EXPERIMENTS_TABLE = process.env.SUPABASE_STRATEGY_EXPERIMENTS_TABLE || "strategy_experiments";
 const STRATEGY_RECOMMENDATIONS_TABLE = process.env.SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE || "strategy_recommendations";
 const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
+const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
+const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 
 const FALLBACK_REGISTRY = [
   {
@@ -125,8 +128,231 @@ function requireSession(req) {
   return session;
 }
 
+function splitScope(scope) {
+  if (!scope || scope === "all") return [];
+  return String(scope)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function scopeMatches({ marketScope, timeframeScope }, context) {
+  const matchesMarket = !marketScope
+    || marketScope === "all"
+    || marketScope === context.marketScope
+    || (marketScope === "watchlist" && context.marketScope === "watchlist");
+  const timeframeValues = splitScope(timeframeScope);
+  const matchesTimeframe = !timeframeValues.length || timeframeValues.includes(context.timeframe);
+  return matchesMarket && matchesTimeframe;
+}
+
+function inferBaseVersion(experiment) {
+  const metadata = experiment?.metadata && typeof experiment.metadata === "object" ? experiment.metadata : {};
+  if (typeof metadata.baseVersion === "string" && metadata.baseVersion.trim()) {
+    return metadata.baseVersion.trim();
+  }
+  if (experiment?.base_strategy_id === experiment?.candidate_strategy_id && experiment?.candidate_version !== "v1") {
+    return "v1";
+  }
+  return "";
+}
+
+function pickActiveVersions(versions) {
+  const activeByStrategy = new Map();
+  const promotedByStrategy = {};
+  const ordered = [...(versions || [])].sort((a, b) =>
+    new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime(),
+  );
+
+  ordered.forEach((item) => {
+    if (!isRunnableStrategyVersion(item.strategy_id, item.version)) return;
+    const normalizedStatus = String(item.status || "").toLowerCase();
+    if (normalizedStatus === "promoted" && !promotedByStrategy[item.strategy_id]) {
+      promotedByStrategy[item.strategy_id] = item.version;
+    }
+    if (!ACTIVE_VERSION_STATUSES.has(normalizedStatus)) return;
+    if (!activeByStrategy.has(item.strategy_id)) {
+      activeByStrategy.set(item.strategy_id, item);
+    }
+  });
+
+  FALLBACK_VERSIONS.forEach((item) => {
+    if (!isRunnableStrategyVersion(item.strategy_id, item.version)) return;
+    if (!activeByStrategy.has(item.strategy_id) && ACTIVE_VERSION_STATUSES.has(String(item.status || "").toLowerCase())) {
+      activeByStrategy.set(item.strategy_id, item);
+    }
+  });
+
+  return { activeByStrategy, promotedByStrategy };
+}
+
+export async function getSystemStrategyDecisionState(username) {
+  let versions = [];
+  let experiments = [];
+
+  try {
+    const versionsParams = new URLSearchParams({
+      select: "*",
+      order: "strategy_id.asc,created_at.desc",
+    });
+    const experimentsParams = new URLSearchParams({
+      select: "*",
+      order: "created_at.desc",
+      limit: "100",
+    });
+
+    [versions, experiments] = await Promise.all([
+      supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
+      supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
+    ]);
+  } catch {
+    versions = [];
+    experiments = [];
+  }
+
+  const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
+  const { activeByStrategy, promotedByStrategy } = pickActiveVersions(resolvedVersions);
+  const sandboxExperiments = (experiments || [])
+    .filter((item) => SANDBOX_EXPERIMENT_STATUSES.has(String(item.status || "").toLowerCase()))
+    .map((item) => ({
+      ...item,
+      base_version: inferBaseVersion(item),
+      candidate_runnable: isRunnableStrategyVersion(item.candidate_strategy_id, item.candidate_version),
+      execution_allowed: Boolean(
+        item.status === "active"
+          || item.status === "running"
+          || (item.metadata && typeof item.metadata === "object" && item.metadata.allowExecution === true),
+      ),
+    }));
+
+  return {
+    username,
+    activeStrategyByScope: Array.from(activeByStrategy.values()).map((item) => ({
+      strategyId: item.strategy_id,
+      version: item.version,
+      label: item.label,
+      status: item.status,
+      marketScope: "watchlist",
+      timeframeScope: getPreferredTimeframeScope(resolvedVersions, item.strategy_id, item.version),
+    })),
+    promotedVersionByStrategy: promotedByStrategy,
+    sandboxExperimentsByScope: sandboxExperiments.map((item) => ({
+      id: item.id,
+      baseStrategyId: item.base_strategy_id,
+      baseVersion: item.base_version,
+      candidateStrategyId: item.candidate_strategy_id,
+      candidateVersion: item.candidate_version,
+      marketScope: item.market_scope || "all",
+      timeframeScope: item.timeframe_scope || "all",
+      status: item.status,
+      executionAllowed: item.execution_allowed,
+      candidateRunnable: item.candidate_runnable,
+      metadata: item.metadata || {},
+    })),
+    executionEligibleScopes: sandboxExperiments
+      .filter((item) => item.execution_allowed && item.candidate_runnable)
+      .map((item) => ({
+        experimentId: item.id,
+        strategyId: item.candidate_strategy_id,
+        version: item.candidate_version,
+        marketScope: item.market_scope || "all",
+        timeframeScope: item.timeframe_scope || "all",
+      })),
+  };
+}
+
+export function applySystemStrategyDecision(snapshot, decisionState, context = {}) {
+  const marketScope = context.marketScope || "watchlist";
+  const timeframe = context.timeframe || snapshot?.timeframe || "";
+  const promotedVersionByStrategy = decisionState?.promotedVersionByStrategy || {};
+  const activeStrategies = Array.isArray(decisionState?.activeStrategyByScope) ? decisionState.activeStrategyByScope : [];
+  const sandboxExperiments = Array.isArray(decisionState?.sandboxExperimentsByScope) ? decisionState.sandboxExperimentsByScope : [];
+  const executionEligibleScopes = Array.isArray(decisionState?.executionEligibleScopes) ? decisionState.executionEligibleScopes : [];
+  const candidates = Array.isArray(snapshot?.candidates) ? snapshot.candidates : [];
+
+  const enrichedCandidates = candidates.map((candidate) => {
+    const strategyId = candidate.strategy?.id;
+    const version = candidate.strategy?.version;
+    const activeRule = activeStrategies.find((item) =>
+      item.strategyId === strategyId
+        && item.version === version
+        && scopeMatches(item, { marketScope, timeframe }),
+    );
+    const sandboxRule = sandboxExperiments.find((item) =>
+      item.candidateStrategyId === strategyId
+        && item.candidateVersion === version
+        && item.candidateRunnable
+        && scopeMatches(item, { marketScope, timeframe }),
+    );
+    const executionRule = executionEligibleScopes.find((item) =>
+      item.strategyId === strategyId
+        && item.version === version
+        && scopeMatches(item, { marketScope, timeframe }),
+    );
+
+    let decisionSource = "inactive";
+    if (executionRule) decisionSource = "experiment-active";
+    else if (promotedVersionByStrategy[strategyId] === version) decisionSource = "promoted";
+    else if (activeRule) decisionSource = "active";
+    else if (sandboxRule) decisionSource = "sandbox";
+
+    return {
+      ...candidate,
+      decisionSource,
+      experimentId: sandboxRule?.id || executionRule?.experimentId || null,
+      executionEligible: Boolean(executionRule || activeRule || promotedVersionByStrategy[strategyId] === version),
+    };
+  });
+
+  const operationalPrimary = enrichedCandidates.find((candidate) => candidate.decisionSource === "experiment-active")
+    || enrichedCandidates.find((candidate) => candidate.decisionSource === "promoted")
+    || enrichedCandidates.find((candidate) => candidate.decisionSource === "active")
+    || enrichedCandidates[0]
+    || snapshot?.primary;
+
+  const strategyCandidates = enrichedCandidates.map((candidate) => ({
+    ...candidate,
+    isPrimary: Boolean(
+      candidate.strategy?.id === operationalPrimary?.strategy?.id
+        && candidate.strategy?.version === operationalPrimary?.strategy?.version,
+    ),
+  }));
+
+  const decision = {
+    marketScope,
+    timeframeScope: timeframe,
+    source: operationalPrimary?.decisionSource || "fallback",
+    executionEligible: Boolean(operationalPrimary?.executionEligible),
+    executionReason: operationalPrimary?.executionEligible
+      ? "La señal pertenece al flujo operativo actual del sistema."
+      : "La lectura quedó fuera del motor activo y se guarda solo como observación.",
+    primaryStrategy: operationalPrimary?.strategy || snapshot?.primary?.strategy || {},
+    primaryExperimentId: operationalPrimary?.experimentId || null,
+    activeStrategies: activeStrategies
+      .filter((item) => scopeMatches(item, { marketScope, timeframe }))
+      .map((item) => ({
+        strategyId: item.strategyId,
+        version: item.version,
+        label: item.label,
+        status: item.status,
+      })),
+    sandboxExperimentIds: sandboxExperiments
+      .filter((item) => item.candidateRunnable && scopeMatches(item, { marketScope, timeframe }))
+      .map((item) => item.id),
+  };
+
+  return {
+    strategy: operationalPrimary?.strategy || snapshot?.primary?.strategy,
+    signal: operationalPrimary?.signal || snapshot?.primary?.signal,
+    analysis: operationalPrimary?.analysis || snapshot?.primary?.analysis,
+    plan: operationalPrimary?.plan || snapshot?.plan,
+    strategyCandidates,
+    decision,
+  };
+}
+
 export async function listStrategyEngine(req) {
-  requireSession(req);
+  const session = requireSession(req);
 
   try {
     const registryParams = new URLSearchParams({
@@ -160,6 +386,7 @@ export async function listStrategyEngine(req) {
       versions: versions || [],
       experiments: experiments || [],
       recommendations: recommendations || [],
+      decision: await getSystemStrategyDecisionState(session.username),
     };
   } catch {
     return {
@@ -167,6 +394,7 @@ export async function listStrategyEngine(req) {
       versions: FALLBACK_VERSIONS,
       experiments: [],
       recommendations: [],
+      decision: await getSystemStrategyDecisionState(session.username),
     };
   }
 }
@@ -437,6 +665,7 @@ export async function activateAdaptiveRecommendation(req) {
       summary: `Prueba segura creada desde ${recommendation.title}. Compara ${recommendation.strategy_version} contra ${nextVersion}.`,
       metadata: {
         createdFrom: "adaptive-recommendation",
+        baseVersion: recommendation.strategy_version,
         recommendationId: recommendation.id,
         recommendationKey: recommendation.recommendation_key,
         parameterKey: recommendation.parameter_key,
@@ -489,6 +718,9 @@ export async function createStrategyExperiment(req) {
   const summary = String(body.summary || "").trim();
   const status = String(body.status || "draft").trim();
   const metadata = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
+  const baseVersion = typeof body.baseVersion === "string" && body.baseVersion.trim()
+    ? body.baseVersion.trim()
+    : (baseStrategyId === candidateStrategyId && candidateVersion !== "v1" ? "v1" : "");
 
   if (!baseStrategyId || !candidateStrategyId || !candidateVersion) {
     throw new Error("Faltan datos para crear el experimento");
@@ -523,6 +755,7 @@ export async function createStrategyExperiment(req) {
         summary,
         metadata: {
           createdFrom: "signals-lab",
+          ...(baseVersion ? { baseVersion } : {}),
           ...metadata,
         },
       }],
@@ -540,7 +773,7 @@ export async function createStrategyExperiment(req) {
       timeframe_scope: timeframeScope,
       status,
       summary,
-      metadata: { createdFrom: "signals-lab", fallback: true, ...metadata },
+      metadata: { createdFrom: "signals-lab", fallback: true, ...(baseVersion ? { baseVersion } : {}), ...metadata },
       created_at: new Date().toISOString(),
     };
   }

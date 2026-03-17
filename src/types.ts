@@ -117,6 +117,39 @@ export interface StrategyRecommendationRecord {
   updated_at?: string;
 }
 
+export interface StrategyDecisionState {
+  username?: string;
+  activeStrategyByScope: Array<{
+    strategyId: string;
+    version: string;
+    label?: string;
+    status?: string;
+    marketScope?: string;
+    timeframeScope?: string;
+  }>;
+  promotedVersionByStrategy: Record<string, string>;
+  sandboxExperimentsByScope: Array<{
+    id: number;
+    baseStrategyId: string;
+    baseVersion?: string;
+    candidateStrategyId: string;
+    candidateVersion: string;
+    marketScope?: string;
+    timeframeScope?: string;
+    status?: string;
+    executionAllowed?: boolean;
+    candidateRunnable?: boolean;
+    metadata?: Record<string, unknown>;
+  }>;
+  executionEligibleScopes: Array<{
+    experimentId: number;
+    strategyId: string;
+    version: string;
+    marketScope?: string;
+    timeframeScope?: string;
+  }>;
+}
+
 export interface RecommendationActivationResult {
   recommendation: StrategyRecommendationRecord;
   version: StrategyVersionRecord;
@@ -228,11 +261,30 @@ export interface SignalSnapshot {
       riskLabel?: string;
       rankScore?: number;
       isPrimary?: boolean;
+      decisionSource?: string;
+      experimentId?: number | null;
+      executionEligible?: boolean;
     }>;
     signal?: Signal;
     analysis?: DashboardAnalysis;
     plan?: OperationPlan;
     multiTimeframes?: TimeframeSignal[];
+    decision?: {
+      marketScope?: string;
+      timeframeScope?: string;
+      source?: string;
+      executionEligible?: boolean;
+      executionReason?: string;
+      primaryStrategy?: StrategyDescriptor;
+      primaryExperimentId?: number | null;
+      activeStrategies?: Array<{
+        strategyId: string;
+        version: string;
+        label?: string;
+        status?: string;
+      }>;
+      sandboxExperimentIds?: number[];
+    };
     context?: {
       direction?: string;
       marketRegime?: string;
@@ -423,6 +475,8 @@ export interface ExecutionCandidate {
   signalLabel: string;
   score: number;
   rrRatio: number;
+  decisionSource?: string;
+  decisionExperimentId?: number | null;
   side: "BUY" | "SELL" | "";
   currentPrice: number;
   qty: number;

@@ -15,6 +15,7 @@ import type {
   RecommendationActivationResult,
   SignalOutcomeStatus,
   SignalSnapshot,
+  StrategyDecisionState,
   StrategyExperimentRecord,
   StrategyRegistryEntry,
   StrategyRecommendationRecord,
@@ -232,6 +233,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [versions, setVersions] = useState<StrategyVersionRecord[]>([]);
   const [experiments, setExperiments] = useState<StrategyExperimentRecord[]>([]);
   const [recommendations, setRecommendations] = useState<StrategyRecommendationRecord[]>([]);
+  const [decisionState, setDecisionState] = useState<StrategyDecisionState | null>(null);
   const [experimentBase, setExperimentBase] = useState("trend-alignment");
   const [experimentCandidate, setExperimentCandidate] = useState("breakout");
   const [experimentVersion, setExperimentVersion] = useState("v1");
@@ -270,6 +272,7 @@ export function MemoryView(props: MemoryViewProps) {
         setVersions(payload.versions || []);
         setExperiments(payload.experiments || []);
         setRecommendations(payload.recommendations || []);
+        setDecisionState(payload.decision || null);
       })
       .catch(() => {
         if (ignore) return;
@@ -277,6 +280,7 @@ export function MemoryView(props: MemoryViewProps) {
         setVersions([]);
         setExperiments([]);
         setRecommendations([]);
+        setDecisionState(null);
       });
 
     return () => {
@@ -313,6 +317,7 @@ export function MemoryView(props: MemoryViewProps) {
           setVersions(payload.versions || []);
           setExperiments(payload.experiments || []);
           setRecommendations(payload.recommendations || []);
+          setDecisionState(payload.decision || null);
         })
         .catch(() => {
           // keep last known state to avoid flicker
@@ -970,6 +975,9 @@ export function MemoryView(props: MemoryViewProps) {
       const evidence = item.evidence || {};
       return evidence.recommendationType === "execution-scope-override" && evidence.policyAutomation;
     }).length;
+    const adaptiveLeaders = [...(decisionState?.adaptivePrimaryByScope || [])]
+      .sort((left, right) => Number(right.edgeScore || 0) - Number(left.edgeScore || 0));
+    const leadingAdaptiveScope = adaptiveLeaders[0] || null;
 
     let nextAction: AutomationCommandCard = {
       title: "Seguir recolectando muestra útil",
@@ -1019,9 +1027,10 @@ export function MemoryView(props: MemoryViewProps) {
       draftScopeRecommendations,
       sandboxScopeRecommendations,
       automatedPolicyActions,
+      leadingAdaptiveScope,
       nextAction,
     };
-  }, [executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
+  }, [decisionState?.adaptivePrimaryByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1235,6 +1244,7 @@ export function MemoryView(props: MemoryViewProps) {
       setVersions(refreshed.versions || []);
       setExperiments(refreshed.experiments || []);
       setRecommendations(refreshed.recommendations || []);
+      setDecisionState(refreshed.decision || null);
       showToast({
         tone: "success",
         title: "Motor promovido",
@@ -1657,6 +1667,12 @@ export function MemoryView(props: MemoryViewProps) {
                 sub="Scopes movidos o aplicados por umbral"
                 accentClass="accent-amber"
               />
+              <StatCard
+                label="Líder adaptativo"
+                value={automationMasterBoard.leadingAdaptiveScope ? `${automationMasterBoard.leadingAdaptiveScope.strategyId} · ${automationMasterBoard.leadingAdaptiveScope.timeframe}` : "--"}
+                sub={automationMasterBoard.leadingAdaptiveScope ? `${automationMasterBoard.leadingAdaptiveScope.version} · ${automationMasterBoard.leadingAdaptiveScope.winRate.toFixed(0)}% · ${formatSignedPrice(automationMasterBoard.leadingAdaptiveScope.pnl)}` : "Sin líder claro por temporalidad todavía"}
+                accentClass="accent-emerald"
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1674,6 +1690,15 @@ export function MemoryView(props: MemoryViewProps) {
                       </div>
                       <div className="signal-analytics-pill status-running">edge fuerte</div>
                     </div>
+                    {automationMasterBoard.leadingAdaptiveScope ? (
+                      <div className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{automationMasterBoard.leadingAdaptiveScope.strategyId} {automationMasterBoard.leadingAdaptiveScope.version} lidera {automationMasterBoard.leadingAdaptiveScope.timeframe}</strong>
+                          <span>Muestra {automationMasterBoard.leadingAdaptiveScope.sampleSize} · lead {automationMasterBoard.leadingAdaptiveScope.leadOverNext != null ? automationMasterBoard.leadingAdaptiveScope.leadOverNext.toFixed(2) : "--"} · confianza {Math.round(Number(automationMasterBoard.leadingAdaptiveScope.confidence || 0) * 100)}%</span>
+                        </div>
+                        <div className="signal-analytics-pill status-sandbox">prioridad adaptativa</div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <EmptyState message="Todavía no hay un scope dominante lo bastante claro." />

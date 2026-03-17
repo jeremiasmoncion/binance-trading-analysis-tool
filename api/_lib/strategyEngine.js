@@ -334,6 +334,7 @@ export async function getSystemStrategyDecisionState(username) {
   let versions = [];
   let experiments = [];
   let executionProfile = null;
+  let signals = [];
 
   try {
     const versionsParams = new URLSearchParams({
@@ -351,10 +352,12 @@ export async function getSystemStrategyDecisionState(username) {
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username).catch(() => null);
+    signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
   } catch {
     versions = [];
     experiments = [];
     executionProfile = null;
+    signals = [];
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -405,6 +408,7 @@ export async function getSystemStrategyDecisionState(username) {
         marketScope: item.market_scope || "all",
         timeframeScope: item.timeframe_scope || "all",
       })),
+    adaptivePrimaryByScope: buildAdaptivePrimaryByScope(signals || []),
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
       timeframe: item.timeframe,
@@ -417,6 +421,75 @@ export async function getSystemStrategyDecisionState(username) {
   };
 }
 
+function buildAdaptivePrimaryByScope(signals) {
+  const groups = new Map();
+  for (const signal of (signals || [])) {
+    if (!signal || signal.outcome_status === "pending") continue;
+    const strategyId = String(signal.strategy_name || "");
+    const version = String(signal.strategy_version || "");
+    const timeframe = String(signal.timeframe || "");
+    if (!strategyId || !version || !timeframe) continue;
+    const key = `${timeframe}:${strategyId}:${version}`;
+    const current = groups.get(key) || {
+      timeframe,
+      strategyId,
+      version,
+      signals: [],
+    };
+    current.signals.push(signal);
+    groups.set(key, current);
+  }
+
+  const byTimeframe = new Map();
+  for (const group of groups.values()) {
+    const stats = summarizeSignals(group.signals);
+    if (stats.total < 5) continue;
+    const avgScore = group.signals.reduce((sum, item) => sum + Number(item.signal_score || 0), 0) / stats.total;
+    const avgRr = group.signals.reduce((sum, item) => sum + Number(item.rr_ratio || 0), 0) / stats.total;
+    const avgPnl = stats.total ? stats.pnl / stats.total : 0;
+    const confidence = Math.min(0.97, 0.5 + stats.total * 0.03 + Math.max(0, stats.winRate - 50) * 0.004 + Math.max(0, avgPnl) * 0.05);
+    const edgeScore = Number((
+      stats.pnl * 2.4
+      + avgPnl * 8
+      + (stats.winRate - 50) * 0.9
+      + Math.min(stats.total, 20) * 0.5
+      + avgScore * 0.05
+      + avgRr * 4
+    ).toFixed(2));
+    const current = byTimeframe.get(group.timeframe) || [];
+    current.push({
+      timeframe: group.timeframe,
+      strategyId: group.strategyId,
+      version: group.version,
+      sampleSize: stats.total,
+      winRate: Number(stats.winRate.toFixed(2)),
+      pnl: Number(stats.pnl.toFixed(2)),
+      avgPnl: Number(avgPnl.toFixed(2)),
+      avgScore: Number(avgScore.toFixed(1)),
+      avgRr: Number(avgRr.toFixed(2)),
+      confidence: Number(confidence.toFixed(2)),
+      edgeScore,
+    });
+    byTimeframe.set(group.timeframe, current);
+  }
+
+  const preferred = [];
+  for (const candidates of byTimeframe.values()) {
+    const ordered = [...candidates].sort((left, right) => right.edgeScore - left.edgeScore);
+    const winner = ordered[0];
+    const runnerUp = ordered[1];
+    if (!winner) continue;
+    if (winner.edgeScore <= 0 && winner.winRate < 54) continue;
+    if (runnerUp && winner.edgeScore - runnerUp.edgeScore < 4 && winner.sampleSize < 10) continue;
+    preferred.push({
+      ...winner,
+      leadOverNext: runnerUp ? Number((winner.edgeScore - runnerUp.edgeScore).toFixed(2)) : null,
+    });
+  }
+
+  return preferred;
+}
+
 export function applySystemStrategyDecision(snapshot, decisionState, context = {}) {
   const marketScope = context.marketScope || "watchlist";
   const timeframe = context.timeframe || snapshot?.timeframe || "";
@@ -424,6 +497,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
   const activeStrategies = Array.isArray(decisionState?.activeStrategyByScope) ? decisionState.activeStrategyByScope : [];
   const sandboxExperiments = Array.isArray(decisionState?.sandboxExperimentsByScope) ? decisionState.sandboxExperimentsByScope : [];
   const executionEligibleScopes = Array.isArray(decisionState?.executionEligibleScopes) ? decisionState.executionEligibleScopes : [];
+  const adaptivePrimaryByScope = Array.isArray(decisionState?.adaptivePrimaryByScope) ? decisionState.adaptivePrimaryByScope : [];
   const scopeTuningByScope = Array.isArray(decisionState?.scopeTuningByScope) ? decisionState.scopeTuningByScope : [];
   const candidates = Array.isArray(snapshot?.candidates) ? snapshot.candidates : [];
 
@@ -451,8 +525,14 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
         && item.timeframe === timeframe
         && item.enabled !== false
     );
+    const adaptivePrimary = adaptivePrimaryByScope.find((item) =>
+      item.strategyId === strategyId
+        && item.version === version
+        && item.timeframe === timeframe
+    );
     const scopeAction = String(scopeTuning?.action || "");
     const candidateBaseRank = Number(candidate.rankScore || candidate.signal?.score || candidate.signal?.signalScore || 0);
+    const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
     const scopeBias = scopeAction === "cut"
       ? -1000
       : scopeAction === "tighten"
@@ -474,8 +554,10 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
       experimentId: sandboxRule?.id || executionRule?.experimentId || null,
       scopeAction,
       scopeBias,
+      adaptivePrimary,
+      adaptiveBias,
       scopeTuning,
-      effectiveRank: candidateBaseRank + scopeBias,
+      effectiveRank: candidateBaseRank + scopeBias + adaptiveBias,
       executionEligible: scopeAction === "cut"
         ? false
         : Boolean(executionRule || activeRule || promotedVersionByStrategy[strategyId] === version),
@@ -523,6 +605,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     primaryStrategy: operationalPrimary?.strategy || snapshot?.primary?.strategy || {},
     primaryExperimentId: operationalPrimary?.experimentId || null,
     primaryScopeAction: operationalPrimary?.scopeAction || "",
+    adaptivePrimary: operationalPrimary?.adaptivePrimary || null,
     activeStrategies: activeStrategies
       .filter((item) => scopeMatches(item, { marketScope, timeframe }))
       .map((item) => ({

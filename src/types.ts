@@ -148,6 +148,20 @@ export interface StrategyDecisionState {
     marketScope?: string;
     timeframeScope?: string;
   }>;
+  adaptivePrimaryByScope?: Array<{
+    timeframe: string;
+    strategyId: string;
+    version: string;
+    sampleSize: number;
+    winRate: number;
+    pnl: number;
+    avgPnl: number;
+    avgScore: number;
+    avgRr: number;
+    confidence: number;
+    edgeScore: number;
+    leadOverNext?: number | null;
+  }>;
 }
 
 export interface RecommendationActivationResult {

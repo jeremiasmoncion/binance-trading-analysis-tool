@@ -102,10 +102,15 @@ async function getAuthenticatedSession(req) {
 
 async function getCredentialsForSession(req) {
   const session = await getAuthenticatedSession(req);
-  const row = await getStoredConnection(session.username);
+  return getCredentialsForUsername(session.username, session);
+}
+
+async function getCredentialsForUsername(username, sessionOverride = null) {
+  const normalizedUsername = String(username || "").trim();
+  const row = await getStoredConnection(normalizedUsername);
   if (!row) throw new Error("Primero conecta Binance Demo Spot desde Perfil");
   return {
-    session,
+    session: sessionOverride || { username: normalizedUsername },
     row,
     apiKey: decryptValue(row.api_key_encrypted),
     apiSecret: decryptValue(row.api_secret_encrypted),
@@ -364,6 +369,15 @@ function formatMoneyNumber(value) {
 
 async function getPortfolioSnapshot(req, period = "1d") {
   const { session, row, apiKey, apiSecret } = await getCredentialsForSession(req);
+  return getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSecret }, period);
+}
+
+async function getPortfolioSnapshotForUsername(username, period = "1d") {
+  const credentials = await getCredentialsForUsername(username);
+  return getPortfolioSnapshotFromCredentials(credentials, period);
+}
+
+async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSecret }, period = "1d") {
   const account = await fetchBinanceSigned("/api/v3/account", apiKey, apiSecret, { omitZeroBalances: true });
   const openOrdersPayload = await fetchBinanceSigned("/api/v3/openOrders", apiKey, apiSecret).catch(() => []);
   const openOrders = Array.isArray(openOrdersPayload) ? openOrdersPayload.map(normalizeOrder) : [];
@@ -544,7 +558,9 @@ export {
   fetchBinancePublic,
   fetchBinanceSigned,
   getCredentialsForSession,
+  getCredentialsForUsername,
   getPortfolioSnapshot,
+  getPortfolioSnapshotForUsername,
   getBinanceConnectionState,
   sendJson,
 };

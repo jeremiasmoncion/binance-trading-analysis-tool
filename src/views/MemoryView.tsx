@@ -538,7 +538,12 @@ export function MemoryView(props: MemoryViewProps) {
       const errorMessage = execution.summary.runPersistErrors?.[0]
         || execution.targets.find((item) => item.runPersistError)?.runPersistError
         || "";
-      setScannerNotice(errorMessage || "Vigilante ejecutado correctamente.");
+      const successSummary = [
+        `${execution.summary.signalsCreated} señales creadas`,
+        `${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas`,
+        `${execution.summary.autoOrdersBlocked || 0} bloqueadas`,
+      ].join(" · ");
+      setScannerNotice(errorMessage || `Vigilante ejecutado correctamente. ${successSummary}.`);
       if (errorMessage) {
         setScannerToast({
           tone: "error",
@@ -547,7 +552,7 @@ export function MemoryView(props: MemoryViewProps) {
       } else {
         setScannerToast({
           tone: "success",
-          message: "Vigilante ejecutado correctamente.",
+          message: `Vigilante ejecutado. ${execution.summary.signalsCreated} señales creadas y ${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas.`,
         });
       }
     } catch (error) {

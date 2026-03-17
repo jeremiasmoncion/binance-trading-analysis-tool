@@ -286,6 +286,8 @@ export interface WatchlistScanExecution {
     scannedFrames: number;
     signalsCreated: number;
     signalsClosed: number;
+    autoOrdersPlaced: number;
+    autoOrdersBlocked: number;
     errors: string[];
     runPersistError?: string | null;
   }>;
@@ -293,6 +295,8 @@ export interface WatchlistScanExecution {
     users: number;
     signalsCreated: number;
     signalsClosed: number;
+    autoOrdersPlaced: number;
+    autoOrdersBlocked: number;
     framesScanned: number;
     runPersistErrors?: string[];
   };

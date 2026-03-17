@@ -3,7 +3,9 @@ import {
   fetchBinancePublic,
   fetchBinanceSigned,
   getCredentialsForSession,
+  getCredentialsForUsername,
   getPortfolioSnapshot,
+  getPortfolioSnapshotForUsername,
   sendJson,
 } from "./binance.js";
 import { listSignalSnapshotsForUser } from "./signals.js";
@@ -103,6 +105,42 @@ async function getExecutionProfileForUser(username) {
   });
   const rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`);
   return normalizeProfile(rows?.[0] || null, username);
+}
+
+async function getExecutionCenterForUser(username) {
+  const [profile, portfolioPayload, signals, executionOrders] = await Promise.all([
+    getExecutionProfileForUser(username),
+    getPortfolioSnapshotForUsername(username, "1d"),
+    listSignalSnapshotsForUser(username, { outcomeStatus: "pending", limit: 30 }),
+    listExecutionOrdersForUser(username),
+  ]);
+
+  const dailyLossAbs = (signals || [])
+    .filter((item) => item.outcome_status !== "pending")
+    .filter((item) => new Date(item.updated_at || item.created_at).getTime() >= Date.now() - 24 * 60 * 60 * 1000)
+    .reduce((sum, item) => sum + Math.min(0, Number(item.outcome_pnl || 0)), 0);
+  const accountValue = Number(portfolioPayload?.portfolio?.totalValue || 0);
+  const dailyLossPct = accountValue > 0 ? Math.abs((dailyLossAbs / accountValue) * 100) : 0;
+
+  const pendingSignals = (signals || []).filter((item) => item.outcome_status === "pending");
+  const candidates = [];
+  for (const signal of pendingSignals.slice(0, 12)) {
+    candidates.push(await buildSignalCandidate(signal, portfolioPayload, profile, dailyLossPct));
+  }
+
+  return {
+    profile,
+    account: {
+      connected: Boolean(portfolioPayload?.connected),
+      alias: portfolioPayload?.accountAlias || "",
+      cashValue: Number(portfolioPayload?.portfolio?.cashValue || 0),
+      totalValue: Number(portfolioPayload?.portfolio?.totalValue || 0),
+      openOrdersCount: Number(portfolioPayload?.openOrders?.length || 0),
+      dailyLossPct: Number(dailyLossPct.toFixed(2)),
+    },
+    candidates,
+    recentOrders: executionOrders || [],
+  };
 }
 
 async function saveExecutionProfileForUser(username, payload) {
@@ -329,39 +367,7 @@ async function buildSignalCandidate(signal, portfolio, profile, dailyLossPct) {
 
 async function getExecutionCenter(req) {
   const { session } = await getCredentialsForSession(req);
-  const [profile, portfolioPayload, signals, executionOrders] = await Promise.all([
-    getExecutionProfileForUser(session.username),
-    getPortfolioSnapshot(req, "1d"),
-    listSignalSnapshotsForUser(session.username, { outcomeStatus: "pending", limit: 30 }),
-    listExecutionOrdersForUser(session.username),
-  ]);
-
-  const dailyLossAbs = (signals || [])
-    .filter((item) => item.outcome_status !== "pending")
-    .filter((item) => new Date(item.updated_at || item.created_at).getTime() >= Date.now() - 24 * 60 * 60 * 1000)
-    .reduce((sum, item) => sum + Math.min(0, Number(item.outcome_pnl || 0)), 0);
-  const accountValue = Number(portfolioPayload?.portfolio?.totalValue || 0);
-  const dailyLossPct = accountValue > 0 ? Math.abs((dailyLossAbs / accountValue) * 100) : 0;
-
-  const pendingSignals = (signals || []).filter((item) => item.outcome_status === "pending");
-  const candidates = [];
-  for (const signal of pendingSignals.slice(0, 12)) {
-    candidates.push(await buildSignalCandidate(signal, portfolioPayload, profile, dailyLossPct));
-  }
-
-  return {
-    profile,
-    account: {
-      connected: Boolean(portfolioPayload?.connected),
-      alias: portfolioPayload?.accountAlias || "",
-      cashValue: Number(portfolioPayload?.portfolio?.cashValue || 0),
-      totalValue: Number(portfolioPayload?.portfolio?.totalValue || 0),
-      openOrdersCount: Number(portfolioPayload?.openOrders?.length || 0),
-      dailyLossPct: Number(dailyLossPct.toFixed(2)),
-    },
-    candidates,
-    recentOrders: executionOrders || [],
-  };
+  return getExecutionCenterForUser(session.username);
 }
 
 async function updateExecutionProfile(req) {
@@ -375,14 +381,26 @@ async function executeSignalTrade(req) {
   const body = parseJsonBody(req);
   const signalId = Number(body.signalId || 0);
   const mode = body.mode === "execute" ? "execute" : "preview";
-  if (!signalId) throw new Error("Debes indicar la señal que quieres operar.");
+  return executeSignalTradeForUser(session.username, signalId, mode, {
+    apiKey,
+    apiSecret,
+    origin: "manual",
+  });
+}
 
-  const center = await getExecutionCenter(req);
+async function executeSignalTradeForUser(username, signalId, mode = "execute", options = {}) {
+  if (!signalId) throw new Error("Debes indicar la señal que quieres operar.");
+  const normalizedMode = mode === "execute" ? "execute" : "preview";
+  const origin = options.origin || "manual";
+  const credentials = options.apiKey && options.apiSecret
+    ? { apiKey: options.apiKey, apiSecret: options.apiSecret }
+    : await getCredentialsForUsername(username);
+  const center = await getExecutionCenterForUser(username);
   const candidate = center.candidates.find((item) => item.signalId === signalId);
   if (!candidate) throw new Error("No encontramos esa señal abierta dentro de los candidatos actuales.");
 
   const recordBase = {
-    username: session.username,
+    username,
     signal_id: candidate.signalId,
     coin: candidate.coin,
     timeframe: candidate.timeframe,
@@ -392,23 +410,23 @@ async function executeSignalTrade(req) {
     quantity: candidate.qty,
     notional_usd: candidate.notionalUsd,
     current_price: candidate.currentPrice,
-    mode,
+    mode: normalizedMode,
   };
 
-  if (candidate.status !== "eligible" || mode === "preview") {
+  if (candidate.status !== "eligible" || normalizedMode === "preview") {
     const record = await insertExecutionRecord({
       ...recordBase,
-      status: mode === "preview" ? "preview" : "blocked",
-      notes: candidate.reasons.join(" | ") || "Candidata lista para revisión manual",
-      response_payload: { candidate },
+      status: normalizedMode === "preview" ? "preview" : "blocked",
+      notes: candidate.reasons.join(" | ") || `Candidata lista para revisión ${origin === "watcher" ? "automática" : "manual"}`,
+      response_payload: { candidate, origin },
     });
-    return { mode, candidate, record };
+    return { mode: normalizedMode, candidate, record };
   }
 
   const result = await fetchBinanceSigned(
     "/api/v3/order",
-    apiKey,
-    apiSecret,
+    credentials.apiKey,
+    credentials.apiSecret,
     {
       symbol: candidate.symbol,
       side: candidate.side,
@@ -429,8 +447,8 @@ async function executeSignalTrade(req) {
 
   try {
     protectionResult = await attachProtectiveExit({
-      apiKey,
-      apiSecret,
+      apiKey: credentials.apiKey,
+      apiSecret: credentials.apiSecret,
       candidate,
       executedQty,
       rules: await getSymbolRules(candidate.symbol),
@@ -451,19 +469,23 @@ async function executeSignalTrade(req) {
     status: "placed",
     order_id: Number(result.orderId || 0) || null,
     client_order_id: String(result.clientOrderId || ""),
-    notes: protectionResult.protectionNote,
+    notes: `${origin === "watcher" ? "Orden automática del vigilante. " : "Orden Demo enviada desde Señales. "}${protectionResult.protectionNote}`,
     response_payload: {
+      origin,
       order: result,
       protection: protectionResult,
     },
   });
 
-  return { mode, candidate, record, order: result, protection: protectionResult };
+  return { mode: normalizedMode, candidate, record, order: result, protection: protectionResult };
 }
 
 export {
   executeSignalTrade,
+  executeSignalTradeForUser,
   getExecutionCenter,
+  getExecutionCenterForUser,
+  getExecutionProfileForUser,
   saveExecutionProfileForUser,
   sendJson,
   updateExecutionProfile,

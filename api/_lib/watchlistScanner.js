@@ -1,4 +1,5 @@
 import { getSession, sendJson } from "./auth.js";
+import { executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
 import { buildMarketSnapshot, fetchTickerPrice, getScannableTimeframes, getTimeframeScanInterval } from "./marketRuntime.js";
 import { createSignalSnapshotForUser, evaluatePendingSignalsForUser } from "./signals.js";
 import { listWatchlistScanTargets } from "./watchlist.js";
@@ -101,12 +102,15 @@ function shouldScanNow(lastScannedAt, timeframe) {
 
 async function scanUserWatchlist(target, scanSource) {
   const scanState = await getScanState(target.username);
+  const executionProfile = await getExecutionProfileForUser(target.username).catch(() => null);
   const coins = Array.from(new Set(target.coins || []));
   const timeframes = getScannableTimeframes();
   const priceMap = {};
   const stateUpdates = [];
   const signalRows = [];
   const errors = [];
+  let autoOrdersPlaced = 0;
+  let autoOrdersBlocked = 0;
   let scannedFrames = 0;
 
   for (const coin of coins) {
@@ -142,6 +146,21 @@ async function scanUserWatchlist(target, scanSource) {
           if (createdSignal?.id) {
             signalRows.push(createdSignal);
             createdSignalAt = new Date().toISOString();
+            if (executionProfile?.enabled && executionProfile?.autoExecuteEnabled) {
+              try {
+                const autoExecution = await executeSignalTradeForUser(target.username, createdSignal.id, "execute", {
+                  origin: "watcher",
+                });
+                if (autoExecution?.record?.status === "placed") {
+                  autoOrdersPlaced += 1;
+                } else {
+                  autoOrdersBlocked += 1;
+                }
+              } catch (error) {
+                autoOrdersBlocked += 1;
+                errors.push(`${coin} ${timeframe}: auto-ejecución falló: ${error.message || "error desconocido"}`);
+              }
+            }
           }
         }
 
@@ -194,10 +213,12 @@ async function scanUserWatchlist(target, scanSource) {
     activeListName: target.activeListName,
     coinsCount: coins.length,
     scannedFrames,
-    signalsCreated: signalRows.length,
-    signalsClosed: closedSignals.length,
-    errors,
-    runPersistError,
+      signalsCreated: signalRows.length,
+      signalsClosed: closedSignals.length,
+      autoOrdersPlaced,
+      autoOrdersBlocked,
+      errors,
+      runPersistError,
   };
 }
 
@@ -231,6 +252,8 @@ export async function runWatchlistScan(req) {
       users: results.length,
       signalsCreated: results.reduce((sum, item) => sum + item.signalsCreated, 0),
       signalsClosed: results.reduce((sum, item) => sum + item.signalsClosed, 0),
+      autoOrdersPlaced: results.reduce((sum, item) => sum + item.autoOrdersPlaced, 0),
+      autoOrdersBlocked: results.reduce((sum, item) => sum + item.autoOrdersBlocked, 0),
       framesScanned: results.reduce((sum, item) => sum + item.scannedFrames, 0),
       runPersistErrors: results.map((item) => item.runPersistError).filter(Boolean),
     },

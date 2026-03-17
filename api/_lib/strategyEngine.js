@@ -227,6 +227,7 @@ async function getExecutionProfileForUser(username) {
   const params = new URLSearchParams({
     select: "*",
     username: `eq.${String(username)}`,
+    order: "updated_at.desc.nullslast,created_at.desc",
     limit: "1",
   });
   const rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`).catch(() => []);

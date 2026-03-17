@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { authService, binanceService } from "../services/api";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { BinanceConnection, ExecutionCenterPayload, PortfolioPayload, UserSession, ViewName } from "../types";
@@ -22,16 +22,26 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   const [availableUsers, setAvailableUsers] = useState<UserSession[]>([]);
   const [hideSmallAssets, setHideSmallAssets] = useState(true);
   const [binanceForm, setBinanceForm] = useState<BinanceFormState>({ alias: "", apiKey: "", apiSecret: "" });
+  const activeUsernameRef = useRef("");
+
+  useEffect(() => {
+    activeUsernameRef.current = currentUser?.username || "";
+  }, [currentUser?.username]);
 
   const refreshProfileData = useCallback(async () => {
-    if (!currentUser) {
+    const username = currentUser?.username || "";
+    const role = currentUser?.role || "generic";
+    if (!username) {
       return { ok: false as const, connection: null, users: [] as UserSession[], message: "Sesion no disponible." };
     }
     try {
       const [connection, users] = await Promise.all([
-        binanceService.getConnection().catch(() => null),
-        currentUser.role === "admin" ? authService.getUsers().catch(() => []) : Promise.resolve([]),
+        binanceService.getConnection(),
+        role === "admin" ? authService.getUsers().catch(() => []) : Promise.resolve([]),
       ]);
+      if (activeUsernameRef.current !== username) {
+        return { ok: false as const, connection: null, users: [] as UserSession[], message: "Sesión cambió durante la carga." };
+      }
       setBinanceConnection(connection);
       setAvailableUsers(users);
       if (connection?.accountAlias) {
@@ -50,8 +60,15 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   }, [currentUser]);
 
   const refreshPortfolio = useCallback(async (period = portfolioPeriod) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return { ok: false as const, message: "Sesion no disponible." };
+    }
     try {
       const payload = await binanceService.getPortfolio(period);
+      if (activeUsernameRef.current !== username) {
+        return { ok: false as const, message: "Sesión cambió durante la carga." };
+      }
       setPortfolioData(payload);
       setPortfolioPeriod(period);
       return { ok: true as const, message: null };
@@ -79,19 +96,25 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setPortfolioPeriod(period);
       return { ok: false as const, message };
     }
-  }, [portfolioPeriod]);
+  }, [currentUser?.username, portfolioPeriod]);
 
   const refreshExecutionCenter = useCallback(async () => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return { ok: false as const, payload: null, message: "Sesion no disponible." };
+    }
     try {
       const payload = await binanceService.getExecutionCenter();
+      if (activeUsernameRef.current !== username) {
+        return { ok: false as const, payload: null, message: "Sesión cambió durante la carga." };
+      }
       setExecutionCenter(payload);
       return { ok: true as const, payload, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer la ejecución demo.";
-      setExecutionCenter(null);
       return { ok: false as const, payload: null, message };
     }
-  }, []);
+  }, [currentUser?.username]);
 
   const refreshProfileDataWithFeedback = useCallback(async () => {
     const loaderId = startLoading({ label: "Actualizando perfil", detail: "Leyendo conexion y acceso" });
@@ -221,11 +244,24 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       const result = await refreshProfileData();
       if (result.connection?.connected) {
         await Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
-      } else if (currentView === "balance") {
-        await refreshPortfolio();
       }
     })();
-  }, [currentUser, currentView, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
+  }, [currentUser, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
+
+  useEffect(() => {
+    if (!currentUser || !binanceConnection?.connected) return;
+    if (currentView === "memory") {
+      void refreshExecutionCenter();
+      return;
+    }
+    if (currentView === "balance") {
+      void refreshPortfolio();
+      return;
+    }
+    if (currentView === "dashboard") {
+      void Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
+    }
+  }, [binanceConnection?.connected, currentUser, currentView, refreshExecutionCenter, refreshPortfolio]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;

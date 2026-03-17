@@ -247,6 +247,7 @@ async function getExecutionProfileForUser(username) {
   const params = new URLSearchParams({
     select: "*",
     username: `eq.${String(username)}`,
+    order: "updated_at.desc.nullslast,created_at.desc",
     limit: "1",
   });
   const rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`);
@@ -330,11 +331,22 @@ async function saveExecutionProfileForUser(username, payload) {
     }),
   };
 
-  const rows = await supabaseRequest(EXECUTION_PROFILES_TABLE, {
-    method: "POST",
-    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: profile,
-  });
+  const existing = await getExecutionProfileForUser(username).catch(() => null);
+  let rows;
+  if (existing?.updatedAt) {
+    const params = new URLSearchParams({ username: `eq.${String(username)}` });
+    rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: profile,
+    });
+  } else {
+    rows = await supabaseRequest(EXECUTION_PROFILES_TABLE, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: profile,
+    });
+  }
   return normalizeProfile(rows?.[0] || profile, username);
 }
 

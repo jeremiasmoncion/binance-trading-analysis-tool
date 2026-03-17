@@ -194,24 +194,48 @@ export function App() {
           candles={market.candles}
           chartRef={chartRef}
           onSaveSignal={() => {
+            if (!market.signal) {
+              showToast({
+                tone: "warning",
+                title: "Todavia no hay señal para guardar",
+                message: "Espera a que el analisis termine de generar una lectura valida.",
+              });
+              return;
+            }
             if (!isCurrentCoinWatched) {
               watchlist.toggleWatchlist(market.currentCoin);
             }
-            void saveSignal({
-              coin: market.currentCoin,
-              timeframe: market.timeframe,
-              signal: market.signal,
-              analysis: market.analysis,
-              plan,
-              multiTimeframes: market.multiTimeframes,
-              strategy: market.strategy,
-              strategyCandidates: market.strategyCandidates,
-            });
-            showToast({
-              tone: "success",
-              title: "Señal guardada",
-              message: `${market.currentCoin} se añadió al historial para seguir su resultado.`,
-            });
+            void (async () => {
+              const loaderId = startLoading({
+                label: "Guardando señal",
+                detail: `${market.currentCoin} · ${market.timeframe}`,
+              });
+              try {
+                await saveSignal({
+                  coin: market.currentCoin,
+                  timeframe: market.timeframe,
+                  signal: market.signal,
+                  analysis: market.analysis,
+                  plan,
+                  multiTimeframes: market.multiTimeframes,
+                  strategy: market.strategy,
+                  strategyCandidates: market.strategyCandidates,
+                });
+                showToast({
+                  tone: "success",
+                  title: "Señal guardada",
+                  message: `${market.currentCoin} se añadió al historial para seguir su resultado.`,
+                });
+              } catch (error) {
+                showToast({
+                  tone: "error",
+                  title: "No se pudo guardar la señal",
+                  message: error instanceof Error ? error.message : "Intentalo otra vez en unos segundos.",
+                });
+              } finally {
+                stopLoading(loaderId);
+              }
+            })();
           }}
           indicators={market.indicators}
           market24h={market.market24h}
@@ -233,8 +257,8 @@ export function App() {
           portfolioData={binance.portfolioData}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}
-          onPortfolioPeriodChange={(period) => void binance.refreshPortfolio(period)}
-          onRefreshPortfolio={() => void binance.refreshPortfolio()}
+          onPortfolioPeriodChange={(period) => void binance.refreshPortfolioWithFeedback(period)}
+          onRefreshPortfolio={() => void binance.refreshPortfolioWithFeedback()}
           onToggleHideSmallAssets={binance.setHideSmallAssets}
           signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
@@ -244,7 +268,7 @@ export function App() {
           binanceForm={binance.binanceForm}
           onBinanceFormChange={binance.setBinanceFormField}
           onConnectBinance={binance.connect}
-          onRefreshBinance={() => void binance.refreshProfileData()}
+          onRefreshBinance={() => void binance.refreshProfileDataWithFeedback()}
           onDisconnectBinance={binance.disconnect}
         />
       </main>

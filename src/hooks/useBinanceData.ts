@@ -23,7 +23,9 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   const [binanceForm, setBinanceForm] = useState<BinanceFormState>({ alias: "", apiKey: "", apiSecret: "" });
 
   const refreshProfileData = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      return { ok: false as const, connection: null, users: [] as UserSession[], message: "Sesion no disponible." };
+    }
     try {
       const [connection, users] = await Promise.all([
         binanceService.getConnection().catch(() => null),
@@ -34,10 +36,15 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (connection?.accountAlias) {
         setBinanceForm((prev) => ({ ...prev, alias: connection.accountAlias || "" }));
       }
-      return connection;
-    } catch {
+      return { ok: true as const, connection, users, message: null };
+    } catch (error) {
       // keep current UI state
-      return null;
+      return {
+        ok: false as const,
+        connection: null,
+        users: [],
+        message: error instanceof Error ? error.message : "No se pudo actualizar el perfil.",
+      };
     }
   }, [currentUser]);
 
@@ -46,6 +53,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       const payload = await binanceService.getPortfolio(period);
       setPortfolioData(payload);
       setPortfolioPeriod(period);
+      return { ok: true as const, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer el balance.";
       setPortfolioData({
@@ -68,8 +76,74 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
         summary: { accountType: message },
       });
       setPortfolioPeriod(period);
+      return { ok: false as const, message };
     }
   }, [portfolioPeriod]);
+
+  const refreshProfileDataWithFeedback = useCallback(async () => {
+    const loaderId = startLoading({ label: "Actualizando perfil", detail: "Leyendo conexion y acceso" });
+    try {
+      const result = await refreshProfileData();
+      if (!result.ok) {
+        showToast({
+          tone: "error",
+          title: "No se pudo actualizar el perfil",
+          message: result.message || "Intentalo otra vez en unos segundos.",
+        });
+        return null;
+      }
+
+      if (result.connection) {
+        showToast({
+          tone: "success",
+          title: "Perfil actualizado",
+          message: "La conexion de Binance Demo y el panel de usuarios ya se refrescaron.",
+        });
+      } else {
+        showToast({
+          tone: "warning",
+          title: "Perfil actualizado con datos limitados",
+          message: "No encontramos una conexion activa, pero la vista ya se sincronizo.",
+        });
+      }
+      return result.connection;
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo actualizar el perfil",
+        message: error instanceof Error ? error.message : "Intentalo otra vez en unos segundos.",
+      });
+      return null;
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [refreshProfileData]);
+
+  const refreshPortfolioWithFeedback = useCallback(async (period = portfolioPeriod) => {
+    const loaderId = startLoading({ label: "Actualizando balance", detail: `Periodo ${period}` });
+    try {
+      const result = await refreshPortfolio(period);
+      showToast(result.ok
+        ? {
+            tone: "success",
+            title: "Balance actualizado",
+            message: "El resumen de capital y posiciones ya refleja la lectura mas reciente.",
+          }
+        : {
+            tone: "warning",
+            title: "Balance actualizado con datos limitados",
+            message: result.message || "No se pudo leer todo el balance en este intento.",
+          });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo actualizar el balance",
+        message: error instanceof Error ? error.message : "Intentalo otra vez en unos segundos.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [portfolioPeriod, refreshPortfolio]);
 
   const connect = useCallback(async () => {
     const loaderId = startLoading({ label: "Conectando Binance Demo", detail: binanceForm.alias.trim() || "Nueva conexión" });
@@ -131,8 +205,8 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     }
 
     void (async () => {
-      const connection = await refreshProfileData();
-      if (connection?.connected) {
+      const result = await refreshProfileData();
+      if (result.connection?.connected) {
         await refreshPortfolio();
       } else if (currentView === "balance") {
         await refreshPortfolio();
@@ -170,7 +244,9 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setBinanceForm((prev) => ({ ...prev, [field]: value }));
     },
     refreshProfileData,
+    refreshProfileDataWithFeedback,
     refreshPortfolio,
+    refreshPortfolioWithFeedback,
     connect,
     disconnect,
   };

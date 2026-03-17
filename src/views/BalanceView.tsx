@@ -69,6 +69,13 @@ export function BalanceView(props: BalanceViewProps) {
         <SectionCard
           title="Balance"
           subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."
+          helpTitle="Como leer Balance"
+          helpBody="Esta vista resume cuanto capital tienes, como se esta moviendo y que parte de la cuenta esta abierta, liquida o ya cerrada."
+          helpBullets={[
+            "Resumen te da la foto general del capital y del PnL.",
+            "Activos te deja bajar al detalle por moneda.",
+            "Historial muestra ordenes y trades reales de Binance Demo.",
+          ]}
           actions={
             <div className="inline-actions">
               <select className="timeframe-select" value={props.period} onChange={(e) => props.onPeriodChange(e.target.value)}>
@@ -94,23 +101,28 @@ export function BalanceView(props: BalanceViewProps) {
 
       {activeTab === "overview" ? (
         <>
-          <div className="stats-grid">
+          <div className="premium-overview-grid">
             <StatCard label="Capital total" value={formatPrice(portfolio?.totalValue || 0)} accentClass="accent-blue" sub={
               <>
                 Cuenta {props.payload?.summary?.accountType || "SPOT"} · {props.payload?.summary?.uid ? `UID ${props.payload.summary.uid}` : "sin UID visible"}
                 {hiddenLockedAssetsCount ? ` · Excluye ${formatPrice(hiddenLockedValue)} bloqueado` : ""}
               </>
-            } />
-            <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} accentClass="accent-green" sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} />
-            <StatCard label="PnL realizado" value={formatSignedPrice(portfolio?.realizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.realizedPnl || 0)} accentClass="accent-green" sub="Ganancia o pérdida ya cerrada por ventas" />
-            <StatCard label="PnL no realizado" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} />
-            <StatCard label="PnL total" value={formatSignedPrice(portfolio?.totalPnl || 0)} toneClass={getPerformanceClass(portfolio?.totalPnl || 0)} accentClass="accent-blue" sub="Realizado + no realizado" />
-            <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} accentClass="accent-amber" sub={`${portfolio?.openPositionsCount || 0} activos visibles`} />
+            } helpTitle="Capital total" helpBody="Es el valor estimado de la cuenta segun la lectura actual de Binance Demo. Si hay fondos totalmente bloqueados, se aclaran en el detalle." />
+            <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} accentClass="accent-green" sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} helpTitle="Incremento del periodo" helpBody="Compara tu cuenta actual contra el punto de referencia del periodo elegido para mostrar si el balance va mejor o peor." />
+            <StatCard label="PnL realizado" value={formatSignedPrice(portfolio?.realizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.realizedPnl || 0)} accentClass="accent-green" sub="Ganancia o pérdida ya cerrada por ventas" helpTitle="PnL realizado" helpBody="Mide lo que ya quedo cerrado en ventas ejecutadas. Es ganancia o perdida que ya no depende de una posicion abierta." />
+            <StatCard label="PnL no realizado" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} helpTitle="PnL no realizado" helpBody="Es lo que hoy ganarias o perderias si cerraras las posiciones abiertas al precio actual." />
+            <StatCard label="PnL total" value={formatSignedPrice(portfolio?.totalPnl || 0)} toneClass={getPerformanceClass(portfolio?.totalPnl || 0)} accentClass="accent-blue" sub="Realizado + no realizado" helpTitle="PnL total" helpBody="Suma lo ya cerrado y lo que sigue abierto para darte una lectura global del rendimiento." />
+            <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} accentClass="accent-amber" sub={`${portfolio?.openPositionsCount || 0} activos visibles`} helpTitle="Activos en verde" helpBody="Cuenta cuantas posiciones visibles van positivas en este momento frente a su costo promedio." />
           </div>
 
           <div className="dashboard-main-grid">
             <div className="dashboard-stack">
-              <SectionCard title="Resumen del dinero" subtitle="Tu liquidez, lo que está invertido y la base estimada de tus activos visibles.">
+              <SectionCard
+                title="Resumen del dinero"
+                subtitle="Tu liquidez, lo que está invertido y la base estimada de tus activos visibles."
+                helpTitle="Resumen del dinero"
+                helpBody="Este bloque separa el dinero liquido, el valor actual de las monedas y la base estimada con la que fueron construidas tus posiciones."
+              >
                 <div className="stats-grid no-bottom-gap">
                   <StatCard label="Disponible en USDT" value={formatPrice(portfolio?.cashValue || 0)} sub="Liquidez lista para operar" />
                   <StatCard label="Capital en monedas" value={formatPrice(portfolio?.positionsValue || 0)} sub="Valor vivo de tus activos" />
@@ -177,7 +189,17 @@ export function BalanceView(props: BalanceViewProps) {
 
       {activeTab === "assets" ? (
         <section id="balance-assets">
-          <SectionCard title="Detalle por moneda" subtitle="Aquí ves cuánto dinero tienes por activo, su costo promedio real y el PnL realizado/no realizado por moneda.">
+          <SectionCard
+            title="Detalle por moneda"
+            subtitle="Aquí ves cuánto dinero tienes por activo, su costo promedio real y el PnL realizado/no realizado por moneda."
+            helpTitle="Detalle por moneda"
+            helpBody="Usa esta tabla para bajar del resumen general al detalle de cada activo y detectar rapido cuales pesan mas o necesitan atencion."
+            helpBullets={[
+              "Cantidad y valor actual te dicen cuanto pesa hoy cada activo.",
+              "Precio promedio te recuerda la base real aproximada de entrada.",
+              "PnL abierto y realizado separan lo vivo de lo ya cerrado.",
+            ]}
+          >
             <div className="portfolio-toolbar">
               <SearchIcon className="portfolio-search-icon" />
               <label className="portfolio-filter-toggle">
@@ -223,7 +245,12 @@ export function BalanceView(props: BalanceViewProps) {
 
       {activeTab === "history" ? (
         <section id="balance-history">
-          <SectionCard title="Historial real" subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones.">
+          <SectionCard
+            title="Historial real"
+            subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones."
+            helpTitle="Historial real"
+            helpBody="Este bloque te deja auditar lo que ya salio hacia Binance Demo: ordenes abiertas, ordenes recientes y trades realmente ejecutados."
+          >
             <div className="history-stack">
               <div className="history-panel">
                 <div className="history-panel-head">

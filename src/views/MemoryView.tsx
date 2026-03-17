@@ -638,6 +638,13 @@ export function MemoryView(props: MemoryViewProps) {
         <SectionCard
           title="Centro de señales"
           subtitle="Este es el corazón del sistema. Aquí ves qué detectó el sistema, qué sigue abierto, qué está aprendiendo la IA y qué puedes controlar tú manualmente."
+          helpTitle="Como leer el centro de señales"
+          helpBody="Aqui conviven todas las capas operativas del sistema: seguimiento de señales, aprendizaje, automatizacion y ejecucion demo."
+          helpBullets={[
+            "Resumen te da la foto rapida del sistema y del vigilante.",
+            "Resultados y Motor te ayudan a entender que esta funcionando.",
+            "IA, Automatizacion y Ejecucion demo muestran las capas avanzadas antes de produccion.",
+          ]}
         />
       </section>
 
@@ -660,6 +667,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Cómo leer este centro"
             subtitle="Aquí conviven dos capas: lo que el sistema hace solo por ti y lo que tú todavía puedes revisar o ajustar manualmente."
+            helpTitle="Lectura del centro"
+            helpBody="Esta primera tarjeta te ayuda a distinguir entre automatizacion real del sistema y controles que aun dependen de tu criterio."
           >
             <div className="signal-analytics-grid">
               <InfoCard
@@ -691,6 +700,13 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Vigilante del mercado"
             subtitle="Este módulo vigila tu watchlist en backend para detectar oportunidades y cerrar señales aunque no tengas la app abierta."
+            helpTitle="Vigilante del mercado"
+            helpBody="El vigilante corre en backend, revisa tu watchlist activa y puede crear o cerrar señales aunque no tengas esta pantalla abierta."
+            helpBullets={[
+              "Lee la lista activa configurada para señales.",
+              "Escanea marcos utiles segun cada estrategia.",
+              "Marca ganancias o perdidas cuando el precio toca TP o SL.",
+            ]}
             actions={(
               <button className="btn-secondary-soft" type="button" onClick={() => void handleRunScanner()} disabled={scannerBusy}>
                 {scannerBusy ? "Revisando..." : "Revisar ahora"}
@@ -784,6 +800,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Resultados del sistema"
             subtitle={`Aquí ves qué está dejando mejores y peores resultados en ${periodLabel}.`}
+            helpTitle="Resultados del sistema"
+            helpBody="Esta pestaña resume que monedas, setups, marcos y contextos estan dejando mejor o peor resultado real en el periodo elegido."
           >
             <div className="stats-grid">
               <StatCard label="Par más rentable" value={periodAnalytics.bestCoin?.label || "--"} sub={periodAnalytics.bestCoin ? `${formatSignedPrice(periodAnalytics.bestCoin.pnl)} · ${periodAnalytics.bestCoin.winRate.toFixed(0)}% de acierto` : "Esperando cierres suficientes"} toneClass={periodAnalytics.bestCoin && periodAnalytics.bestCoin.pnl > 0 ? "portfolio-positive" : ""} accentClass="accent-green" />
@@ -807,6 +825,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Motor de estrategias"
             subtitle="Aquí ves qué estrategia está liderando, cuál le compite más de cerca y cuál parece más prometedora."
+            helpTitle="Motor de estrategias"
+            helpBody="Aqui comparas que estrategia esta ganando mas veces, cual queda cerca como alternativa y si una version nueva empieza a sacar ventaja."
           >
             <div className="signal-analytics-grid">
               <InfoCard
@@ -860,6 +880,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Mapa rápido de automatización"
             subtitle="Primero entiende el tablero: qué hace el sistema solo, qué puedes construir tú y qué pruebas ya están corriendo."
+            helpTitle="Mapa de automatizacion"
+            helpBody="Esta pestaña explica el flujo completo desde la deteccion de una idea hasta la prueba segura y el aprendizaje posterior."
           >
             <GuideAccordion
               title="Cómo usar esta pestaña paso a paso"
@@ -964,6 +986,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Zona manual"
             subtitle="Si quieres intervenir tú mismo, aquí comparas estrategias o versiones antes de dejarlas crecer dentro del sistema."
+            helpTitle="Zona manual"
+            helpBody="Aqui armas pruebas propias entre estrategia base y candidata para comparar versiones sin tocar produccion."
           >
             <div className="automation-manual-layout">
               <div className="automation-manual-main">
@@ -1125,6 +1149,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Pruebas ya en observación"
             subtitle="Aquí ves cómo le va a cada variante que ya entró en observación controlada."
+            helpTitle="Pruebas en observacion"
+            helpBody="Estas tarjetas muestran comparaciones reales entre base y candidata dentro de un entorno controlado antes de cualquier promocion."
           >
             <div className="automation-live-head">
               <div className="automation-live-intro">
@@ -1162,6 +1188,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="IA que aprende del historial"
             subtitle="Aquí el sistema observa resultados reales y propone cambios concretos. Todavía no toca producción: solo recomienda y deja evidencia."
+            helpTitle="IA que aprende"
+            helpBody="La capa adaptativa analiza historial cerrado y propone ajustes concretos, pero todavia no cambia produccion por su cuenta."
             actions={
               <button className="btn-secondary-soft" type="button" onClick={() => void handleGenerateRecommendations()}>
                 Generar sugerencias
@@ -1209,6 +1237,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Puente a Binance Demo"
             subtitle="Aquí conviertes una señal abierta en un trade candidato. Primero pasa por reglas de riesgo y luego decides si la envías como orden demo."
+            helpTitle="Puente a Binance Demo"
+            helpBody="Esta capa toma señales abiertas, las traduce a candidatos de ejecucion y revisa si respetan tu perfil de riesgo antes de permitir una orden demo."
           >
             <div className="signal-analytics-grid">
               <InfoCard
@@ -1264,6 +1294,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Perfil de ejecución demo"
             subtitle="Estas son las reglas mínimas que el sistema revisa antes de dejar pasar una orden."
+            helpTitle="Perfil de ejecucion demo"
+            helpBody="Estas reglas definen el filtro de seguridad antes de que una señal pueda avanzar hacia preview o envio de orden demo."
             actions={(
               <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleSaveExecutionProfile()} disabled={executionSaving || !executionProfileForm}>
                 {executionSaving ? "Guardando..." : "Guardar perfil"}
@@ -1322,6 +1354,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Señales listas para orden demo"
             subtitle="Aquí ves cuáles señales abiertas pueden pasar a ejecución y cuáles quedan bloqueadas por reglas de riesgo."
+            helpTitle="Senales listas para orden demo"
+            helpBody="Aqui el sistema te dice que señales abiertas estan listas para avanzar y cuales quedan bloqueadas por reglas de riesgo o contexto."
           >
             {!executionCenter?.candidates?.length ? (
               <EmptyState message="Todavía no hay señales abiertas listas para evaluar en ejecución demo." />
@@ -1343,6 +1377,8 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Intentos y órdenes demo recientes"
             subtitle="Aquí queda el rastro de previews, bloqueos y órdenes que ya salieron hacia Binance Demo."
+            helpTitle="Intentos y ordenes demo"
+            helpBody="Este historial deja evidencia de cada preview, bloqueo o intento real de orden para que puedas auditar la capa de ejecucion."
           >
             {!executionCenter?.recentOrders?.length ? (
               <EmptyState message="Aún no hay intentos de ejecución demo guardados." />
@@ -1362,6 +1398,13 @@ export function MemoryView(props: MemoryViewProps) {
           <SectionCard
             title="Historial de señales"
             subtitle="Aquí revisas cada señal guardada, su plan, su estado y el resultado final. Solo trabaja con monedas de tu watchlist activa para señales."
+            helpTitle="Historial de senales"
+            helpBody="Usa esta tabla para revisar el detalle de cada señal guardada, su plan original, la estrategia que gano y el resultado final."
+            helpBullets={[
+              "Abierta significa que la señal sigue viva.",
+              "Ganada, perdida o invalidada muestran el cierre final.",
+              "Los filtros te ayudan a bajar rapido a moneda, estado, marco o setup.",
+            ]}
           >
             <p className="section-note with-bottom-gap">
               Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.

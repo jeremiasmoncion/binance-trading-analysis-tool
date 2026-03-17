@@ -288,6 +288,8 @@ function normalizeOrder(order) {
   const stopPrice = Number(order.stopPrice || 0);
   const quoteQty = Number(order.cummulativeQuoteQty || 0);
   return {
+    orderId: Number(order.orderId || 0),
+    clientOrderId: String(order.clientOrderId || ""),
     symbol: String(order.symbol || ""),
     side: String(order.side || "BUY"),
     type: String(order.type || "MARKET"),

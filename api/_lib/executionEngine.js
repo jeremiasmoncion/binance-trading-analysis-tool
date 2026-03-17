@@ -4,11 +4,10 @@ import {
   fetchBinanceSigned,
   getCredentialsForSession,
   getCredentialsForUsername,
-  getPortfolioSnapshot,
   getPortfolioSnapshotForUsername,
   sendJson,
 } from "./binance.js";
-import { listSignalSnapshotsForUser } from "./signals.js";
+import { listSignalSnapshotsForUser, updateSignalExecutionLink } from "./signals.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -24,6 +23,8 @@ const DEFAULT_PROFILE = {
   maxDailyLossPct: 3,
   minSignalScore: 60,
   minRrRatio: 1.5,
+  maxDailyAutoExecutions: 3,
+  cooldownAfterLosses: 2,
   allowedStrategies: ["trend-alignment", "breakout"],
   allowedTimeframes: ["15m", "1h", "4h"],
   note: "Perfil base para ejecutar Demo con control humano.",
@@ -90,10 +91,72 @@ function normalizeProfile(row, username) {
     maxDailyLossPct: Number(row?.max_daily_loss_pct ?? DEFAULT_PROFILE.maxDailyLossPct),
     minSignalScore: Number(row?.min_signal_score ?? DEFAULT_PROFILE.minSignalScore),
     minRrRatio: Number(row?.min_rr_ratio ?? DEFAULT_PROFILE.minRrRatio),
+    maxDailyAutoExecutions: Number(row?.max_daily_auto_executions ?? DEFAULT_PROFILE.maxDailyAutoExecutions),
+    cooldownAfterLosses: Number(row?.cooldown_after_losses ?? DEFAULT_PROFILE.cooldownAfterLosses),
     allowedStrategies: normalizeArray(row?.allowed_strategies).length ? normalizeArray(row?.allowed_strategies) : DEFAULT_PROFILE.allowedStrategies,
     allowedTimeframes: normalizeArray(row?.allowed_timeframes).length ? normalizeArray(row?.allowed_timeframes) : DEFAULT_PROFILE.allowedTimeframes,
     note: String(row?.note || DEFAULT_PROFILE.note),
     updatedAt: row?.updated_at || row?.created_at || null,
+  };
+}
+
+function isExecutionOpenStatus(status) {
+  return ["placed", "filled", "protected", "filled_unprotected", "open"].includes(String(status || ""));
+}
+
+function getExecutionWindowStart(hours = 24) {
+  return Date.now() - hours * 60 * 60 * 1000;
+}
+
+function buildRecentLossStreak(executionOrders) {
+  const closedOrders = (executionOrders || [])
+    .filter((item) => String(item.mode || "") === "execute")
+    .filter((item) => String(item.lifecycle_status || "").startsWith("closed_"))
+    .sort((a, b) => new Date(b.closed_at || b.last_synced_at || b.created_at).getTime() - new Date(a.closed_at || a.last_synced_at || a.created_at).getTime());
+
+  let streak = 0;
+  for (const order of closedOrders) {
+    if (order.lifecycle_status === "closed_loss") {
+      streak += 1;
+      continue;
+    }
+    break;
+  }
+  return streak;
+}
+
+function buildDailyAutoExecutions(executionOrders) {
+  const minDate = getExecutionWindowStart(24);
+  return (executionOrders || []).filter((item) => {
+    if (item.origin !== "watcher") return false;
+    if (item.mode !== "execute") return false;
+    if (!["placed", "filled", "protected", "filled_unprotected", "closed_win", "closed_loss", "closed_invalidated"].includes(String(item.lifecycle_status || ""))) {
+      return false;
+    }
+    return new Date(item.created_at).getTime() >= minDate;
+  }).length;
+}
+
+function getProtectionPayload(responsePayload) {
+  if (!responsePayload || typeof responsePayload !== "object") return null;
+  return "protection" in responsePayload ? responsePayload.protection || null : null;
+}
+
+function getPrimaryOrderId(record) {
+  return Number(record.order_id || record.response_payload?.order?.orderId || 0) || null;
+}
+
+function extractLinkedOrderIdsFromProtection(protectionOrder) {
+  if (!protectionOrder || typeof protectionOrder !== "object") return {};
+  const orders = Array.isArray(protectionOrder.orders) ? protectionOrder.orders : [];
+  const orderReports = Array.isArray(protectionOrder.orderReports) ? protectionOrder.orderReports : [];
+  const protectionOrderIds = [
+    ...orders.map((item) => Number(item.orderId || 0)),
+    ...orderReports.map((item) => Number(item.orderId || 0)),
+  ].filter(Boolean);
+  return {
+    orderListId: Number(protectionOrder.orderListId || 0) || null,
+    protectionOrderIds,
   };
 }
 
@@ -108,12 +171,20 @@ async function getExecutionProfileForUser(username) {
 }
 
 async function getExecutionCenterForUser(username) {
-  const [profile, portfolioPayload, signals, executionOrders] = await Promise.all([
+  const [profile, portfolioPayload, signals, executionOrdersRaw] = await Promise.all([
     getExecutionProfileForUser(username),
     getPortfolioSnapshotForUsername(username, "1d"),
-    listSignalSnapshotsForUser(username, { outcomeStatus: "pending", limit: 30 }),
+    listSignalSnapshotsForUser(username, { limit: 200 }),
     listExecutionOrdersForUser(username),
   ]);
+
+  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals || [], executionOrdersRaw || []);
+  const openExecutionSignalIds = new Set(
+    executionOrders
+      .filter((item) => isExecutionOpenStatus(item.lifecycle_status || item.status))
+      .map((item) => Number(item.signal_id || 0))
+      .filter(Boolean),
+  );
 
   const dailyLossAbs = (signals || [])
     .filter((item) => item.outcome_status !== "pending")
@@ -121,11 +192,20 @@ async function getExecutionCenterForUser(username) {
     .reduce((sum, item) => sum + Math.min(0, Number(item.outcome_pnl || 0)), 0);
   const accountValue = Number(portfolioPayload?.portfolio?.totalValue || 0);
   const dailyLossPct = accountValue > 0 ? Math.abs((dailyLossAbs / accountValue) * 100) : 0;
+  const dailyAutoExecutions = buildDailyAutoExecutions(executionOrders);
+  const recentLossStreak = buildRecentLossStreak(executionOrders);
 
   const pendingSignals = (signals || []).filter((item) => item.outcome_status === "pending");
   const candidates = [];
-  for (const signal of pendingSignals.slice(0, 12)) {
-    candidates.push(await buildSignalCandidate(signal, portfolioPayload, profile, dailyLossPct));
+  for (const signal of pendingSignals.slice(0, 20)) {
+    if (openExecutionSignalIds.has(Number(signal.id)) || (signal.execution_order_id && isExecutionOpenStatus(signal.execution_status))) {
+      continue;
+    }
+    candidates.push(await buildSignalCandidate(signal, portfolioPayload, profile, {
+      dailyLossPct,
+      dailyAutoExecutions,
+      recentLossStreak,
+    }));
   }
 
   return {
@@ -137,6 +217,9 @@ async function getExecutionCenterForUser(username) {
       totalValue: Number(portfolioPayload?.portfolio?.totalValue || 0),
       openOrdersCount: Number(portfolioPayload?.openOrders?.length || 0),
       dailyLossPct: Number(dailyLossPct.toFixed(2)),
+      dailyAutoExecutions,
+      recentLossStreak,
+      autoExecutionRemaining: Math.max(0, profile.maxDailyAutoExecutions - dailyAutoExecutions),
     },
     candidates,
     recentOrders: executionOrders || [],
@@ -146,14 +229,16 @@ async function getExecutionCenterForUser(username) {
 async function saveExecutionProfileForUser(username, payload) {
   const profile = {
     username,
-    enabled: Boolean(payload.enabled),
-    auto_execute_enabled: Boolean(payload.autoExecuteEnabled),
-    risk_per_trade_pct: Number(payload.riskPerTradePct || DEFAULT_PROFILE.riskPerTradePct),
-    max_open_positions: Number(payload.maxOpenPositions || DEFAULT_PROFILE.maxOpenPositions),
-    max_position_usd: Number(payload.maxPositionUsd || DEFAULT_PROFILE.maxPositionUsd),
-    max_daily_loss_pct: Number(payload.maxDailyLossPct || DEFAULT_PROFILE.maxDailyLossPct),
-    min_signal_score: Number(payload.minSignalScore || DEFAULT_PROFILE.minSignalScore),
-    min_rr_ratio: Number(payload.minRrRatio || DEFAULT_PROFILE.minRrRatio),
+    enabled: payload.enabled ?? DEFAULT_PROFILE.enabled,
+    auto_execute_enabled: payload.autoExecuteEnabled ?? DEFAULT_PROFILE.autoExecuteEnabled,
+    risk_per_trade_pct: Number(payload.riskPerTradePct ?? DEFAULT_PROFILE.riskPerTradePct),
+    max_open_positions: Number(payload.maxOpenPositions ?? DEFAULT_PROFILE.maxOpenPositions),
+    max_position_usd: Number(payload.maxPositionUsd ?? DEFAULT_PROFILE.maxPositionUsd),
+    max_daily_loss_pct: Number(payload.maxDailyLossPct ?? DEFAULT_PROFILE.maxDailyLossPct),
+    min_signal_score: Number(payload.minSignalScore ?? DEFAULT_PROFILE.minSignalScore),
+    min_rr_ratio: Number(payload.minRrRatio ?? DEFAULT_PROFILE.minRrRatio),
+    max_daily_auto_executions: Number(payload.maxDailyAutoExecutions ?? DEFAULT_PROFILE.maxDailyAutoExecutions),
+    cooldown_after_losses: Number(payload.cooldownAfterLosses ?? DEFAULT_PROFILE.cooldownAfterLosses),
     allowed_strategies: normalizeArray(payload.allowedStrategies),
     allowed_timeframes: normalizeArray(payload.allowedTimeframes),
     note: String(payload.note || DEFAULT_PROFILE.note),
@@ -172,7 +257,7 @@ async function listExecutionOrdersForUser(username) {
     select: "*",
     username: `eq.${String(username)}`,
     order: "created_at.desc",
-    limit: "30",
+    limit: "60",
   });
   return supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`);
 }
@@ -182,6 +267,18 @@ async function insertExecutionRecord(record) {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: record,
+  });
+  return rows?.[0] || null;
+}
+
+async function updateExecutionRecord(id, body) {
+  const params = new URLSearchParams({
+    id: `eq.${Number(id)}`,
+  });
+  const rows = await supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body,
   });
   return rows?.[0] || null;
 }
@@ -282,7 +379,7 @@ async function attachProtectiveExit({
   };
 }
 
-async function buildSignalCandidate(signal, portfolio, profile, dailyLossPct) {
+async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}) {
   const symbol = signal.coin.replace("/", "");
   const priceTicker = await fetchBinancePublic("/api/v3/ticker/price", { symbol }).catch(() => ({ price: "0" }));
   const currentPrice = Number(priceTicker?.price || signal.entry_price || 0);
@@ -292,6 +389,9 @@ async function buildSignalCandidate(signal, portfolio, profile, dailyLossPct) {
   let qty = 0;
   let notionalUsd = 0;
   let status = "eligible";
+  const dailyLossPct = Number(riskContext.dailyLossPct || 0);
+  const dailyAutoExecutions = Number(riskContext.dailyAutoExecutions || 0);
+  const recentLossStreak = Number(riskContext.recentLossStreak || 0);
 
   if (!profile.enabled) reasons.push("El perfil de ejecución está desactivado.");
   if (!side) reasons.push("La señal actual no tiene dirección operable.");
@@ -312,6 +412,12 @@ async function buildSignalCandidate(signal, portfolio, profile, dailyLossPct) {
   }
   if (dailyLossPct >= profile.maxDailyLossPct) {
     reasons.push("La pérdida acumulada del día ya supera el límite permitido.");
+  }
+  if (profile.autoExecuteEnabled && dailyAutoExecutions >= profile.maxDailyAutoExecutions) {
+    reasons.push(`La auto-ejecución del día ya alcanzó el máximo de ${profile.maxDailyAutoExecutions} operaciones.`);
+  }
+  if (profile.autoExecuteEnabled && recentLossStreak >= profile.cooldownAfterLosses) {
+    reasons.push(`La auto-ejecución está en enfriamiento por una racha de ${recentLossStreak} pérdidas seguidas.`);
   }
 
   if (side === "BUY" && currentPrice > 0) {
@@ -363,6 +469,97 @@ async function buildSignalCandidate(signal, portfolio, profile, dailyLossPct) {
       sl: Number(signal.sl_price || 0),
     },
   };
+}
+
+async function syncExecutionOrdersForUser(username, portfolioPayload, signals, executionOrders) {
+  if (!Array.isArray(executionOrders) || !executionOrders.length) return executionOrders || [];
+
+  const signalMap = new Map((signals || []).map((item) => [Number(item.id), item]));
+  const openOrderIds = new Set((portfolioPayload?.openOrders || []).map((item) => Number(item.orderId || 0)).filter(Boolean));
+  const nextOrders = [];
+
+  for (const record of executionOrders) {
+    const signal = record.signal_id ? signalMap.get(Number(record.signal_id)) : null;
+    const mainOrderId = getPrimaryOrderId(record);
+    const protection = getProtectionPayload(record.response_payload);
+    const linkedIds = typeof record.linked_order_ids === "object" && record.linked_order_ids ? record.linked_order_ids : {};
+    const protectionIds = Array.isArray(linkedIds.protectionOrderIds) ? linkedIds.protectionOrderIds.map((item) => Number(item || 0)).filter(Boolean) : [];
+    const hasOpenProtection = protectionIds.some((item) => openOrderIds.has(item));
+
+    let lifecycleStatus = String(record.lifecycle_status || record.status || "created");
+    let protectionStatus = String(record.protection_status || "none");
+    let signalOutcomeStatus = record.signal_outcome_status || null;
+    let realizedPnl = Number(record.realized_pnl || 0);
+    let closedAt = record.closed_at || null;
+
+    if (record.status === "preview") {
+      lifecycleStatus = "preview";
+      protectionStatus = "none";
+    } else if (record.status === "blocked") {
+      lifecycleStatus = "blocked";
+      protectionStatus = "none";
+    } else if (signal?.outcome_status && signal.outcome_status !== "pending") {
+      signalOutcomeStatus = signal.outcome_status;
+      realizedPnl = Number(signal.outcome_pnl || 0);
+      closedAt = signal.updated_at || signal.created_at || closedAt;
+      if (signal.outcome_status === "win") lifecycleStatus = "closed_win";
+      if (signal.outcome_status === "loss") lifecycleStatus = "closed_loss";
+      if (signal.outcome_status === "invalidated") lifecycleStatus = "closed_invalidated";
+      protectionStatus = hasOpenProtection ? "active" : (protection?.protectionAttached ? "consumed" : protectionStatus);
+    } else if (record.status === "placed") {
+      if (hasOpenProtection || protection?.protectionAttached) {
+        lifecycleStatus = "protected";
+        protectionStatus = hasOpenProtection ? "active" : "active";
+      } else if (protection?.protectionMode === "not-applicable") {
+        lifecycleStatus = "filled";
+        protectionStatus = "not-applicable";
+      } else {
+        lifecycleStatus = "filled_unprotected";
+        protectionStatus = protection?.protectionMode === "failed" ? "failed" : "none";
+      }
+    }
+
+    const updates = {
+      lifecycle_status: lifecycleStatus,
+      protection_status: protectionStatus,
+      signal_outcome_status: signalOutcomeStatus,
+      realized_pnl: realizedPnl,
+      last_synced_at: new Date().toISOString(),
+      closed_at: closedAt,
+    };
+
+    const hasChanged = lifecycleStatus !== record.lifecycle_status
+      || protectionStatus !== record.protection_status
+      || signalOutcomeStatus !== record.signal_outcome_status
+      || realizedPnl !== Number(record.realized_pnl || 0)
+      || String(closedAt || "") !== String(record.closed_at || "");
+
+    let nextRecord = { ...record, ...updates };
+    if (hasChanged) {
+      nextRecord = (await updateExecutionRecord(record.id, updates)) || nextRecord;
+    }
+
+    if (signal?.id) {
+      const nextExecutionStatus = lifecycleStatus;
+      const nextExecutionMode = String(record.mode || "");
+      const shouldUpdateSignal = signal.execution_order_id !== record.id
+        || signal.execution_status !== nextExecutionStatus
+        || signal.execution_mode !== nextExecutionMode;
+      if (shouldUpdateSignal) {
+        const patchedSignal = await updateSignalExecutionLink(username, signal.id, {
+          executionOrderId: record.id,
+          executionStatus: nextExecutionStatus,
+          executionMode: nextExecutionMode,
+          executionUpdatedAt: new Date().toISOString(),
+        }).catch(() => null);
+        if (patchedSignal) signalMap.set(Number(signal.id), patchedSignal);
+      }
+    }
+
+    nextOrders.push(nextRecord);
+  }
+
+  return nextOrders;
 }
 
 async function getExecutionCenter(req) {
@@ -417,9 +614,18 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
     const record = await insertExecutionRecord({
       ...recordBase,
       status: normalizedMode === "preview" ? "preview" : "blocked",
+      lifecycle_status: normalizedMode === "preview" ? "preview" : "blocked",
+      protection_status: "none",
       notes: candidate.reasons.join(" | ") || `Candidata lista para revisión ${origin === "watcher" ? "automática" : "manual"}`,
       response_payload: { candidate, origin },
     });
+    if (record?.id) {
+      await updateSignalExecutionLink(username, candidate.signalId, {
+        executionOrderId: record.id,
+        executionStatus: record.lifecycle_status || record.status,
+        executionMode: normalizedMode,
+      }).catch(() => null);
+    }
     return { mode: normalizedMode, candidate, record };
   }
 
@@ -469,6 +675,23 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
     status: "placed",
     order_id: Number(result.orderId || 0) || null,
     client_order_id: String(result.clientOrderId || ""),
+    lifecycle_status: protectionResult.protectionAttached
+      ? "protected"
+      : protectionResult.protectionMode === "not-applicable"
+        ? "filled"
+        : "filled_unprotected",
+    protection_status: protectionResult.protectionAttached
+      ? "active"
+      : protectionResult.protectionMode === "not-applicable"
+        ? "not-applicable"
+        : protectionResult.protectionMode === "failed"
+          ? "failed"
+          : "none",
+    linked_order_ids: {
+      primaryOrderId: Number(result.orderId || 0) || null,
+      ...extractLinkedOrderIdsFromProtection(protectionResult.protectionOrder),
+    },
+    last_synced_at: new Date().toISOString(),
     notes: `${origin === "watcher" ? "Orden automática del vigilante. " : "Orden Demo enviada desde Señales. "}${protectionResult.protectionNote}`,
     response_payload: {
       origin,
@@ -476,6 +699,14 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
       protection: protectionResult,
     },
   });
+
+  if (record?.id) {
+    await updateSignalExecutionLink(username, candidate.signalId, {
+      executionOrderId: record.id,
+      executionStatus: record.lifecycle_status || "placed",
+      executionMode: normalizedMode,
+    }).catch(() => null);
+  }
 
   return { mode: normalizedMode, candidate, record, order: result, protection: protectionResult };
 }

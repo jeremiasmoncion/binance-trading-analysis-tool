@@ -215,6 +215,25 @@ async function updateSignalSnapshotForUser(username, id, body) {
   return rows?.[0] || null;
 }
 
+async function updateSignalExecutionLink(username, id, body) {
+  const params = new URLSearchParams({
+    id: `eq.${id}`,
+    username: `eq.${String(username)}`,
+  });
+
+  const rows = await supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: {
+      execution_order_id: body.executionOrderId ?? null,
+      execution_status: body.executionStatus || null,
+      execution_mode: body.executionMode || null,
+      execution_updated_at: body.executionUpdatedAt || new Date().toISOString(),
+    },
+  });
+  return rows?.[0] || null;
+}
+
 async function evaluatePendingSignalsForUser(username, priceMap, options = {}) {
   const pendingSignals = await listSignalSnapshotsForUser(username, {
     outcomeStatus: "pending",
@@ -287,6 +306,7 @@ export {
   listSignalSnapshots,
   listSignalSnapshotsForUser,
   sendJson,
+  updateSignalExecutionLink,
   updateSignalSnapshot,
   updateSignalSnapshotForUser,
 };

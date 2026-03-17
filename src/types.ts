@@ -211,6 +211,10 @@ export interface SignalSnapshot {
   outcome_status: SignalOutcomeStatus;
   outcome_pnl: number;
   note?: string;
+  execution_order_id?: number;
+  execution_status?: string;
+  execution_mode?: string;
+  execution_updated_at?: string;
   created_at: string;
   updated_at?: string;
   signal_payload?: {
@@ -363,6 +367,8 @@ export interface PortfolioPayload {
 }
 
 export interface BinanceOrderSummary {
+  orderId?: number;
+  clientOrderId?: string;
   symbol: string;
   side: "BUY" | "SELL";
   type: string;
@@ -399,6 +405,8 @@ export interface ExecutionProfile {
   maxDailyLossPct: number;
   minSignalScore: number;
   minRrRatio: number;
+  maxDailyAutoExecutions: number;
+  cooldownAfterLosses: number;
   allowedStrategies: string[];
   allowedTimeframes: string[];
   note?: string;
@@ -445,6 +453,14 @@ export interface ExecutionOrderRecord {
   status: string;
   order_id?: number;
   client_order_id?: string;
+  origin?: string;
+  lifecycle_status?: string;
+  protection_status?: string;
+  signal_outcome_status?: SignalOutcomeStatus;
+  realized_pnl?: number;
+  linked_order_ids?: Record<string, unknown>;
+  last_synced_at?: string;
+  closed_at?: string;
   notes?: string;
   response_payload?: Record<string, unknown>;
   created_at: string;
@@ -459,6 +475,9 @@ export interface ExecutionCenterPayload {
     totalValue: number;
     openOrdersCount: number;
     dailyLossPct: number;
+    dailyAutoExecutions?: number;
+    recentLossStreak?: number;
+    autoExecutionRemaining?: number;
   };
   candidates: ExecutionCandidate[];
   recentOrders: ExecutionOrderRecord[];

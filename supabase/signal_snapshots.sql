@@ -32,6 +32,10 @@ create table if not exists public.signal_snapshots (
 alter table public.signal_snapshots add column if not exists strategy_name text;
 alter table public.signal_snapshots add column if not exists strategy_version text;
 alter table public.signal_snapshots add column if not exists strategy_label text;
+alter table public.signal_snapshots add column if not exists execution_order_id bigint;
+alter table public.signal_snapshots add column if not exists execution_status text;
+alter table public.signal_snapshots add column if not exists execution_mode text;
+alter table public.signal_snapshots add column if not exists execution_updated_at timestamptz;
 
 create index if not exists signal_snapshots_username_created_at_idx
   on public.signal_snapshots (username, created_at desc);

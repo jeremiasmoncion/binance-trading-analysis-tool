@@ -1246,6 +1246,18 @@ export function MemoryView(props: MemoryViewProps) {
                 sub="Se usa para bloquear nuevas ejecuciones si hace falta"
                 accentClass="accent-blue"
               />
+              <StatCard
+                label="Autos de hoy"
+                value={String(executionCenter?.account.dailyAutoExecutions || 0)}
+                sub={`Restantes ${String(executionCenter?.account.autoExecutionRemaining || 0)}`}
+                accentClass="accent-emerald"
+              />
+              <StatCard
+                label="Racha negativa"
+                value={String(executionCenter?.account.recentLossStreak || 0)}
+                sub="Si sube demasiado, entra en enfriamiento"
+                accentClass="accent-amber"
+              />
             </div>
           </SectionCard>
 
@@ -1286,6 +1298,12 @@ export function MemoryView(props: MemoryViewProps) {
                   </FieldGuideCard>
                   <FieldGuideCard title="Pérdida diaria máxima (%)" text="Si se supera, el sistema deja de permitir nuevas entradas.">
                     <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.maxDailyLossPct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyLossPct: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Máx. autos por día" text="Cuántas entradas automáticas puede lanzar el vigilante antes de detenerse.">
+                    <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.maxDailyAutoExecutions} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyAutoExecutions: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Enfriamiento tras pérdidas" text="Si hay esta cantidad de pérdidas seguidas, la auto-ejecución se pausa sola.">
+                    <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.cooldownAfterLosses} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, cooldownAfterLosses: Number(event.target.value || 0) } : current)} />
                   </FieldGuideCard>
                   <FieldGuideCard title="Convicción mínima" text="Solo deja pasar señales con esta puntuación o más.">
                     <input className="signal-memory-input" type="number" min="1" max="100" step="1" value={executionProfileForm.minSignalScore} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minSignalScore: Number(event.target.value || 0) } : current)} />
@@ -1802,12 +1820,30 @@ function ExecutionOrderCard({ item }: { item: ExecutionOrderRecord }) {
             {getFriendlyExecutionStatus(item.status)}
           </div>
         </div>
+        <div className="inline-actions">
+          <span className={`signal-analytics-pill status-${getExecutionLifecycleTone(item.lifecycle_status || "")}`}>
+            {getFriendlyExecutionLifecycle(item.lifecycle_status || item.status)}
+          </span>
+          {item.signal_outcome_status ? (
+            <span className={`signal-analytics-pill status-${item.signal_outcome_status === "win" ? "sandbox" : item.signal_outcome_status === "loss" ? "draft" : "paused"}`}>
+              Señal {item.signal_outcome_status === "win" ? "ganada" : item.signal_outcome_status === "loss" ? "perdida" : "invalidada"}
+            </span>
+          ) : null}
+          <span className="signal-status-note">
+            {item.origin === "watcher" ? "Auto por vigilante" : "Manual desde Señales"}
+          </span>
+        </div>
         <span className="experiment-record-meta">
           {item.strategy_name ? getFriendlyStrategyVersionLabel(item.strategy_name, item.strategy_version || "") : "Sin estrategia"} · {item.timeframe || "--"} · {new Date(item.created_at).toLocaleString("es-DO")}
         </span>
         <p className="experiment-record-summary">
           {item.notes || "Sin nota adicional."}
         </p>
+        {typeof item.realized_pnl === "number" && item.realized_pnl !== 0 ? (
+          <p className={`signal-status-note ${item.realized_pnl > 0 ? "is-positive" : "is-negative"}`}>
+            Resultado real: {formatSignedPrice(item.realized_pnl)}
+          </p>
+        ) : null}
         {protection ? (
           <div className={`execution-protection-pill is-${protection.tone}`}>
             <strong>{protection.title}</strong>
@@ -1863,6 +1899,25 @@ function getFriendlyExecutionStatus(status: string) {
   return "sin estado";
 }
 
+function getFriendlyExecutionLifecycle(status: string) {
+  if (status === "preview") return "Solo preparación";
+  if (status === "blocked") return "Bloqueada";
+  if (status === "protected") return "Protegida con salida";
+  if (status === "filled_unprotected") return "Ejecutada sin protección";
+  if (status === "filled") return "Ejecutada";
+  if (status === "closed_win") return "Cerrada en ganancia";
+  if (status === "closed_loss") return "Cerrada en pérdida";
+  if (status === "closed_invalidated") return "Cerrada por invalidación";
+  return "En seguimiento";
+}
+
+function getExecutionLifecycleTone(status: string) {
+  if (status === "protected" || status === "closed_win") return "sandbox";
+  if (status === "filled" || status === "filled_unprotected") return "paused";
+  if (status === "closed_loss" || status === "blocked") return "draft";
+  return "paused";
+}
+
 function SignalRow({
   signal,
   onSave,
@@ -1916,6 +1971,11 @@ function SignalRow({
             <option value="invalidated">Invalidada</option>
           </select>
           <span className="signal-status-note">{describeSignalStatus(signal, outcomeStatus)}</span>
+          {signal.execution_status ? (
+            <span className="signal-status-note">
+              Orden demo: {getFriendlyExecutionLifecycle(signal.execution_status)}
+            </span>
+          ) : null}
         </div>
       </td>
       <td>

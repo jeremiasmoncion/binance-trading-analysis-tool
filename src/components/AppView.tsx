@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
+import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, ExecutionCenterPayload, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
@@ -53,10 +53,12 @@ interface AppViewProps {
   onDeleteWatchlist: (name: string) => Promise<void>;
   onSetActiveWatchlist: (name: string) => Promise<void>;
   portfolioData: PortfolioPayload | null;
+  executionCenter: ExecutionCenterPayload | null;
   portfolioPeriod: string;
   hideSmallAssets: boolean;
   onPortfolioPeriodChange: (period: string) => void;
   onRefreshPortfolio: () => void;
+  onRefreshExecutionCenter: () => Promise<unknown>;
   onToggleHideSmallAssets: (value: boolean) => void;
   signalMemory: SignalSnapshot[];
   onSaveSignal: () => void;
@@ -96,6 +98,8 @@ export function AppView(props: AppViewProps) {
         <MemoryView
           signals={props.signalMemory}
           watchlist={props.watchlist}
+          executionCenter={props.executionCenter}
+          onRefreshExecutionCenter={props.onRefreshExecutionCenter}
           onUpdateSignal={props.onUpdateSignal}
         />
       );

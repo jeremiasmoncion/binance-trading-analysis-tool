@@ -25,6 +25,8 @@ import type {
 interface MemoryViewProps {
   signals: SignalSnapshot[];
   watchlist: string[];
+  executionCenter: ExecutionCenterPayload | null;
+  onRefreshExecutionCenter: () => Promise<unknown>;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
@@ -116,7 +118,6 @@ export function MemoryView(props: MemoryViewProps) {
   const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
-  const [executionCenter, setExecutionCenter] = useState<ExecutionCenterPayload | null>(null);
   const [executionProfileForm, setExecutionProfileForm] = useState<ExecutionCenterPayload["profile"] | null>(null);
   const [executionBusy, setExecutionBusy] = useState(false);
   const [executionSaving, setExecutionSaving] = useState(false);
@@ -168,33 +169,41 @@ export function MemoryView(props: MemoryViewProps) {
   }, []);
 
   useEffect(() => {
-    let ignore = false;
+    setExecutionProfileForm(props.executionCenter?.profile || null);
+  }, [props.executionCenter]);
 
-    void binanceService.getExecutionCenter()
-      .then((payload) => {
-        if (!ignore) {
-          setExecutionCenter(payload);
-          setExecutionProfileForm(payload.profile);
-        }
-      })
-      .catch(() => {
-        if (!ignore) {
-          setExecutionCenter(null);
-          setExecutionProfileForm(null);
-        }
-      });
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void strategyEngineService.list()
+        .then((payload) => {
+          setRegistry(payload.registry || []);
+          setVersions(payload.versions || []);
+          setExperiments(payload.experiments || []);
+          setRecommendations(payload.recommendations || []);
+        })
+        .catch(() => {
+          // keep last known state to avoid flicker
+        });
+    }, 30_000);
 
-    return () => {
-      ignore = true;
-    };
+    return () => window.clearInterval(intervalId);
   }, []);
 
-  async function refreshExecutionCenter() {
-    const payload = await binanceService.getExecutionCenter();
-    setExecutionCenter(payload);
-    setExecutionProfileForm(payload.profile);
-    return payload;
-  }
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void watchlistService.scanStatus()
+        .then((payload) => {
+          setScannerStatus(payload);
+        })
+        .catch(() => {
+          // keep last known state to avoid flicker
+        });
+    }, 20_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const timeframes = useMemo(
     () => Array.from(new Set(props.signals.map((item) => item.timeframe))).sort(),
@@ -414,15 +423,15 @@ export function MemoryView(props: MemoryViewProps) {
   const pagedExperiments = useMemo(() => paginateRows(experiments, experimentsPage), [experiments, experimentsPage]);
   const pagedSandboxStats = useMemo(() => paginateRows(sandboxStats, sandboxPage), [sandboxStats, sandboxPage]);
   const pagedRecommendations = useMemo(() => paginateRows(recommendations, recommendationsPage), [recommendations, recommendationsPage]);
-  const pagedCandidates = useMemo(() => paginateRows(executionCenter?.candidates || [], candidatesPage), [candidatesPage, executionCenter?.candidates]);
-  const pagedRecentOrders = useMemo(() => paginateRows(executionCenter?.recentOrders || [], recentOrdersPage), [executionCenter?.recentOrders, recentOrdersPage]);
+  const pagedCandidates = useMemo(() => paginateRows(props.executionCenter?.candidates || [], candidatesPage), [candidatesPage, props.executionCenter?.candidates]);
+  const pagedRecentOrders = useMemo(() => paginateRows(props.executionCenter?.recentOrders || [], recentOrdersPage), [props.executionCenter?.recentOrders, recentOrdersPage]);
   const pagedSignals = useMemo(() => paginateRows(filteredSignals, historyPage), [filteredSignals, historyPage]);
 
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
   useEffect(() => setRecommendationsPage(1), [recommendations.length]);
-  useEffect(() => setCandidatesPage(1), [executionCenter?.candidates?.length]);
-  useEffect(() => setRecentOrdersPage(1), [executionCenter?.recentOrders?.length]);
+  useEffect(() => setCandidatesPage(1), [props.executionCenter?.candidates?.length]);
+  useEffect(() => setRecentOrdersPage(1), [props.executionCenter?.recentOrders?.length]);
   useEffect(() => setHistoryPage(1), [filteredSignals.length, periodFilter, coinFilter, statusFilter, timeframeFilter, setupFilter, strategyFilter, search]);
 
   const availableCandidateVersions = useMemo(
@@ -587,7 +596,7 @@ export function MemoryView(props: MemoryViewProps) {
     try {
       const payload = await binanceService.updateExecutionProfile(executionProfileForm);
       setExecutionProfileForm(payload.profile);
-      await refreshExecutionCenter();
+      await props.onRefreshExecutionCenter();
       showToast({
         tone: "success",
         title: "Perfil actualizado",
@@ -619,7 +628,7 @@ export function MemoryView(props: MemoryViewProps) {
           protectionNote?: string;
         };
       };
-      await refreshExecutionCenter();
+      await props.onRefreshExecutionCenter();
       showToast({
         tone: "success",
         title: mode === "execute" ? "Trade demo enviado" : "Trade preparado",
@@ -1112,37 +1121,37 @@ export function MemoryView(props: MemoryViewProps) {
             <div className="stats-grid">
               <StatCard
                 label="Cuenta demo"
-                value={executionCenter?.account.connected ? "Conectada" : "Sin conexión"}
-                sub={executionCenter?.account.alias || "Conecta Binance Demo Spot en Perfil"}
+                value={props.executionCenter?.account.connected ? "Conectada" : "Sin conexión"}
+                sub={props.executionCenter?.account.alias || "Conecta Binance Demo Spot en Perfil"}
                 accentClass="accent-blue"
               />
               <StatCard
                 label="Liquidez"
-                value={formatPrice(executionCenter?.account.cashValue || 0)}
-                sub={`Capital total ${formatPrice(executionCenter?.account.totalValue || 0)}`}
+                value={formatPrice(props.executionCenter?.account.cashValue || 0)}
+                sub={`Capital total ${formatPrice(props.executionCenter?.account.totalValue || 0)}`}
                 accentClass="accent-emerald"
               />
               <StatCard
                 label="Órdenes abiertas"
-                value={String(executionCenter?.account.openOrdersCount || 0)}
+                value={String(props.executionCenter?.account.openOrdersCount || 0)}
                 sub="Órdenes demo ya activas en Binance"
                 accentClass="accent-amber"
               />
               <StatCard
                 label="Pérdida diaria"
-                value={`${Number(executionCenter?.account.dailyLossPct || 0).toFixed(2)}%`}
+                value={`${Number(props.executionCenter?.account.dailyLossPct || 0).toFixed(2)}%`}
                 sub="Se usa para bloquear nuevas ejecuciones si hace falta"
                 accentClass="accent-blue"
               />
               <StatCard
                 label="Autos de hoy"
-                value={String(executionCenter?.account.dailyAutoExecutions || 0)}
-                sub={`Restantes ${String(executionCenter?.account.autoExecutionRemaining || 0)}`}
+                value={String(props.executionCenter?.account.dailyAutoExecutions || 0)}
+                sub={`Restantes ${String(props.executionCenter?.account.autoExecutionRemaining || 0)}`}
                 accentClass="accent-emerald"
               />
               <StatCard
                 label="Racha negativa"
-                value={String(executionCenter?.account.recentLossStreak || 0)}
+                value={String(props.executionCenter?.account.recentLossStreak || 0)}
                 sub="Si sube demasiado, entra en enfriamiento"
                 accentClass="accent-amber"
               />
@@ -1215,7 +1224,7 @@ export function MemoryView(props: MemoryViewProps) {
             helpTitle="Senales listas para orden demo"
             helpBody="Aqui el sistema te dice que señales abiertas estan listas para avanzar y cuales quedan bloqueadas por reglas de riesgo o contexto."
           >
-            {!executionCenter?.candidates?.length ? (
+            {!props.executionCenter?.candidates?.length ? (
               <EmptyState message="Todavía no hay señales abiertas listas para evaluar en ejecución demo." />
             ) : (
               <div className="execution-candidate-grid">
@@ -1233,7 +1242,7 @@ export function MemoryView(props: MemoryViewProps) {
             <PaginationControls
               currentPage={pagedCandidates.safePage}
               totalPages={pagedCandidates.totalPages}
-              totalItems={executionCenter?.candidates?.length || 0}
+              totalItems={props.executionCenter?.candidates?.length || 0}
               label="candidatos"
               onPageChange={setCandidatesPage}
             />
@@ -1245,7 +1254,7 @@ export function MemoryView(props: MemoryViewProps) {
             helpTitle="Intentos y ordenes demo"
             helpBody="Este historial deja evidencia de cada preview, bloqueo o intento real de orden para que puedas auditar la capa de ejecucion."
           >
-            {!executionCenter?.recentOrders?.length ? (
+            {!props.executionCenter?.recentOrders?.length ? (
               <EmptyState message="Aún no hay intentos de ejecución demo guardados." />
             ) : (
               <div className="experiment-record-grid">
@@ -1257,7 +1266,7 @@ export function MemoryView(props: MemoryViewProps) {
             <PaginationControls
               currentPage={pagedRecentOrders.safePage}
               totalPages={pagedRecentOrders.totalPages}
-              totalItems={executionCenter?.recentOrders?.length || 0}
+              totalItems={props.executionCenter?.recentOrders?.length || 0}
               label="ordenes"
               onPageChange={setRecentOrdersPage}
             />

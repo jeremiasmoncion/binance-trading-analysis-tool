@@ -255,10 +255,12 @@ export function App() {
           onDeleteWatchlist={watchlist.deleteList}
           onSetActiveWatchlist={watchlist.setActiveList}
           portfolioData={binance.portfolioData}
+          executionCenter={binance.executionCenter}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}
           onPortfolioPeriodChange={(period) => void binance.refreshPortfolioWithFeedback(period)}
           onRefreshPortfolio={() => void binance.refreshPortfolioWithFeedback()}
+          onRefreshExecutionCenter={() => binance.refreshExecutionCenter()}
           onToggleHideSmallAssets={binance.setHideSmallAssets}
           signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}

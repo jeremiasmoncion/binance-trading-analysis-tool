@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { authService, binanceService } from "../services/api";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
-import type { BinanceConnection, PortfolioPayload, UserSession, ViewName } from "../types";
+import type { BinanceConnection, ExecutionCenterPayload, PortfolioPayload, UserSession, ViewName } from "../types";
 
 interface BinanceFormState {
   alias: string;
@@ -17,6 +17,7 @@ interface UseBinanceDataOptions {
 export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptions) {
   const [binanceConnection, setBinanceConnection] = useState<BinanceConnection | null>(null);
   const [portfolioData, setPortfolioData] = useState<PortfolioPayload | null>(null);
+  const [executionCenter, setExecutionCenter] = useState<ExecutionCenterPayload | null>(null);
   const [portfolioPeriod, setPortfolioPeriod] = useState("1d");
   const [availableUsers, setAvailableUsers] = useState<UserSession[]>([]);
   const [hideSmallAssets, setHideSmallAssets] = useState(true);
@@ -79,6 +80,18 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return { ok: false as const, message };
     }
   }, [portfolioPeriod]);
+
+  const refreshExecutionCenter = useCallback(async () => {
+    try {
+      const payload = await binanceService.getExecutionCenter();
+      setExecutionCenter(payload);
+      return { ok: true as const, payload, message: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo leer la ejecución demo.";
+      setExecutionCenter(null);
+      return { ok: false as const, payload: null, message };
+    }
+  }, []);
 
   const refreshProfileDataWithFeedback = useCallback(async () => {
     const loaderId = startLoading({ label: "Actualizando perfil", detail: "Leyendo conexion y acceso" });
@@ -151,9 +164,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       await binanceService.connect(binanceForm.apiKey.trim(), binanceForm.apiSecret.trim(), binanceForm.alias.trim());
       setBinanceForm((prev) => ({ ...prev, apiSecret: "" }));
       await refreshProfileData();
-      if (currentView === "balance") {
-        await refreshPortfolio();
-      }
+      await Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
       showToast({
         tone: "success",
         title: "Binance Demo conectado",
@@ -168,13 +179,14 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     } finally {
       stopLoading(loaderId);
     }
-  }, [binanceForm, currentView, refreshPortfolio, refreshProfileData]);
+  }, [binanceForm, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
 
   const disconnect = useCallback(async () => {
     const loaderId = startLoading({ label: "Desconectando Binance Demo", detail: "Cerrando acceso de cuenta" });
     try {
       await binanceService.disconnect();
       setBinanceForm({ alias: "", apiKey: "", apiSecret: "" });
+      setExecutionCenter(null);
       await refreshProfileData();
       if (currentView === "balance") {
         await refreshPortfolio();
@@ -199,6 +211,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     if (!currentUser) {
       setBinanceConnection(null);
       setPortfolioData(null);
+      setExecutionCenter(null);
       setAvailableUsers([]);
       setBinanceForm({ alias: "", apiKey: "", apiSecret: "" });
       return;
@@ -207,34 +220,50 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     void (async () => {
       const result = await refreshProfileData();
       if (result.connection?.connected) {
-        await refreshPortfolio();
+        await Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
       } else if (currentView === "balance") {
         await refreshPortfolio();
       }
     })();
-  }, [currentUser, currentView, refreshPortfolio, refreshProfileData]);
+  }, [currentUser, currentView, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;
 
-    const refreshInterval =
+    const portfolioRefreshInterval =
       currentView === "balance"
         ? 30_000
         : currentView === "dashboard"
           ? 60_000
           : 90_000;
 
-    const intervalId = window.setInterval(() => {
+    const executionRefreshInterval =
+      currentView === "memory"
+        ? 20_000
+        : currentView === "dashboard"
+          ? 35_000
+          : 50_000;
+
+    const portfolioIntervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void refreshPortfolio();
-    }, refreshInterval);
+    }, portfolioRefreshInterval);
 
-    return () => window.clearInterval(intervalId);
-  }, [binanceConnection?.connected, currentUser, currentView, refreshPortfolio]);
+    const executionIntervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshExecutionCenter();
+    }, executionRefreshInterval);
+
+    return () => {
+      window.clearInterval(portfolioIntervalId);
+      window.clearInterval(executionIntervalId);
+    };
+  }, [binanceConnection?.connected, currentUser, currentView, refreshExecutionCenter, refreshPortfolio]);
 
   return {
     binanceConnection,
     portfolioData,
+    executionCenter,
     portfolioPeriod,
     availableUsers,
     hideSmallAssets,
@@ -247,6 +276,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     refreshProfileDataWithFeedback,
     refreshPortfolio,
     refreshPortfolioWithFeedback,
+    refreshExecutionCenter,
     connect,
     disconnect,
   };

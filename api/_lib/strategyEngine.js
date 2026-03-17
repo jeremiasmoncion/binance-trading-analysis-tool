@@ -374,12 +374,17 @@ export async function listStrategyEngine(req) {
       limit: "50",
     });
 
-    const [registry, versions, experiments, recommendations] = await Promise.all([
+    const [registry, versions, experiments, initialRecommendations] = await Promise.all([
       supabaseRequest(`${STRATEGY_REGISTRY_TABLE}?${registryParams.toString()}`),
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`),
       supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?${recommendationsParams.toString()}`),
     ]);
+
+    let recommendations = initialRecommendations || [];
+    if (!recommendations.length) {
+      recommendations = await generateAdaptiveRecommendationsForUser(session.username).catch(() => []);
+    }
 
     return {
       registry: registry || [],
@@ -423,6 +428,102 @@ function summarizeSignals(signals) {
   return { total, wins, losses, pnl, winRate };
 }
 
+function getSignalDirection(item) {
+  const raw = String(item.signal_label || item.signal_payload?.signal?.label || item.signal_payload?.context?.direction || "").toLowerCase();
+  if (raw.includes("compr")) return "buy";
+  if (raw.includes("vend")) return "sell";
+  return "wait";
+}
+
+function pushRecommendation(recommendations, row) {
+  if (!row) return;
+  if (recommendations.some((item) => item.recommendation_key === row.recommendation_key)) return;
+  recommendations.push(row);
+}
+
+function buildDirectionalThresholdRecommendation({ strategyId, version, params, signals }) {
+  const stats = summarizeSignals(signals);
+  if (stats.total < 6) return null;
+
+  const buySignals = signals.filter((item) => getSignalDirection(item) === "buy");
+  const sellSignals = signals.filter((item) => getSignalDirection(item) === "sell");
+  const dominantDirection = buySignals.length >= sellSignals.length ? "buy" : "sell";
+  const weakPerformance = stats.pnl <= 0 || stats.winRate < 48;
+  const strongPerformance = stats.pnl > 0 && stats.winRate >= 58;
+  if (!weakPerformance && !strongPerformance) return null;
+
+  if (dominantDirection === "buy") {
+    const currentValue = Number(params.buyThreshold || 65);
+    return {
+      recommendation_key: `${strategyId}:${version}:buy-threshold-${weakPerformance ? "tighten" : "relax"}`,
+      strategy_id: strategyId,
+      strategy_version: version,
+      parameter_key: "buyThreshold",
+      title: weakPerformance ? "Pedir más convicción en compras" : "Abrir un poco más el filtro comprador",
+      summary: weakPerformance
+        ? "Las compras de esta versión están dejando un rendimiento flojo. Conviene exigir más puntuación antes de tratarlas como entrada válida."
+        : "Las compras de esta versión están respondiendo bien con muestra suficiente. Vale la pena relajar un poco el umbral para capturar más oportunidades limpias.",
+      current_value: currentValue,
+      suggested_value: weakPerformance ? Math.min(92, currentValue + 2) : Math.max(52, currentValue - 2),
+      confidence: Math.min(0.93, 0.56 + stats.total * 0.025 + Math.abs(stats.pnl) / 150),
+      status: "draft",
+      evidence: {
+        sampleSize: stats.total,
+        winRate: stats.winRate,
+        pnl: stats.pnl,
+        dominantDirection,
+      },
+    };
+  }
+
+  const currentValue = Number(params.sellThreshold || 35);
+  return {
+    recommendation_key: `${strategyId}:${version}:sell-threshold-${weakPerformance ? "tighten" : "relax"}`,
+    strategy_id: strategyId,
+    strategy_version: version,
+    parameter_key: "sellThreshold",
+    title: weakPerformance ? "Pedir más convicción en ventas" : "Abrir un poco más el filtro vendedor",
+    summary: weakPerformance
+      ? "Las ventas de esta versión están dejando un rendimiento flojo. Conviene exigir una lectura bajista más fuerte antes de validarlas."
+      : "Las ventas de esta versión están respondiendo bien con muestra suficiente. Se puede probar un umbral algo menos estricto para capturar más setups útiles.",
+    current_value: currentValue,
+    suggested_value: weakPerformance ? Math.max(8, currentValue - 2) : Math.min(48, currentValue + 2),
+    confidence: Math.min(0.93, 0.56 + stats.total * 0.025 + Math.abs(stats.pnl) / 150),
+    status: "draft",
+    evidence: {
+      sampleSize: stats.total,
+      winRate: stats.winRate,
+      pnl: stats.pnl,
+      dominantDirection,
+    },
+  };
+}
+
+function buildBreakoutBufferRecommendation(params, signals) {
+  const fastFrames = signals.filter((item) => ["5m", "15m"].includes(String(item.timeframe || "").toLowerCase()));
+  const stats = summarizeSignals(fastFrames);
+  if (stats.total < 5 || (stats.pnl >= 0 && stats.winRate >= 48)) return null;
+  const currentValue = Number(params.breakoutBufferPct || 0.1);
+  return {
+    recommendation_key: "breakout:v1:breakout-buffer-pct",
+    strategy_id: "breakout",
+    strategy_version: "v1",
+    parameter_key: "breakoutBufferPct",
+    title: "Dar más margen al breakout en marcos rápidos",
+    summary: "Las rupturas en 5m y 15m están entrando demasiado pegadas al ruido del rango. Conviene pedir un poco más de distancia antes de validarlas.",
+    current_value: currentValue,
+    suggested_value: Number((currentValue + 0.05).toFixed(2)),
+    confidence: Math.min(0.9, 0.58 + stats.total * 0.025 + Math.abs(stats.pnl) / 120),
+    status: "draft",
+    evidence: {
+      sampleSize: stats.total,
+      winRate: stats.winRate,
+      pnl: stats.pnl,
+      timeframeBand: "5m-15m",
+    },
+  };
+}
+
 function buildRecommendationRows(signals, versions) {
   const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
   if (!closedSignals.length) return [];
@@ -452,7 +553,7 @@ function buildRecommendationRows(signals, versions) {
   const mixedStats = summarizeSignals(mixedTrendSignals);
   if (mixedStats.total >= 4 && (mixedStats.pnl < 0 || mixedStats.winRate < 45)) {
     const currentValue = Number(trendV2Params.mixedFramePenalty || 8);
-    recommendations.push({
+    pushRecommendation(recommendations, {
       recommendation_key: "trend-alignment:v2:mixed-frame-penalty",
       strategy_id: "trend-alignment",
       strategy_version: "v2",
@@ -475,7 +576,7 @@ function buildRecommendationRows(signals, versions) {
   const alignedStats = summarizeSignals(alignedTrendSignals);
   if (alignedStats.total >= 4 && alignedStats.pnl > 0 && alignedStats.winRate >= 50) {
     const currentValue = Number(trendV2Params.higherFrameBonus || 12);
-    recommendations.push({
+    pushRecommendation(recommendations, {
       recommendation_key: "trend-alignment:v2:higher-frame-bonus",
       strategy_id: "trend-alignment",
       strategy_version: "v2",
@@ -498,7 +599,7 @@ function buildRecommendationRows(signals, versions) {
   const breakoutStats = summarizeSignals(weakBreakoutSignals);
   if (breakoutStats.total >= 4 && (breakoutStats.pnl < 0 || breakoutStats.winRate < 45)) {
     const currentValue = Number(breakoutV1Params.volumeThreshold || 1.15);
-    recommendations.push({
+    pushRecommendation(recommendations, {
       recommendation_key: "breakout:v1:volume-threshold",
       strategy_id: "breakout",
       strategy_version: "v1",
@@ -517,6 +618,38 @@ function buildRecommendationRows(signals, versions) {
       },
     });
   }
+
+  pushRecommendation(
+    recommendations,
+    buildDirectionalThresholdRecommendation({
+      strategyId: "trend-alignment",
+      version: "v1",
+      params: getVersionParameters(versions, "trend-alignment", "v1"),
+      signals: closedSignals.filter((item) => item.strategy_name === "trend-alignment" && item.strategy_version === "v1"),
+    }),
+  );
+
+  pushRecommendation(
+    recommendations,
+    buildDirectionalThresholdRecommendation({
+      strategyId: "trend-alignment",
+      version: "v2",
+      params: trendV2Params,
+      signals: trendV2Signals,
+    }),
+  );
+
+  pushRecommendation(
+    recommendations,
+    buildDirectionalThresholdRecommendation({
+      strategyId: "breakout",
+      version: "v1",
+      params: breakoutV1Params,
+      signals: breakoutSignals,
+    }),
+  );
+
+  pushRecommendation(recommendations, buildBreakoutBufferRecommendation(breakoutV1Params, breakoutSignals));
 
   return recommendations;
 }
@@ -539,7 +672,7 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     order: "strategy_id.asc,version.asc",
   });
   const signalsParams = new URLSearchParams({
-    select: "strategy_name,strategy_version,outcome_status,outcome_pnl,signal_payload",
+    select: "strategy_name,strategy_version,signal_label,timeframe,signal_score,rr_ratio,outcome_status,outcome_pnl,signal_payload",
     username: `eq.${normalizedUsername}`,
     order: "created_at.desc",
     limit: "300",

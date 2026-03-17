@@ -11,6 +11,7 @@ import type {
   ExecutionCenterPayload,
   ExecutionCandidate,
   ExecutionOrderRecord,
+  ExecutionScopeOverride,
   RecommendationActivationResult,
   SignalOutcomeStatus,
   SignalSnapshot,
@@ -203,6 +204,11 @@ export function MemoryView(props: MemoryViewProps) {
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
   const [executionProfileForm, setExecutionProfileForm] = useState<ExecutionCenterPayload["profile"] | null>(null);
+  const [scopeOverrideStrategy, setScopeOverrideStrategy] = useState("trend-alignment");
+  const [scopeOverrideTimeframe, setScopeOverrideTimeframe] = useState("15m");
+  const [scopeOverrideScore, setScopeOverrideScore] = useState("45");
+  const [scopeOverrideRr, setScopeOverrideRr] = useState("0.5");
+  const [scopeOverrideNote, setScopeOverrideNote] = useState("");
   const [executionBusy, setExecutionBusy] = useState(false);
   const [executionSaving, setExecutionSaving] = useState(false);
   const [experimentsPage, setExperimentsPage] = useState(1);
@@ -742,6 +748,8 @@ export function MemoryView(props: MemoryViewProps) {
     [executionProfileForm?.allowedTimeframes, timeframes],
   );
 
+  const executionScopeOverrides = executionProfileForm?.scopeOverrides || [];
+
   const activeExecutionPreset = useMemo(() => {
     if (!executionProfileForm) return "";
     return EXECUTION_PROFILE_PRESETS.find((preset) => (
@@ -1066,6 +1074,36 @@ export function MemoryView(props: MemoryViewProps) {
         [field]: nextValues,
       };
     });
+  }
+
+  function handleAddScopeOverride() {
+    if (!executionProfileForm) return;
+    const nextOverride: ExecutionScopeOverride = {
+      id: `${scopeOverrideStrategy}-${scopeOverrideTimeframe}`,
+      strategyId: scopeOverrideStrategy,
+      timeframe: scopeOverrideTimeframe,
+      enabled: true,
+      minSignalScore: Number(scopeOverrideScore || executionProfileForm.minSignalScore),
+      minRrRatio: Number(scopeOverrideRr || executionProfileForm.minRrRatio),
+      note: scopeOverrideNote.trim(),
+    };
+
+    setExecutionProfileForm((current) => {
+      if (!current) return current;
+      const withoutCurrent = (current.scopeOverrides || []).filter((item) => !(item.strategyId === nextOverride.strategyId && item.timeframe === nextOverride.timeframe));
+      return {
+        ...current,
+        scopeOverrides: [...withoutCurrent, nextOverride],
+      };
+    });
+    setScopeOverrideNote("");
+  }
+
+  function handleRemoveScopeOverride(override: ExecutionScopeOverride) {
+    setExecutionProfileForm((current) => current ? {
+      ...current,
+      scopeOverrides: (current.scopeOverrides || []).filter((item) => item.id !== override.id),
+    } : current);
   }
 
   return (
@@ -1771,6 +1809,49 @@ export function MemoryView(props: MemoryViewProps) {
                       </FieldGuideCard>
                     </div>
 
+                    <FieldGuideCard title="Overrides por estrategia y temporalidad" text="Aquí empieza la ejecución por scope: puedes relajar o endurecer score y RR solo para una combinación concreta sin tocar el filtro global.">
+                      <div className="execution-scope-builder">
+                        <div className="execution-scope-builder-grid">
+                          <select className="timeframe-select signal-select" value={scopeOverrideStrategy} onChange={(event) => setScopeOverrideStrategy(event.target.value)}>
+                            {executionStrategyOptions.map((option) => (
+                              <option key={`scope-strategy-${option.id}`} value={option.id}>{option.label}</option>
+                            ))}
+                          </select>
+                          <select className="timeframe-select signal-select" value={scopeOverrideTimeframe} onChange={(event) => setScopeOverrideTimeframe(event.target.value)}>
+                            {executionTimeframeOptions.map((option) => (
+                              <option key={`scope-timeframe-${option}`} value={option}>{option}</option>
+                            ))}
+                          </select>
+                          <input className="signal-memory-input" type="number" min="1" max="100" step="1" value={scopeOverrideScore} onChange={(event) => setScopeOverrideScore(event.target.value)} placeholder="Score mínimo" />
+                          <input className="signal-memory-input" type="number" min="0.1" step="0.05" value={scopeOverrideRr} onChange={(event) => setScopeOverrideRr(event.target.value)} placeholder="RR mínimo" />
+                        </div>
+                        <div className="execution-scope-builder-actions">
+                          <input className="signal-memory-input" value={scopeOverrideNote} onChange={(event) => setScopeOverrideNote(event.target.value)} placeholder="Nota opcional. Ejemplo: breakout en 5m acepta un RR menor mientras está en calibración." />
+                          <button className="btn-secondary-soft signal-inline-button" type="button" onClick={handleAddScopeOverride}>
+                            Guardar override
+                          </button>
+                        </div>
+                        {!executionScopeOverrides.length ? (
+                          <p className="section-note">Todavía no hay overrides. Ahora mismo demo sigue usando solo el filtro global.</p>
+                        ) : (
+                          <div className="execution-override-list">
+                            {executionScopeOverrides.map((item) => (
+                              <div key={item.id} className="execution-override-card">
+                                <div className="execution-override-copy">
+                                  <strong>{item.strategyId} · {item.timeframe}</strong>
+                                  <span>Score {item.minSignalScore ?? executionProfileForm.minSignalScore} · RR {item.minRrRatio ?? executionProfileForm.minRrRatio}</span>
+                                  {item.note ? <span>{item.note}</span> : null}
+                                </div>
+                                <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => handleRemoveScopeOverride(item)}>
+                                  Quitar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </FieldGuideCard>
+
                     <FieldGuideCard title="Nota operativa del perfil" text="Sirve para dejar documentado para qué estás usando este filtro ahora mismo: calibración, revisión o ejecución más estricta.">
                       <textarea
                         className="signal-memory-input execution-profile-note"
@@ -2363,6 +2444,11 @@ function ExecutionCandidateCard({
         <span className="signal-status-note">
           Flujo del motor: {formatDecisionSource(item.decisionSource)}
         </span>
+        {item.profileOverride ? (
+          <span className="signal-status-note">
+            Override activo: {item.profileOverride.strategyId} · {item.profileOverride.timeframe} · Score {item.profileOverride.minSignalScore}+ · RR {item.profileOverride.minRrRatio.toFixed(2)}+
+          </span>
+        ) : null}
       </div>
       <div className="execution-reason-box">
         <strong>{item.status === "eligible" ? "Por qué sí puede pasar" : "Por qué quedó bloqueada"}</strong>

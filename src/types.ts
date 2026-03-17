@@ -465,8 +465,19 @@ export interface ExecutionProfile {
   cooldownAfterLosses: number;
   allowedStrategies: string[];
   allowedTimeframes: string[];
+  scopeOverrides?: ExecutionScopeOverride[];
   note?: string;
   updatedAt?: string | null;
+}
+
+export interface ExecutionScopeOverride {
+  id: string;
+  strategyId: string;
+  timeframe: string;
+  enabled: boolean;
+  minSignalScore?: number;
+  minRrRatio?: number;
+  note?: string;
 }
 
 export interface ExecutionCandidate {
@@ -481,6 +492,13 @@ export interface ExecutionCandidate {
   rrRatio: number;
   decisionSource?: string;
   decisionExperimentId?: number | null;
+  profileOverride?: {
+    strategyId: string;
+    timeframe: string;
+    minSignalScore: number;
+    minRrRatio: number;
+    note?: string;
+  } | null;
   side: "BUY" | "SELL" | "";
   currentPrice: number;
   qty: number;

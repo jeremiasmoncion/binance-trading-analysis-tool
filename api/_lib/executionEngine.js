@@ -32,6 +32,8 @@ const DEFAULT_PROFILE = {
   note: "Perfil base para ejecutar Demo con control humano.",
 };
 
+const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
+
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Supabase no está configurado para el motor de ejecución");
@@ -82,7 +84,60 @@ function normalizeArray(value) {
     .filter(Boolean);
 }
 
+function parseProfileNoteEnvelope(rawNote) {
+  const noteValue = String(rawNote || "");
+  if (!noteValue.startsWith(PROFILE_METADATA_PREFIX)) {
+    return {
+      note: noteValue,
+      scopeOverrides: [],
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(noteValue.slice(PROFILE_METADATA_PREFIX.length));
+    return {
+      note: String(parsed?.note || ""),
+      scopeOverrides: Array.isArray(parsed?.scopeOverrides)
+        ? parsed.scopeOverrides
+          .map((item) => ({
+            id: String(item?.id || `${item?.strategyId || "scope"}-${item?.timeframe || "all"}`),
+            strategyId: String(item?.strategyId || ""),
+            timeframe: String(item?.timeframe || ""),
+            enabled: item?.enabled !== false,
+            minSignalScore: item?.minSignalScore == null ? undefined : Number(item.minSignalScore),
+            minRrRatio: item?.minRrRatio == null ? undefined : Number(item.minRrRatio),
+            note: String(item?.note || ""),
+          }))
+          .filter((item) => item.strategyId && item.timeframe)
+        : [],
+    };
+  } catch {
+    return {
+      note: noteValue,
+      scopeOverrides: [],
+    };
+  }
+}
+
+function buildProfileNoteEnvelope(profile) {
+  const note = String(profile.note || DEFAULT_PROFILE.note);
+  const scopeOverrides = Array.isArray(profile.scopeOverrides) ? profile.scopeOverrides : [];
+  return `${PROFILE_METADATA_PREFIX}${JSON.stringify({
+    note,
+    scopeOverrides: scopeOverrides.map((item) => ({
+      id: String(item.id || `${item.strategyId || "scope"}-${item.timeframe || "all"}`),
+      strategyId: String(item.strategyId || ""),
+      timeframe: String(item.timeframe || ""),
+      enabled: item.enabled !== false,
+      minSignalScore: item.minSignalScore == null ? undefined : Number(item.minSignalScore),
+      minRrRatio: item.minRrRatio == null ? undefined : Number(item.minRrRatio),
+      note: String(item.note || ""),
+    })),
+  })}`;
+}
+
 function normalizeProfile(row, username) {
+  const parsedNote = parseProfileNoteEnvelope(row?.note);
   return {
     username,
     enabled: row?.enabled ?? DEFAULT_PROFILE.enabled,
@@ -97,8 +152,28 @@ function normalizeProfile(row, username) {
     cooldownAfterLosses: Number(row?.cooldown_after_losses ?? DEFAULT_PROFILE.cooldownAfterLosses),
     allowedStrategies: normalizeArray(row?.allowed_strategies).length ? normalizeArray(row?.allowed_strategies) : DEFAULT_PROFILE.allowedStrategies,
     allowedTimeframes: normalizeArray(row?.allowed_timeframes).length ? normalizeArray(row?.allowed_timeframes) : DEFAULT_PROFILE.allowedTimeframes,
-    note: String(row?.note || DEFAULT_PROFILE.note),
+    scopeOverrides: parsedNote.scopeOverrides,
+    note: parsedNote.note || DEFAULT_PROFILE.note,
     updatedAt: row?.updated_at || row?.created_at || null,
+  };
+}
+
+function getScopeOverride(profile, signal) {
+  const strategyId = String(signal.strategy_name || "");
+  const timeframe = String(signal.timeframe || "");
+  return (profile.scopeOverrides || []).find((item) => item.strategyId === strategyId && item.timeframe === timeframe) || null;
+}
+
+function getEffectiveProfileForSignal(profile, signal) {
+  const override = getScopeOverride(profile, signal);
+  return {
+    override,
+    minSignalScore: override?.enabled !== false && override?.minSignalScore != null
+      ? Number(override.minSignalScore)
+      : profile.minSignalScore,
+    minRrRatio: override?.enabled !== false && override?.minRrRatio != null
+      ? Number(override.minRrRatio)
+      : profile.minRrRatio,
   };
 }
 
@@ -249,7 +324,10 @@ async function saveExecutionProfileForUser(username, payload) {
     cooldown_after_losses: Number(payload.cooldownAfterLosses ?? DEFAULT_PROFILE.cooldownAfterLosses),
     allowed_strategies: normalizeArray(payload.allowedStrategies),
     allowed_timeframes: normalizeArray(payload.allowedTimeframes),
-    note: String(payload.note || DEFAULT_PROFILE.note),
+    note: buildProfileNoteEnvelope({
+      note: String(payload.note || DEFAULT_PROFILE.note),
+      scopeOverrides: Array.isArray(payload.scopeOverrides) ? payload.scopeOverrides : [],
+    }),
   };
 
   const rows = await supabaseRequest(EXECUTION_PROFILES_TABLE, {
@@ -393,6 +471,7 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   const currentPrice = Number(priceTicker?.price || signal.entry_price || 0);
   const rules = await getSymbolRules(symbol);
   const reasons = [];
+  const effectiveProfile = getEffectiveProfileForSignal(profile, signal);
   let side = signal.signal_label === "Comprar" ? "BUY" : signal.signal_label === "Vender" ? "SELL" : "";
   let qty = 0;
   let notionalUsd = 0;
@@ -409,11 +488,11 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   if (decision && decision.executionEligible === false) {
     reasons.push(String(decision.executionReason || "La señal quedó fuera del flujo operativo actual del sistema."));
   }
-  if (Number(signal.signal_score || 0) < profile.minSignalScore) {
-    reasons.push(`La convicción (${signal.signal_score || 0}) está por debajo del mínimo ${profile.minSignalScore}.`);
+  if (Number(signal.signal_score || 0) < effectiveProfile.minSignalScore) {
+    reasons.push(`La convicción (${signal.signal_score || 0}) está por debajo del mínimo ${effectiveProfile.minSignalScore}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
   }
-  if (Number(signal.rr_ratio || 0) > 0 && Number(signal.rr_ratio || 0) < profile.minRrRatio) {
-    reasons.push(`El RR (${signal.rr_ratio || 0}) está por debajo del mínimo ${profile.minRrRatio}.`);
+  if (Number(signal.rr_ratio || 0) > 0 && Number(signal.rr_ratio || 0) < effectiveProfile.minRrRatio) {
+    reasons.push(`El RR (${signal.rr_ratio || 0}) está por debajo del mínimo ${effectiveProfile.minRrRatio}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
   }
   if (profile.allowedStrategies.length && signal.strategy_name && !profile.allowedStrategies.includes(signal.strategy_name)) {
     reasons.push("La estrategia de esta señal no está autorizada en el perfil.");
@@ -472,6 +551,15 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
     rrRatio: Number(signal.rr_ratio || 0),
     decisionSource: String(decision?.source || "legacy"),
     decisionExperimentId: Number(decision?.primaryExperimentId || 0) || null,
+    profileOverride: effectiveProfile.override
+      ? {
+        strategyId: effectiveProfile.override.strategyId,
+        timeframe: effectiveProfile.override.timeframe,
+        minSignalScore: effectiveProfile.minSignalScore,
+        minRrRatio: effectiveProfile.minRrRatio,
+        note: effectiveProfile.override.note || "",
+      }
+      : null,
     side,
     currentPrice,
     qty,

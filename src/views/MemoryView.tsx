@@ -3439,7 +3439,7 @@ function ExecutionCandidateCard({
         ) : null}
         {item.scorer ? (
           <span className="signal-status-note">
-            Scorer {item.scorer.label || "adaptive"} · confianza {Math.round(Number(item.scorer.confidence || 0) * 100)}% · primaria {Number(item.scorer.adaptivePrimaryBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.adaptivePrimaryBias || 0).toFixed(1)} · contexto {Number(item.scorer.contextualBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.contextualBias || 0).toFixed(1)} · scope {Number(item.scorer.scopeBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.scopeBias || 0).toFixed(1)}
+            Scorer {item.scorer.label || "adaptive"} · confianza {Number(item.scorer.confidence || 0).toFixed(0)}% · primaria {Number(item.scorer.adaptivePrimaryBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.adaptivePrimaryBias || 0).toFixed(1)} · contexto {Number(item.scorer.contextualBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.contextualBias || 0).toFixed(1)} · modelo {Number(item.scorer.modelBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.modelBias || 0).toFixed(1)} · scope {Number(item.scorer.scopeBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.scopeBias || 0).toFixed(1)}
           </span>
         ) : null}
         {item.profileOverride ? (

@@ -11,6 +11,7 @@ const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
 const EXECUTION_PROFILES_TABLE = process.env.SUPABASE_EXECUTION_PROFILES_TABLE || "execution_profiles";
 const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVERRIDES_TABLE || "execution_scope_overrides";
 const ADAPTIVE_ACTIONS_LOG_TABLE = process.env.SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE || "adaptive_actions_log";
+const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
@@ -419,6 +420,7 @@ export async function getSystemStrategyDecisionState(username) {
   let experiments = [];
   let executionProfile = null;
   let signals = [];
+  let featureSnapshots = [];
 
   try {
     const versionsParams = new URLSearchParams({
@@ -431,9 +433,10 @@ export async function getSystemStrategyDecisionState(username) {
       limit: "100",
     });
 
-    [versions, experiments] = await Promise.all([
+    [versions, experiments, featureSnapshots] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
+      supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username).catch(() => null);
     signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
@@ -442,6 +445,7 @@ export async function getSystemStrategyDecisionState(username) {
     experiments = [];
     executionProfile = null;
     signals = [];
+    featureSnapshots = [];
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -494,6 +498,7 @@ export async function getSystemStrategyDecisionState(username) {
       })),
     adaptivePrimaryByScope: buildAdaptivePrimaryByScope(signals || []),
     contextBiasByScope: buildContextBiasByScope(signals || []),
+    featureModelByScope: buildFeatureModelByScope(featureSnapshots || []),
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
       timeframe: item.timeframe,
@@ -721,6 +726,87 @@ function buildContextBiasByScope(signals) {
   return rows.sort((left, right) => Math.abs(right.biasScore) - Math.abs(left.biasScore)).slice(0, 60);
 }
 
+function buildFeatureModelByScope(rows) {
+  const groups = new Map();
+  for (const row of (rows || [])) {
+    if (!row) continue;
+    const strategyId = String(row.strategy_id || "");
+    const version = String(row.strategy_version || "");
+    const timeframe = String(row.timeframe || "");
+    if (!strategyId || !version || !timeframe) continue;
+    const marketRegime = String(row.market_regime || "tendencia");
+    const direction = String(row.direction || "neutral");
+    const volumeCondition = String(row.volume_condition || "volumen-normal");
+    const key = [strategyId, version, timeframe, marketRegime, direction, volumeCondition].join(":");
+    const current = groups.get(key) || {
+      strategyId,
+      version,
+      timeframe,
+      marketRegime,
+      direction,
+      volumeCondition,
+      rows: [],
+    };
+    current.rows.push(row);
+    groups.set(key, current);
+  }
+
+  const models = [];
+  for (const group of groups.values()) {
+    const sampleSize = group.rows.length;
+    if (sampleSize < 5) continue;
+    const wins = group.rows.filter((item) => Number(item.realized_pnl || 0) > 0).length;
+    const pnl = group.rows.reduce((sum, item) => sum + Number(item.realized_pnl || 0), 0);
+    const avgPnl = sampleSize ? pnl / sampleSize : 0;
+    const avgAdaptiveScore = sampleSize
+      ? group.rows.reduce((sum, item) => sum + Number(item.adaptive_score || item.signal_score || 0), 0) / sampleSize
+      : 0;
+    const avgRr = sampleSize
+      ? group.rows.reduce((sum, item) => sum + Number(item.rr_ratio || 0), 0) / sampleSize
+      : 0;
+    const avgDuration = sampleSize
+      ? group.rows.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0) / sampleSize
+      : 0;
+    const winRate = sampleSize ? (wins / sampleSize) * 100 : 0;
+    const modelScore = Number((
+      pnl * 2.5
+      + avgPnl * 10
+      + (winRate - 50) * 1.1
+      + Math.min(sampleSize, 30) * 0.45
+      + avgAdaptiveScore * 0.03
+      + avgRr * 3.5
+      - Math.min(avgDuration / 60, 10) * 0.25
+    ).toFixed(2));
+    if (Math.abs(modelScore) < 2 && sampleSize < 8) continue;
+    const confidence = Number(
+      clampScore(
+        sampleSize * 4 + Math.max(0, winRate - 48) * 0.7 + Math.max(0, avgRr - 1) * 8,
+        0,
+        100,
+      ).toFixed(1),
+    );
+    models.push({
+      strategyId: group.strategyId,
+      version: group.version,
+      timeframe: group.timeframe,
+      marketRegime: group.marketRegime,
+      direction: group.direction,
+      volumeCondition: group.volumeCondition,
+      sampleSize,
+      winRate: Number(winRate.toFixed(2)),
+      pnl: Number(pnl.toFixed(2)),
+      avgPnl: Number(avgPnl.toFixed(2)),
+      avgAdaptiveScore: Number(avgAdaptiveScore.toFixed(1)),
+      avgRr: Number(avgRr.toFixed(2)),
+      avgDurationMinutes: Number(avgDuration.toFixed(1)),
+      modelScore,
+      confidence,
+    });
+  }
+
+  return models.sort((left, right) => Math.abs(right.modelScore) - Math.abs(left.modelScore)).slice(0, 80);
+}
+
 function clampScore(value, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Number(value || 0)));
 }
@@ -729,10 +815,12 @@ function buildAdaptiveScorer({
   baseSignalScore,
   adaptivePrimary,
   contextBias,
+  featureModel,
   scopeAction,
 }) {
   const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
   const contextualBias = contextBias ? Math.max(-18, Math.min(18, Number(contextBias.biasScore || 0) * 0.6)) : 0;
+  const modelBias = featureModel ? Math.max(-22, Math.min(22, Number(featureModel.modelScore || 0) * 0.45)) : 0;
   const scopeBias = scopeAction === "cut"
     ? -1000
     : scopeAction === "tighten"
@@ -742,25 +830,28 @@ function buildAdaptiveScorer({
         : 0;
   const finalScore = scopeAction === "cut"
     ? 0
-    : clampScore(baseSignalScore + adaptiveBias + contextualBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0));
+    : clampScore(baseSignalScore + adaptiveBias + contextualBias + modelBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0));
   const confidence = clampScore(
     (adaptivePrimary ? Number(adaptivePrimary.confidence || 0) * 55 : 0)
     + (contextBias ? Math.min(35, Number(contextBias.sampleSize || 0) * 3 + Math.max(0, Number(contextBias.winRate || 0) - 50) * 0.4) : 0)
+    + (featureModel ? Math.min(45, Number(featureModel.confidence || 0) * 0.45 + Number(featureModel.sampleSize || 0) * 1.8) : 0)
     + (scopeAction ? 10 : 0),
     0,
     100,
   );
 
   return {
-    label: "adaptive-v1",
+    label: featureModel ? "adaptive-v2" : "adaptive-v1",
     baseScore: Number(baseSignalScore.toFixed(1)),
     adaptivePrimaryBias: Number(adaptiveBias.toFixed(1)),
     contextualBias: Number(contextualBias.toFixed(1)),
+    modelBias: Number(modelBias.toFixed(1)),
     scopeBias: Number(scopeBias.toFixed(1)),
     finalScore: Number(finalScore.toFixed(1)),
     confidence: Number(confidence.toFixed(1)),
     usedAdaptivePrimary: Boolean(adaptivePrimary),
     usedContextBias: Boolean(contextBias),
+    usedFeatureModel: Boolean(featureModel),
     scopeAction: String(scopeAction || ""),
   };
 }
@@ -774,6 +865,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
   const executionEligibleScopes = Array.isArray(decisionState?.executionEligibleScopes) ? decisionState.executionEligibleScopes : [];
   const adaptivePrimaryByScope = Array.isArray(decisionState?.adaptivePrimaryByScope) ? decisionState.adaptivePrimaryByScope : [];
   const contextBiasByScope = Array.isArray(decisionState?.contextBiasByScope) ? decisionState.contextBiasByScope : [];
+  const featureModelByScope = Array.isArray(decisionState?.featureModelByScope) ? decisionState.featureModelByScope : [];
   const scopeTuningByScope = Array.isArray(decisionState?.scopeTuningByScope) ? decisionState.scopeTuningByScope : [];
   const candidates = Array.isArray(snapshot?.candidates) ? snapshot.candidates : [];
 
@@ -827,6 +919,14 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
         && item.direction === candidateDirection
         && item.volumeCondition === candidateVolumeCondition
     );
+    const featureModel = featureModelByScope.find((item) =>
+      item.strategyId === strategyId
+        && item.version === version
+        && item.timeframe === timeframe
+        && item.marketRegime === candidateMarketRegime
+        && item.direction === candidateDirection
+        && item.volumeCondition === candidateVolumeCondition
+    );
     const scopeAction = String(scopeTuning?.action || "");
     const candidateBaseRank = Number(candidate.rankScore || candidate.signal?.score || candidate.signal?.signalScore || 0);
     const baseSignalScore = Number(candidate.signal?.score || candidate.signal?.signalScore || 0);
@@ -834,6 +934,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
       baseSignalScore,
       adaptivePrimary,
       contextBias,
+      featureModel,
       scopeAction,
     });
 
@@ -852,6 +953,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
       adaptivePrimary,
       scopeTuning,
       contextBias,
+      featureModel,
       scorer,
       effectiveRank: candidateBaseRank + scorer.scopeBias + scorer.adaptivePrimaryBias,
       adaptiveScore: scorer.finalScore,

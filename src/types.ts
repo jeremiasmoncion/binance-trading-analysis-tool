@@ -177,6 +177,23 @@ export interface StrategyDecisionState {
     avgRr: number;
     biasScore: number;
   }>;
+  featureModelByScope?: Array<{
+    strategyId: string;
+    version: string;
+    timeframe: string;
+    marketRegime: string;
+    direction: string;
+    volumeCondition: string;
+    sampleSize: number;
+    winRate: number;
+    pnl: number;
+    avgPnl: number;
+    avgAdaptiveScore: number;
+    avgRr: number;
+    avgDurationMinutes: number;
+    modelScore: number;
+    confidence: number;
+  }>;
 }
 
 export interface RecommendationActivationResult {
@@ -253,11 +270,13 @@ export interface AdaptiveScorerBreakdown {
   baseScore?: number;
   adaptivePrimaryBias?: number;
   contextualBias?: number;
+  modelBias?: number;
   scopeBias?: number;
   finalScore?: number;
   confidence?: number;
   usedAdaptivePrimary?: boolean;
   usedContextBias?: boolean;
+  usedFeatureModel?: boolean;
   scopeAction?: string;
 }
 

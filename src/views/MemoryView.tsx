@@ -982,6 +982,9 @@ export function MemoryView(props: MemoryViewProps) {
     const adaptiveLeaders = [...(decisionState?.adaptivePrimaryByScope || [])]
       .sort((left, right) => Number(right.edgeScore || 0) - Number(left.edgeScore || 0));
     const leadingAdaptiveScope = adaptiveLeaders[0] || null;
+    const contextBiasLeaders = [...(decisionState?.contextBiasByScope || [])]
+      .sort((left, right) => Math.abs(Number(right.biasScore || 0)) - Math.abs(Number(left.biasScore || 0)));
+    const strongestContextBias = contextBiasLeaders.find((item) => Number(item.biasScore || 0) > 0) || null;
 
     let nextAction: AutomationCommandCard = {
       title: "Seguir recolectando muestra útil",
@@ -1032,9 +1035,10 @@ export function MemoryView(props: MemoryViewProps) {
       sandboxScopeRecommendations,
       automatedPolicyActions,
       leadingAdaptiveScope,
+      strongestContextBias,
       nextAction,
     };
-  }, [decisionState?.adaptivePrimaryByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
+  }, [decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1677,6 +1681,12 @@ export function MemoryView(props: MemoryViewProps) {
                 sub={automationMasterBoard.leadingAdaptiveScope ? `${automationMasterBoard.leadingAdaptiveScope.version} · ${automationMasterBoard.leadingAdaptiveScope.winRate.toFixed(0)}% · ${formatSignedPrice(automationMasterBoard.leadingAdaptiveScope.pnl)}` : "Sin líder claro por temporalidad todavía"}
                 accentClass="accent-emerald"
               />
+              <StatCard
+                label="Contexto con edge"
+                value={automationMasterBoard.strongestContextBias ? `${automationMasterBoard.strongestContextBias.strategyId} · ${automationMasterBoard.strongestContextBias.timeframe}` : "--"}
+                sub={automationMasterBoard.strongestContextBias ? `${automationMasterBoard.strongestContextBias.marketRegime} · ${automationMasterBoard.strongestContextBias.direction} · ${automationMasterBoard.strongestContextBias.volumeCondition}` : "Sin sesgo contextual claro todavía"}
+                accentClass="accent-blue"
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1701,6 +1711,15 @@ export function MemoryView(props: MemoryViewProps) {
                           <span>Muestra {automationMasterBoard.leadingAdaptiveScope.sampleSize} · lead {automationMasterBoard.leadingAdaptiveScope.leadOverNext != null ? automationMasterBoard.leadingAdaptiveScope.leadOverNext.toFixed(2) : "--"} · confianza {Math.round(Number(automationMasterBoard.leadingAdaptiveScope.confidence || 0) * 100)}%</span>
                         </div>
                         <div className="signal-analytics-pill status-sandbox">prioridad adaptativa</div>
+                      </div>
+                    ) : null}
+                    {automationMasterBoard.strongestContextBias ? (
+                      <div className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{automationMasterBoard.strongestContextBias.strategyId} {automationMasterBoard.strongestContextBias.version} rinde mejor en {automationMasterBoard.strongestContextBias.timeframe}</strong>
+                          <span>{automationMasterBoard.strongestContextBias.marketRegime} · {automationMasterBoard.strongestContextBias.direction} · {automationMasterBoard.strongestContextBias.volumeCondition} · muestra {automationMasterBoard.strongestContextBias.sampleSize}</span>
+                        </div>
+                        <div className="signal-analytics-pill status-running">sesgo contextual</div>
                       </div>
                     ) : null}
                   </div>

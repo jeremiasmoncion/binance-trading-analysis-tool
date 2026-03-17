@@ -162,6 +162,21 @@ export interface StrategyDecisionState {
     edgeScore: number;
     leadOverNext?: number | null;
   }>;
+  contextBiasByScope?: Array<{
+    strategyId: string;
+    version: string;
+    timeframe: string;
+    marketRegime: string;
+    direction: string;
+    volumeCondition: string;
+    sampleSize: number;
+    winRate: number;
+    pnl: number;
+    avgPnl: number;
+    avgScore: number;
+    avgRr: number;
+    biasScore: number;
+  }>;
 }
 
 export interface RecommendationActivationResult {
@@ -293,6 +308,21 @@ export interface SignalSnapshot {
       executionReason?: string;
       primaryStrategy?: StrategyDescriptor;
       primaryExperimentId?: number | null;
+      contextBias?: {
+        strategyId?: string;
+        version?: string;
+        timeframe?: string;
+        marketRegime?: string;
+        direction?: string;
+        volumeCondition?: string;
+        sampleSize?: number;
+        winRate?: number;
+        pnl?: number;
+        avgPnl?: number;
+        avgScore?: number;
+        avgRr?: number;
+        biasScore?: number;
+      } | null;
       activeStrategies?: Array<{
         strategyId: string;
         version: string;

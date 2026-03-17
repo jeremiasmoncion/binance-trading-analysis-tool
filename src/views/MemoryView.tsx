@@ -86,6 +86,13 @@ interface AdaptiveLearningInsight {
   accentClass: string;
 }
 
+interface AutomationCommandCard {
+  title: string;
+  summary: string;
+  actionLabel: string;
+  toneClass: string;
+}
+
 interface ScopeEdgeRank {
   key: string;
   strategyId: string;
@@ -920,6 +927,78 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [closedSignals, executionProfileForm?.scopeOverrides, props.executionCenter?.candidates, recommendations]);
 
+  const automationMasterBoard = useMemo(() => {
+    const strongestScope = scopeEdgeRanking.strongest[0] || null;
+    const weakestScope = scopeEdgeRanking.weakest[0] || null;
+    const activeOverrideCount = executionOverrideImpact.length;
+    const improvingOverrideCount = executionOverrideImpact.filter((item) =>
+      item.beforeTotal >= 3 && item.afterTotal >= 3 && item.afterAvgPnl > item.beforeAvgPnl,
+    ).length;
+    const degradingOverrideCount = executionOverrideImpact.filter((item) =>
+      item.beforeTotal >= 3 && item.afterTotal >= 3 && item.afterAvgPnl < item.beforeAvgPnl,
+    ).length;
+    const runningExperiments = sandboxStats.length;
+    const promotableExperiments = sandboxStats.filter((item) => item.canPromote).length;
+    const draftScopeRecommendations = recommendations.filter((item) => {
+      const evidence = item.evidence || {};
+      return evidence.recommendationType === "execution-scope-override" && item.status === "draft";
+    }).length;
+    const sandboxScopeRecommendations = recommendations.filter((item) => {
+      const evidence = item.evidence || {};
+      return evidence.recommendationType === "execution-scope-override" && item.status === "sandbox";
+    }).length;
+
+    let nextAction: AutomationCommandCard = {
+      title: "Seguir recolectando muestra útil",
+      summary: "El sistema ya está conectado, pero todavía hace falta más evidencia cerrada para cortar o promover con más agresividad.",
+      actionLabel: "Observar",
+      toneClass: "accent-blue",
+    };
+
+    if (weakestScope?.recommendation && weakestScope.recommendation.status === "sandbox") {
+      nextAction = {
+        title: `Aplicar corte en ${weakestScope.strategyId} · ${weakestScope.timeframe}`,
+        summary: "Ese scope ya tiene suficiente evidencia y la recomendación está lista para pasar del sandbox al filtro demo activo.",
+        actionLabel: weakestScope.action === "cut" ? "Aplicar corte" : "Aplicar override",
+        toneClass: "accent-amber",
+      };
+    } else if (promotableExperiments > 0) {
+      nextAction = {
+        title: "Promover experimento ganador",
+        summary: "Ya hay una prueba segura con evidencia suficiente para pasar a gobernar el flujo operativo del watcher y demo.",
+        actionLabel: "Promover",
+        toneClass: "accent-emerald",
+      };
+    } else if (weakestScope?.recommendation && weakestScope.recommendation.status === "draft") {
+      nextAction = {
+        title: `Mandar a prueba ${weakestScope.strategyId} · ${weakestScope.timeframe}`,
+        summary: "Ese scope viene metiendo ruido y lo correcto ahora es probar el endurecimiento antes de seguir dejándolo pasar igual.",
+        actionLabel: "Mandar a prueba",
+        toneClass: "accent-amber",
+      };
+    } else if (strongestScope?.recommendation && strongestScope.recommendation.status === "draft") {
+      nextAction = {
+        title: `Probar apertura controlada en ${strongestScope.strategyId} · ${strongestScope.timeframe}`,
+        summary: "Ese scope está sosteniendo mejor el edge y vale la pena validar si tolera un filtro algo más flexible.",
+        actionLabel: "Mandar a prueba",
+        toneClass: "accent-emerald",
+      };
+    }
+
+    return {
+      strongestScope,
+      weakestScope,
+      activeOverrideCount,
+      improvingOverrideCount,
+      degradingOverrideCount,
+      runningExperiments,
+      promotableExperiments,
+      draftScopeRecommendations,
+      sandboxScopeRecommendations,
+      nextAction,
+    };
+  }, [executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
+
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
   useEffect(() => setRecommendationsPage(1), [recommendations.length]);
@@ -1430,6 +1509,113 @@ export function MemoryView(props: MemoryViewProps) {
             <p className="section-note with-top-gap">
               Resumen rápido: hay {openSignals.length} señales abiertas, pero solo {eligibleExecutionCandidates.length} cumplen hoy todo lo necesario para pasar a demo.
             </p>
+          </SectionCard>
+
+          <SectionCard
+            title="Tablero maestro de edge y automatización"
+            subtitle="Aquí se resume qué está funcionando, qué está fallando, qué se está cortando y cuál debería ser la próxima acción del sistema."
+            helpTitle="Tablero maestro"
+            helpBody="Esta vista concentra el estado operativo del edge: scopes fuertes, scopes flojos, overrides activos, pruebas vivas y la siguiente acción más útil para mejorar rendimiento."
+            helpBullets={[
+              "Scopes fuertes: dónde el sistema está sosteniendo mejor el edge real.",
+              "Scopes flojos: dónde el sistema sigue metiendo ruido.",
+              "Overrides y pruebas: qué ajustes ya están vivos y si están ayudando.",
+            ]}
+          >
+            <div className="stats-grid">
+              <StatCard
+                label="Scope más fuerte"
+                value={automationMasterBoard.strongestScope ? `${automationMasterBoard.strongestScope.strategyId} · ${automationMasterBoard.strongestScope.timeframe}` : "--"}
+                sub={automationMasterBoard.strongestScope ? `${automationMasterBoard.strongestScope.winRate.toFixed(0)}% · ${formatSignedPrice(automationMasterBoard.strongestScope.pnl)}` : "Esperando muestra suficiente"}
+                accentClass="accent-emerald"
+              />
+              <StatCard
+                label="Scope más débil"
+                value={automationMasterBoard.weakestScope ? `${automationMasterBoard.weakestScope.strategyId} · ${automationMasterBoard.weakestScope.timeframe}` : "--"}
+                sub={automationMasterBoard.weakestScope ? `${automationMasterBoard.weakestScope.winRate.toFixed(0)}% · ${formatSignedPrice(automationMasterBoard.weakestScope.pnl)}` : "Sin scope flojo claro todavía"}
+                accentClass="accent-amber"
+              />
+              <StatCard
+                label="Overrides activos"
+                value={String(automationMasterBoard.activeOverrideCount)}
+                sub={`${automationMasterBoard.improvingOverrideCount} mejoran · ${automationMasterBoard.degradingOverrideCount} empeoran`}
+                accentClass="accent-blue"
+              />
+              <StatCard
+                label="Pruebas en vivo"
+                value={String(automationMasterBoard.runningExperiments)}
+                sub={`${automationMasterBoard.promotableExperiments} ya podrían promoverse`}
+                accentClass="accent-emerald"
+              />
+              <StatCard
+                label="Ajustes por scope"
+                value={String(automationMasterBoard.draftScopeRecommendations + automationMasterBoard.sandboxScopeRecommendations)}
+                sub={`${automationMasterBoard.draftScopeRecommendations} en draft · ${automationMasterBoard.sandboxScopeRecommendations} en sandbox`}
+                accentClass="accent-blue"
+              />
+            </div>
+
+            <div className="signal-analytics-grid">
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Qué está funcionando</h4>
+                  <p>Lo más fuerte ahora mismo para sostener el edge real.</p>
+                </div>
+                {automationMasterBoard.strongestScope ? (
+                  <div className="signal-analytics-list">
+                    <div className="signal-analytics-item is-experiment">
+                      <div className="signal-analytics-copy">
+                        <strong>{automationMasterBoard.strongestScope.strategyId} · {automationMasterBoard.strongestScope.timeframe}</strong>
+                        <span>{automationMasterBoard.strongestScope.total} cierres · {automationMasterBoard.strongestScope.winRate.toFixed(0)}% de acierto · {formatSignedPrice(automationMasterBoard.strongestScope.pnl)}</span>
+                      </div>
+                      <div className="signal-analytics-pill status-running">edge fuerte</div>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState message="Todavía no hay un scope dominante lo bastante claro." />
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Qué está fallando</h4>
+                  <p>El ruido más claro que conviene cortar o endurecer primero.</p>
+                </div>
+                {automationMasterBoard.weakestScope ? (
+                  <div className="signal-analytics-list">
+                    <div className="signal-analytics-item is-experiment">
+                      <div className="signal-analytics-copy">
+                        <strong>{automationMasterBoard.weakestScope.strategyId} · {automationMasterBoard.weakestScope.timeframe}</strong>
+                        <span>{automationMasterBoard.weakestScope.reading}</span>
+                      </div>
+                      <div className={`signal-analytics-pill ${automationMasterBoard.weakestScope.action === "cut" ? "status-paused" : "status-draft"}`}>
+                        {automationMasterBoard.weakestScope.action === "cut" ? "corte" : "endurecer"}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptyState message="Todavía no hay un scope flojo con evidencia suficiente para podarlo." />
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Próxima acción del sistema</h4>
+                  <p>La acción más útil ahora para mejorar rendimiento sin abrir complejidad nueva.</p>
+                </div>
+                <div className="signal-analytics-list">
+                  <div className="signal-analytics-item is-experiment">
+                    <div className="signal-analytics-copy">
+                      <strong>{automationMasterBoard.nextAction.title}</strong>
+                      <span>{automationMasterBoard.nextAction.summary}</span>
+                    </div>
+                    <div className={`signal-analytics-pill status-${automationMasterBoard.nextAction.toneClass === "accent-emerald" ? "running" : automationMasterBoard.nextAction.toneClass === "accent-amber" ? "draft" : "sandbox"}`}>
+                      {automationMasterBoard.nextAction.actionLabel}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </SectionCard>
 
           <div className="stats-grid">

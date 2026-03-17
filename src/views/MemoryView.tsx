@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
+import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
@@ -119,6 +120,12 @@ export function MemoryView(props: MemoryViewProps) {
   const [executionProfileForm, setExecutionProfileForm] = useState<ExecutionCenterPayload["profile"] | null>(null);
   const [executionBusy, setExecutionBusy] = useState(false);
   const [executionSaving, setExecutionSaving] = useState(false);
+  const [experimentsPage, setExperimentsPage] = useState(1);
+  const [sandboxPage, setSandboxPage] = useState(1);
+  const [recommendationsPage, setRecommendationsPage] = useState(1);
+  const [candidatesPage, setCandidatesPage] = useState(1);
+  const [recentOrdersPage, setRecentOrdersPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
 
   useEffect(() => {
     let ignore = false;
@@ -403,6 +410,20 @@ export function MemoryView(props: MemoryViewProps) {
     () => sandboxExperiments.map((item) => buildExperimentPaperStats(item, periodSignals, props.watchlist)),
     [periodSignals, props.watchlist, sandboxExperiments],
   );
+
+  const pagedExperiments = useMemo(() => paginateRows(experiments, experimentsPage), [experiments, experimentsPage]);
+  const pagedSandboxStats = useMemo(() => paginateRows(sandboxStats, sandboxPage), [sandboxStats, sandboxPage]);
+  const pagedRecommendations = useMemo(() => paginateRows(recommendations, recommendationsPage), [recommendations, recommendationsPage]);
+  const pagedCandidates = useMemo(() => paginateRows(executionCenter?.candidates || [], candidatesPage), [candidatesPage, executionCenter?.candidates]);
+  const pagedRecentOrders = useMemo(() => paginateRows(executionCenter?.recentOrders || [], recentOrdersPage), [executionCenter?.recentOrders, recentOrdersPage]);
+  const pagedSignals = useMemo(() => paginateRows(filteredSignals, historyPage), [filteredSignals, historyPage]);
+
+  useEffect(() => setExperimentsPage(1), [experiments.length]);
+  useEffect(() => setSandboxPage(1), [sandboxStats.length]);
+  useEffect(() => setRecommendationsPage(1), [recommendations.length]);
+  useEffect(() => setCandidatesPage(1), [executionCenter?.candidates?.length]);
+  useEffect(() => setRecentOrdersPage(1), [executionCenter?.recentOrders?.length]);
+  useEffect(() => setHistoryPage(1), [filteredSignals.length, periodFilter, coinFilter, statusFilter, timeframeFilter, setupFilter, strategyFilter, search]);
 
   const availableCandidateVersions = useMemo(
     () => versions.filter((item) => item.strategy_id === experimentCandidate),
@@ -951,7 +972,7 @@ export function MemoryView(props: MemoryViewProps) {
                     {!experiments.length ? (
                       <p className="section-note">Todavía no hay pruebas guardadas. Crea la primera para empezar a comparar variantes.</p>
                     ) : (
-                      experiments.map((item) => (
+                      pagedExperiments.rows.map((item) => (
                         <div key={`experiment-${item.id}`} className="experiment-record-card">
                           <div className="experiment-record-main">
                             <div className="experiment-record-topline">
@@ -969,6 +990,13 @@ export function MemoryView(props: MemoryViewProps) {
                       ))
                     )}
                   </div>
+                  <PaginationControls
+                    currentPage={pagedExperiments.safePage}
+                    totalPages={pagedExperiments.totalPages}
+                    totalItems={experiments.length}
+                    label="pruebas"
+                    onPageChange={setExperimentsPage}
+                  />
                 </div>
               </details>
             </div>
@@ -1001,11 +1029,18 @@ export function MemoryView(props: MemoryViewProps) {
               <p className="section-note">Todavía no hay pruebas seguras activas. Cuando una pase de borrador a prueba segura, aparecerá aquí con su lectura comparativa.</p>
             ) : (
               <div className="signal-analytics-grid automation-live-grid">
-                {sandboxStats.map((item) => (
+                {pagedSandboxStats.rows.map((item) => (
                   <PaperTestingCard key={`sandbox-${item.experiment.id}`} item={item} />
                 ))}
               </div>
             )}
+            <PaginationControls
+              currentPage={pagedSandboxStats.safePage}
+              totalPages={pagedSandboxStats.totalPages}
+              totalItems={sandboxStats.length}
+              label="pruebas seguras"
+              onPageChange={setSandboxPage}
+            />
           </SectionCard>
           </div>
         </section>
@@ -1040,7 +1075,7 @@ export function MemoryView(props: MemoryViewProps) {
               <EmptyState message="Todavía no hay sugerencias adaptativas. Usa el botón Generar sugerencias cuando ya tengas suficiente historial cerrado." />
             ) : (
               <div className="signal-analytics-grid">
-                {recommendations.map((item) => (
+                {pagedRecommendations.rows.map((item) => (
                   <AdaptiveRecommendationCard
                     key={`${item.recommendation_key}-${item.id}`}
                     item={item}
@@ -1050,6 +1085,13 @@ export function MemoryView(props: MemoryViewProps) {
                 ))}
               </div>
             )}
+            <PaginationControls
+              currentPage={pagedRecommendations.safePage}
+              totalPages={pagedRecommendations.totalPages}
+              totalItems={recommendations.length}
+              label="sugerencias"
+              onPageChange={setRecommendationsPage}
+            />
           </SectionCard>
         </section>
       ) : null}
@@ -1177,7 +1219,7 @@ export function MemoryView(props: MemoryViewProps) {
               <EmptyState message="Todavía no hay señales abiertas listas para evaluar en ejecución demo." />
             ) : (
               <div className="execution-candidate-grid">
-                {executionCenter.candidates.map((item) => (
+                {pagedCandidates.rows.map((item) => (
                   <ExecutionCandidateCard
                     key={`execution-${item.signalId}`}
                     item={item}
@@ -1188,6 +1230,13 @@ export function MemoryView(props: MemoryViewProps) {
                 ))}
               </div>
             )}
+            <PaginationControls
+              currentPage={pagedCandidates.safePage}
+              totalPages={pagedCandidates.totalPages}
+              totalItems={executionCenter?.candidates?.length || 0}
+              label="candidatos"
+              onPageChange={setCandidatesPage}
+            />
           </SectionCard>
 
           <SectionCard
@@ -1200,11 +1249,18 @@ export function MemoryView(props: MemoryViewProps) {
               <EmptyState message="Aún no hay intentos de ejecución demo guardados." />
             ) : (
               <div className="experiment-record-grid">
-                {executionCenter.recentOrders.map((item) => (
+                {pagedRecentOrders.rows.map((item) => (
                   <ExecutionOrderCard key={`execution-order-${item.id}`} item={item} />
                 ))}
               </div>
             )}
+            <PaginationControls
+              currentPage={pagedRecentOrders.safePage}
+              totalPages={pagedRecentOrders.totalPages}
+              totalItems={executionCenter?.recentOrders?.length || 0}
+              label="ordenes"
+              onPageChange={setRecentOrdersPage}
+            />
           </SectionCard>
         </section>
       ) : null}
@@ -1297,13 +1353,20 @@ export function MemoryView(props: MemoryViewProps) {
                       </td>
                     </tr>
                   ) : (
-                    filteredSignals.map((signal) => (
+                    pagedSignals.rows.map((signal) => (
                       <SignalRow key={signal.id} signal={signal} onSave={props.onUpdateSignal} />
                     ))
                   )}
                 </tbody>
               </table>
             </div>
+            <PaginationControls
+              currentPage={pagedSignals.safePage}
+              totalPages={pagedSignals.totalPages}
+              totalItems={filteredSignals.length}
+              label="senales"
+              onPageChange={setHistoryPage}
+            />
           </SectionCard>
         </section>
       ) : null}

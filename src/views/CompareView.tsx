@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useState } from "react";
+import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -17,9 +19,15 @@ function impulseTone(impulse: string) {
 }
 
 export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareViewProps) {
+  const [comparisonPage, setComparisonPage] = useState(1);
   const leader = [...comparison].sort((a, b) => b.change - a.change)[0];
   const laggard = [...comparison].sort((a, b) => a.change - b.change)[0];
   const active = comparison.find((coin) => coin.symbol === currentCoin) ?? comparison[0];
+  const pagedComparison = useMemo(() => paginateRows(comparison, comparisonPage), [comparison, comparisonPage]);
+
+  useEffect(() => {
+    setComparisonPage(1);
+  }, [comparison.length]);
 
   return (
     <div id="compareView" className="view-panel active">
@@ -99,7 +107,7 @@ export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareVi
             helpBody="Las monedas verdes suelen destacar por mejor cambio relativo. Las que muestran lectura roja o debil son candidatas a mayor prudencia."
           >
             <div className="comparison-rank-grid">
-              {comparison.map((coin, index) => (
+              {pagedComparison.rows.map((coin, index) => (
                 <button
                   type="button"
                   key={coin.symbol}
@@ -107,7 +115,7 @@ export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareVi
                   onClick={() => onSelectCoin(coin.symbol)}
                 >
                   <div className="comparison-coin-top">
-                    <span className="comparison-rank">#{index + 1}</span>
+                    <span className="comparison-rank">#{(pagedComparison.safePage - 1) * pagedComparison.pageSize + index + 1}</span>
                     <span className={`comparison-impulse-chip ${impulseTone(coin.impulse)}`}>{coin.impulse}</span>
                   </div>
                   <div className="comparison-coin-symbol">{coin.symbol}</div>
@@ -116,6 +124,13 @@ export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareVi
                 </button>
               ))}
             </div>
+            <PaginationControls
+              currentPage={pagedComparison.safePage}
+              totalPages={pagedComparison.totalPages}
+              totalItems={comparison.length}
+              label="monedas"
+              onPageChange={setComparisonPage}
+            />
           </SectionCard>
         </>
       )}

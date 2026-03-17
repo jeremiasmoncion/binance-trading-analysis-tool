@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
+import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import type { BinanceConnection, UserSession } from "../types";
@@ -17,8 +18,10 @@ interface ProfileViewProps {
 
 export function ProfileView(props: ProfileViewProps) {
   const [activeTab, setActiveTab] = useState<"account" | "binance" | "users">("account");
+  const [usersPage, setUsersPage] = useState(1);
   const connection = props.connection;
   const summary = connection?.summary || {};
+  const pagedUsers = paginateRows(props.users, usersPage);
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
@@ -156,7 +159,7 @@ export function ProfileView(props: ProfileViewProps) {
               helpBody="Mientras seguimos cerrando el backend, esta lista te deja validar el roster que ya reconoce la aplicacion."
             >
               <div className="profile-user-grid">
-                {props.users.map((user) => (
+                {pagedUsers.rows.map((user) => (
                   <article key={user.username} className="profile-user-card">
                     <div className="profile-user-head">
                       <div className="profile-avatar-mini">{(user.displayName || user.username).slice(0, 2).toUpperCase()}</div>
@@ -169,6 +172,13 @@ export function ProfileView(props: ProfileViewProps) {
                   </article>
                 ))}
               </div>
+              <PaginationControls
+                currentPage={pagedUsers.safePage}
+                totalPages={pagedUsers.totalPages}
+                totalItems={props.users.length}
+                label="usuarios"
+                onPageChange={setUsersPage}
+              />
             </SectionCard>
 
             <SectionCard

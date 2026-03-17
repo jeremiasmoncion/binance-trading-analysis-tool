@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
+import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatPrice } from "../lib/format";
@@ -33,6 +34,7 @@ interface MarketViewProps {
 export function MarketView(props: MarketViewProps) {
   const [activeTab, setActiveTab] = useState<"summary" | "watchlist">("summary");
   const [selectedListName, setSelectedListName] = useState(props.activeWatchlistName);
+  const [watchlistPage, setWatchlistPage] = useState(1);
   const signal = props.signal;
   const indicators = props.indicators;
   const selectedList = useMemo(
@@ -41,12 +43,17 @@ export function MarketView(props: MarketViewProps) {
   );
   const selectedCoins = selectedList?.coins || [];
   const selectedIsActive = selectedList?.name === props.activeWatchlistName;
+  const pagedSelectedCoins = useMemo(() => paginateRows(selectedCoins, watchlistPage), [selectedCoins, watchlistPage]);
 
   useEffect(() => {
     if (!props.watchlists.some((item) => item.name === selectedListName)) {
       setSelectedListName(props.activeWatchlistName);
     }
   }, [props.watchlists, props.activeWatchlistName, selectedListName]);
+
+  useEffect(() => {
+    setWatchlistPage(1);
+  }, [selectedListName, selectedCoins.length]);
 
   return (
     <div id="marketView" className="view-panel active">
@@ -295,8 +302,9 @@ export function MarketView(props: MarketViewProps) {
             </div>
           </div>
           {selectedCoins.length ? (
-            <div className="watchlist-grid">
-              {selectedCoins.map((coin) => (
+            <>
+              <div className="watchlist-grid">
+              {pagedSelectedCoins.rows.map((coin) => (
                 <div className={`watchlist-chip${coin === props.currentCoin ? " active" : ""}`} key={coin}>
                   <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin(coin)}>
                     <span className="watchlist-chip-symbol">{coin}</span>
@@ -312,7 +320,15 @@ export function MarketView(props: MarketViewProps) {
                   </button>
                 </div>
               ))}
-            </div>
+              </div>
+              <PaginationControls
+                currentPage={pagedSelectedCoins.safePage}
+                totalPages={pagedSelectedCoins.totalPages}
+                totalItems={selectedCoins.length}
+                label="monedas"
+                onPageChange={setWatchlistPage}
+              />
+            </>
           ) : (
             <div className="card-subtitle">Esta lista todavía no tiene monedas. Usa la estrella de arriba para agregar el par actual a la lista que esté activa, o actívala primero si quieres que alimente las señales.</div>
           )}

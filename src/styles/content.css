@@ -6,7 +6,7 @@
 .premium-overview-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .calculator-shell-grid,
@@ -15,19 +15,19 @@
 .profile-panel-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.95fr);
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .premium-panel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.95rem;
+  gap: 1rem;
 }
 
 .calculator-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.95rem;
+  gap: 1rem;
 }
 
 .premium-field,
@@ -136,7 +136,7 @@
 
 .premium-side-stack {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
 .field-guide-list {
@@ -189,7 +189,7 @@
 .calculator-results-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.95rem;
+  gap: 1rem;
 }
 
 .result-tile {
@@ -250,7 +250,7 @@
 .comparison-rank-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 0.95rem;
+  gap: 1rem;
 }
 
 .comparison-coin-tile {

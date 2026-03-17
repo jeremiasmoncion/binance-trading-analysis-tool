@@ -9,6 +9,8 @@ const STRATEGY_EXPERIMENTS_TABLE = process.env.SUPABASE_STRATEGY_EXPERIMENTS_TAB
 const STRATEGY_RECOMMENDATIONS_TABLE = process.env.SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE || "strategy_recommendations";
 const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
 const EXECUTION_PROFILES_TABLE = process.env.SUPABASE_EXECUTION_PROFILES_TABLE || "execution_profiles";
+const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVERRIDES_TABLE || "execution_scope_overrides";
+const ADAPTIVE_ACTIONS_LOG_TABLE = process.env.SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE || "adaptive_actions_log";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
@@ -140,6 +142,11 @@ async function supabaseRequest(path, options = {}) {
   return response.json();
 }
 
+function isMissingRelationError(error) {
+  const message = String(error instanceof Error ? error.message : error || "").toLowerCase();
+  return message.includes("42p01") || message.includes("does not exist") || message.includes("relation");
+}
+
 function normalizeArray(value) {
   if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
   if (!value) return [];
@@ -233,7 +240,84 @@ async function getExecutionProfileForUser(username) {
     limit: "1",
   });
   const rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`).catch(() => []);
-  return normalizeExecutionProfile(rows?.[0] || null, username);
+  const normalized = normalizeExecutionProfile(rows?.[0] || null, username);
+  try {
+    const overrideParams = new URLSearchParams({
+      select: "*",
+      username: `eq.${String(username)}`,
+      enabled: "eq.true",
+      order: "updated_at.desc.nullslast,created_at.desc",
+    });
+    const overrideRows = await supabaseRequest(`${EXECUTION_SCOPE_OVERRIDES_TABLE}?${overrideParams.toString()}`);
+    if (Array.isArray(overrideRows) && overrideRows.length) {
+      normalized.scopeOverrides = overrideRows.map((item) => ({
+        id: String(item.id || `${item.strategy_id || "scope"}-${item.timeframe || "all"}`),
+        strategyId: String(item.strategy_id || ""),
+        timeframe: String(item.timeframe || ""),
+        enabled: item.enabled !== false,
+        action: String(item.action || ""),
+        minSignalScore: item.min_signal_score == null ? undefined : Number(item.min_signal_score),
+        minRrRatio: item.min_rr_ratio == null ? undefined : Number(item.min_rr_ratio),
+        note: String(item.note || ""),
+      })).filter((item) => item.strategyId && item.timeframe);
+    }
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+  return normalized;
+}
+
+async function upsertExecutionScopeOverrideForUser(username, override, sourceMeta = {}) {
+  const body = [{
+    username: String(username),
+    strategy_id: String(override.strategyId || ""),
+    timeframe: String(override.timeframe || ""),
+    enabled: override.enabled !== false,
+    action: String(override.action || ""),
+    min_signal_score: override.minSignalScore == null ? null : Number(override.minSignalScore),
+    min_rr_ratio: override.minRrRatio == null ? null : Number(override.minRrRatio),
+    note: String(override.note || ""),
+    source: String(sourceMeta.source || "system"),
+    recommendation_id: sourceMeta.recommendationId == null ? null : Number(sourceMeta.recommendationId),
+    experiment_id: sourceMeta.experimentId == null ? null : Number(sourceMeta.experimentId),
+  }];
+  try {
+    await supabaseRequest(`${EXECUTION_SCOPE_OVERRIDES_TABLE}?on_conflict=username,strategy_id,timeframe`, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body,
+    });
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+}
+
+async function insertAdaptiveActionLogForUser(username, payload) {
+  try {
+    await supabaseRequest(ADAPTIVE_ACTIONS_LOG_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: [{
+        username: String(username),
+        action_type: String(payload.actionType || ""),
+        target_type: String(payload.targetType || ""),
+        target_key: String(payload.targetKey || ""),
+        strategy_id: payload.strategyId ? String(payload.strategyId) : null,
+        strategy_version: payload.strategyVersion ? String(payload.strategyVersion) : null,
+        timeframe: payload.timeframe ? String(payload.timeframe) : null,
+        recommendation_id: payload.recommendationId == null ? null : Number(payload.recommendationId),
+        experiment_id: payload.experimentId == null ? null : Number(payload.experimentId),
+        signal_id: payload.signalId == null ? null : Number(payload.signalId),
+        execution_order_id: payload.executionOrderId == null ? null : Number(payload.executionOrderId),
+        source: String(payload.source || "system"),
+        status: String(payload.status || "applied"),
+        summary: String(payload.summary || ""),
+        details: payload.details && typeof payload.details === "object" ? payload.details : {},
+      }],
+    });
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
 }
 
 function getExecutionScopeThresholds(profile, strategyId, timeframe) {
@@ -1483,6 +1567,11 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
   });
 
   const updatedProfile = normalizeExecutionProfile(rows?.[0] || null, username);
+  await upsertExecutionScopeOverrideForUser(username, nextOverride, {
+    source: automatedPolicy ? "policy-automation" : "adaptive-recommendation",
+    recommendationId: recommendation.id,
+    experimentId: evidence.experimentId,
+  }).catch(() => null);
   const recommendationRows = await supabaseRequest(
     `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
     {
@@ -1503,6 +1592,27 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
       },
     },
   );
+
+  await insertAdaptiveActionLogForUser(username, {
+    actionType: scopeAction === "cut" ? "scope-cut" : scopeAction === "relax" ? "scope-relax" : "scope-tighten",
+    targetType: "execution-scope-override",
+    targetKey: `${recommendation.strategy_id}:${timeframe}`,
+    strategyId: recommendation.strategy_id,
+    strategyVersion: recommendation.strategy_version,
+    timeframe,
+    recommendationId: recommendation.id,
+    experimentId: evidence.experimentId,
+    source: automatedPolicy ? "policy-automation" : "adaptive-recommendation",
+    status: "applied",
+    summary: `${scopeAction === "cut" ? "Corte" : scopeAction === "relax" ? "Apertura" : "Ajuste"} aplicado para ${recommendation.strategy_id} · ${timeframe}`,
+    details: {
+      recommendationKey: recommendation.recommendation_key,
+      suggestedMinSignalScore: minSignalScore,
+      suggestedMinRrRatio: minRrRatio,
+      override: nextOverride,
+      automatedPolicy,
+    },
+  }).catch(() => null);
 
   return {
     recommendation: recommendationRows?.[0] || recommendation,

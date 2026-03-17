@@ -15,6 +15,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const EXECUTION_PROFILES_TABLE = process.env.SUPABASE_EXECUTION_PROFILES_TABLE || "execution_profiles";
 const EXECUTION_ORDERS_TABLE = process.env.SUPABASE_EXECUTION_ORDERS_TABLE || "execution_orders";
+const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVERRIDES_TABLE || "execution_scope_overrides";
+const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 const AUTO_PROTECTION_RETRY_LIMIT = 3;
 const AUTO_PROTECTION_RETRY_COOLDOWN_MS = 3 * 60 * 1000;
 
@@ -59,6 +61,11 @@ async function supabaseRequest(path, options = {}) {
 
   if (response.status === 204) return null;
   return response.json();
+}
+
+function isMissingRelationError(error) {
+  const message = String(error instanceof Error ? error.message : error || "").toLowerCase();
+  return message.includes("42p01") || message.includes("does not exist") || message.includes("relation");
 }
 
 function roundDown(value, step) {
@@ -336,7 +343,109 @@ async function getExecutionProfileForUser(username) {
     limit: "1",
   });
   const rows = await supabaseRequest(`${EXECUTION_PROFILES_TABLE}?${params.toString()}`);
-  return normalizeProfile(rows?.[0] || null, username);
+  const normalized = normalizeProfile(rows?.[0] || null, username);
+  try {
+    const overrideParams = new URLSearchParams({
+      select: "*",
+      username: `eq.${String(username)}`,
+      enabled: "eq.true",
+      order: "updated_at.desc.nullslast,created_at.desc",
+    });
+    const overrideRows = await supabaseRequest(`${EXECUTION_SCOPE_OVERRIDES_TABLE}?${overrideParams.toString()}`);
+    if (Array.isArray(overrideRows) && overrideRows.length) {
+      normalized.scopeOverrides = overrideRows.map((item) => ({
+        id: String(item.id || `${item.strategy_id || "scope"}-${item.timeframe || "all"}`),
+        strategyId: String(item.strategy_id || ""),
+        timeframe: String(item.timeframe || ""),
+        enabled: item.enabled !== false,
+        action: String(item.action || ""),
+        minSignalScore: item.min_signal_score == null ? undefined : Number(item.min_signal_score),
+        minRrRatio: item.min_rr_ratio == null ? undefined : Number(item.min_rr_ratio),
+        note: String(item.note || ""),
+      })).filter((item) => item.strategyId && item.timeframe);
+    }
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+  return normalized;
+}
+
+async function syncExecutionScopeOverridesForUser(username, overrides = []) {
+  try {
+    const deleteParams = new URLSearchParams({ username: `eq.${String(username)}` });
+    await supabaseRequest(`${EXECUTION_SCOPE_OVERRIDES_TABLE}?${deleteParams.toString()}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+    if (!Array.isArray(overrides) || !overrides.length) return;
+    await supabaseRequest(EXECUTION_SCOPE_OVERRIDES_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: overrides.map((item) => ({
+        username: String(username),
+        strategy_id: String(item.strategyId || ""),
+        timeframe: String(item.timeframe || ""),
+        enabled: item.enabled !== false,
+        action: String(item.action || ""),
+        min_signal_score: item.minSignalScore == null ? null : Number(item.minSignalScore),
+        min_rr_ratio: item.minRrRatio == null ? null : Number(item.minRrRatio),
+        note: String(item.note || ""),
+        source: "profile-save",
+      })).filter((item) => item.strategy_id && item.timeframe),
+    });
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+}
+
+async function insertSignalFeatureSnapshotForUser(username, signal, record, snapshot = {}) {
+  try {
+    const payload = signal?.signal_payload && typeof signal.signal_payload === "object" ? signal.signal_payload : {};
+    const context = payload.context && typeof payload.context === "object" ? payload.context : {};
+    const decision = payload.decision && typeof payload.decision === "object" ? payload.decision : {};
+    const learning = snapshot && typeof snapshot === "object" ? snapshot : {};
+    await supabaseRequest(SIGNAL_FEATURE_SNAPSHOTS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: [{
+        username: String(username),
+        signal_snapshot_id: Number(signal?.id || 0) || null,
+        execution_order_id: Number(record?.id || 0) || null,
+        coin: String(signal?.coin || record?.coin || ""),
+        timeframe: String(signal?.timeframe || record?.timeframe || ""),
+        strategy_id: String(signal?.strategy_name || decision.primaryStrategy?.id || ""),
+        strategy_version: String(signal?.strategy_version || decision.primaryStrategy?.version || ""),
+        direction: String(learning.direction || context.direction || ""),
+        market_regime: String(learning.marketRegime || context.marketRegime || ""),
+        timeframe_bias: String(learning.timeframeBias || context.timeframeBias || ""),
+        volume_condition: String(learning.volumeCondition || context.volumeCondition || ""),
+        level_context: String(learning.levelContext || context.levelContext || ""),
+        context_signature: String(learning.contextSignature || context.contextSignature || ""),
+        setup_type: String(signal?.setup_type || payload.analysis?.setupType || ""),
+        setup_quality: String(signal?.setup_quality || payload.analysis?.setupQuality || ""),
+        risk_label: String(signal?.risk_label || payload.analysis?.riskLabel || ""),
+        signal_score: Number(signal?.signal_score || 0),
+        adaptive_score: decision.adaptiveScore == null ? null : Number(decision.adaptiveScore),
+        scorer_confidence: decision.scorer?.confidence == null ? null : Number(decision.scorer.confidence),
+        rr_ratio: signal?.rr_ratio == null ? null : Number(signal.rr_ratio),
+        notional_usd: learning.notionalUsd == null ? null : Number(learning.notionalUsd),
+        realized_pnl: learning.realizedPnl == null ? null : Number(learning.realizedPnl),
+        pnl_pct_on_notional: learning.pnlPctOnNotional == null ? null : Number(learning.pnlPctOnNotional),
+        duration_minutes: learning.durationMinutes == null ? null : Number(learning.durationMinutes),
+        protection_status: String(learning.protectionStatus || record?.protection_status || ""),
+        protection_retries: learning.protectionRetries == null ? null : Number(learning.protectionRetries),
+        execution_mode: String(learning.mode || record?.mode || ""),
+        lifecycle_status: String(learning.lifecycleStatus || record?.lifecycle_status || ""),
+        decision_source: String(learning.decisionSource || decision.source || ""),
+        decision_eligible: typeof learning.decisionEligible === "boolean" ? learning.decisionEligible : (typeof decision.executionEligible === "boolean" ? decision.executionEligible : null),
+        entry_to_tp_pct: learning.entryToTpPct == null ? null : Number(learning.entryToTpPct),
+        entry_to_sl_pct: learning.entryToSlPct == null ? null : Number(learning.entryToSlPct),
+        feature_payload: learning,
+      }],
+    });
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
 }
 
 async function getExecutionCenterForUser(username) {
@@ -432,7 +541,9 @@ async function saveExecutionProfileForUser(username, payload) {
       body: profile,
     });
   }
-  return normalizeProfile(rows?.[0] || profile, username);
+  const normalized = normalizeProfile(rows?.[0] || profile, username);
+  await syncExecutionScopeOverridesForUser(username, Array.isArray(payload.scopeOverrides) ? payload.scopeOverrides : []).catch(() => null);
+  return normalized;
 }
 
 async function listExecutionOrdersForUser(username) {
@@ -855,6 +966,12 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
           signal.outcome_pnl = realizedPnl;
           signal.note = closeNote;
         }
+        await insertSignalFeatureSnapshotForUser(
+          username,
+          patchedSignal || signal,
+          nextRecord,
+          learningSnapshot,
+        ).catch(() => null);
       }
     }
 
@@ -1146,6 +1263,7 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
       executionStatus: record.lifecycle_status || "placed",
       executionMode: normalizedMode,
     }).catch(() => null);
+    await insertSignalFeatureSnapshotForUser(username, sourceSignal, record, record?.response_payload?.learning_snapshot || {}).catch(() => null);
   }
 
   return { mode: normalizedMode, candidate, record, order: result, protection: protectionResult };

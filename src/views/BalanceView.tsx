@@ -123,11 +123,27 @@ export function BalanceView(props: BalanceViewProps) {
                 helpTitle="Resumen del dinero"
                 helpBody="Este bloque separa el dinero liquido, el valor actual de las monedas y la base estimada con la que fueron construidas tus posiciones."
               >
-                <div className="stats-grid no-bottom-gap balance-money-grid">
-                  <StatCard label="Disponible en USDT" value={formatPrice(portfolio?.cashValue || 0)} sub="Liquidez lista para operar" />
-                  <StatCard label="Capital en monedas" value={formatPrice(portfolio?.positionsValue || 0)} sub="Valor vivo de tus activos" />
-                  <StatCard label="Costo promedio abierto" value={formatPrice(portfolio?.investedValue || 0)} sub="Base estimada según tus trades" />
-                  <StatCard label="Última lectura" value={portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleTimeString("es-ES") : "--:--"} sub="Dato calculado en backend" />
+                <div className="balance-money-tile-grid">
+                  <div className="balance-money-tile">
+                    <div className="balance-money-label">Disponible en USDT</div>
+                    <div className="balance-money-value">{formatPrice(portfolio?.cashValue || 0)}</div>
+                    <div className="balance-money-sub">Liquidez lista para operar</div>
+                  </div>
+                  <div className="balance-money-tile">
+                    <div className="balance-money-label">Capital en monedas</div>
+                    <div className="balance-money-value">{formatPrice(portfolio?.positionsValue || 0)}</div>
+                    <div className="balance-money-sub">Valor vivo de tus activos</div>
+                  </div>
+                  <div className="balance-money-tile">
+                    <div className="balance-money-label">Costo promedio abierto</div>
+                    <div className="balance-money-value">{formatPrice(portfolio?.investedValue || 0)}</div>
+                    <div className="balance-money-sub">Base estimada según tus trades</div>
+                  </div>
+                  <div className="balance-money-tile">
+                    <div className="balance-money-label">Última lectura</div>
+                    <div className="balance-money-value">{portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleTimeString("es-ES") : "--:--"}</div>
+                    <div className="balance-money-sub">Dato calculado en backend</div>
+                  </div>
                 </div>
               </SectionCard>
             </div>

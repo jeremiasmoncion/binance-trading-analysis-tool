@@ -439,6 +439,78 @@ export function MemoryView(props: MemoryViewProps) {
   const pagedCandidates = useMemo(() => paginateRows(props.executionCenter?.candidates || [], candidatesPage), [candidatesPage, props.executionCenter?.candidates]);
   const pagedRecentOrders = useMemo(() => paginateRows(props.executionCenter?.recentOrders || [], recentOrdersPage), [props.executionCenter?.recentOrders, recentOrdersPage]);
   const pagedSignals = useMemo(() => paginateRows(filteredSignals, historyPage), [filteredSignals, historyPage]);
+  const openSignals = useMemo(
+    () => props.signals.filter((item) => item.outcome_status === "pending"),
+    [props.signals],
+  );
+  const operationalOpenSignals = useMemo(
+    () => openSignals.filter((item) => item.signal_payload?.decision?.executionEligible === true),
+    [openSignals],
+  );
+  const observationOpenSignals = useMemo(
+    () => openSignals.filter((item) => item.signal_payload?.decision?.executionEligible === false),
+    [openSignals],
+  );
+  const eligibleExecutionCandidates = useMemo(
+    () => (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible"),
+    [props.executionCenter?.candidates],
+  );
+  const blockedExecutionCandidates = useMemo(
+    () => (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked"),
+    [props.executionCenter?.candidates],
+  );
+  const executionPlacedOrders = useMemo(
+    () => (props.executionCenter?.recentOrders || []).filter((item) => item.mode === "execute" && item.status === "placed"),
+    [props.executionCenter?.recentOrders],
+  );
+  const topBlockedReason = useMemo(() => {
+    const counts = new Map<string, number>();
+    blockedExecutionCandidates.forEach((item) => {
+      const reason = item.reasons?.[0] || "Bloqueada por reglas del perfil";
+      counts.set(reason, (counts.get(reason) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+  }, [blockedExecutionCandidates]);
+  const executionFunnelSteps = useMemo(() => ([
+    {
+      label: "Detectadas abiertas",
+      value: openSignals.length,
+      sub: "Señales pendientes en memoria",
+      accentClass: "accent-blue",
+    },
+    {
+      label: "Motor operativo",
+      value: operationalOpenSignals.length,
+      sub: `${observationOpenSignals.length} quedan solo en observación`,
+      accentClass: "accent-emerald",
+    },
+    {
+      label: "Listas para demo",
+      value: eligibleExecutionCandidates.length,
+      sub: "Cumplen perfil de riesgo y ejecución",
+      accentClass: "accent-green",
+    },
+    {
+      label: "Bloqueadas por filtro",
+      value: blockedExecutionCandidates.length,
+      sub: topBlockedReason || "Sin bloqueos en este momento",
+      accentClass: "accent-amber",
+    },
+    {
+      label: "Ya enviadas",
+      value: executionPlacedOrders.length,
+      sub: "Órdenes demo lanzadas recientemente",
+      accentClass: "accent-blue",
+    },
+  ]), [
+    blockedExecutionCandidates.length,
+    eligibleExecutionCandidates.length,
+    executionPlacedOrders.length,
+    observationOpenSignals.length,
+    openSignals.length,
+    operationalOpenSignals.length,
+    topBlockedReason,
+  ]);
 
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
@@ -824,6 +896,33 @@ export function MemoryView(props: MemoryViewProps) {
                 accentClass="accent-green"
               />
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Embudo real hacia demo"
+            subtitle="Aquí ves por qué el resumen de señales no es igual al flujo que termina en Binance Demo."
+            helpTitle="Embudo hacia demo"
+            helpBody="No toda señal abierta termina en demo. Primero el motor decide si es operativa y luego el perfil de riesgo decide si puede ejecutarse."
+            helpBullets={[
+              "Detectadas abiertas: todas las señales pendientes todavía vivas.",
+              "Motor operativo: solo las que el sistema considera parte del flujo actual.",
+              "Listas para demo: las que además pasan riesgo, RR y límites de ejecución.",
+            ]}
+          >
+            <div className="stats-grid">
+              {executionFunnelSteps.map((step) => (
+                <StatCard
+                  key={`funnel-${step.label}`}
+                  label={step.label}
+                  value={String(step.value)}
+                  sub={step.sub}
+                  accentClass={step.accentClass}
+                />
+              ))}
+            </div>
+            <p className="section-note with-top-gap">
+              Resumen rápido: hay {openSignals.length} señales abiertas, pero solo {eligibleExecutionCandidates.length} cumplen hoy todo lo necesario para pasar a demo.
+            </p>
           </SectionCard>
 
           <div className="stats-grid">
@@ -1310,6 +1409,15 @@ export function MemoryView(props: MemoryViewProps) {
             helpTitle="Senales listas para orden demo"
             helpBody="Aqui el sistema te dice que señales abiertas estan listas para avanzar y cuales quedan bloqueadas por reglas de riesgo o contexto."
           >
+            <div className="stats-grid compact-stats-grid">
+              <StatCard label="Abiertas vivas" value={String(openSignals.length)} sub="Universo pendiente en señales" accentClass="accent-blue" />
+              <StatCard label="Operativas" value={String(operationalOpenSignals.length)} sub="Aceptadas por el motor actual" accentClass="accent-emerald" />
+              <StatCard label="Elegibles" value={String(eligibleExecutionCandidates.length)} sub="Ya pueden pasar a demo" accentClass="accent-green" />
+              <StatCard label="Bloqueadas" value={String(blockedExecutionCandidates.length)} sub={topBlockedReason || "Sin bloqueos"} accentClass="accent-amber" />
+            </div>
+            <p className="section-note with-bottom-gap">
+              Demo no toma todas las abiertas. Solo mira las operativas y luego aplica el perfil de ejecución para decidir cuáles sí pueden enviarse.
+            </p>
             {!props.executionCenter?.candidates?.length ? (
               <EmptyState message="Todavía no hay señales abiertas listas para evaluar en ejecución demo." />
             ) : (
@@ -1761,6 +1869,11 @@ function ExecutionCandidateCard({
         <StatCard label="Tamaño" value={item.qty > 0 ? formatAmount(item.qty) : "--"} sub={item.notionalUsd > 0 ? formatPrice(item.notionalUsd) : "Sin tamaño válido"} accentClass="accent-emerald" />
         <StatCard label="RR" value={item.rrRatio ? item.rrRatio.toFixed(2) : "--"} sub={`SL ${formatPrice(item.plan.sl || 0)} · TP ${formatPrice(item.plan.tp || 0)}`} accentClass="accent-amber" />
       </div>
+      <div className="inline-actions with-top-gap">
+        <span className="signal-status-note">
+          Flujo del motor: {formatDecisionSource(item.decisionSource)}
+        </span>
+      </div>
       <div className="execution-reason-box">
         <strong>{item.status === "eligible" ? "Por qué sí puede pasar" : "Por qué quedó bloqueada"}</strong>
         <ul>
@@ -2193,6 +2306,15 @@ function getExperimentStatusLabel(status: string) {
   if (status === "paused") return "Observando";
   if (status === "archived") return "Archivada";
   return status;
+}
+
+function formatDecisionSource(source?: string) {
+  if (source === "active") return "Estrategia activa";
+  if (source === "promoted") return "Versión promovida";
+  if (source === "experiment-active") return "Experimento ya habilitado";
+  if (source === "sandbox") return "Solo observación";
+  if (source === "inactive") return "Fuera del motor actual";
+  return "Flujo heredado";
 }
 
 function formatScannerStatus(status?: string) {

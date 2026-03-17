@@ -360,6 +360,17 @@ async function listExecutionOrdersForUser(username) {
   return supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`);
 }
 
+async function getExecutionOrderByIdForUser(username, id) {
+  const params = new URLSearchParams({
+    select: "*",
+    username: `eq.${String(username)}`,
+    id: `eq.${Number(id)}`,
+    limit: "1",
+  });
+  const rows = await supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`);
+  return rows?.[0] || null;
+}
+
 async function insertExecutionRecord(record) {
   const rows = await supabaseRequest(EXECUTION_ORDERS_TABLE, {
     method: "POST",
@@ -752,6 +763,12 @@ async function updateExecutionProfile(req) {
 async function executeSignalTrade(req) {
   const { session, apiKey, apiSecret } = await getCredentialsForSession(req);
   const body = parseJsonBody(req);
+  if (body.action === "attachProtection") {
+    return attachProtectionToExecutionOrderForUser(session.username, Number(body.executionOrderId || 0), {
+      apiKey,
+      apiSecret,
+    });
+  }
   const signalId = Number(body.signalId || 0);
   const mode = body.mode === "execute" ? "execute" : "preview";
   return executeSignalTradeForUser(session.username, signalId, mode, {
@@ -887,7 +904,102 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
   return { mode: normalizedMode, candidate, record, order: result, protection: protectionResult };
 }
 
+async function attachProtectionToExecutionOrderForUser(username, executionOrderId, options = {}) {
+  if (!executionOrderId) throw new Error("Debes indicar la orden demo que quieres proteger.");
+
+  const record = await getExecutionOrderByIdForUser(username, executionOrderId);
+  if (!record) throw new Error("No encontramos esa orden demo para este usuario.");
+  if (record.mode !== "execute") throw new Error("Solo puedes proteger órdenes reales de ejecución demo.");
+
+  const lifecycle = String(record.lifecycle_status || record.status || "");
+  if (lifecycle.startsWith("closed_")) {
+    throw new Error("Esa operación ya está cerrada y no necesita protección.");
+  }
+  if (lifecycle === "protected" || String(record.protection_status || "") === "active") {
+    throw new Error("Esa operación ya tiene protección activa.");
+  }
+  if (String(record.side || "").toUpperCase() !== "BUY") {
+    throw new Error("Solo las compras spot abiertas necesitan montar TP/SL después de ejecutar.");
+  }
+
+  const credentials = options.apiKey && options.apiSecret
+    ? { apiKey: options.apiKey, apiSecret: options.apiSecret }
+    : await getCredentialsForUsername(username);
+  const portfolio = await getPortfolioSnapshotForUsername(username, "1d");
+  const allSignals = await listSignalSnapshotsForUser(username, { limit: 400 }).catch(() => []);
+  const signal = allSignals.find((item) => Number(item.id) === Number(record.signal_id || 0)) || null;
+  if (!signal) {
+    throw new Error("No encontramos la señal asociada para reconstruir el plan de protección.");
+  }
+
+  const candidate = {
+    symbol: String(record.coin || signal.coin || "").replace("/", ""),
+    side: "BUY",
+    plan: {
+      tp: Number(signal.tp_price || 0),
+      sl: Number(signal.sl_price || 0),
+    },
+  };
+
+  const asset = getBaseAsset(record.coin || signal.coin);
+  const currentPosition = portfolio?.assets?.find((item) => item.asset === asset);
+  const freeQty = Number(currentPosition?.free || currentPosition?.quantity || 0);
+  const fallbackExecutedQty = Number(record.response_payload?.order?.executedQty || record.quantity || 0);
+  const protectiveQty = freeQty > 0 ? freeQty : fallbackExecutedQty;
+
+  const protectionResult = await attachProtectiveExit({
+    apiKey: credentials.apiKey,
+    apiSecret: credentials.apiSecret,
+    candidate,
+    executedQty: protectiveQty,
+    rules: await getSymbolRules(candidate.symbol),
+  });
+
+  if (!protectionResult.protectionAttached) {
+    throw new Error(protectionResult.protectionNote || "No se pudo montar la protección en este intento.");
+  }
+
+  const nextPayload = {
+    ...(record.response_payload && typeof record.response_payload === "object" ? record.response_payload : {}),
+    protection: protectionResult,
+    protectionRetriedAt: new Date().toISOString(),
+  };
+
+  const nextRecord = await updateExecutionRecord(record.id, {
+    lifecycle_status: "protected",
+    protection_status: "active",
+    linked_order_ids: {
+      ...(record.linked_order_ids && typeof record.linked_order_ids === "object" ? record.linked_order_ids : {}),
+      ...extractLinkedOrderIdsFromProtection(protectionResult.protectionOrder),
+    },
+    last_synced_at: new Date().toISOString(),
+    notes: `${String(record.notes || "").trim()} · Protección añadida después de la apertura.`,
+    response_payload: nextPayload,
+  });
+
+  if (signal?.id) {
+    await updateSignalExecutionLink(username, signal.id, {
+      executionOrderId: record.id,
+      executionStatus: "protected",
+      executionMode: String(record.mode || "execute"),
+      executionUpdatedAt: new Date().toISOString(),
+    }).catch(() => null);
+  }
+
+  return {
+    success: true,
+    record: nextRecord || {
+      ...record,
+      lifecycle_status: "protected",
+      protection_status: "active",
+      response_payload: nextPayload,
+    },
+    protection: protectionResult,
+  };
+}
+
 export {
+  attachProtectionToExecutionOrderForUser,
   executeSignalTrade,
   executeSignalTradeForUser,
   getExecutionCenter,

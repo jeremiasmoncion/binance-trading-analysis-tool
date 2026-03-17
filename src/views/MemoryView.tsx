@@ -250,6 +250,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [scopeOverrideRr, setScopeOverrideRr] = useState("0.5");
   const [scopeOverrideNote, setScopeOverrideNote] = useState("");
   const [executionBusy, setExecutionBusy] = useState(false);
+  const [protectionRetryId, setProtectionRetryId] = useState(0);
   const [executionSaving, setExecutionSaving] = useState(false);
   const [experimentsPage, setExperimentsPage] = useState(1);
   const [sandboxPage, setSandboxPage] = useState(1);
@@ -579,6 +580,14 @@ export function MemoryView(props: MemoryViewProps) {
   );
   const executionPlacedOrders = useMemo(
     () => (props.executionCenter?.recentOrders || []).filter((item) => item.mode === "execute" && item.status === "placed"),
+    [props.executionCenter?.recentOrders],
+  );
+  const unprotectedExecutionOrders = useMemo(
+    () => (props.executionCenter?.recentOrders || []).filter((item) => (
+      item.mode === "execute"
+      && String(item.lifecycle_status || "") === "filled_unprotected"
+      && String(item.side || "").toUpperCase() === "BUY"
+    )),
     [props.executionCenter?.recentOrders],
   );
   const topBlockedReason = useMemo(() => {
@@ -1391,6 +1400,36 @@ export function MemoryView(props: MemoryViewProps) {
       });
     } finally {
       setExecutionBusy(false);
+      stopLoading(loaderId);
+    }
+  }
+
+  async function handleRetryProtection(item: ExecutionOrderRecord) {
+    setProtectionRetryId(item.id);
+    const loaderId = startLoading({
+      label: "Añadiendo protección",
+      detail: `Intentando montar TP/SL para ${item.coin} después de la apertura.`,
+    });
+    try {
+      const payload = await binanceService.attachProtection(item.id) as {
+        protection?: {
+          protectionNote?: string;
+        };
+      };
+      await props.onRefreshExecutionCenter();
+      showToast({
+        tone: "success",
+        title: "Protección añadida",
+        message: payload?.protection?.protectionNote || `${item.coin} ya quedó con salida protegida.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo añadir la protección",
+        message: error instanceof Error ? error.message : "No se pudo montar TP/SL para esta orden demo.",
+      });
+    } finally {
+      setProtectionRetryId(0);
       stopLoading(loaderId);
     }
   }
@@ -2577,6 +2616,59 @@ export function MemoryView(props: MemoryViewProps) {
           </SectionCard>
 
           <SectionCard
+            title="Órdenes abiertas sin protección"
+            subtitle="Aquí vigilas las operaciones demo que sí entraron, pero quedaron sin TP/SL para poder reintentar la protección."
+            helpTitle="Ordenes sin proteccion"
+            helpBody="Si la orden principal abrió pero Binance rechazó la salida protegida, esta lista te deja detectar el riesgo pendiente y volver a intentar montar la protección."
+          >
+            {!unprotectedExecutionOrders.length ? (
+              <EmptyState message="No hay operaciones demo abiertas con protección pendiente en este momento." />
+            ) : (
+              <div className="experiment-record-grid">
+                {unprotectedExecutionOrders.map((item) => {
+                  const protection = getExecutionProtectionSummary(item);
+                  return (
+                    <div key={`pending-protection-${item.id}`} className="experiment-record-card execution-order-card">
+                      <div className="experiment-record-main">
+                        <div className="experiment-record-topline">
+                          <strong>{item.coin} · {item.side || "--"} · orden abierta</strong>
+                          <div className="signal-analytics-pill status-draft">
+                            Sin TP/SL
+                          </div>
+                        </div>
+                        <div className="inline-actions">
+                          <span className={`signal-analytics-pill status-${getExecutionLifecycleTone(item.lifecycle_status || "")}`}>
+                            {getFriendlyExecutionLifecycle(item.lifecycle_status || item.status)}
+                          </span>
+                          <span className="signal-status-note">
+                            {item.origin === "watcher" ? "Auto por vigilante" : "Manual desde Señales"}
+                          </span>
+                        </div>
+                        <span className="experiment-record-meta">
+                          {item.strategy_name ? getFriendlyStrategyVersionLabel(item.strategy_name, item.strategy_version || "") : "Sin estrategia"} · {item.timeframe || "--"} · {new Date(item.created_at).toLocaleString("es-DO")}
+                        </span>
+                        <p className="experiment-record-summary">
+                          {protection?.text || item.notes || "La orden principal salió, pero la protección sigue pendiente."}
+                        </p>
+                        <div className="inline-actions">
+                          <button
+                            className="btn-secondary-soft signal-inline-button"
+                            type="button"
+                            onClick={() => void handleRetryProtection(item)}
+                            disabled={protectionRetryId === item.id}
+                          >
+                            {protectionRetryId === item.id ? "Reintentando..." : "Añadir protección ahora"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard
             title="Intentos y órdenes demo recientes"
             subtitle="Aquí queda el rastro de previews, bloqueos y órdenes que ya salieron hacia Binance Demo."
             helpTitle="Intentos y ordenes demo"
@@ -2587,7 +2679,14 @@ export function MemoryView(props: MemoryViewProps) {
             ) : (
               <div className="experiment-record-grid">
                 {pagedRecentOrders.rows.map((item) => (
-                  <ExecutionOrderCard key={`execution-order-${item.id}`} item={item} />
+                  <ExecutionOrderCard
+                    key={`execution-order-${item.id}`}
+                    item={item}
+                    onRetryProtection={String(item.lifecycle_status || "") === "filled_unprotected" && String(item.side || "").toUpperCase() === "BUY"
+                      ? () => void handleRetryProtection(item)
+                      : undefined}
+                    retrying={protectionRetryId === item.id}
+                  />
                 ))}
               </div>
             )}
@@ -3168,7 +3267,17 @@ function ExecutionCandidateCard({
   );
 }
 
-function ExecutionOrderCard({ item }: { item: ExecutionOrderRecord }) {
+function ExecutionOrderCard(
+  {
+    item,
+    onRetryProtection,
+    retrying = false,
+  }: {
+    item: ExecutionOrderRecord;
+    onRetryProtection?: () => void;
+    retrying?: boolean;
+  },
+) {
   const protection = getExecutionProtectionSummary(item);
 
   return (
@@ -3208,6 +3317,13 @@ function ExecutionOrderCard({ item }: { item: ExecutionOrderRecord }) {
           <div className={`execution-protection-pill is-${protection.tone}`}>
             <strong>{protection.title}</strong>
             <span>{protection.text}</span>
+          </div>
+        ) : null}
+        {onRetryProtection ? (
+          <div className="inline-actions with-top-gap">
+            <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onRetryProtection} disabled={retrying}>
+              {retrying ? "Reintentando protección..." : "Añadir protección"}
+            </button>
           </div>
         ) : null}
       </div>

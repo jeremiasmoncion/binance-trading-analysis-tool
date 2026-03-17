@@ -177,6 +177,12 @@ export const binanceService = {
       body: JSON.stringify({ signalId, mode }),
     });
   },
+  attachProtection(executionOrderId: number) {
+    return apiRequest("/api/binance/execution", {
+      method: "POST",
+      body: JSON.stringify({ action: "attachProtection", executionOrderId }),
+    });
+  },
 };
 
 export const signalService = {

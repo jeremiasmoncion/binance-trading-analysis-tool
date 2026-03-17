@@ -308,6 +308,7 @@ export interface SignalSnapshot {
       executionReason?: string;
       primaryStrategy?: StrategyDescriptor;
       primaryExperimentId?: number | null;
+      adaptiveScore?: number | null;
       contextBias?: {
         strategyId?: string;
         version?: string;
@@ -570,6 +571,8 @@ export interface ExecutionCandidate {
   strategyVersion: string;
   signalLabel: string;
   score: number;
+  baseScore?: number;
+  adaptiveScore?: number | null;
   rrRatio: number;
   decisionSource?: string;
   decisionExperimentId?: number | null;

@@ -3355,7 +3355,14 @@ function ExecutionCandidateCard({
         </div>
       </div>
       <div className="stats-grid compact-stats-grid no-bottom-gap">
-        <StatCard label="Precio actual" value={formatPrice(item.currentPrice)} sub={`Score ${item.score}%`} accentClass="accent-blue" />
+        <StatCard
+          label="Precio actual"
+          value={formatPrice(item.currentPrice)}
+          sub={item.adaptiveScore != null
+            ? `Score base ${Number(item.baseScore || 0).toFixed(1)} · adaptativo ${Number(item.adaptiveScore || 0).toFixed(1)}`
+            : `Score ${item.score.toFixed(1)}`}
+          accentClass="accent-blue"
+        />
         <StatCard label="Tamaño" value={item.qty > 0 ? formatAmount(item.qty) : "--"} sub={item.notionalUsd > 0 ? formatPrice(item.notionalUsd) : "Sin tamaño válido"} accentClass="accent-emerald" />
         <StatCard label="RR" value={item.rrRatio ? item.rrRatio.toFixed(2) : "--"} sub={`SL ${formatPrice(item.plan.sl || 0)} · TP ${formatPrice(item.plan.tp || 0)}`} accentClass="accent-amber" />
       </div>
@@ -3363,6 +3370,11 @@ function ExecutionCandidateCard({
         <span className="signal-status-note">
           Flujo del motor: {formatDecisionSource(item.decisionSource)}
         </span>
+        {item.adaptiveScore != null ? (
+          <span className="signal-status-note">
+            Score adaptativo: {Number(item.adaptiveScore).toFixed(1)} {Number(item.adaptiveScore) >= Number(item.baseScore || 0) ? "↑" : "↓"} frente al base {Number(item.baseScore || 0).toFixed(1)}
+          </span>
+        ) : null}
         {item.profileOverride ? (
           <span className="signal-status-note">
             Override activo: {item.profileOverride.strategyId} · {item.profileOverride.timeframe} · {item.profileOverride.action === "cut" ? "corte" : item.profileOverride.action === "tighten" ? "endurecido" : item.profileOverride.action === "relax" ? "abierto" : "custom"} · Score {item.profileOverride.minSignalScore}+ · RR {item.profileOverride.minRrRatio.toFixed(2)}+

@@ -701,6 +701,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     );
     const scopeAction = String(scopeTuning?.action || "");
     const candidateBaseRank = Number(candidate.rankScore || candidate.signal?.score || candidate.signal?.signalScore || 0);
+    const baseSignalScore = Number(candidate.signal?.score || candidate.signal?.signalScore || 0);
     const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
     const contextualBias = contextBias ? Math.max(-18, Math.min(18, Number(contextBias.biasScore || 0) * 0.6)) : 0;
     const scopeBias = scopeAction === "cut"
@@ -730,6 +731,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
       effectiveRank: candidateBaseRank + scopeBias + adaptiveBias,
       contextBias,
       contextualBias,
+      adaptiveScore: Number((baseSignalScore + adaptiveBias + contextualBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0)).toFixed(1)),
       featureAdjustedRank: candidateBaseRank + scopeBias + adaptiveBias + contextualBias,
       executionEligible: scopeAction === "cut"
         ? false
@@ -780,6 +782,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     primaryScopeAction: operationalPrimary?.scopeAction || "",
     adaptivePrimary: operationalPrimary?.adaptivePrimary || null,
     contextBias: operationalPrimary?.contextBias || null,
+    adaptiveScore: operationalPrimary?.adaptiveScore ?? null,
     activeStrategies: activeStrategies
       .filter((item) => scopeMatches(item, { marketScope, timeframe }))
       .map((item) => ({

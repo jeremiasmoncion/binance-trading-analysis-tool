@@ -590,6 +590,11 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   const decision = signal.signal_payload?.decision && typeof signal.signal_payload.decision === "object"
     ? signal.signal_payload.decision
     : null;
+  const baseScore = Number(signal.signal_score || 0);
+  const adaptiveScore = decision && Number.isFinite(Number(decision.adaptiveScore))
+    ? Number(decision.adaptiveScore)
+    : null;
+  const effectiveScore = adaptiveScore != null ? adaptiveScore : baseScore;
 
   if (!profile.enabled) reasons.push("El perfil de ejecución está desactivado.");
   if (!side) reasons.push("La señal actual no tiene dirección operable.");
@@ -599,8 +604,8 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   if (String(effectiveProfile.override?.action || "") === "cut") {
     reasons.push(`Este scope (${signal.strategy_name || "estrategia"} · ${signal.timeframe || "--"}) quedó cortado por el motor adaptativo.`);
   }
-  if (Number(signal.signal_score || 0) < effectiveProfile.minSignalScore) {
-    reasons.push(`La convicción (${signal.signal_score || 0}) está por debajo del mínimo ${effectiveProfile.minSignalScore}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
+  if (effectiveScore < effectiveProfile.minSignalScore) {
+    reasons.push(`La convicción efectiva (${effectiveScore.toFixed(1)}) está por debajo del mínimo ${effectiveProfile.minSignalScore}${adaptiveScore != null ? ` · base ${baseScore.toFixed(1)} vs adaptativo ${adaptiveScore.toFixed(1)}` : ""}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
   }
   if (Number(signal.rr_ratio || 0) > 0 && Number(signal.rr_ratio || 0) < effectiveProfile.minRrRatio) {
     reasons.push(`El RR (${signal.rr_ratio || 0}) está por debajo del mínimo ${effectiveProfile.minRrRatio}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
@@ -658,7 +663,9 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
     strategyName: signal.strategy_name || "",
     strategyVersion: signal.strategy_version || "",
     signalLabel: signal.signal_label,
-    score: Number(signal.signal_score || 0),
+    score: effectiveScore,
+    baseScore,
+    adaptiveScore,
     rrRatio: Number(signal.rr_ratio || 0),
     decisionSource: String(decision?.source || "legacy"),
     decisionExperimentId: Number(decision?.primaryExperimentId || 0) || null,

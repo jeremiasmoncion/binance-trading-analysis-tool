@@ -200,6 +200,26 @@ export interface StrategyDecisionState {
     modelScore: number;
     confidence: number;
   }>;
+  scorerEvaluations?: Array<{
+    scorer: string;
+    challenger: string;
+    active: boolean;
+    windowType: "recent" | "global";
+    sampleSize: number;
+    challengerSampleSize: number;
+    avgPnl: number;
+    challengerAvgPnl: number;
+    winRate: number;
+    challengerWinRate: number;
+    pnl: number;
+    challengerPnl: number;
+    edgeDelta: number;
+    winRateDelta: number;
+    confidence: number;
+    action: "keep" | "promote" | "rollback" | "observe";
+    readiness: "low" | "medium" | "high";
+    summary: string;
+  }>;
 }
 
 export interface RecommendationActivationResult {

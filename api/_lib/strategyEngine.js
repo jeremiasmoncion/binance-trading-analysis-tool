@@ -519,6 +519,7 @@ export async function getSystemStrategyDecisionState(username) {
     adaptivePrimaryByScope: buildAdaptivePrimaryByScope(signals || []),
     contextBiasByScope: buildContextBiasByScope(signals || []),
     featureModelByScope: buildFeatureModelByScope(featureSnapshots || []),
+    scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
@@ -759,6 +760,84 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
   }
 
   return recommendations;
+}
+
+function buildScorerEvaluations(signals, executionProfile) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const scoredSignals = closedSignals
+    .filter((item) => item.signal_payload?.decision?.scorer?.label)
+    .slice()
+    .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime());
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
+  const challenger = activeScorer === "adaptive-v2" ? "adaptive-v1" : "adaptive-v2";
+  const windows = [
+    { key: "recent", rows: scoredSignals.slice(0, 20) },
+    { key: "global", rows: scoredSignals },
+  ];
+
+  return windows.map((window) => {
+    const activeRows = window.rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer);
+    const challengerRows = window.rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === challenger);
+    const activeStats = summarizeSignals(activeRows);
+    const challengerStats = summarizeSignals(challengerRows);
+    const activeAvgPnl = activeStats.total ? activeStats.pnl / activeStats.total : 0;
+    const challengerAvgPnl = challengerStats.total ? challengerStats.pnl / challengerStats.total : 0;
+    const edgeDelta = Number((challengerAvgPnl - activeAvgPnl).toFixed(2));
+    const winRateDelta = Number((challengerStats.winRate - activeStats.winRate).toFixed(2));
+    const enoughSample = activeStats.total >= 5 && challengerStats.total >= 5;
+    const confidence = Number(Math.min(
+      99,
+      35
+        + Math.min(activeStats.total, 20) * 1.5
+        + Math.min(challengerStats.total, 20) * 1.5
+        + Math.max(0, Math.abs(edgeDelta)) * 8
+        + Math.max(0, Math.abs(winRateDelta)) * 0.8,
+    ).toFixed(1));
+
+    let action = "observe";
+    let readiness = "low";
+    let summary = "Todavía no hay suficiente muestra para gobernar el scorer con seguridad.";
+
+    if (enoughSample) {
+      readiness = confidence >= 78 ? "high" : confidence >= 60 ? "medium" : "low";
+      if (challengerAvgPnl > activeAvgPnl && challengerStats.winRate >= activeStats.winRate) {
+        action = activeScorer === "adaptive-v2" ? "keep" : "promote";
+        summary = activeScorer === "adaptive-v2"
+          ? "El scorer promovido sigue defendiendo el edge frente a la alternativa."
+          : "El scorer challenger ya supera al scorer activo y merece avanzar hacia promoción.";
+      } else if (activeScorer === "adaptive-v2" && activeAvgPnl < challengerAvgPnl && activeStats.winRate <= challengerStats.winRate) {
+        action = "rollback";
+        summary = "El scorer activo se está degradando frente a la alternativa y conviene preparar rollback.";
+      } else if (activeAvgPnl >= challengerAvgPnl) {
+        action = "keep";
+        summary = "El scorer activo sigue defendiendo mejor el edge en esta ventana.";
+      } else {
+        action = "observe";
+        summary = "Los scorers están mezclados; conviene seguir observando antes de promover o revertir.";
+      }
+    }
+
+    return {
+      scorer: activeScorer,
+      challenger,
+      active: true,
+      windowType: window.key,
+      sampleSize: activeStats.total,
+      challengerSampleSize: challengerStats.total,
+      avgPnl: Number(activeAvgPnl.toFixed(2)),
+      challengerAvgPnl: Number(challengerAvgPnl.toFixed(2)),
+      winRate: Number(activeStats.winRate.toFixed(2)),
+      challengerWinRate: Number(challengerStats.winRate.toFixed(2)),
+      pnl: Number(activeStats.pnl.toFixed(2)),
+      challengerPnl: Number(challengerStats.pnl.toFixed(2)),
+      edgeDelta,
+      winRateDelta,
+      confidence,
+      action,
+      readiness,
+      summary,
+    };
+  });
 }
 
 function normalizeContextMarketRegime(signal) {

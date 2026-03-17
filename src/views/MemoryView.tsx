@@ -886,6 +886,13 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [closedSignals, decisionState?.scorerPolicy?.activeScorer]);
 
+  const scorerEvaluations = useMemo(() => {
+    const rows = Array.isArray(decisionState?.scorerEvaluations) ? decisionState.scorerEvaluations : [];
+    const recent = rows.find((item) => item.windowType === "recent") || null;
+    const global = rows.find((item) => item.windowType === "global") || null;
+    return { recent, global };
+  }, [decisionState?.scorerEvaluations]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1136,6 +1143,13 @@ export function MemoryView(props: MemoryViewProps) {
         actionLabel: "Mandar a prueba",
         toneClass: "accent-emerald",
       };
+    } else if (scorerEvaluations.recent?.action === "rollback") {
+      nextAction = {
+        title: "Vigilar rollback del scorer",
+        summary: "La evaluación reciente ya detecta degradación del scorer activo. Conviene validar si toca replegarlo antes de seguir dándole el mismo peso.",
+        actionLabel: "Revisar scorer",
+        toneClass: "accent-amber",
+      };
     } else if (scorerPromotionRecommendation && scorerPromotionRecommendation.status !== "active") {
       nextAction = {
         title: scorerPromotionRecommendation.status === "sandbox" ? "Promover adaptive-v2" : "Mandar adaptive-v2 a prueba",
@@ -1163,10 +1177,11 @@ export function MemoryView(props: MemoryViewProps) {
       adaptiveScoreImpact,
       scorerModelImpact,
       scorerGovernance,
+      scorerEvaluations,
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerGovernance, scorerModelImpact]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, scorerGovernance, scorerModelImpact]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1847,6 +1862,18 @@ export function MemoryView(props: MemoryViewProps) {
                 }
                 accentClass={automationMasterBoard.scorerGovernance.accentClass}
               />
+              <StatCard
+                label="Evaluación de modelo"
+                value={automationMasterBoard.scorerEvaluations.recent?.action || "--"}
+                sub={automationMasterBoard.scorerEvaluations.recent ? `${automationMasterBoard.scorerEvaluations.recent.scorer} vs ${automationMasterBoard.scorerEvaluations.recent.challenger} · ${automationMasterBoard.scorerEvaluations.recent.confidence.toFixed(0)}%` : "Esperando evaluación formal"}
+                accentClass={
+                  automationMasterBoard.scorerEvaluations.recent?.action === "promote"
+                    ? "accent-emerald"
+                    : automationMasterBoard.scorerEvaluations.recent?.action === "rollback"
+                      ? "accent-amber"
+                      : "accent-blue"
+                }
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1915,6 +1942,17 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                       </div>
                     ) : null}
+                    {automationMasterBoard.scorerEvaluations.recent ? (
+                      <div className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>Evaluación formal del scorer</strong>
+                          <span>{automationMasterBoard.scorerEvaluations.recent.summary}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${automationMasterBoard.scorerEvaluations.recent.action === "promote" ? "status-running" : automationMasterBoard.scorerEvaluations.recent.action === "rollback" ? "status-draft" : "status-sandbox"}`}>
+                          {automationMasterBoard.scorerEvaluations.recent.action}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <EmptyState message="Todavía no hay un scope dominante lo bastante claro." />
@@ -1980,6 +2018,11 @@ export function MemoryView(props: MemoryViewProps) {
             {automationMasterBoard.scorerGovernance.windowSize > 0 ? (
               <p className="section-note">
                 Gobernanza reciente: {automationMasterBoard.scorerGovernance.reading}
+              </p>
+            ) : null}
+            {automationMasterBoard.scorerEvaluations.recent ? (
+              <p className="section-note">
+                Evaluación de modelo: {automationMasterBoard.scorerEvaluations.recent.summary} Ventana reciente {formatSignedPrice(automationMasterBoard.scorerEvaluations.recent.avgPnl)} vs {formatSignedPrice(automationMasterBoard.scorerEvaluations.recent.challengerAvgPnl)}.
               </p>
             ) : null}
 

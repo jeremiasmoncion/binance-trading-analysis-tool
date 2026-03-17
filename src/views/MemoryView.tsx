@@ -73,6 +73,15 @@ interface SignalCohortStats {
   avgRr: number;
 }
 
+interface AdaptiveLearningInsight {
+  key: string;
+  title: string;
+  summary: string;
+  value: string;
+  sub: string;
+  accentClass: string;
+}
+
 const RUNNABLE_STRATEGY_VERSION_KEYS = new Set([
   "trend-alignment:v1",
   "trend-alignment:v2",
@@ -611,6 +620,96 @@ export function MemoryView(props: MemoryViewProps) {
     }
     return "Todavía hace falta más muestra comparativa para decidir si demo está filtrando mejor o si está dejando fuera parte del edge.";
   }, [blockedObservationStats, executedClosedStats, skippedOperationalStats]);
+
+  const adaptiveInsights = useMemo<AdaptiveLearningInsight[]>(() => {
+    const insights: AdaptiveLearningInsight[] = [];
+
+    if (strongestStrategy && strongestStrategy.total >= 4) {
+      insights.push({
+        key: "best-strategy",
+        title: "Estrategia que más sostiene el resultado",
+        summary: `${strongestStrategy.strategy} está dejando la lectura más consistente del periodo actual.`,
+        value: strongestStrategy.strategy,
+        sub: `${strongestStrategy.rate.toFixed(0)}% de acierto en ${strongestStrategy.total} cierres`,
+        accentClass: "accent-emerald",
+      });
+    }
+
+    if (strongestTimeframe && strongestTimeframe.total >= 4) {
+      insights.push({
+        key: "best-timeframe",
+        title: "Marco con mejor respuesta real",
+        summary: `El sistema está viendo mejor comportamiento en ${strongestTimeframe.timeframe}.`,
+        value: strongestTimeframe.timeframe,
+        sub: `${strongestTimeframe.rate.toFixed(0)}% de acierto en ${strongestTimeframe.total} cierres`,
+        accentClass: "accent-blue",
+      });
+    }
+
+    if (bestSetup && bestSetup.total >= 4) {
+      insights.push({
+        key: "best-setup",
+        title: "Tipo de entrada más limpio",
+        summary: `${getSetupLabel(bestSetup.setup)} es el setup que mejor está resistiendo en cierres reales.`,
+        value: getSetupLabel(bestSetup.setup),
+        sub: `${bestSetup.rate.toFixed(0)}% de efectividad en ${bestSetup.total} señales`,
+        accentClass: "accent-amber",
+      });
+    }
+
+    if (executedClosedStats.total >= 5 && skippedOperationalStats.total >= 5) {
+      const demoBeatsSkipped = executedClosedStats.avgPnl > skippedOperationalStats.avgPnl;
+      insights.push({
+        key: "demo-vs-omitted",
+        title: demoBeatsSkipped ? "Demo sí está filtrando mejor" : "Demo está dejando edge fuera",
+        summary: demoBeatsSkipped
+          ? "Las señales ejecutadas en demo están dejando mejor promedio que las operativas que se quedaron fuera."
+          : "Las operativas omitidas están dejando mejor promedio que las que sí llegaron a demo.",
+        value: demoBeatsSkipped ? formatSignedPrice(executedClosedStats.avgPnl) : formatSignedPrice(skippedOperationalStats.avgPnl),
+        sub: demoBeatsSkipped
+          ? `Demo ${formatSignedPrice(executedClosedStats.avgPnl)} vs omitidas ${formatSignedPrice(skippedOperationalStats.avgPnl)}`
+          : `Omitidas ${formatSignedPrice(skippedOperationalStats.avgPnl)} vs demo ${formatSignedPrice(executedClosedStats.avgPnl)}`,
+        accentClass: demoBeatsSkipped ? "accent-emerald" : "accent-amber",
+      });
+    }
+
+    if (blockedObservationStats.total >= 5 && executedClosedStats.total >= 5) {
+      const outsideBeatsDemo = blockedObservationStats.winRate > executedClosedStats.winRate;
+      insights.push({
+        key: "outside-demo-cohort",
+        title: outsideBeatsDemo ? "Fuera de demo hay cohortes fuertes" : "Fuera de demo sigue viéndose más débil",
+        summary: outsideBeatsDemo
+          ? "Las señales fuera del flujo demo están ganando más que la cohorte ejecutada. Conviene revisar el perfil."
+          : "Las señales que no llegan a demo todavía no muestran una ventaja mejor que la cohorte ejecutada.",
+        value: `${outsideBeatsDemo ? blockedObservationStats.winRate : executedClosedStats.winRate.toFixed(0)}%`,
+        sub: outsideBeatsDemo
+          ? `Fuera de demo ${blockedObservationStats.winRate.toFixed(0)}% vs demo ${executedClosedStats.winRate.toFixed(0)}%`
+          : `Demo ${executedClosedStats.winRate.toFixed(0)}% vs fuera ${blockedObservationStats.winRate.toFixed(0)}%`,
+        accentClass: outsideBeatsDemo ? "accent-amber" : "accent-blue",
+      });
+    }
+
+    if (!insights.length && closedSignals.length) {
+      insights.push({
+        key: "gathering-sample",
+        title: "Todavía juntando evidencia útil",
+        summary: "El sistema ya está leyendo cierres reales, pero aún no detecta un patrón lo bastante fuerte para convertirlo en ajuste concreto.",
+        value: String(closedSignals.length),
+        sub: "cierres reales observados",
+        accentClass: "accent-blue",
+      });
+    }
+
+    return insights.slice(0, 4);
+  }, [
+    bestSetup,
+    blockedObservationStats,
+    closedSignals.length,
+    executedClosedStats,
+    skippedOperationalStats,
+    strongestStrategy,
+    strongestTimeframe,
+  ]);
 
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
@@ -1424,8 +1523,31 @@ export function MemoryView(props: MemoryViewProps) {
               <StatCard label="Promedio de confianza" value={recommendations.length ? `${Math.round((recommendations.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / recommendations.length) * 100)}%` : "--"} sub="Lectura agregada de seguridad" accentClass="accent-blue" />
             </div>
 
+            <div className="stats-grid compact-stats-grid">
+              {adaptiveInsights.map((item) => (
+                <StatCard
+                  key={item.key}
+                  label={item.title}
+                  value={item.value}
+                  sub={item.sub}
+                  accentClass={item.accentClass}
+                />
+              ))}
+            </div>
+
+            <div className="signal-analytics-grid">
+              {adaptiveInsights.map((item) => (
+                <div key={`adaptive-insight-${item.key}`} className="signal-analytics-card">
+                  <div className="signal-analytics-head">
+                    <h4>{item.title}</h4>
+                    <p>{item.summary}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {!recommendations.length ? (
-              <EmptyState message="Todavía no hay sugerencias adaptativas. Usa el botón Generar sugerencias cuando ya tengas suficiente historial cerrado." />
+              <EmptyState message="Todavía no hay sugerencias adaptativas listas para promover. Abajo ya puedes ver los aprendizajes que el sistema sí está detectando con el historial real." />
             ) : (
               <div className="signal-analytics-grid">
                 {pagedRecommendations.rows.map((item) => (

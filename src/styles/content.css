@@ -1971,9 +1971,46 @@
 }
 
 #balanceView .balance-money-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 26px;
-  align-items: stretch;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+#balanceView .balance-money-grid .stat-card {
+  min-height: 0;
+  padding: 16px 18px;
+  border-radius: 16px;
+}
+
+#balanceView .balance-money-grid .stat-card-topline {
+  margin-bottom: 10px;
+}
+
+#balanceView .balance-money-grid .label {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+}
+
+#balanceView .balance-money-grid .value {
+  font-size: 1.1rem;
+  line-height: 1.15;
+}
+
+#balanceView .balance-money-grid .sub {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+#balanceView #balance-overview .card,
+#balanceView .dashboard-main-grid > .dashboard-stack > .card {
+  padding-bottom: 18px;
+}
+
+@media (max-width: 1480px) {
+  #balanceView .balance-money-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 #balanceView .dashboard-main-grid {

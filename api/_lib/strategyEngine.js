@@ -163,6 +163,7 @@ function parseProfileNoteEnvelope(rawNote) {
     return {
       note: noteValue,
       scopeOverrides: [],
+      scorerPolicy: null,
     };
   }
 
@@ -184,11 +185,20 @@ function parseProfileNoteEnvelope(rawNote) {
           }))
           .filter((item) => item.strategyId && item.timeframe)
         : [],
+      scorerPolicy: parsed?.scorerPolicy && typeof parsed.scorerPolicy === "object"
+        ? {
+          activeScorer: parsed.scorerPolicy.activeScorer ? String(parsed.scorerPolicy.activeScorer) : undefined,
+          promotedAt: parsed.scorerPolicy.promotedAt ? String(parsed.scorerPolicy.promotedAt) : undefined,
+          source: parsed.scorerPolicy.source ? String(parsed.scorerPolicy.source) : undefined,
+          confidence: parsed.scorerPolicy.confidence == null ? undefined : Number(parsed.scorerPolicy.confidence),
+        }
+        : null,
     };
   } catch {
     return {
       note: noteValue,
       scopeOverrides: [],
+      scorerPolicy: null,
     };
   }
 }
@@ -196,6 +206,14 @@ function parseProfileNoteEnvelope(rawNote) {
 function buildProfileNoteEnvelope(profile) {
   const note = String(profile.note || DEFAULT_EXECUTION_PROFILE.note);
   const scopeOverrides = Array.isArray(profile.scopeOverrides) ? profile.scopeOverrides : [];
+  const scorerPolicy = profile.scorerPolicy && typeof profile.scorerPolicy === "object"
+    ? {
+      activeScorer: profile.scorerPolicy.activeScorer ? String(profile.scorerPolicy.activeScorer) : undefined,
+      promotedAt: profile.scorerPolicy.promotedAt ? String(profile.scorerPolicy.promotedAt) : undefined,
+      source: profile.scorerPolicy.source ? String(profile.scorerPolicy.source) : undefined,
+      confidence: profile.scorerPolicy.confidence == null ? undefined : Number(profile.scorerPolicy.confidence),
+    }
+    : null;
   return `${PROFILE_METADATA_PREFIX}${JSON.stringify({
     note,
     scopeOverrides: scopeOverrides.map((item) => ({
@@ -208,6 +226,7 @@ function buildProfileNoteEnvelope(profile) {
       minRrRatio: item.minRrRatio == null ? undefined : Number(item.minRrRatio),
       note: String(item.note || ""),
     })),
+    scorerPolicy,
   })}`;
 }
 
@@ -228,6 +247,7 @@ function normalizeExecutionProfile(row, username) {
     allowedStrategies: normalizeArray(row?.allowed_strategies).length ? normalizeArray(row?.allowed_strategies) : DEFAULT_EXECUTION_PROFILE.allowedStrategies,
     allowedTimeframes: normalizeArray(row?.allowed_timeframes).length ? normalizeArray(row?.allowed_timeframes) : DEFAULT_EXECUTION_PROFILE.allowedTimeframes,
     scopeOverrides: parsedNote.scopeOverrides,
+    scorerPolicy: parsedNote.scorerPolicy || null,
     note: parsedNote.note || DEFAULT_EXECUTION_PROFILE.note,
     updatedAt: row?.updated_at || row?.created_at || null,
   };
@@ -499,6 +519,7 @@ export async function getSystemStrategyDecisionState(username) {
     adaptivePrimaryByScope: buildAdaptivePrimaryByScope(signals || []),
     contextBiasByScope: buildContextBiasByScope(signals || []),
     featureModelByScope: buildFeatureModelByScope(featureSnapshots || []),
+    scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
       timeframe: item.timeframe,
@@ -634,6 +655,59 @@ function buildAdaptivePrimaryPromotionRecommendations(signals, versions) {
   }
 
   return recommendations;
+}
+
+function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const v1Signals = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label === "adaptive-v1");
+  const v2Signals = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label === "adaptive-v2");
+  const v1Stats = summarizeSignals(v1Signals);
+  const v2Stats = summarizeSignals(v2Signals);
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "").trim().toLowerCase();
+
+  if (activeScorer === "adaptive-v2") return [];
+  if (v1Stats.total < 6 || v2Stats.total < 6) return [];
+
+  const v1AvgPnl = v1Stats.total ? v1Stats.pnl / v1Stats.total : 0;
+  const v2AvgPnl = v2Stats.total ? v2Stats.pnl / v2Stats.total : 0;
+  const edgeDelta = Number((v2AvgPnl - v1AvgPnl).toFixed(2));
+  const winRateDelta = Number((v2Stats.winRate - v1Stats.winRate).toFixed(2));
+  const confidence = Math.min(
+    0.96,
+    0.58 + Math.min(v2Stats.total, 20) * 0.018 + Math.max(0, edgeDelta) * 0.06 + Math.max(0, winRateDelta) * 0.006,
+  );
+
+  if (edgeDelta <= 0 && winRateDelta < 0) return [];
+  if (edgeDelta < 0.15 && winRateDelta < 4) return [];
+
+  return [{
+    recommendation_key: "adaptive-scorer:adaptive-v1->adaptive-v2",
+    strategy_id: "adaptive-scorer",
+    strategy_version: "adaptive-v1",
+    parameter_key: "scorerPolicy",
+    title: "Promover adaptive-v2 como scorer principal",
+    summary: "La capa basada en features ya está cerrando mejor que el scorer previo. Conviene validarla y, si mantiene edge, dejarla pesar más en el motor.",
+    current_value: Number(v1AvgPnl.toFixed(2)),
+    suggested_value: Number(v2AvgPnl.toFixed(2)),
+    confidence: Number(confidence.toFixed(2)),
+    status: v2Stats.total >= 10 && edgeDelta >= 0.3 && winRateDelta >= 2 ? "sandbox" : "draft",
+    evidence: {
+      recommendationType: "adaptive-scorer-promotion",
+      baseScorer: "adaptive-v1",
+      candidateScorer: "adaptive-v2",
+      sampleSizeV1: v1Stats.total,
+      sampleSizeV2: v2Stats.total,
+      avgPnlV1: Number(v1AvgPnl.toFixed(2)),
+      avgPnlV2: Number(v2AvgPnl.toFixed(2)),
+      pnlV1: Number(v1Stats.pnl.toFixed(2)),
+      pnlV2: Number(v2Stats.pnl.toFixed(2)),
+      winRateV1: Number(v1Stats.winRate.toFixed(2)),
+      winRateV2: Number(v2Stats.winRate.toFixed(2)),
+      edgeDelta,
+      winRateDelta,
+      promotionMode: "adaptive-scorer-challenge",
+    },
+  }];
 }
 
 function normalizeContextMarketRegime(signal) {
@@ -817,10 +891,15 @@ function buildAdaptiveScorer({
   contextBias,
   featureModel,
   scopeAction,
+  scorerPolicy,
 }) {
   const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
   const contextualBias = contextBias ? Math.max(-18, Math.min(18, Number(contextBias.biasScore || 0) * 0.6)) : 0;
-  const modelBias = featureModel ? Math.max(-22, Math.min(22, Number(featureModel.modelScore || 0) * 0.45)) : 0;
+  const activeScorer = String(scorerPolicy?.activeScorer || "").trim().toLowerCase();
+  const promotedModel = activeScorer === "adaptive-v2";
+  const modelMultiplier = promotedModel ? 0.7 : 0.45;
+  const promotionBias = promotedModel && featureModel ? 6 : 0;
+  const modelBias = featureModel ? Math.max(-28, Math.min(28, Number(featureModel.modelScore || 0) * modelMultiplier)) : 0;
   const scopeBias = scopeAction === "cut"
     ? -1000
     : scopeAction === "tighten"
@@ -830,11 +909,12 @@ function buildAdaptiveScorer({
         : 0;
   const finalScore = scopeAction === "cut"
     ? 0
-    : clampScore(baseSignalScore + adaptiveBias + contextualBias + modelBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0));
+    : clampScore(baseSignalScore + adaptiveBias + contextualBias + modelBias + promotionBias + (scopeAction === "relax" ? 4 : scopeAction === "tighten" ? -6 : 0));
   const confidence = clampScore(
     (adaptivePrimary ? Number(adaptivePrimary.confidence || 0) * 55 : 0)
     + (contextBias ? Math.min(35, Number(contextBias.sampleSize || 0) * 3 + Math.max(0, Number(contextBias.winRate || 0) - 50) * 0.4) : 0)
     + (featureModel ? Math.min(45, Number(featureModel.confidence || 0) * 0.45 + Number(featureModel.sampleSize || 0) * 1.8) : 0)
+    + (promotedModel && featureModel ? 10 : 0)
     + (scopeAction ? 10 : 0),
     0,
     100,
@@ -846,12 +926,14 @@ function buildAdaptiveScorer({
     adaptivePrimaryBias: Number(adaptiveBias.toFixed(1)),
     contextualBias: Number(contextualBias.toFixed(1)),
     modelBias: Number(modelBias.toFixed(1)),
+    promotionBias: Number(promotionBias.toFixed(1)),
     scopeBias: Number(scopeBias.toFixed(1)),
     finalScore: Number(finalScore.toFixed(1)),
     confidence: Number(confidence.toFixed(1)),
     usedAdaptivePrimary: Boolean(adaptivePrimary),
     usedContextBias: Boolean(contextBias),
     usedFeatureModel: Boolean(featureModel),
+    promotedModel,
     scopeAction: String(scopeAction || ""),
   };
 }
@@ -866,6 +948,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
   const adaptivePrimaryByScope = Array.isArray(decisionState?.adaptivePrimaryByScope) ? decisionState.adaptivePrimaryByScope : [];
   const contextBiasByScope = Array.isArray(decisionState?.contextBiasByScope) ? decisionState.contextBiasByScope : [];
   const featureModelByScope = Array.isArray(decisionState?.featureModelByScope) ? decisionState.featureModelByScope : [];
+  const scorerPolicy = decisionState?.scorerPolicy || null;
   const scopeTuningByScope = Array.isArray(decisionState?.scopeTuningByScope) ? decisionState.scopeTuningByScope : [];
   const candidates = Array.isArray(snapshot?.candidates) ? snapshot.candidates : [];
 
@@ -936,6 +1019,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
       contextBias,
       featureModel,
       scopeAction,
+      scorerPolicy,
     });
 
     let decisionSource = "inactive";
@@ -1533,6 +1617,9 @@ function buildRecommendationRows(signals, versions, executionProfile) {
   for (const row of buildAdaptivePrimaryPromotionRecommendations(closedSignals, versions)) {
     pushRecommendation(recommendations, row);
   }
+  for (const row of buildAdaptiveScorerPromotionRecommendations(closedSignals, executionProfile)) {
+    pushRecommendation(recommendations, row);
+  }
 
   return recommendations;
 }
@@ -1723,6 +1810,73 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
   };
 }
 
+async function applyAdaptiveScorerPromotionRecommendation(username, recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const candidateScorer = String(evidence.candidateScorer || "adaptive-v2").trim() || "adaptive-v2";
+  const currentProfile = await getExecutionProfileForUser(username);
+  const scorerPolicy = {
+    activeScorer: candidateScorer,
+    promotedAt: new Date().toISOString(),
+    source: String(recommendation.recommendation_key || "adaptive-scorer-promotion"),
+    confidence: Number(recommendation.confidence || 0),
+  };
+
+  const rows = await supabaseRequest(
+    `${EXECUTION_PROFILES_TABLE}?username=eq.${encodeURIComponent(username)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        note: buildProfileNoteEnvelope({
+          ...currentProfile,
+          note: currentProfile.note,
+          scopeOverrides: currentProfile.scopeOverrides || [],
+          scorerPolicy,
+        }),
+      },
+    },
+  );
+
+  const updatedProfile = normalizeExecutionProfile(rows?.[0] || null, username);
+  const updatedEvidence = {
+    ...evidence,
+    appliedScorerPolicy: scorerPolicy,
+    activatedAt: scorerPolicy.promotedAt,
+  };
+  const recommendationRows = await supabaseRequest(
+    `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        status: "active",
+        evidence: updatedEvidence,
+      },
+    },
+  );
+
+  await logAdaptiveAction({
+    username,
+    actionType: "promote",
+    targetType: "scorer-policy",
+    targetKey: candidateScorer,
+    recommendationId: recommendation.id,
+    source: "adaptive-recommendation",
+    summary: `Scorer ${candidateScorer} promovido como capa principal del motor adaptativo`,
+    details: {
+      recommendationKey: recommendation.recommendation_key,
+      scorerPolicy,
+      evidence: updatedEvidence,
+    },
+  }).catch(() => null);
+
+  return {
+    recommendation: recommendationRows?.[0] || recommendation,
+    profile: updatedProfile,
+    activationMode: "scorer-promotion",
+  };
+}
+
 export async function activateAdaptiveRecommendation(req) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
@@ -1765,6 +1919,31 @@ export async function activateAdaptiveRecommendation(req) {
       };
     }
     return applyExecutionScopeRecommendation(session.username, recommendation);
+  }
+
+  if (evidence.recommendationType === "adaptive-scorer-promotion") {
+    if (recommendation.status === "draft") {
+      const sandboxRows = await supabaseRequest(
+        `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: {
+            status: "sandbox",
+            evidence: {
+              ...evidence,
+              sandboxAt: new Date().toISOString(),
+            },
+          },
+        },
+      );
+      return {
+        recommendation: sandboxRows?.[0] || { ...recommendation, status: "sandbox" },
+        profile: null,
+        activationMode: "scorer-promotion",
+      };
+    }
+    return applyAdaptiveScorerPromotionRecommendation(session.username, recommendation);
   }
 
   if (evidence.recommendationType === "adaptive-primary-promotion") {

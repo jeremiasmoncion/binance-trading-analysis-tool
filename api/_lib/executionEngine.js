@@ -99,6 +99,7 @@ function parseProfileNoteEnvelope(rawNote) {
     return {
       note: noteValue,
       scopeOverrides: [],
+      scorerPolicy: null,
     };
   }
 
@@ -120,11 +121,20 @@ function parseProfileNoteEnvelope(rawNote) {
           }))
           .filter((item) => item.strategyId && item.timeframe)
         : [],
+      scorerPolicy: parsed?.scorerPolicy && typeof parsed.scorerPolicy === "object"
+        ? {
+          activeScorer: parsed.scorerPolicy.activeScorer ? String(parsed.scorerPolicy.activeScorer) : undefined,
+          promotedAt: parsed.scorerPolicy.promotedAt ? String(parsed.scorerPolicy.promotedAt) : undefined,
+          source: parsed.scorerPolicy.source ? String(parsed.scorerPolicy.source) : undefined,
+          confidence: parsed.scorerPolicy.confidence == null ? undefined : Number(parsed.scorerPolicy.confidence),
+        }
+        : null,
     };
   } catch {
     return {
       note: noteValue,
       scopeOverrides: [],
+      scorerPolicy: null,
     };
   }
 }
@@ -132,6 +142,14 @@ function parseProfileNoteEnvelope(rawNote) {
 function buildProfileNoteEnvelope(profile) {
   const note = String(profile.note || DEFAULT_PROFILE.note);
   const scopeOverrides = Array.isArray(profile.scopeOverrides) ? profile.scopeOverrides : [];
+  const scorerPolicy = profile.scorerPolicy && typeof profile.scorerPolicy === "object"
+    ? {
+      activeScorer: profile.scorerPolicy.activeScorer ? String(profile.scorerPolicy.activeScorer) : undefined,
+      promotedAt: profile.scorerPolicy.promotedAt ? String(profile.scorerPolicy.promotedAt) : undefined,
+      source: profile.scorerPolicy.source ? String(profile.scorerPolicy.source) : undefined,
+      confidence: profile.scorerPolicy.confidence == null ? undefined : Number(profile.scorerPolicy.confidence),
+    }
+    : null;
   return `${PROFILE_METADATA_PREFIX}${JSON.stringify({
     note,
     scopeOverrides: scopeOverrides.map((item) => ({
@@ -144,6 +162,7 @@ function buildProfileNoteEnvelope(profile) {
       minRrRatio: item.minRrRatio == null ? undefined : Number(item.minRrRatio),
       note: String(item.note || ""),
     })),
+    scorerPolicy,
   })}`;
 }
 
@@ -164,6 +183,7 @@ function normalizeProfile(row, username) {
     allowedStrategies: normalizeArray(row?.allowed_strategies).length ? normalizeArray(row?.allowed_strategies) : DEFAULT_PROFILE.allowedStrategies,
     allowedTimeframes: normalizeArray(row?.allowed_timeframes).length ? normalizeArray(row?.allowed_timeframes) : DEFAULT_PROFILE.allowedTimeframes,
     scopeOverrides: parsedNote.scopeOverrides,
+    scorerPolicy: parsedNote.scorerPolicy || null,
     note: parsedNote.note || DEFAULT_PROFILE.note,
     updatedAt: row?.updated_at || row?.created_at || null,
   };
@@ -505,6 +525,7 @@ async function getExecutionCenterForUser(username) {
 }
 
 async function saveExecutionProfileForUser(username, payload) {
+  const existing = await getExecutionProfileForUser(username).catch(() => null);
   const profile = {
     username,
     enabled: payload.enabled ?? DEFAULT_PROFILE.enabled,
@@ -522,10 +543,12 @@ async function saveExecutionProfileForUser(username, payload) {
     note: buildProfileNoteEnvelope({
       note: String(payload.note || DEFAULT_PROFILE.note),
       scopeOverrides: Array.isArray(payload.scopeOverrides) ? payload.scopeOverrides : [],
+      scorerPolicy: payload.scorerPolicy && typeof payload.scorerPolicy === "object"
+        ? payload.scorerPolicy
+        : existing?.scorerPolicy,
     }),
   };
 
-  const existing = await getExecutionProfileForUser(username).catch(() => null);
   let rows;
   if (existing?.updatedAt) {
     const params = new URLSearchParams({ username: `eq.${String(username)}` });

@@ -1054,6 +1054,10 @@ export function MemoryView(props: MemoryViewProps) {
       const evidence = item.evidence || {};
       return evidence.recommendationType === "execution-scope-override" && evidence.policyAutomation;
     }).length;
+    const scorerPromotionRecommendation = recommendations.find((item) => {
+      const evidence = item.evidence || {};
+      return evidence.recommendationType === "adaptive-scorer-promotion";
+    }) || null;
     const adaptiveLeaders = [...(decisionState?.adaptivePrimaryByScope || [])]
       .sort((left, right) => Number(right.edgeScore || 0) - Number(left.edgeScore || 0));
     const leadingAdaptiveScope = adaptiveLeaders[0] || null;
@@ -1096,6 +1100,15 @@ export function MemoryView(props: MemoryViewProps) {
         actionLabel: "Mandar a prueba",
         toneClass: "accent-emerald",
       };
+    } else if (scorerPromotionRecommendation && scorerPromotionRecommendation.status !== "active") {
+      nextAction = {
+        title: scorerPromotionRecommendation.status === "sandbox" ? "Promover adaptive-v2" : "Mandar adaptive-v2 a prueba",
+        summary: scorerPromotionRecommendation.status === "sandbox"
+          ? "La comparación entre scorers ya dejó a adaptive-v2 listo para pesar más en el motor."
+          : "El scorer basado en features ya empieza a cerrar mejor y conviene validarlo como capa promovible.",
+        actionLabel: scorerPromotionRecommendation.status === "sandbox" ? "Promover scorer" : "Mandar a prueba",
+        toneClass: "accent-emerald",
+      };
     }
 
     return {
@@ -1113,6 +1126,7 @@ export function MemoryView(props: MemoryViewProps) {
       strongestContextBias,
       adaptiveScoreImpact,
       scorerModelImpact,
+      scorerPromotionRecommendation,
       nextAction,
     };
   }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerModelImpact]);
@@ -1780,6 +1794,12 @@ export function MemoryView(props: MemoryViewProps) {
                 }
                 accentClass={automationMasterBoard.scorerModelImpact.accentClass}
               />
+              <StatCard
+                label="Scorer activo"
+                value={decisionState?.scorerPolicy?.activeScorer || "hybrid"}
+                sub={decisionState?.scorerPolicy?.promotedAt ? `Promovido ${new Date(decisionState.scorerPolicy.promotedAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : "Sin promoción formal todavía"}
+                accentClass={decisionState?.scorerPolicy?.activeScorer === "adaptive-v2" ? "accent-emerald" : "accent-blue"}
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1892,6 +1912,11 @@ export function MemoryView(props: MemoryViewProps) {
             {automationMasterBoard.scorerModelImpact.total > 0 ? (
               <p className="section-note">
                 Scorer: {automationMasterBoard.scorerModelImpact.reading} adaptive-v2 deja {formatSignedPrice(automationMasterBoard.scorerModelImpact.v2Stats.avgPnl)} por señal cerrada con {automationMasterBoard.scorerModelImpact.v2Stats.winRate.toFixed(0)}% de acierto, frente a adaptive-v1 con {formatSignedPrice(automationMasterBoard.scorerModelImpact.v1Stats.avgPnl)} y {automationMasterBoard.scorerModelImpact.v1Stats.winRate.toFixed(0)}%.
+              </p>
+            ) : null}
+            {decisionState?.scorerPolicy?.activeScorer ? (
+              <p className="section-note">
+                Política de scorer: el motor está corriendo con <strong>{decisionState.scorerPolicy.activeScorer}</strong>{decisionState.scorerPolicy.promotedAt ? ` desde ${new Date(decisionState.scorerPolicy.promotedAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : ""}.
               </p>
             ) : null}
 
@@ -3282,15 +3307,23 @@ function AdaptiveRecommendationCard({
   const confidenceClass = confidencePct >= 75 ? "status-sandbox" : confidencePct >= 55 ? "status-draft" : "status-paused";
   const delta = Number(item.suggested_value || 0) - Number(item.current_value || 0);
   const evidence = item.evidence || {};
-  const sampleSize = Number(evidence.sampleSize || 0);
+  const sampleSize = Number(
+    evidence.sampleSize
+    || (evidence.recommendationType === "adaptive-scorer-promotion"
+      ? Math.max(Number(evidence.sampleSizeV1 || 0), Number(evidence.sampleSizeV2 || 0))
+      : 0),
+  );
   const sampleStrength = getSampleStrength(sampleSize);
   const candidateVersion = typeof evidence.candidateVersion === "string" ? evidence.candidateVersion : "";
   const experimentId = typeof evidence.experimentId === "number" ? evidence.experimentId : 0;
   const hasSandbox = item.status === "sandbox" && candidateVersion;
   const isScopeRecommendation = evidence.recommendationType === "execution-scope-override";
   const isAdaptivePrimaryPromotion = evidence.recommendationType === "adaptive-primary-promotion";
+  const isAdaptiveScorerPromotion = evidence.recommendationType === "adaptive-scorer-promotion";
   const timeframe = String(evidence.timeframe || "");
   const baseVersion = String(evidence.baseVersion || item.strategy_version || "").trim();
+  const baseScorer = String(evidence.baseScorer || "adaptive-v1");
+  const candidateScorer = String(evidence.candidateScorer || "adaptive-v2");
   const currentMinRrRatio = Number(evidence.currentMinRrRatio || 0);
   const suggestedMinRrRatio = Number(evidence.suggestedMinRrRatio || 0);
   const appliedScope = evidence.appliedOverride && typeof evidence.appliedOverride === "object"
@@ -3316,6 +3349,14 @@ function AdaptiveRecommendationCard({
         : item.status === "sandbox"
           ? `Ver prueba segura #${experimentId || "--"}`
           : "Mandar a prueba por timeframe"
+    : isAdaptiveScorerPromotion
+      ? isActivating
+        ? "Promoviendo scorer..."
+        : item.status === "active"
+          ? "Scorer promovido"
+          : item.status === "sandbox"
+            ? "Promover adaptive-v2"
+            : "Mandar scorer a prueba"
     : isActivating
       ? "Creando candidata..."
       : "Crear candidata y mandar a prueba segura";
@@ -3336,6 +3377,8 @@ function AdaptiveRecommendationCard({
                 ? `Scope demo: ${item.strategy_id} · ${timeframe}`
                 : isAdaptivePrimaryPromotion
                   ? `Marco retado: ${formatTimeframeScope(timeframe)} · Base ${getFriendlyStrategyVersionLabel(item.strategy_id, baseVersion)} · Candidata ${getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion)}`
+                  : isAdaptiveScorerPromotion
+                    ? `Scorer actual: ${baseScorer} · Candidato: ${candidateScorer}`
                   : `Parámetro: ${item.parameter_key}`}
             </span>
           </div>
@@ -3356,27 +3399,31 @@ function AdaptiveRecommendationCard({
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
         <StatCard
-          label={isScopeRecommendation ? "Score demo actual" : isAdaptivePrimaryPromotion ? "Base actual" : "Valor actual"}
-          value={isAdaptivePrimaryPromotion ? getFriendlyStrategyVersionLabel(item.strategy_id, baseVersion) : String(item.current_value ?? "--")}
-          sub={isScopeRecommendation ? `RR actual ${currentMinRrRatio.toFixed(2)}` : isAdaptivePrimaryPromotion ? "Versión que hoy manda en este marco" : "Parámetro vigente"}
+          label={isScopeRecommendation ? "Score demo actual" : isAdaptivePrimaryPromotion ? "Base actual" : isAdaptiveScorerPromotion ? "Scorer actual" : "Valor actual"}
+          value={isAdaptivePrimaryPromotion ? getFriendlyStrategyVersionLabel(item.strategy_id, baseVersion) : isAdaptiveScorerPromotion ? baseScorer : String(item.current_value ?? "--")}
+          sub={isScopeRecommendation ? `RR actual ${currentMinRrRatio.toFixed(2)}` : isAdaptivePrimaryPromotion ? "Versión que hoy manda en este marco" : isAdaptiveScorerPromotion ? `v1 ${formatSignedPrice(Number(evidence.avgPnlV1 || 0))} · ${Number(evidence.winRateV1 || 0).toFixed(0)}%` : "Parámetro vigente"}
           accentClass="accent-blue"
         />
         <StatCard
-          label={isScopeRecommendation ? "Score demo sugerido" : isAdaptivePrimaryPromotion ? "Candidata líder" : "Valor sugerido"}
-          value={isAdaptivePrimaryPromotion ? getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion) : String(item.suggested_value ?? "--")}
+          label={isScopeRecommendation ? "Score demo sugerido" : isAdaptivePrimaryPromotion ? "Candidata líder" : isAdaptiveScorerPromotion ? "Scorer candidato" : "Valor sugerido"}
+          value={isAdaptivePrimaryPromotion ? getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion) : isAdaptiveScorerPromotion ? candidateScorer : String(item.suggested_value ?? "--")}
           sub={isScopeRecommendation
             ? `RR sugerido ${suggestedMinRrRatio.toFixed(2)}`
             : isAdaptivePrimaryPromotion
               ? typeof evidence.leadOverNext === "number"
                 ? `Ventaja ${Number(evidence.leadOverNext).toFixed(2)} sobre la siguiente`
                 : "Versión que viene liderando este timeframe"
+              : isAdaptiveScorerPromotion
+                ? `v2 ${formatSignedPrice(Number(evidence.avgPnlV2 || 0))} · ${Number(evidence.winRateV2 || 0).toFixed(0)}%`
             : delta === 0 ? "Sin cambio" : delta > 0 ? `Sube ${delta}` : `Baja ${Math.abs(delta)}`}
           accentClass="accent-emerald"
         />
       </div>
 
       <p className="section-note with-top-gap">
-        Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}{(isScopeRecommendation || isAdaptivePrimaryPromotion) && typeof evidence.avgScore === "number" ? ` · score medio ${Number(evidence.avgScore).toFixed(1)}` : ""}{(isScopeRecommendation || isAdaptivePrimaryPromotion) && typeof evidence.avgRr === "number" ? ` · RR medio ${Number(evidence.avgRr).toFixed(2)}` : ""}.
+        Evidencia: {isAdaptiveScorerPromotion
+          ? `v2 ${Number(evidence.sampleSizeV2 || 0)} cierres · v1 ${Number(evidence.sampleSizeV1 || 0)} cierres · delta ${formatSignedPrice(Number(evidence.edgeDelta || 0))} · win rate ${Number(evidence.winRateV2 || 0).toFixed(0)}% vs ${Number(evidence.winRateV1 || 0).toFixed(0)}%`
+          : `${evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · ${typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · ${typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}${(isScopeRecommendation || isAdaptivePrimaryPromotion) && typeof evidence.avgScore === "number" ? ` · score medio ${Number(evidence.avgScore).toFixed(1)}` : ""}${(isScopeRecommendation || isAdaptivePrimaryPromotion) && typeof evidence.avgRr === "number" ? ` · RR medio ${Number(evidence.avgRr).toFixed(2)}` : ""}`}.
       </p>
 
       {isScopeRecommendation ? (
@@ -3400,6 +3447,14 @@ function AdaptiveRecommendationCard({
             : item.status === "sandbox"
               ? `Ya se abrió la prueba segura #${experimentId || "--"} para retar la prioridad de ${formatTimeframeScope(timeframe)}.`
               : "Esta recomendación ya quedó convertida en una prueba o promoción operativa."}
+        </p>
+      ) : isAdaptiveScorerPromotion ? (
+        <p className="section-note">
+          {item.status === "draft"
+            ? "La comparación entre scorers ya favorece a adaptive-v2, pero primero conviene validarlo como candidato promovible."
+            : item.status === "sandbox"
+              ? "Adaptive-v2 ya está en prueba segura como scorer promovible. Si confirmas, el motor le dará más peso que al scorer anterior."
+              : "Adaptive-v2 ya quedó promovido y ahora pesa más dentro del motor adaptativo."}
         </p>
       ) : null}
 
@@ -3437,6 +3492,15 @@ function AdaptiveRecommendationCard({
             </span>
             <span className="signal-analytics-pill status-running">
               Perfil demo actualizado
+            </span>
+          </>
+        ) : isAdaptiveScorerPromotion && item.status === "active" ? (
+          <>
+            <span className="signal-status-note">
+              Política activa: <span className="text-strong">{candidateScorer}</span>
+            </span>
+            <span className="signal-analytics-pill status-running">
+              Motor adaptativo reforzado
             </span>
           </>
         ) : isScopeSandbox ? (
@@ -3503,7 +3567,7 @@ function ExecutionCandidateCard({
         ) : null}
         {item.scorer ? (
           <span className="signal-status-note">
-            Scorer {item.scorer.label || "adaptive"} · confianza {Number(item.scorer.confidence || 0).toFixed(0)}% · primaria {Number(item.scorer.adaptivePrimaryBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.adaptivePrimaryBias || 0).toFixed(1)} · contexto {Number(item.scorer.contextualBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.contextualBias || 0).toFixed(1)} · modelo {Number(item.scorer.modelBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.modelBias || 0).toFixed(1)} · scope {Number(item.scorer.scopeBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.scopeBias || 0).toFixed(1)}
+            Scorer {item.scorer.label || "adaptive"} · confianza {Number(item.scorer.confidence || 0).toFixed(0)}% · primaria {Number(item.scorer.adaptivePrimaryBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.adaptivePrimaryBias || 0).toFixed(1)} · contexto {Number(item.scorer.contextualBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.contextualBias || 0).toFixed(1)} · modelo {Number(item.scorer.modelBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.modelBias || 0).toFixed(1)} · promoción {Number(item.scorer.promotionBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.promotionBias || 0).toFixed(1)} · scope {Number(item.scorer.scopeBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.scopeBias || 0).toFixed(1)}{item.scorer.promotedModel ? " · scorer promovido" : ""}
           </span>
         ) : null}
         {item.profileOverride ? (

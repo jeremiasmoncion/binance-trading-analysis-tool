@@ -119,6 +119,12 @@ export interface StrategyRecommendationRecord {
 
 export interface StrategyDecisionState {
   username?: string;
+  scorerPolicy?: {
+    activeScorer?: string;
+    promotedAt?: string;
+    source?: string;
+    confidence?: number;
+  };
   activeStrategyByScope: Array<{
     strategyId: string;
     version: string;
@@ -201,7 +207,7 @@ export interface RecommendationActivationResult {
   version?: StrategyVersionRecord | null;
   experiment?: StrategyExperimentRecord | null;
   profile?: ExecutionProfile | null;
-  activationMode?: "strategy-experiment" | "execution-scope-override";
+  activationMode?: "strategy-experiment" | "execution-scope-override" | "scorer-promotion";
 }
 
 export interface StrategyCandidate {
@@ -272,11 +278,13 @@ export interface AdaptiveScorerBreakdown {
   contextualBias?: number;
   modelBias?: number;
   scopeBias?: number;
+  promotionBias?: number;
   finalScore?: number;
   confidence?: number;
   usedAdaptivePrimary?: boolean;
   usedContextBias?: boolean;
   usedFeatureModel?: boolean;
+  promotedModel?: boolean;
   scopeAction?: string;
 }
 
@@ -580,6 +588,12 @@ export interface ExecutionProfile {
   allowedStrategies: string[];
   allowedTimeframes: string[];
   scopeOverrides?: ExecutionScopeOverride[];
+  scorerPolicy?: {
+    activeScorer?: string;
+    promotedAt?: string;
+    source?: string;
+    confidence?: number;
+  };
   note?: string;
   updatedAt?: string | null;
 }

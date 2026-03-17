@@ -692,6 +692,42 @@
   margin-top: 4px;
 }
 
+.execution-protection-pill {
+  margin-top: 12px;
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.execution-protection-pill strong {
+  font-size: 13px;
+  color: #f8fafc;
+}
+
+.execution-protection-pill span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.execution-protection-pill.is-success {
+  border-color: rgba(34, 197, 94, 0.26);
+  background: rgba(20, 83, 45, 0.22);
+}
+
+.execution-protection-pill.is-warning {
+  border-color: rgba(245, 158, 11, 0.26);
+  background: rgba(120, 53, 15, 0.18);
+}
+
+.execution-protection-pill.is-neutral {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(30, 41, 59, 0.32);
+}
+
 .automation-subsection {
   margin-top: 18px;
   display: grid;
@@ -975,6 +1011,18 @@ body.dark-theme .execution-candidate-card.is-blocked {
 body.dark-theme .execution-reason-box {
   background: rgba(2, 6, 23, 0.3);
   border-color: rgba(59, 130, 246, 0.18);
+}
+
+body.dark-theme .execution-protection-pill.is-success {
+  background: rgba(20, 83, 45, 0.24);
+}
+
+body.dark-theme .execution-protection-pill.is-warning {
+  background: rgba(120, 53, 15, 0.22);
+}
+
+body.dark-theme .execution-protection-pill.is-neutral {
+  background: rgba(30, 41, 59, 0.4);
 }
 
 body.dark-theme .strategy-candidate-pill {

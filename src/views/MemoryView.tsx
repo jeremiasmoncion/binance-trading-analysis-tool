@@ -587,12 +587,18 @@ export function MemoryView(props: MemoryViewProps) {
     try {
       const payload = await binanceService.executeSignal(signalId, mode) as {
         candidate?: { status?: string; reasons?: string[] };
+        protection?: {
+          protectionAttached?: boolean;
+          protectionNote?: string;
+        };
       };
       await refreshExecutionCenter();
       setExecutionToast({
         tone: "success",
         message: mode === "execute"
-          ? "Orden Demo enviada correctamente."
+          ? payload?.protection?.protectionAttached
+            ? "Orden Demo enviada con protección TP/SL."
+            : payload?.protection?.protectionNote || "Orden Demo enviada, pero revisa si quedó protegida."
           : "Trade candidato preparado correctamente para revisión.",
       });
       if (payload?.candidate?.status === "blocked") {
@@ -1780,6 +1786,8 @@ function ExecutionCandidateCard({
 }
 
 function ExecutionOrderCard({ item }: { item: ExecutionOrderRecord }) {
+  const protection = getExecutionProtectionSummary(item);
+
   return (
     <div className="experiment-record-card execution-order-card">
       <div className="experiment-record-main">
@@ -1795,9 +1803,45 @@ function ExecutionOrderCard({ item }: { item: ExecutionOrderRecord }) {
         <p className="experiment-record-summary">
           {item.notes || "Sin nota adicional."}
         </p>
+        {protection ? (
+          <div className={`execution-protection-pill is-${protection.tone}`}>
+            <strong>{protection.title}</strong>
+            <span>{protection.text}</span>
+          </div>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function getExecutionProtectionSummary(item: ExecutionOrderRecord) {
+  const payload = item.response_payload || {};
+  const protection = (
+    typeof payload === "object" && payload && "protection" in payload
+      ? (payload as { protection?: { protectionAttached?: boolean; protectionMode?: string; protectionNote?: string } }).protection
+      : null
+  ) || null;
+
+  if (!protection) return null;
+  if (protection.protectionAttached) {
+    return {
+      tone: "success",
+      title: "Protección activa",
+      text: protection.protectionNote || "La orden quedó con salida protegida.",
+    };
+  }
+  if (protection.protectionMode === "not-applicable") {
+    return {
+      tone: "neutral",
+      title: "Sin protección adicional",
+      text: protection.protectionNote || "Esta operación no necesitaba una salida protegida extra.",
+    };
+  }
+  return {
+    tone: "warning",
+    title: "Protección pendiente",
+    text: protection.protectionNote || "La orden salió, pero la protección no quedó montada.",
+  };
 }
 
 function getFriendlyExecutionMode(mode: string) {

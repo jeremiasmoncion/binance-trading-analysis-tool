@@ -49,6 +49,8 @@ interface ExperimentPaperStats {
   experiment: StrategyExperimentRecord;
   baseLabel: string;
   candidateLabel: string;
+  isAdaptivePrimaryChallenge: boolean;
+  challengedTimeframe?: string;
   sampleSize: number;
   basePrimaryCount: number;
   candidatePrimaryCount: number;
@@ -64,6 +66,8 @@ interface ExperimentPaperStats {
   recommendationReason: string;
   recommendationStatus: string;
   recommendationClass: string;
+  readinessLabel: string;
+  readinessSub: string;
   canPromote: boolean;
   candidateRunnable: boolean;
 }
@@ -2051,16 +2055,24 @@ export function MemoryView(props: MemoryViewProps) {
                 <h4>Lo que ya está compitiendo de verdad</h4>
                 <p>Estas tarjetas ya no son ideas. Aquí comparas la base contra la candidata con resultados reales.</p>
               </div>
-              <div className="automation-live-summary">
-                <div className="automation-live-chip">
-                  <strong>{sandboxStats.length}</strong>
-                  <span>pruebas activas</span>
-                </div>
-                <div className="automation-live-chip">
-                  <strong>{sandboxStats.reduce((sum, item) => sum + item.sampleSize, 0)}</strong>
-                  <span>casos observados</span>
-                </div>
+            <div className="automation-live-summary">
+              <div className="automation-live-chip">
+                <strong>{sandboxStats.length}</strong>
+                <span>pruebas activas</span>
               </div>
+              <div className="automation-live-chip">
+                <strong>{sandboxStats.reduce((sum, item) => sum + item.sampleSize, 0)}</strong>
+                <span>casos observados</span>
+              </div>
+              <div className="automation-live-chip">
+                <strong>{sandboxStats.filter((item) => item.isAdaptivePrimaryChallenge).length}</strong>
+                <span>retos por timeframe</span>
+              </div>
+              <div className="automation-live-chip">
+                <strong>{sandboxStats.filter((item) => item.canPromote).length}</strong>
+                <span>listas para promover</span>
+              </div>
+            </div>
             </div>
             {!sandboxStats.length ? (
               <p className="section-note">Todavía no hay pruebas seguras activas. Cuando una pase de borrador a prueba segura, aparecerá aquí con su lectura comparativa.</p>
@@ -3056,6 +3068,13 @@ function PaperTestingCard({
       </div>
 
       {isAdaptivePrimaryChallenge ? (
+        <div className="inline-actions with-top-gap">
+          <span className="signal-analytics-pill status-running">Reto por timeframe</span>
+          <span className={`signal-analytics-pill status-${item.recommendationClass}`}>{item.readinessLabel}</span>
+        </div>
+      ) : null}
+
+      {isAdaptivePrimaryChallenge ? (
         <p className="section-note">
           Marco retado: <span className="text-strong">{formatTimeframeScope(challengedTimeframe)}</span>. La base actual es{" "}
           <span className="text-strong">{getFriendlyStrategyVersionLabel(item.experiment.base_strategy_id, explicitBaseVersion || item.experiment.candidate_version)}</span>{" "}
@@ -3087,7 +3106,7 @@ function PaperTestingCard({
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
         <StatCard label="Ventaja candidata" value={advantageValue} sub={advantageSub} toneClass={deltaClass} accentClass="accent-blue" />
-        <StatCard label="Lectura actual" value={item.recommendation} sub={item.recommendationReason} accentClass="accent-amber" />
+        <StatCard label={isAdaptivePrimaryChallenge ? "Estado del reto" : "Lectura actual"} value={isAdaptivePrimaryChallenge ? item.readinessLabel : item.recommendation} sub={isAdaptivePrimaryChallenge ? item.readinessSub : item.recommendationReason} accentClass="accent-amber" />
       </div>
       <div className="inline-actions with-top-gap">
         <div className={`signal-analytics-pill status-${item.recommendationClass}`}>{item.recommendationStatus}</div>
@@ -3699,6 +3718,8 @@ function buildExperimentPaperStats(
   watchlist: string[],
 ): ExperimentPaperStats {
   const metadata = experiment.metadata || {};
+  const isAdaptivePrimaryChallenge = metadata.createdFrom === "adaptive-primary-promotion";
+  const challengedTimeframe = typeof metadata.timeframe === "string" ? metadata.timeframe : experiment.timeframe_scope;
   const baseVersion = typeof metadata.baseVersion === "string"
     ? metadata.baseVersion
     : experiment.base_strategy_id === experiment.candidate_strategy_id && experiment.candidate_version !== "v1"
@@ -3743,11 +3764,31 @@ function buildExperimentPaperStats(
       : undefined,
   );
   const candidateRunnable = isRunnableStrategyVersion(experiment.candidate_strategy_id, experiment.candidate_version);
+  const readinessLabel = candidateClosed.length === 0
+    ? "Sin muestra primaria"
+    : !comparableSampleReady
+      ? "Observando reto"
+      : promotionReading.statusClass === "active"
+        ? "Lista para promover"
+        : promotionReading.statusClass === "sandbox"
+          ? "Casi lista"
+          : "Base resiste";
+  const readinessSub = candidateClosed.length === 0
+    ? "La candidata todavía aparece como alternativa, pero no fue elegida como primaria."
+    : !comparableSampleReady
+      ? "Ya compite de verdad, pero aún falta más muestra comparable para decidir este marco."
+      : promotionReading.statusClass === "active"
+        ? "El reto ya tiene evidencia suficiente para promover esta versión en el timeframe."
+        : promotionReading.statusClass === "sandbox"
+          ? "La candidata ya muestra ventaja, pero conviene observar un poco más antes de promover."
+          : "La base sigue defendiendo mejor este timeframe con la muestra actual.";
 
   return {
     experiment,
     baseLabel: baseVersion ? getStrategyCandidateLabel(experiment.base_strategy_id, baseVersion) : getFriendlyStrategyName(experiment.base_strategy_id),
     candidateLabel: getStrategyCandidateLabel(experiment.candidate_strategy_id, experiment.candidate_version),
+    isAdaptivePrimaryChallenge,
+    challengedTimeframe,
     sampleSize: relevantSignals.length,
     basePrimaryCount: basePrimarySignals.length,
     candidatePrimaryCount: candidatePrimarySignals.length,
@@ -3763,6 +3804,8 @@ function buildExperimentPaperStats(
     recommendationReason: promotionReading.reason,
     recommendationStatus: promotionReading.statusLabel,
     recommendationClass: promotionReading.statusClass,
+    readinessLabel,
+    readinessSub,
     canPromote: promotionReading.statusClass === "active" && candidateRunnable && experiment.status !== "active",
     candidateRunnable,
   };

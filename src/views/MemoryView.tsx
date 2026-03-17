@@ -56,7 +56,18 @@ interface ExperimentPaperStats {
   candidateWinRate: number;
   candidateAppearances: number;
   recommendation: string;
+  recommendationReason: string;
+  recommendationStatus: string;
+  recommendationClass: string;
+  canPromote: boolean;
+  candidateRunnable: boolean;
 }
+
+const RUNNABLE_STRATEGY_VERSION_KEYS = new Set([
+  "trend-alignment:v1",
+  "trend-alignment:v2",
+  "breakout:v1",
+]);
 
 function buildScannerStatusFromExecution(
   execution: WatchlistScanExecution,
@@ -115,6 +126,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [experimentTimeframeScope, setExperimentTimeframeScope] = useState("all");
   const [experimentSummary, setExperimentSummary] = useState("");
   const [activatingRecommendationKey, setActivatingRecommendationKey] = useState("");
+  const [promotingExperimentId, setPromotingExperimentId] = useState(0);
   const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
@@ -539,6 +551,38 @@ export function MemoryView(props: MemoryViewProps) {
       // keep UI steady if API fails
     } finally {
       setActivatingRecommendationKey("");
+    }
+  }
+
+  async function handlePromoteExperiment(item: ExperimentPaperStats) {
+    if (!item.canPromote || promotingExperimentId) return;
+    setPromotingExperimentId(item.experiment.id);
+    const loaderId = startLoading({
+      label: "Promoviendo estrategia",
+      detail: "Actualizando el motor activo para que watcher y demo usen la variante ganadora.",
+    });
+    try {
+      const payload = await strategyEngineService.promoteExperiment(item.experiment.id);
+      setExperiments((current) => current.map((entry) => (entry.id === payload.experiment.id ? payload.experiment : entry)));
+      const refreshed = await strategyEngineService.list();
+      setRegistry(refreshed.registry || []);
+      setVersions(refreshed.versions || []);
+      setExperiments(refreshed.experiments || []);
+      setRecommendations(refreshed.recommendations || []);
+      showToast({
+        tone: "success",
+        title: "Motor promovido",
+        message: `${item.candidateLabel} ya quedó como estrategia operativa para el flujo aplicable.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo promover",
+        message: error instanceof Error ? error.message : "No se pudo promover la estrategia candidata.",
+      });
+    } finally {
+      setPromotingExperimentId(0);
+      stopLoading(loaderId);
     }
   }
 
@@ -1076,7 +1120,12 @@ export function MemoryView(props: MemoryViewProps) {
             ) : (
               <div className="signal-analytics-grid automation-live-grid">
                 {pagedSandboxStats.rows.map((item) => (
-                  <PaperTestingCard key={`sandbox-${item.experiment.id}`} item={item} />
+                  <PaperTestingCard
+                    key={`sandbox-${item.experiment.id}`}
+                    item={item}
+                    onPromote={() => void handlePromoteExperiment(item)}
+                    isPromoting={promotingExperimentId === item.experiment.id}
+                  />
                 ))}
               </div>
             )}
@@ -1549,7 +1598,15 @@ function StrategyLabCard({
   );
 }
 
-function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
+function PaperTestingCard({
+  item,
+  onPromote,
+  isPromoting,
+}: {
+  item: ExperimentPaperStats;
+  onPromote: () => void;
+  isPromoting: boolean;
+}) {
   const delta = item.candidatePrimaryPnl - item.basePrimaryPnl;
   const deltaClass = delta > 0 ? "portfolio-positive" : delta < 0 ? "portfolio-negative" : "";
 
@@ -1583,7 +1640,19 @@ function PaperTestingCard({ item }: { item: ExperimentPaperStats }) {
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
         <StatCard label="Ventaja candidata" value={formatSignedPrice(delta)} sub="Resultado candidata menos base" toneClass={deltaClass} accentClass="accent-blue" />
-        <StatCard label="Lectura actual" value={item.recommendation} sub="La prueba segura compara antes de promover" accentClass="accent-amber" />
+        <StatCard label="Lectura actual" value={item.recommendation} sub={item.recommendationReason} accentClass="accent-amber" />
+      </div>
+      <div className="inline-actions with-top-gap">
+        <div className={`signal-analytics-pill status-${item.recommendationClass}`}>{item.recommendationStatus}</div>
+        {item.experiment.status === "active" ? (
+          <span className="signal-analytics-pill status-active">Ya gobierna el motor</span>
+        ) : item.canPromote ? (
+          <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onPromote} disabled={isPromoting}>
+            {isPromoting ? "Promoviendo..." : "Promover al motor activo"}
+          </button>
+        ) : !item.candidateRunnable ? (
+          <span className="section-note">La candidata aún no es ejecutable por el watcher.</span>
+        ) : null}
       </div>
     </div>
   );
@@ -1939,6 +2008,10 @@ function getFriendlyStrategyVersionLabel(strategyId: string, version: string, la
   return `${getFriendlyStrategyName(strategyId, label)} ${version}`;
 }
 
+function isRunnableStrategyVersion(strategyId?: string, version?: string) {
+  return RUNNABLE_STRATEGY_VERSION_KEYS.has(`${String(strategyId || "")}:${String(version || "")}`);
+}
+
 function getSampleStrength(sampleSize: number) {
   if (sampleSize >= 12) {
     return { label: "Fuerte", className: "sandbox" };
@@ -1997,21 +2070,21 @@ function evaluatePromotion(baseline?: AggregateRow, candidate?: AggregateRow) {
     };
   }
 
-  if (candidate.pnl > baseline.pnl && candidate.winRate >= baseline.winRate && pnlDelta > 0) {
-    return {
-      title: "Lista para prueba segura",
-      reason: `La variante candidata supera a la base por ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto.`,
-      statusLabel: "Prueba segura",
-      statusClass: "sandbox",
-    };
-  }
-
   if (candidate.pnl > baseline.pnl && candidate.total >= 10 && baseline.total >= 10) {
     return {
       title: "Promoción controlada posible",
       reason: `La candidata ya muestra una ventaja de ${formatSignedPrice(pnlDelta)} con muestra suficiente, pero todavía conviene validarla por contexto.`,
       statusLabel: "Activa",
       statusClass: "active",
+    };
+  }
+
+  if (candidate.pnl > baseline.pnl && candidate.winRate >= baseline.winRate && pnlDelta > 0) {
+    return {
+      title: "Lista para prueba segura",
+      reason: `La variante candidata supera a la base por ${formatSignedPrice(pnlDelta)} y ${winRateDelta.toFixed(0)} puntos de acierto.`,
+      statusLabel: "Prueba segura",
+      statusClass: "sandbox",
     };
   }
 
@@ -2071,6 +2144,15 @@ function buildExperimentPaperStats(
       : candidatePrimaryPnl < basePrimaryPnl
         ? "Base resiste mejor"
         : "Empate técnico";
+  const promotionReading = evaluatePromotion(
+    baseClosed.length
+      ? { label: "base", total: baseClosed.length, wins: 0, losses: 0, invalidated: 0, pnl: basePrimaryPnl, avgPnl: 0, winRate: baseWinRate }
+      : undefined,
+    candidateClosed.length
+      ? { label: "candidate", total: candidateClosed.length, wins: 0, losses: 0, invalidated: 0, pnl: candidatePrimaryPnl, avgPnl: 0, winRate: candidateWinRate }
+      : undefined,
+  );
+  const candidateRunnable = isRunnableStrategyVersion(experiment.candidate_strategy_id, experiment.candidate_version);
 
   return {
     experiment,
@@ -2085,6 +2167,11 @@ function buildExperimentPaperStats(
     candidateWinRate,
     candidateAppearances,
     recommendation,
+    recommendationReason: promotionReading.reason,
+    recommendationStatus: promotionReading.statusLabel,
+    recommendationClass: promotionReading.statusClass,
+    canPromote: promotionReading.statusClass === "active" && candidateRunnable && experiment.status !== "active",
+    candidateRunnable,
   };
 }
 

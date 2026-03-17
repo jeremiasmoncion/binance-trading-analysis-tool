@@ -252,6 +252,12 @@ export const strategyEngineService = {
       body: JSON.stringify({ id, ...payload }),
     });
   },
+  promoteExperiment(id: number) {
+    return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
+      method: "PATCH",
+      body: JSON.stringify({ id, action: "promote" }),
+    });
+  },
 };
 
 export const watchlistService = {

@@ -785,6 +785,69 @@ export async function updateStrategyExperiment(req) {
   const id = Number(body.id || 0);
   if (!id) throw new Error("Falta el experimento a actualizar");
 
+  if (body.action === "promote") {
+    const experimentRows = await supabaseRequest(
+      `${STRATEGY_EXPERIMENTS_TABLE}?select=*&id=eq.${id}&limit=1`,
+    );
+    const experiment = experimentRows?.[0];
+    if (!experiment) throw new Error("No se encontró el experimento a promover");
+    if (!isRunnableStrategyVersion(experiment.candidate_strategy_id, experiment.candidate_version)) {
+      throw new Error("Esta candidata todavía no es una versión ejecutable por el watcher.");
+    }
+
+    const versions = await supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?select=*`).catch(() => []);
+    const candidateVersionRows = (versions || []).filter((item) => item.strategy_id === experiment.candidate_strategy_id);
+    const currentPromoted = candidateVersionRows.filter((item) =>
+      item.version !== experiment.candidate_version
+        && ACTIVE_VERSION_STATUSES.has(String(item.status || "").toLowerCase()),
+    );
+
+    await Promise.all(currentPromoted.map((item) => {
+      const params = new URLSearchParams({
+        strategy_id: `eq.${item.strategy_id}`,
+        version: `eq.${item.version}`,
+      });
+      return supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${params.toString()}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: {
+          status: "experimental",
+        },
+      }).catch(() => null);
+    }));
+
+    const candidateParams = new URLSearchParams({
+      strategy_id: `eq.${experiment.candidate_strategy_id}`,
+      version: `eq.${experiment.candidate_version}`,
+    });
+    await supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${candidateParams.toString()}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: {
+        status: "promoted",
+      },
+    });
+
+    const metadata = experiment.metadata && typeof experiment.metadata === "object" ? experiment.metadata : {};
+    const promotedRows = await supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        status: "active",
+        metadata: {
+          ...metadata,
+          allowExecution: true,
+          promotedAt: new Date().toISOString(),
+          promotedVersion: experiment.candidate_version,
+          demotedVersions: currentPromoted.map((item) => item.version),
+          baseVersion: inferBaseVersion(experiment),
+        },
+      },
+    });
+
+    return promotedRows?.[0] || null;
+  }
+
   const patch = {};
   if (body.status) patch.status = String(body.status);
   if (typeof body.summary === "string") patch.summary = String(body.summary);

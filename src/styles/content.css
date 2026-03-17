@@ -1957,17 +1957,31 @@
 }
 
 #balanceView .premium-overview-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 26px;
 }
 
 #balanceView .stats-grid {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 26px;
 }
 
 #balanceView .stat-card {
-  padding: 24px;
+  padding: 20px;
+}
+
+#balanceView .balance-money-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px;
+  align-items: stretch;
+}
+
+#balanceView .dashboard-main-grid {
+  gap: 24px;
+}
+
+#balanceView .dashboard-stack {
+  gap: 24px;
 }
 
 #signals-strategies .signal-analytics-grid,
@@ -2267,6 +2281,10 @@ body.dark-theme .market-score-track {
   #balanceView .stats-grid,
   #memoryView .stats-grid,
   .compact-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #balanceView .balance-money-grid {
     grid-template-columns: 1fr;
   }
 

@@ -100,6 +100,22 @@ function shouldScanNow(lastScannedAt, timeframe) {
   return elapsed >= getTimeframeScanInterval(timeframe);
 }
 
+async function runWithConcurrency(items, limit, worker) {
+  const results = [];
+  let currentIndex = 0;
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (currentIndex < items.length) {
+      const itemIndex = currentIndex;
+      currentIndex += 1;
+      results[itemIndex] = await worker(items[itemIndex], itemIndex);
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
+}
+
 async function scanUserWatchlist(target, scanSource) {
   const scanState = await getScanState(target.username);
   const executionProfile = await getExecutionProfileForUser(target.username).catch(() => null);
@@ -113,7 +129,15 @@ async function scanUserWatchlist(target, scanSource) {
   let autoOrdersBlocked = 0;
   let scannedFrames = 0;
 
-  for (const coin of coins) {
+  const coinResults = await runWithConcurrency(coins, 4, async (coin) => {
+    const nextErrors = [];
+    const nextStateUpdates = [];
+    const nextSignalRows = [];
+    let nextAutoOrdersPlaced = 0;
+    let nextAutoOrdersBlocked = 0;
+    let nextScannedFrames = 0;
+    const nextPriceMap = {};
+
     const dueTimeframes = timeframes.filter((timeframe) => {
       const stateKey = `${coin}|${timeframe}`;
       const previousState = scanState.get(stateKey);
@@ -121,12 +145,20 @@ async function scanUserWatchlist(target, scanSource) {
     });
 
     if (!dueTimeframes.length) {
-      continue;
+      return {
+        priceMap: nextPriceMap,
+        stateUpdates: nextStateUpdates,
+        signalRows: nextSignalRows,
+        autoOrdersPlaced: nextAutoOrdersPlaced,
+        autoOrdersBlocked: nextAutoOrdersBlocked,
+        scannedFrames: nextScannedFrames,
+        errors: nextErrors,
+      };
     }
 
     const ticker = await fetchTickerPrice(coin).catch(() => null);
     if (ticker?.lastPrice) {
-      priceMap[coin] = ticker.lastPrice;
+      nextPriceMap[coin] = ticker.lastPrice;
     }
 
     const candleCache = new Map();
@@ -136,7 +168,7 @@ async function scanUserWatchlist(target, scanSource) {
           const snapshot = await buildMarketSnapshot(coin, timeframe, { candleCache });
           candleCache.set(`${coin}|${timeframe}|snapshot`, snapshot);
         } catch (error) {
-          errors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
+          nextErrors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
         }
       }),
     );
@@ -145,7 +177,7 @@ async function scanUserWatchlist(target, scanSource) {
       const previousState = scanState.get(`${coin}|${timeframe}`);
       try {
         const snapshot = candleCache.get(`${coin}|${timeframe}|snapshot`) || await buildMarketSnapshot(coin, timeframe, { candleCache });
-        scannedFrames += 1;
+        nextScannedFrames += 1;
         let createdSignalAt = previousState?.last_signal_created_at || null;
 
         if (isActionableSignal(snapshot)) {
@@ -161,7 +193,7 @@ async function scanUserWatchlist(target, scanSource) {
             note: `Auto-guardada por el vigilante del watchlist (${target.activeListName})`,
           });
           if (createdSignal?.id) {
-            signalRows.push(createdSignal);
+            nextSignalRows.push(createdSignal);
             createdSignalAt = new Date().toISOString();
             if (executionProfile?.enabled && executionProfile?.autoExecuteEnabled) {
               try {
@@ -169,19 +201,19 @@ async function scanUserWatchlist(target, scanSource) {
                   origin: "watcher",
                 });
                 if (autoExecution?.record?.status === "placed") {
-                  autoOrdersPlaced += 1;
+                  nextAutoOrdersPlaced += 1;
                 } else {
-                  autoOrdersBlocked += 1;
+                  nextAutoOrdersBlocked += 1;
                 }
               } catch (error) {
-                autoOrdersBlocked += 1;
-                errors.push(`${coin} ${timeframe}: auto-ejecución falló: ${error.message || "error desconocido"}`);
+                nextAutoOrdersBlocked += 1;
+                nextErrors.push(`${coin} ${timeframe}: auto-ejecución falló: ${error.message || "error desconocido"}`);
               }
             }
           }
         }
 
-        stateUpdates.push({
+        nextStateUpdates.push({
           username: target.username,
           coin,
           timeframe,
@@ -197,10 +229,30 @@ async function scanUserWatchlist(target, scanSource) {
           },
         });
       } catch (error) {
-        errors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
+        nextErrors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
       }
     }
-  }
+
+    return {
+      priceMap: nextPriceMap,
+      stateUpdates: nextStateUpdates,
+      signalRows: nextSignalRows,
+      autoOrdersPlaced: nextAutoOrdersPlaced,
+      autoOrdersBlocked: nextAutoOrdersBlocked,
+      scannedFrames: nextScannedFrames,
+      errors: nextErrors,
+    };
+  });
+
+  coinResults.forEach((result) => {
+    Object.assign(priceMap, result.priceMap);
+    stateUpdates.push(...result.stateUpdates);
+    signalRows.push(...result.signalRows);
+    autoOrdersPlaced += result.autoOrdersPlaced;
+    autoOrdersBlocked += result.autoOrdersBlocked;
+    scannedFrames += result.scannedFrames;
+    errors.push(...result.errors);
+  });
 
   const closedSignals = await evaluatePendingSignalsForUser(target.username, priceMap, {
     notePrefix: "Auto-cerrada por el vigilante del watchlist",

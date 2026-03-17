@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
@@ -127,6 +127,7 @@ export function MemoryView(props: MemoryViewProps) {
   const [candidatesPage, setCandidatesPage] = useState(1);
   const [recentOrdersPage, setRecentOrdersPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
+  const lastAutoScanAtRef = useRef(0);
 
   useEffect(() => {
     let ignore = false;
@@ -200,7 +201,7 @@ export function MemoryView(props: MemoryViewProps) {
         .catch(() => {
           // keep last known state to avoid flicker
         });
-    }, 20_000);
+    }, 8_000);
 
     return () => window.clearInterval(intervalId);
   }, []);
@@ -541,11 +542,15 @@ export function MemoryView(props: MemoryViewProps) {
     }
   }
 
-  async function handleRunScanner() {
+  const handleRunScanner = useCallback(async (options?: { silent?: boolean; source?: "manual" | "auto" }) => {
+    const silent = options?.silent ?? false;
+    const source = options?.source || "manual";
     setScannerBusy(true);
     const loaderId = startLoading({
-      label: "Revisando watchlist",
-      detail: "Escaneando monedas, marcos y reglas de automatización.",
+      label: source === "auto" ? "Vigilante en vivo" : "Revisando watchlist",
+      detail: source === "auto"
+        ? "Sincronizando la watchlist en segundo plano."
+        : "Escaneando monedas, marcos y reglas de automatización.",
     });
     try {
       const execution = await watchlistService.runScan();
@@ -561,30 +566,62 @@ export function MemoryView(props: MemoryViewProps) {
       ].join(" · ");
       setScannerNotice(errorMessage || `Vigilante ejecutado correctamente. ${successSummary}.`);
       if (errorMessage) {
-        showToast({
-          tone: "error",
-          title: "Escaneo parcial",
-          message: `El vigilante sí escaneó, pero no pudo guardar todo el resumen: ${errorMessage}`,
-        });
+        if (!silent) {
+          showToast({
+            tone: "error",
+            title: "Escaneo parcial",
+            message: `El vigilante sí escaneó, pero no pudo guardar todo el resumen: ${errorMessage}`,
+          });
+        }
       } else {
-        showToast({
-          tone: "success",
-          title: "Vigilante actualizado",
-          message: `Se crearon ${execution.summary.signalsCreated} señales y ${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas.`,
-        });
+        if (!silent) {
+          showToast({
+            tone: "success",
+            title: "Vigilante actualizado",
+            message: `Se crearon ${execution.summary.signalsCreated} señales y ${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas.`,
+          });
+        }
       }
     } catch (error) {
-      setScannerNotice("No se pudo ejecutar el vigilante ahora mismo.");
-      showToast({
-        tone: "error",
-        title: "No se pudo revisar ahora",
-        message: error instanceof Error ? error.message : "No se pudo ejecutar el vigilante ahora mismo.",
-      });
+      if (!silent) {
+        setScannerNotice("No se pudo ejecutar el vigilante ahora mismo.");
+        showToast({
+          tone: "error",
+          title: "No se pudo revisar ahora",
+          message: error instanceof Error ? error.message : "No se pudo ejecutar el vigilante ahora mismo.",
+        });
+      }
     } finally {
       setScannerBusy(false);
       stopLoading(loaderId);
     }
-  }
+  }, [scannerStatus]);
+
+  useEffect(() => {
+    if (scannerBusy || document.visibilityState === "hidden") return;
+    if (!scannerStatus?.targets?.length) return;
+
+    const maybeRunAutoScan = () => {
+      if (document.visibilityState === "hidden") return;
+      if (scannerBusy) return;
+      if (!scannerStatus?.targets?.length) return;
+
+      const latestRunAt = scannerStatus.latestRun?.created_at
+        ? new Date(scannerStatus.latestRun.created_at).getTime()
+        : 0;
+      const ageMs = latestRunAt ? Date.now() - latestRunAt : Number.POSITIVE_INFINITY;
+      const autoCadenceMs = 60_000;
+      if (ageMs < autoCadenceMs) return;
+      if (Date.now() - lastAutoScanAtRef.current < autoCadenceMs) return;
+
+      lastAutoScanAtRef.current = Date.now();
+      void handleRunScanner({ silent: true, source: "auto" });
+    };
+
+    maybeRunAutoScan();
+    const intervalId = window.setInterval(maybeRunAutoScan, 15_000);
+    return () => window.clearInterval(intervalId);
+  }, [handleRunScanner, scannerBusy, scannerStatus]);
 
   async function handleSaveExecutionProfile() {
     if (!executionProfileForm) return;

@@ -17,7 +17,7 @@
   "crons": [
     {
       "path": "/api/watchlist/scan",
-      "schedule": "*/10 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }

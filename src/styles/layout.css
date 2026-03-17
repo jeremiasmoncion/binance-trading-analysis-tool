@@ -376,7 +376,7 @@
 }
 
 .top-bar {
-  padding: 16px 20px;
+  padding: 14px 18px;
   background:
     linear-gradient(180deg, rgba(8, 14, 26, 0.94), rgba(9, 17, 29, 0.94)),
     radial-gradient(circle at top center, rgba(99, 102, 241, 0.14), transparent 24%);
@@ -460,7 +460,10 @@
 }
 
 .view-panel {
-  padding: 22px;
+  padding: 24px;
+  display: grid;
+  align-content: start;
+  gap: 20px;
 }
 
 .module-tabs {
@@ -485,7 +488,7 @@
 .card {
   position: relative;
   overflow: hidden;
-  padding: 20px;
+  padding: 22px;
   border-radius: 22px;
   border: 1px solid rgba(148, 163, 184, 0.1);
   background:
@@ -509,6 +512,7 @@
 .card-header {
   align-items: flex-start;
   gap: 16px;
+  margin-bottom: 18px;
 }
 
 .card-header-copy {
@@ -518,7 +522,14 @@
 .card-header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.card-header-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -553,13 +564,14 @@
 }
 
 .stats-grid {
-  gap: 16px;
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
 .stat-card {
   position: relative;
   min-height: 150px;
-  padding: 18px;
+  padding: 20px;
   border-radius: 20px;
   border: 1px solid rgba(148, 163, 184, 0.1);
   background:
@@ -611,7 +623,7 @@
 }
 
 @media (max-width: 768px) {
-  .view-panel { padding: 16px; }
+  .view-panel { padding: 18px; gap: 16px; }
   .card, .stat-card { border-radius: 18px; }
   .top-bar { padding: 12px 14px; }
 }

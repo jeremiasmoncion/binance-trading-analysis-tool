@@ -93,6 +93,16 @@ interface AutomationCommandCard {
   toneClass: string;
 }
 
+interface AutomationPolicyEvent {
+  key: string;
+  title: string;
+  detail: string;
+  timeLabel: string;
+  timestamp: number;
+  pill: string;
+  pillClass: string;
+}
+
 interface ScopeEdgeRank {
   key: string;
   strategyId: string;
@@ -1004,6 +1014,47 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
 
+  const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
+    return recommendations
+      .map((item) => {
+        const evidence = item.evidence || {};
+        if (evidence.recommendationType !== "execution-scope-override" || !evidence.policyAutomation || typeof evidence.policyAutomation !== "object") {
+          return null;
+        }
+        const policy = evidence.policyAutomation as { type?: string; action?: string; appliedAt?: string; finalState?: string; finalAppliedAt?: string };
+        const timeframe = String(evidence.timeframe || "all");
+        const policyAt = typeof policy.finalAppliedAt === "string"
+          ? policy.finalAppliedAt
+          : typeof policy.appliedAt === "string"
+            ? policy.appliedAt
+            : item.updated_at || item.created_at;
+        const timestamp = policyAt ? new Date(policyAt).getTime() : 0;
+        const timeLabel = policyAt ? new Date(policyAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" }) : "--";
+        const action = String(policy.action || "");
+        const wasApplied = String(policy.finalState || "") === "active";
+        const title = wasApplied
+          ? `${item.strategy_id} · ${timeframe} ya quedó ajustado`
+          : `${item.strategy_id} · ${timeframe} pasó a prueba segura`;
+        const detail = wasApplied
+          ? action === "cut"
+            ? "La policy automática aplicó un corte prioritario sobre este scope."
+            : "La policy automática aplicó el override al perfil demo."
+          : "La policy automática lo movió a sandbox para observarlo antes de tocar el perfil.";
+        return {
+          key: `${item.id}-${policyAt}`,
+          title,
+          detail,
+          timeLabel,
+          timestamp,
+          pill: wasApplied ? "Aplicado" : "Sandbox",
+          pillClass: wasApplied ? "status-running" : "status-sandbox",
+        } satisfies AutomationPolicyEvent;
+      })
+      .filter((item): item is AutomationPolicyEvent => Boolean(item))
+      .sort((left, right) => right.timestamp - left.timestamp)
+      .slice(0, 5);
+  }, [recommendations]);
+
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
   useEffect(() => setRecommendationsPage(1), [recommendations.length]);
@@ -1625,6 +1676,32 @@ export function MemoryView(props: MemoryViewProps) {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="signal-analytics-grid">
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Acciones automáticas recientes</h4>
+                  <p>Aquí ves qué scope movió o aplicó la policy automática y cuándo lo hizo.</p>
+                </div>
+                {!automationPolicyFeed.length ? (
+                  <EmptyState message="Todavía no hay acciones automáticas recientes registradas por la policy." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {automationPolicyFeed.map((item) => (
+                      <div key={`policy-event-${item.key}`} className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{item.title}</strong>
+                          <span>{item.detail} · {item.timeLabel}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${item.pillClass}`}>
+                          {item.pill}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </SectionCard>

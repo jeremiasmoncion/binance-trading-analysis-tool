@@ -6,7 +6,7 @@
 .premium-overview-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.25rem;
+  gap: 1.45rem;
 }
 
 .calculator-shell-grid,
@@ -21,13 +21,13 @@
 .premium-panel-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.15rem;
+  gap: 1.3rem;
 }
 
 .calculator-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.15rem;
+  gap: 1.3rem;
 }
 
 .premium-field,
@@ -190,7 +190,7 @@
 .calculator-results-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.1rem;
+  gap: 1.25rem;
 }
 
 .result-tile {
@@ -1788,7 +1788,7 @@
 #balanceView .history-panel,
 #signals-experiments .signal-analytics-card,
 #signals-strategies .signal-analytics-card {
-  padding: 13px;
+  padding: 16px;
 }
 
 .signal-analytics-card .stats-grid {

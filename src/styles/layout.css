@@ -471,22 +471,28 @@
 }
 
 .module-tabs {
-  background: rgba(255, 255, 255, 0.74);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 20px;
-  box-shadow: 0 12px 28px rgba(148, 163, 184, 0.14);
+  border-radius: 18px;
+  box-shadow: 0 10px 22px rgba(148, 163, 184, 0.12);
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 8px;
 }
 
 .module-tab {
-  min-height: 42px;
-  padding-inline: 16px;
+  min-height: 36px;
+  padding-inline: 13px;
   background: rgba(255, 255, 255, 0.88);
   color: #475569;
   border-color: rgba(148, 163, 184, 0.14);
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
 }
 
 .module-tab.active {
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.22);
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.18);
 }
 
 .card {
@@ -634,4 +640,5 @@
   .view-panel { padding: 20px 18px 24px; gap: 18px; }
   .card, .stat-card { border-radius: 18px; }
   .top-bar { padding: 12px 14px; }
+  .module-tabs { margin-bottom: 16px; }
 }

@@ -51,11 +51,14 @@ interface ExperimentPaperStats {
   sampleSize: number;
   basePrimaryCount: number;
   candidatePrimaryCount: number;
+  baseClosedCount: number;
+  candidateClosedCount: number;
   basePrimaryPnl: number;
   candidatePrimaryPnl: number;
   baseWinRate: number;
   candidateWinRate: number;
   candidateAppearances: number;
+  comparableSampleReady: boolean;
   recommendation: string;
   recommendationReason: string;
   recommendationStatus: string;
@@ -2383,8 +2386,19 @@ function PaperTestingCard({
   onPromote: () => void;
   isPromoting: boolean;
 }) {
-  const delta = item.candidatePrimaryPnl - item.basePrimaryPnl;
-  const deltaClass = delta > 0 ? "portfolio-positive" : delta < 0 ? "portfolio-negative" : "";
+  const delta = item.comparableSampleReady ? item.candidatePrimaryPnl - item.basePrimaryPnl : null;
+  const deltaClass = delta != null && delta > 0 ? "portfolio-positive" : delta != null && delta < 0 ? "portfolio-negative" : "";
+  const candidateLine = item.candidateClosedCount
+    ? `${item.candidatePrimaryCount} primarias · ${item.candidateWinRate.toFixed(0)}% acierto · ${item.candidateAppearances} apariciones`
+    : item.candidateAppearances
+      ? `${item.candidateAppearances} apariciones · todavía no fue elegida como primaria`
+      : "Sin apariciones reales todavía";
+  const advantageValue = delta == null ? "--" : formatSignedPrice(delta);
+  const advantageSub = !item.candidateClosedCount
+    ? "Sin muestra primaria suficiente"
+    : !item.comparableSampleReady
+      ? "Todavía no hay muestra comparable en ambas versiones"
+      : "Resultado candidata menos base";
 
   return (
     <div className="signal-analytics-card">
@@ -2397,7 +2411,7 @@ function PaperTestingCard({
         <div className="signal-analytics-item is-experiment">
           <div className="signal-analytics-copy">
             <strong>Base</strong>
-            <span>{item.basePrimaryCount} primarias · {item.baseWinRate.toFixed(0)}% acierto</span>
+            <span>{item.basePrimaryCount} primarias · {item.baseClosedCount} cierres · {item.baseWinRate.toFixed(0)}% acierto</span>
           </div>
           <div className={`signal-analytics-pnl ${item.basePrimaryPnl > 0 ? "is-positive" : item.basePrimaryPnl < 0 ? "is-negative" : ""}`}>
             {formatSignedPrice(item.basePrimaryPnl)}
@@ -2406,7 +2420,7 @@ function PaperTestingCard({
         <div className="signal-analytics-item is-experiment">
           <div className="signal-analytics-copy">
             <strong>Candidata</strong>
-            <span>{item.candidatePrimaryCount} primarias · {item.candidateWinRate.toFixed(0)}% acierto · {item.candidateAppearances} apariciones</span>
+            <span>{candidateLine}</span>
           </div>
           <div className={`signal-analytics-pnl ${item.candidatePrimaryPnl > 0 ? "is-positive" : item.candidatePrimaryPnl < 0 ? "is-negative" : ""}`}>
             {formatSignedPrice(item.candidatePrimaryPnl)}
@@ -2415,7 +2429,7 @@ function PaperTestingCard({
       </div>
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
-        <StatCard label="Ventaja candidata" value={formatSignedPrice(delta)} sub="Resultado candidata menos base" toneClass={deltaClass} accentClass="accent-blue" />
+        <StatCard label="Ventaja candidata" value={advantageValue} sub={advantageSub} toneClass={deltaClass} accentClass="accent-blue" />
         <StatCard label="Lectura actual" value={item.recommendation} sub={item.recommendationReason} accentClass="accent-amber" />
       </div>
       <div className="inline-actions with-top-gap">
@@ -2984,9 +2998,12 @@ function buildExperimentPaperStats(
   const candidatePrimaryPnl = candidateClosed.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0);
   const baseWinRate = baseClosed.length ? (baseClosed.filter((signal) => signal.outcome_status === "win").length / baseClosed.length) * 100 : 0;
   const candidateWinRate = candidateClosed.length ? (candidateClosed.filter((signal) => signal.outcome_status === "win").length / candidateClosed.length) * 100 : 0;
+  const comparableSampleReady = baseClosed.length >= 3 && candidateClosed.length >= 3;
 
-  const recommendation = candidateClosed.length < 3
-    ? "Muestra corta"
+  const recommendation = candidateClosed.length === 0
+    ? "Sin muestra primaria"
+    : !comparableSampleReady
+      ? "Muestra corta"
     : candidatePrimaryPnl > basePrimaryPnl && candidateWinRate >= baseWinRate
       ? "Candidata arriba"
       : candidatePrimaryPnl < basePrimaryPnl
@@ -3009,11 +3026,14 @@ function buildExperimentPaperStats(
     sampleSize: relevantSignals.length,
     basePrimaryCount: basePrimarySignals.length,
     candidatePrimaryCount: candidatePrimarySignals.length,
+    baseClosedCount: baseClosed.length,
+    candidateClosedCount: candidateClosed.length,
     basePrimaryPnl,
     candidatePrimaryPnl,
     baseWinRate,
     candidateWinRate,
     candidateAppearances,
+    comparableSampleReady,
     recommendation,
     recommendationReason: promotionReading.reason,
     recommendationStatus: promotionReading.statusLabel,

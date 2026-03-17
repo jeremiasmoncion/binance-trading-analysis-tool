@@ -717,6 +717,60 @@ export function MemoryView(props: MemoryViewProps) {
     strongestTimeframe,
   ]);
 
+  const executionOverrideImpact = useMemo(() => {
+    return (executionProfileForm?.scopeOverrides || []).map((override) => {
+      const closedScopedSignals = closedSignals.filter((item) =>
+        item.strategy_name === override.strategyId && item.timeframe === override.timeframe,
+      );
+      const candidateScopedSignals = (props.executionCenter?.candidates || []).filter((item) =>
+        item.strategyName === override.strategyId && item.timeframe === override.timeframe,
+      );
+      const eligibleScoped = candidateScopedSignals.filter((item) => item.status === "eligible");
+      const blockedScoped = candidateScopedSignals.filter((item) => item.status === "blocked");
+      const stats = summarizeSignalCohort(closedScopedSignals);
+      const currentScore = override.minSignalScore ?? executionProfileForm?.minSignalScore ?? 0;
+      const currentRr = override.minRrRatio ?? executionProfileForm?.minRrRatio ?? 0;
+      let reading = "Todavía hace falta más muestra para saber si este scope está ayudando.";
+      let accentClass = "accent-blue";
+
+      if (stats.total >= 5) {
+        if (stats.avgPnl > 0 && stats.winRate >= 55) {
+          reading = "Este scope viene sosteniendo resultado positivo y parece aguantar un filtro más abierto o estable.";
+          accentClass = "accent-emerald";
+        } else if (stats.avgPnl < 0 || stats.winRate < 45) {
+          reading = "Este scope sigue flojo aun con override. Conviene endurecerlo más o incluso sacarlo del flujo demo.";
+          accentClass = "accent-amber";
+        } else {
+          reading = "El scope está mixto: no está roto, pero todavía no demuestra una ventaja clara.";
+          accentClass = "accent-blue";
+        }
+      }
+
+      return {
+        key: `${override.strategyId}-${override.timeframe}`,
+        strategyId: override.strategyId,
+        timeframe: override.timeframe,
+        score: currentScore,
+        rr: currentRr,
+        note: override.note || "",
+        closedTotal: stats.total,
+        winRate: stats.winRate,
+        pnl: stats.pnl,
+        avgPnl: stats.avgPnl,
+        eligibleCount: eligibleScoped.length,
+        blockedCount: blockedScoped.length,
+        reading,
+        accentClass,
+      };
+    });
+  }, [
+    closedSignals,
+    executionProfileForm?.minRrRatio,
+    executionProfileForm?.minSignalScore,
+    executionProfileForm?.scopeOverrides,
+    props.executionCenter?.candidates,
+  ]);
+
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
   useEffect(() => setRecommendationsPage(1), [recommendations.length]);
@@ -1973,6 +2027,41 @@ export function MemoryView(props: MemoryViewProps) {
             <p className="section-note with-top-gap">
               {executionAuditInsight}
             </p>
+          </SectionCard>
+
+          <SectionCard
+            title="Impacto de overrides activos"
+            subtitle="Aquí mides si cada ajuste por estrategia y temporalidad está ayudando de verdad o si conviene endurecerlo más."
+            helpTitle="Impacto de overrides"
+            helpBody="Cada tarjeta resume el comportamiento real del scope al que le aplicaste un override, para que puedas decidir si mantenerlo, endurecerlo o quitarlo."
+          >
+            {!executionOverrideImpact.length ? (
+              <EmptyState message="Todavía no hay overrides activos para auditar. Cuando apliques uno, aquí verás su efecto real." />
+            ) : (
+              <div className="signal-analytics-grid">
+                {executionOverrideImpact.map((item) => (
+                  <div key={`override-impact-${item.key}`} className="signal-analytics-card">
+                    <div className="signal-analytics-head">
+                      <h4>{item.strategyId} · {item.timeframe}</h4>
+                      <p>{item.reading}</p>
+                    </div>
+
+                    <div className="stats-grid compact-stats-grid no-bottom-gap">
+                      <StatCard label="Filtro activo" value={`S${item.score} · RR ${item.rr.toFixed(2)}`} sub="Thresholds de este scope" accentClass="accent-blue" />
+                      <StatCard label="Cierres reales" value={String(item.closedTotal)} sub={`${item.winRate.toFixed(0)}% acierto`} accentClass={item.accentClass} />
+                      <StatCard label="PnL acumulado" value={formatSignedPrice(item.pnl)} sub={`Promedio ${formatSignedPrice(item.avgPnl)}`} toneClass={item.pnl > 0 ? "portfolio-positive" : item.pnl < 0 ? "portfolio-negative" : ""} accentClass={item.accentClass} />
+                      <StatCard label="Embudo actual" value={`${item.eligibleCount}/${item.blockedCount}`} sub="Elegibles / bloqueadas ahora" accentClass="accent-amber" />
+                    </div>
+
+                    {item.note ? (
+                      <p className="section-note with-top-gap">
+                        Nota del override: {item.note}
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard

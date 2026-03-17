@@ -813,6 +813,43 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [closedSignals]);
 
+  const scorerModelImpact = useMemo(() => {
+    const scoredClosedSignals = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label);
+    const v1Signals = scoredClosedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label === "adaptive-v1");
+    const v2Signals = scoredClosedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label === "adaptive-v2");
+    const v1Stats = summarizeSignalCohort(v1Signals);
+    const v2Stats = summarizeSignalCohort(v2Signals);
+
+    let reading = "Todavía no hay suficiente muestra para decidir si el scorer basado en features supera al scorer previo.";
+    let accentClass = "accent-blue";
+
+    if (v1Stats.total >= 5 && v2Stats.total >= 5) {
+      if (v2Stats.avgPnl > v1Stats.avgPnl && v2Stats.winRate >= v1Stats.winRate) {
+        reading = "El scorer adaptive-v2 ya está cerrando mejor que adaptive-v1. La capa basada en features empieza a ganar peso real.";
+        accentClass = "accent-emerald";
+      } else if (v2Stats.avgPnl < v1Stats.avgPnl) {
+        reading = "Adaptive-v2 todavía no supera a adaptive-v1. Conviene seguir afinando la capa basada en features antes de confiar más en ella.";
+        accentClass = "accent-amber";
+      } else {
+        reading = "Adaptive-v2 y adaptive-v1 están muy cerca. Hace falta más muestra para decidir qué scorer manda.";
+      }
+    }
+
+    return {
+      total: scoredClosedSignals.length,
+      v1Stats,
+      v2Stats,
+      reading,
+      accentClass,
+      winner:
+        v2Stats.total >= 5 && v2Stats.avgPnl > v1Stats.avgPnl && v2Stats.winRate >= v1Stats.winRate
+          ? "adaptive-v2"
+          : v1Stats.total >= 5 && v1Stats.avgPnl > v2Stats.avgPnl
+            ? "adaptive-v1"
+            : null,
+    };
+  }, [closedSignals]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1075,9 +1112,10 @@ export function MemoryView(props: MemoryViewProps) {
       leadingAdaptiveScope,
       strongestContextBias,
       adaptiveScoreImpact,
+      scorerModelImpact,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerModelImpact]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1732,6 +1770,16 @@ export function MemoryView(props: MemoryViewProps) {
                 sub={`${automationMasterBoard.adaptiveScoreImpact.boostedStats.total} empujadas · ${automationMasterBoard.adaptiveScoreImpact.penalizedStats.total} penalizadas`}
                 accentClass={automationMasterBoard.adaptiveScoreImpact.accentClass}
               />
+              <StatCard
+                label="Scorer líder"
+                value={automationMasterBoard.scorerModelImpact.winner || "--"}
+                sub={
+                  automationMasterBoard.scorerModelImpact.total > 0
+                    ? `v2 ${formatSignedPrice(automationMasterBoard.scorerModelImpact.v2Stats.avgPnl)} · v1 ${formatSignedPrice(automationMasterBoard.scorerModelImpact.v1Stats.avgPnl)}`
+                    : "Esperando muestra comparativa"
+                }
+                accentClass={automationMasterBoard.scorerModelImpact.accentClass}
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1775,6 +1823,17 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                         <div className={`signal-analytics-pill ${automationMasterBoard.adaptiveScoreImpact.accentClass === "accent-emerald" ? "status-running" : automationMasterBoard.adaptiveScoreImpact.accentClass === "accent-amber" ? "status-draft" : "status-sandbox"}`}>
                           score adaptativo
+                        </div>
+                      </div>
+                    ) : null}
+                    {automationMasterBoard.scorerModelImpact.total > 0 ? (
+                      <div className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>Comparativa de scorer</strong>
+                          <span>adaptive-v2 {formatSignedPrice(automationMasterBoard.scorerModelImpact.v2Stats.avgPnl)} · {automationMasterBoard.scorerModelImpact.v2Stats.winRate.toFixed(0)}% vs adaptive-v1 {formatSignedPrice(automationMasterBoard.scorerModelImpact.v1Stats.avgPnl)} · {automationMasterBoard.scorerModelImpact.v1Stats.winRate.toFixed(0)}%</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${automationMasterBoard.scorerModelImpact.accentClass === "accent-emerald" ? "status-running" : automationMasterBoard.scorerModelImpact.accentClass === "accent-amber" ? "status-draft" : "status-sandbox"}`}>
+                          {automationMasterBoard.scorerModelImpact.winner || "comparando"}
                         </div>
                       </div>
                     ) : null}
@@ -1828,6 +1887,11 @@ export function MemoryView(props: MemoryViewProps) {
             {automationMasterBoard.adaptiveScoreImpact.total > 0 ? (
               <p className="section-note with-top-gap">
                 Adaptive score: {automationMasterBoard.adaptiveScoreImpact.reading} Cohorte empujada {formatSignedPrice(automationMasterBoard.adaptiveScoreImpact.boostedStats.avgPnl)} · {automationMasterBoard.adaptiveScoreImpact.boostedStats.winRate.toFixed(0)}% vs penalizada {formatSignedPrice(automationMasterBoard.adaptiveScoreImpact.penalizedStats.avgPnl)} · {automationMasterBoard.adaptiveScoreImpact.penalizedStats.winRate.toFixed(0)}%.
+              </p>
+            ) : null}
+            {automationMasterBoard.scorerModelImpact.total > 0 ? (
+              <p className="section-note">
+                Scorer: {automationMasterBoard.scorerModelImpact.reading} adaptive-v2 deja {formatSignedPrice(automationMasterBoard.scorerModelImpact.v2Stats.avgPnl)} por señal cerrada con {automationMasterBoard.scorerModelImpact.v2Stats.winRate.toFixed(0)}% de acierto, frente a adaptive-v1 con {formatSignedPrice(automationMasterBoard.scorerModelImpact.v1Stats.avgPnl)} y {automationMasterBoard.scorerModelImpact.v1Stats.winRate.toFixed(0)}%.
               </p>
             ) : null}
 

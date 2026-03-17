@@ -1,3 +1,13 @@
+create or replace function public.set_execution_profile_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$;
+
 create table if not exists public.execution_profiles (
   username text primary key,
   enabled boolean not null default true,
@@ -73,7 +83,7 @@ alter table public.execution_orders
 drop trigger if exists trg_execution_profiles_updated_at on public.execution_profiles;
 create trigger trg_execution_profiles_updated_at
 before update on public.execution_profiles
-for each row execute function public.set_current_timestamp_updated_at();
+for each row execute function public.set_execution_profile_updated_at();
 
 create index if not exists idx_execution_orders_username_created_at
   on public.execution_orders (username, created_at desc);

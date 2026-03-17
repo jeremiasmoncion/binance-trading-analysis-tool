@@ -15,6 +15,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const EXECUTION_PROFILES_TABLE = process.env.SUPABASE_EXECUTION_PROFILES_TABLE || "execution_profiles";
 const EXECUTION_ORDERS_TABLE = process.env.SUPABASE_EXECUTION_ORDERS_TABLE || "execution_orders";
+const AUTO_PROTECTION_RETRY_LIMIT = 3;
+const AUTO_PROTECTION_RETRY_COOLDOWN_MS = 3 * 60 * 1000;
 
 const DEFAULT_PROFILE = {
   enabled: true,
@@ -219,6 +221,14 @@ function getProtectionPayload(responsePayload) {
   return "protection" in responsePayload ? responsePayload.protection || null : null;
 }
 
+function getProtectionRetryState(responsePayload) {
+  if (!responsePayload || typeof responsePayload !== "object") return {};
+  if (!("protectionRetryState" in responsePayload)) return {};
+  const state = responsePayload.protectionRetryState;
+  if (!state || typeof state !== "object") return {};
+  return state;
+}
+
 function getExecutionOriginLabel(record) {
   if (record.origin === "watcher") return "Auto por vigilante";
   if (record.signal_id) return "Desde señales";
@@ -241,6 +251,19 @@ function extractLinkedOrderIdsFromProtection(protectionOrder) {
     orderListId: Number(protectionOrder.orderListId || 0) || null,
     protectionOrderIds,
   };
+}
+
+function canAutoRetryProtection(record) {
+  if (String(record.mode || "") !== "execute") return false;
+  if (String(record.side || "").toUpperCase() !== "BUY") return false;
+  if (String(record.lifecycle_status || record.status || "") !== "filled_unprotected") return false;
+
+  const retryState = getProtectionRetryState(record.response_payload);
+  const attempts = Number(retryState.attempts || 0);
+  const lastAttemptAt = retryState.lastAttemptAt ? new Date(retryState.lastAttemptAt).getTime() : 0;
+  if (attempts >= AUTO_PROTECTION_RETRY_LIMIT) return false;
+  if (lastAttemptAt && Date.now() - lastAttemptAt < AUTO_PROTECTION_RETRY_COOLDOWN_MS) return false;
+  return true;
 }
 
 async function getExecutionProfileForUser(username) {
@@ -633,6 +656,7 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
   const signalMap = new Map((signals || []).map((item) => [Number(item.id), item]));
   const openOrderIds = new Set((portfolioPayload?.openOrders || []).map((item) => Number(item.orderId || 0)).filter(Boolean));
   const nextOrders = [];
+  let cachedCredentials = null;
 
   for (const record of executionOrders) {
     const signal = record.signal_id ? signalMap.get(Number(record.signal_id)) : null;
@@ -734,6 +758,109 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
           signal.outcome_status = signalOutcomeStatus;
           signal.outcome_pnl = realizedPnl;
           signal.note = closeNote;
+        }
+      }
+    }
+
+    const shouldAutoRetryProtection = canAutoRetryProtection(nextRecord) && !exchangeClosure;
+    if (shouldAutoRetryProtection) {
+      const retryState = getProtectionRetryState(nextRecord.response_payload);
+      const attempts = Number(retryState.attempts || 0);
+      const signalForRetry = nextRecord.signal_id ? signalMap.get(Number(nextRecord.signal_id)) : null;
+
+      if (signalForRetry) {
+        try {
+          cachedCredentials = cachedCredentials || await getCredentialsForUsername(username);
+          const candidate = {
+            symbol: String(nextRecord.coin || signalForRetry.coin || "").replace("/", ""),
+            side: "BUY",
+            plan: {
+              tp: Number(signalForRetry.tp_price || 0),
+              sl: Number(signalForRetry.sl_price || 0),
+            },
+          };
+          const asset = getBaseAsset(nextRecord.coin || signalForRetry.coin);
+          const currentPosition = portfolioPayload?.assets?.find((item) => item.asset === asset);
+          const freeQty = Number(currentPosition?.free || currentPosition?.quantity || 0);
+          const fallbackExecutedQty = Number(nextRecord.response_payload?.order?.executedQty || nextRecord.quantity || 0);
+          const protectiveQty = freeQty > 0 ? freeQty : fallbackExecutedQty;
+
+          const protectionResult = await attachProtectiveExit({
+            apiKey: cachedCredentials.apiKey,
+            apiSecret: cachedCredentials.apiSecret,
+            candidate,
+            executedQty: protectiveQty,
+            rules: await getSymbolRules(candidate.symbol),
+          });
+
+          if (protectionResult.protectionAttached) {
+            const nextPayload = {
+              ...(nextRecord.response_payload && typeof nextRecord.response_payload === "object" ? nextRecord.response_payload : {}),
+              protection: protectionResult,
+              protectionRetriedAt: new Date().toISOString(),
+              protectionRetryState: {
+                attempts: attempts + 1,
+                lastAttemptAt: new Date().toISOString(),
+                lastMode: "auto",
+                lastSuccessAt: new Date().toISOString(),
+              },
+            };
+            const patchedRecord = await updateExecutionRecord(nextRecord.id, {
+              lifecycle_status: "protected",
+              protection_status: "active",
+              linked_order_ids: {
+                ...(nextRecord.linked_order_ids && typeof nextRecord.linked_order_ids === "object" ? nextRecord.linked_order_ids : {}),
+                ...extractLinkedOrderIdsFromProtection(protectionResult.protectionOrder),
+              },
+              last_synced_at: new Date().toISOString(),
+              notes: `${String(nextRecord.notes || "").trim()} · Protección añadida automáticamente después de la apertura.`,
+              response_payload: nextPayload,
+            });
+            nextRecord = patchedRecord || {
+              ...nextRecord,
+              lifecycle_status: "protected",
+              protection_status: "active",
+              response_payload: nextPayload,
+            };
+
+            if (signalForRetry?.id) {
+              const patchedSignal = await updateSignalExecutionLink(username, signalForRetry.id, {
+                executionOrderId: nextRecord.id,
+                executionStatus: "protected",
+                executionMode: String(nextRecord.mode || "execute"),
+                executionUpdatedAt: new Date().toISOString(),
+              }).catch(() => null);
+              if (patchedSignal) signalMap.set(Number(signalForRetry.id), patchedSignal);
+            }
+          } else {
+            throw new Error(protectionResult.protectionNote || "No se pudo montar la protección en este intento.");
+          }
+        } catch (error) {
+          const nextPayload = {
+            ...(nextRecord.response_payload && typeof nextRecord.response_payload === "object" ? nextRecord.response_payload : {}),
+            protection: {
+              ...(getProtectionPayload(nextRecord.response_payload) || {}),
+              protectionAttached: false,
+              protectionMode: "failed",
+              protectionNote: error instanceof Error ? error.message : "La protección automática volvió a fallar.",
+            },
+            protectionRetryState: {
+              attempts: attempts + 1,
+              lastAttemptAt: new Date().toISOString(),
+              lastMode: "auto",
+              lastError: error instanceof Error ? error.message : "La protección automática volvió a fallar.",
+            },
+          };
+          const patchedRecord = await updateExecutionRecord(nextRecord.id, {
+            protection_status: "failed",
+            last_synced_at: new Date().toISOString(),
+            response_payload: nextPayload,
+          });
+          nextRecord = patchedRecord || {
+            ...nextRecord,
+            protection_status: "failed",
+            response_payload: nextPayload,
+          };
         }
       }
     }

@@ -490,6 +490,62 @@ function buildAdaptivePrimaryByScope(signals) {
   return preferred;
 }
 
+function buildAdaptivePrimaryPromotionRecommendations(signals, versions) {
+  const adaptiveLeaders = buildAdaptivePrimaryByScope(signals);
+  const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
+  const { activeByStrategy, promotedByStrategy } = pickActiveVersions(resolvedVersions);
+  const recommendations = [];
+
+  for (const leader of adaptiveLeaders) {
+    const strategyId = String(leader.strategyId || "");
+    const timeframe = String(leader.timeframe || "");
+    const candidateVersion = String(leader.version || "");
+    const activeVersion = String(
+      promotedByStrategy[strategyId]
+      || activeByStrategy.get(strategyId)?.version
+      || "",
+    );
+
+    if (!strategyId || !timeframe || !candidateVersion || !activeVersion) continue;
+    if (candidateVersion === activeVersion) continue;
+    if (leader.sampleSize < 8 || Number(leader.confidence || 0) < 0.72) continue;
+    if (Number(leader.edgeScore || 0) <= 0) continue;
+
+    recommendations.push({
+      recommendation_key: `adaptive-primary:${strategyId}:${timeframe}:${activeVersion}->${candidateVersion}`,
+      strategy_id: strategyId,
+      strategy_version: activeVersion,
+      parameter_key: "primaryVersionByTimeframe",
+      title: `Probar ${candidateVersion} como primaria en ${timeframe}`,
+      summary: `${candidateVersion} viene liderando ${timeframe} con mejor edge reciente que ${activeVersion}. Conviene abrir una prueba segura y validar si debe gobernar este marco.`,
+      current_value: 0,
+      suggested_value: Number(leader.edgeScore || 0),
+      confidence: Number(leader.confidence || 0),
+      status: leader.sampleSize >= 12 && Number(leader.confidence || 0) >= 0.8 ? "sandbox" : "draft",
+      evidence: {
+        recommendationType: "adaptive-primary-promotion",
+        timeframe,
+        marketScope: "watchlist",
+        timeframeScope: timeframe,
+        sampleSize: leader.sampleSize,
+        confidence: leader.confidence,
+        edgeScore: leader.edgeScore,
+        leadOverNext: leader.leadOverNext,
+        winRate: leader.winRate,
+        pnl: leader.pnl,
+        avgPnl: leader.avgPnl,
+        avgScore: leader.avgScore,
+        avgRr: leader.avgRr,
+        baseVersion: activeVersion,
+        candidateVersion,
+        promotionMode: "timeframe-primary-challenge",
+      },
+    });
+  }
+
+  return recommendations;
+}
+
 export function applySystemStrategyDecision(snapshot, decisionState, context = {}) {
   const marketScope = context.marketScope || "watchlist";
   const timeframe = context.timeframe || snapshot?.timeframe || "";
@@ -1127,6 +1183,9 @@ function buildRecommendationRows(signals, versions, executionProfile) {
   for (const row of buildExecutionScopeOverrideRecommendations(closedSignals, executionProfile)) {
     pushRecommendation(recommendations, row);
   }
+  for (const row of buildAdaptivePrimaryPromotionRecommendations(closedSignals, versions)) {
+    pushRecommendation(recommendations, row);
+  }
 
   return recommendations;
 }
@@ -1333,6 +1392,90 @@ export async function activateAdaptiveRecommendation(req) {
       };
     }
     return applyExecutionScopeRecommendation(session.username, recommendation);
+  }
+
+  if (evidence.recommendationType === "adaptive-primary-promotion") {
+    if (evidence.experimentId) {
+      const experimentRows = await supabaseRequest(
+        `${STRATEGY_EXPERIMENTS_TABLE}?select=*&id=eq.${Number(evidence.experimentId)}&limit=1`,
+      ).catch(() => []);
+
+      return {
+        recommendation,
+        version: null,
+        experiment: experimentRows?.[0] || null,
+      };
+    }
+
+    const marketScope = String(evidence.marketScope || "watchlist");
+    const timeframeScope = String(evidence.timeframeScope || evidence.timeframe || "all");
+    const baseVersion = String(evidence.baseVersion || recommendation.strategy_version || "").trim();
+    const candidateVersion = String(evidence.candidateVersion || "").trim();
+    if (!baseVersion || !candidateVersion) {
+      throw new Error("La recomendación no trae una comparación clara de versiones para este timeframe.");
+    }
+
+    const experimentKey = [
+      recommendation.strategy_id,
+      baseVersion,
+      candidateVersion,
+      marketScope,
+      timeframeScope,
+      "adaptive-primary",
+      Date.now(),
+    ].join(":");
+
+    const experimentRows = await supabaseRequest(STRATEGY_EXPERIMENTS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: [{
+        experiment_key: experimentKey,
+        base_strategy_id: recommendation.strategy_id,
+        candidate_strategy_id: recommendation.strategy_id,
+        candidate_version: candidateVersion,
+        market_scope: marketScope,
+        timeframe_scope: timeframeScope,
+        status: "sandbox",
+        summary: `Prueba segura para validar si ${candidateVersion} debe liderar ${timeframeScope} por encima de ${baseVersion}.`,
+        metadata: {
+          createdFrom: "adaptive-primary-promotion",
+          baseVersion,
+          candidateVersion,
+          recommendationId: recommendation.id,
+          recommendationKey: recommendation.recommendation_key,
+          timeframe: timeframeScope,
+        },
+      }],
+    });
+
+    const experiment = experimentRows?.[0];
+    if (!experiment) {
+      throw new Error("No se pudo crear la prueba segura para la promoción por timeframe.");
+    }
+
+    const updatedEvidence = {
+      ...evidence,
+      experimentId: experiment.id,
+      activatedAt: new Date().toISOString(),
+    };
+
+    const updatedRecommendationRows = await supabaseRequest(
+      `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${recommendation.id}`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: {
+          status: "sandbox",
+          evidence: updatedEvidence,
+        },
+      },
+    );
+
+    return {
+      recommendation: updatedRecommendationRows?.[0] || { ...recommendation, status: "sandbox", evidence: updatedEvidence },
+      version: null,
+      experiment,
+    };
   }
 
   const baseVersion = (versions || []).find(

@@ -775,6 +775,44 @@ export function MemoryView(props: MemoryViewProps) {
     strongestTimeframe,
   ]);
 
+  const adaptiveScoreImpact = useMemo(() => {
+    const adaptiveClosedSignals = closedSignals.filter((item) => {
+      const adaptiveScore = item.signal_payload?.decision?.adaptiveScore;
+      return adaptiveScore != null && Number.isFinite(Number(adaptiveScore));
+    });
+    const boosted = adaptiveClosedSignals.filter((item) => Number(item.signal_payload?.decision?.adaptiveScore || 0) > Number(item.signal_score || 0));
+    const penalized = adaptiveClosedSignals.filter((item) => Number(item.signal_payload?.decision?.adaptiveScore || 0) < Number(item.signal_score || 0));
+    const unchanged = adaptiveClosedSignals.filter((item) => Number(item.signal_payload?.decision?.adaptiveScore || 0) === Number(item.signal_score || 0));
+    const boostedStats = summarizeSignalCohort(boosted);
+    const penalizedStats = summarizeSignalCohort(penalized);
+    const unchangedStats = summarizeSignalCohort(unchanged);
+
+    let reading = "Todavía hace falta más muestra con adaptive score para medir si realmente mejora el edge.";
+    let accentClass = "accent-blue";
+
+    if (boostedStats.total >= 5 && penalizedStats.total >= 5) {
+      if (boostedStats.avgPnl > penalizedStats.avgPnl && boostedStats.winRate >= penalizedStats.winRate) {
+        reading = "Las señales empujadas por el adaptive score están cerrando mejor que las penalizadas. El scorer contextual ya está ayudando.";
+        accentClass = "accent-emerald";
+      } else if (boostedStats.avgPnl < penalizedStats.avgPnl) {
+        reading = "Las señales empujadas por el adaptive score no están mejorando todavía frente a las penalizadas. Conviene seguir afinando el scorer.";
+        accentClass = "accent-amber";
+      } else {
+        reading = "El adaptive score ya está moviendo prioridades, pero todavía no deja una ventaja estadística clara.";
+        accentClass = "accent-blue";
+      }
+    }
+
+    return {
+      total: adaptiveClosedSignals.length,
+      boostedStats,
+      penalizedStats,
+      unchangedStats,
+      reading,
+      accentClass,
+    };
+  }, [closedSignals]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1036,9 +1074,10 @@ export function MemoryView(props: MemoryViewProps) {
       automatedPolicyActions,
       leadingAdaptiveScope,
       strongestContextBias,
+      adaptiveScoreImpact,
       nextAction,
     };
-  }, [decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1687,6 +1726,12 @@ export function MemoryView(props: MemoryViewProps) {
                 sub={automationMasterBoard.strongestContextBias ? `${automationMasterBoard.strongestContextBias.marketRegime} · ${automationMasterBoard.strongestContextBias.direction} · ${automationMasterBoard.strongestContextBias.volumeCondition}` : "Sin sesgo contextual claro todavía"}
                 accentClass="accent-blue"
               />
+              <StatCard
+                label="Adaptive score"
+                value={String(automationMasterBoard.adaptiveScoreImpact.total)}
+                sub={`${automationMasterBoard.adaptiveScoreImpact.boostedStats.total} empujadas · ${automationMasterBoard.adaptiveScoreImpact.penalizedStats.total} penalizadas`}
+                accentClass={automationMasterBoard.adaptiveScoreImpact.accentClass}
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1720,6 +1765,17 @@ export function MemoryView(props: MemoryViewProps) {
                           <span>{automationMasterBoard.strongestContextBias.marketRegime} · {automationMasterBoard.strongestContextBias.direction} · {automationMasterBoard.strongestContextBias.volumeCondition} · muestra {automationMasterBoard.strongestContextBias.sampleSize}</span>
                         </div>
                         <div className="signal-analytics-pill status-running">sesgo contextual</div>
+                      </div>
+                    ) : null}
+                    {automationMasterBoard.adaptiveScoreImpact.total > 0 ? (
+                      <div className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>Adaptive score con muestra real</strong>
+                          <span>{automationMasterBoard.adaptiveScoreImpact.boostedStats.total} empujadas · {automationMasterBoard.adaptiveScoreImpact.penalizedStats.total} penalizadas · {automationMasterBoard.adaptiveScoreImpact.unchangedStats.total} neutras</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${automationMasterBoard.adaptiveScoreImpact.accentClass === "accent-emerald" ? "status-running" : automationMasterBoard.adaptiveScoreImpact.accentClass === "accent-amber" ? "status-draft" : "status-sandbox"}`}>
+                          score adaptativo
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -1768,6 +1824,12 @@ export function MemoryView(props: MemoryViewProps) {
                 </div>
               </div>
             </div>
+
+            {automationMasterBoard.adaptiveScoreImpact.total > 0 ? (
+              <p className="section-note with-top-gap">
+                Adaptive score: {automationMasterBoard.adaptiveScoreImpact.reading} Cohorte empujada {formatSignedPrice(automationMasterBoard.adaptiveScoreImpact.boostedStats.avgPnl)} · {automationMasterBoard.adaptiveScoreImpact.boostedStats.winRate.toFixed(0)}% vs penalizada {formatSignedPrice(automationMasterBoard.adaptiveScoreImpact.penalizedStats.avgPnl)} · {automationMasterBoard.adaptiveScoreImpact.penalizedStats.winRate.toFixed(0)}%.
+              </p>
+            ) : null}
 
             <div className="signal-analytics-grid">
               <div className="signal-analytics-card">

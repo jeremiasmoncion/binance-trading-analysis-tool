@@ -530,12 +530,37 @@ export function getTimeframeScanInterval(timeframe) {
   return TIMEFRAME_SCAN_INTERVAL_MS[timeframe] || 15 * 60 * 1000;
 }
 
-export async function buildMarketSnapshot(coin, timeframe) {
+export async function buildMarketSnapshot(coin, timeframe, options = {}) {
+  const candleCache = options.candleCache || null;
+  const loadCandles = async (targetTimeframe) => {
+    const cacheKey = `${coin}|${targetTimeframe}`;
+    if (candleCache?.has(cacheKey)) {
+      return candleCache.get(cacheKey);
+    }
+    const candleRequest = fetchCandles(coin, targetTimeframe)
+      .then((candles) => {
+        if (candleCache) {
+          candleCache.set(cacheKey, candles);
+        }
+        return candles;
+      })
+      .catch((error) => {
+        if (candleCache) {
+          candleCache.delete(cacheKey);
+        }
+        throw error;
+      });
+    if (candleCache) {
+      candleCache.set(cacheKey, candleRequest);
+    }
+    return candleRequest;
+  };
+
   const [candles, multiTimeframes] = await Promise.all([
-    fetchCandles(coin, timeframe),
+    loadCandles(timeframe),
     Promise.all(
       MAP_TIMEFRAMES.map(async (mapTf) => {
-        const tfCandles = await fetchCandles(coin, mapTf);
+        const tfCandles = await loadCandles(mapTf);
         const tfSignal = generateSignal(calcIndicators(tfCandles));
         return {
           timeframe: mapTf,

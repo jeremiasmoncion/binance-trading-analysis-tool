@@ -114,20 +114,37 @@ async function scanUserWatchlist(target, scanSource) {
   let scannedFrames = 0;
 
   for (const coin of coins) {
+    const dueTimeframes = timeframes.filter((timeframe) => {
+      const stateKey = `${coin}|${timeframe}`;
+      const previousState = scanState.get(stateKey);
+      return shouldScanNow(previousState?.last_scanned_at, timeframe);
+    });
+
+    if (!dueTimeframes.length) {
+      continue;
+    }
+
     const ticker = await fetchTickerPrice(coin).catch(() => null);
     if (ticker?.lastPrice) {
       priceMap[coin] = ticker.lastPrice;
     }
 
-    for (const timeframe of timeframes) {
-      const stateKey = `${coin}|${timeframe}`;
-      const previousState = scanState.get(stateKey);
-      if (!shouldScanNow(previousState?.last_scanned_at, timeframe)) {
-        continue;
-      }
+    const candleCache = new Map();
+    await Promise.all(
+      Array.from(new Set([...getScannableTimeframes(), "5m", "15m", "1h", "4h", "1d"])).map(async (timeframe) => {
+        try {
+          const snapshot = await buildMarketSnapshot(coin, timeframe, { candleCache });
+          candleCache.set(`${coin}|${timeframe}|snapshot`, snapshot);
+        } catch (error) {
+          errors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
+        }
+      }),
+    );
 
+    for (const timeframe of dueTimeframes) {
+      const previousState = scanState.get(`${coin}|${timeframe}`);
       try {
-        const snapshot = await buildMarketSnapshot(coin, timeframe);
+        const snapshot = candleCache.get(`${coin}|${timeframe}|snapshot`) || await buildMarketSnapshot(coin, timeframe, { candleCache });
         scannedFrames += 1;
         let createdSignalAt = previousState?.last_signal_created_at || null;
 

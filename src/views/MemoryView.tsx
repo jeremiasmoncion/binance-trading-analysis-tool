@@ -4,7 +4,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
-import { showToast, startLoading, stopLoading } from "../lib/ui-events";
+import { openHelp, showToast, startLoading, stopLoading } from "../lib/ui-events";
 import { binanceService, strategyEngineService, watchlistService } from "../services/api";
 import type {
   ExecutionCenterPayload,
@@ -409,11 +409,6 @@ export function MemoryView(props: MemoryViewProps) {
     [experimentCandidate, versions],
   );
 
-  const selectedCandidateVersionProfile = useMemo(
-    () => versions.find((item) => item.strategy_id === experimentCandidate && item.version === experimentVersion),
-    [experimentCandidate, experimentVersion, versions],
-  );
-
   useEffect(() => {
     if (!availableCandidateVersions.length) return;
     if (!availableCandidateVersions.some((item) => item.version === experimentVersion)) {
@@ -664,32 +659,6 @@ export function MemoryView(props: MemoryViewProps) {
 
       {activeTab === "overview" ? (
         <>
-          <SectionCard
-            title="Cómo leer este centro"
-            subtitle="Aquí conviven dos capas: lo que el sistema hace solo por ti y lo que tú todavía puedes revisar o ajustar manualmente."
-            helpTitle="Lectura del centro"
-            helpBody="Esta primera tarjeta te ayuda a distinguir entre automatizacion real del sistema y controles que aun dependen de tu criterio."
-          >
-            <div className="signal-analytics-grid">
-              <InfoCard
-                title="Lo hace solo"
-                text="Vigila tu watchlist, detecta oportunidades, abre señales y les da seguimiento aunque no tengas la app abierta."
-              />
-              <InfoCard
-                title="Lo revisas tú"
-                text="Puedes cambiar estados, corregir notas, crear pruebas manuales y decidir qué lista alimenta el sistema."
-              />
-              <InfoCard
-                title="Señal abierta"
-                text="Es una oportunidad que sigue viva: aún no ha llegado al objetivo ni al stop, o no se ha cerrado manualmente."
-              />
-              <InfoCard
-                title="Prueba segura"
-                text="Es una variante nueva que el sistema observa con cuidado antes de recomendar usarla más fuerte."
-              />
-            </div>
-          </SectionCard>
-
           <div className="stats-grid">
             <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Historial técnico registrado" accentClass="accent-blue" />
             <StatCard label="Porcentaje de acierto" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas de ${completedSignals.length} cerradas`} accentClass="accent-green" />
@@ -742,30 +711,6 @@ export function MemoryView(props: MemoryViewProps) {
                 value={scannerStatus?.latestRun ? `${scannerStatus.latestRun.signals_created} / ${scannerStatus.latestRun.signals_closed}` : "--"}
                 sub="Nuevas creadas / cerradas por objetivo o stop"
                 accentClass="accent-green"
-              />
-            </div>
-            <div className="signal-analytics-grid compact-top-gap">
-              <InfoCard
-                title="Qué está vigilando"
-                text={scannerStatus?.targets?.[0]?.coins?.length
-                  ? scannerStatus.targets[0].coins.join(", ")
-                  : "Todavía no hay monedas activas en la lista de seguimiento."}
-              />
-              <InfoCard
-                title="Cómo trabaja"
-                text="Revisa las monedas del watchlist en los marcos ideales de cada estrategia y guarda una señal si detecta una oportunidad fuerte."
-              />
-              <InfoCard
-                title="Cómo cambia el estado"
-                text="Cuando una señal está abierta, compara el precio actual con su TP y su SL. Si toca objetivo, la marca como ganada. Si toca stop, la marca como perdida."
-              />
-              <InfoCard
-                title="Origen de la revisión"
-                text={scannerStatus?.latestRun
-                  ? scannerStatus.latestRun.scan_source === "scheduler"
-                    ? "La última revisión la hizo el programador automático del sistema."
-                    : "La última revisión se ejecutó manualmente desde la app."
-                  : "Cuando corra el vigilante, aquí verás si fue automática o manual."}
               />
             </div>
           </SectionCard>
@@ -827,32 +772,16 @@ export function MemoryView(props: MemoryViewProps) {
             subtitle="Aquí ves qué estrategia está liderando, cuál le compite más de cerca y cuál parece más prometedora."
             helpTitle="Motor de estrategias"
             helpBody="Aqui comparas que estrategia esta ganando mas veces, cual queda cerca como alternativa y si una version nueva empieza a sacar ventaja."
+            helpBullets={[
+              strategyPrimaryCounts[0]
+                ? `${strategyPrimaryCounts[0].label} es la estrategia que más veces quedó principal en ${periodLabel}.`
+                : "Todavía no hay suficiente historial para definir una estrategia dominante.",
+              strongestAlternative
+                ? `${strongestAlternative.label} es la alternativa que más compite cerca del resultado final.`
+                : "Cuando varias estrategias compitan de verdad, aquí verás cuál se acerca más a la principal.",
+              `${trendPromotionRecommendation.title}. ${trendPromotionRecommendation.reason}`,
+            ]}
           >
-            <div className="signal-analytics-grid">
-              <InfoCard
-                title="La que más manda"
-                text={strategyPrimaryCounts[0]
-                  ? `${strategyPrimaryCounts[0].label} es la estrategia que más veces terminó siendo la lectura principal en ${periodLabel}.`
-                  : "Todavía no hay suficiente historial para definir una estrategia dominante."}
-              />
-              <InfoCard
-                title="La que más compite"
-                text={strongestAlternative
-                  ? `${strongestAlternative.label} es la alternativa que más veces apareció cerca del resultado final del motor.`
-                  : "Cuando varias estrategias compitan de verdad, aquí verás cuál está más cerca de destronar a la principal."}
-              />
-              <InfoCard
-                title="Qué sugiere el sistema"
-                text={`${trendPromotionRecommendation.title}. ${trendPromotionRecommendation.reason}`}
-              />
-              <InfoCard
-                title="Para qué tipo de trading sirve"
-                text={strategyPrimaryCounts[0]
-                  ? getStrategyStyleSummary(strategyPrimaryCounts[0].label, versions)
-                  : "Cuando haya suficiente historial, aquí verás si la estrategia dominante sirve mejor para scalping, intradía o swing."}
-              />
-            </div>
-
             <div className="stats-grid">
               <StatCard label="Estrategias activas" value={String(registry.filter((item) => item.is_active).length)} sub={`${registry.length} registradas en el motor`} accentClass="accent-blue" />
               <StatCard label="Versiones registradas" value={String(versions.length)} sub="Variantes disponibles para comparar" accentClass="accent-emerald" />
@@ -882,75 +811,12 @@ export function MemoryView(props: MemoryViewProps) {
             subtitle="Primero entiende el tablero: qué hace el sistema solo, qué puedes construir tú y qué pruebas ya están corriendo."
             helpTitle="Mapa de automatizacion"
             helpBody="Esta pestaña explica el flujo completo desde la deteccion de una idea hasta la prueba segura y el aprendizaje posterior."
+            helpBullets={[
+              "El sistema detecta una mejora potencial antes de tocar nada importante.",
+              "Luego crea una prueba y compara base contra candidata en contexto controlado.",
+              "Con esos resultados decide si insistir, observar o descartar la variante.",
+            ]}
           >
-            <GuideAccordion
-              title="Cómo usar esta pestaña paso a paso"
-              subtitle="Ábrela cuando quieras entender el flujo sin leer términos técnicos."
-              defaultOpen
-            >
-              <div className="signal-step-grid">
-                <StepCard
-                  step="1"
-                  title="El sistema detecta una idea"
-                  text="Si ve que una estrategia nueva podría mejorar, la marca como candidata en vez de cambiarla directamente."
-                />
-                <StepCard
-                  step="2"
-                  title="La manda a prueba segura"
-                  text="Primero la observa en un entorno controlado para comparar si realmente supera a la versión base."
-                />
-                <StepCard
-                  step="3"
-                  title="Tú puedes intervenir"
-                  text="También puedes crear pruebas manuales si quieres comparar estrategias o versiones por tu cuenta."
-                />
-                <StepCard
-                  step="4"
-                  title="Luego la IA aprende"
-                  text="Con esos resultados, la IA entiende qué funciona mejor y en qué contexto conviene seguir insistiendo."
-                />
-              </div>
-            </GuideAccordion>
-
-            <div className="automation-flow-grid">
-              <AutomationFlowCard
-                eyebrow="Fase 1"
-                title="El sistema detecta"
-                text="Revisa resultados, nota una oportunidad y arma una propuesta inicial sin cambiar nada importante."
-              />
-              <AutomationFlowCard
-                eyebrow="Fase 2"
-                title="Se crea una prueba"
-                text="La idea nueva pasa a borrador o prueba segura para que compita con la estrategia actual."
-              />
-              <AutomationFlowCard
-                eyebrow="Fase 3"
-                title="Se compara"
-                text="La base y la candidata se miden en el mismo contexto para ver quién rinde mejor."
-              />
-              <AutomationFlowCard
-                eyebrow="Fase 4"
-                title="La IA aprende"
-                text="Con ese resultado, el sistema decide si seguir observando, insistir o descartar la variante."
-              />
-            </div>
-
-            <div className="automation-overview-grid">
-              <div className="automation-module automation-module-auto">
-                <span className="automation-module-kicker">Automático</span>
-                <h4>Lo que el sistema hace por su cuenta</h4>
-                <p>
-                  Detecta una mejora, la propone, crea una candidata y puede mandarla a prueba segura sin que tengas que construir todo a mano.
-                </p>
-              </div>
-              <div className="automation-module automation-module-manual">
-                <span className="automation-module-kicker">Manual</span>
-                <h4>Lo que sigues controlando tú</h4>
-                <p>
-                  Tú decides si crear una prueba propia, cambiar el enfoque, dejar una variante solo en observación o ignorar una propuesta.
-                </p>
-              </div>
-            </div>
             <div className="automation-status-banner">
               <div className="automation-status-copy">
                 <span className="automation-kicker">Decisión actual del sistema</span>
@@ -988,21 +854,14 @@ export function MemoryView(props: MemoryViewProps) {
             subtitle="Si quieres intervenir tú mismo, aquí comparas estrategias o versiones antes de dejarlas crecer dentro del sistema."
             helpTitle="Zona manual"
             helpBody="Aqui armas pruebas propias entre estrategia base y candidata para comparar versiones sin tocar produccion."
+            helpBullets={[
+              "Base: estrategia actual que usas como referencia.",
+              "Candidata: idea nueva que quieres someter a prueba.",
+              "Mercado, marcos y objetivo: contexto exacto donde se hara la comparacion.",
+            ]}
           >
             <div className="automation-manual-layout">
               <div className="automation-manual-main">
-                <GuideAccordion
-                  title="Qué estás construyendo aquí"
-                  subtitle="Abre esto si quieres una explicación simple de cada campo."
-                >
-                  <div className="signal-step-grid">
-                    <StepCard step="A" title="Base" text="La estrategia actual que tomarás como referencia." />
-                    <StepCard step="B" title="Candidata" text="La estrategia o versión nueva que quieres poner a competir." />
-                    <StepCard step="C" title="Mercado y marcos" text="Aquí defines en qué contexto quieres probar esa comparación." />
-                    <StepCard step="D" title="Objetivo de la prueba" text="Escribe qué quieres validar para luego entender el resultado con claridad." />
-                  </div>
-                </GuideAccordion>
-
                 <div className="experiment-builder-grid">
                   <FieldGuideCard
                     title="Paso 1 · Estrategia base"
@@ -1057,20 +916,6 @@ export function MemoryView(props: MemoryViewProps) {
                     </select>
                   </FieldGuideCard>
                 </div>
-                <div className="signal-analytics-grid compact-top-gap">
-                  <InfoCard
-                    title="Cómo opera la candidata"
-                    text={selectedCandidateVersionProfile
-                      ? `${getFriendlyTradingStyle(selectedCandidateVersionProfile.trading_style || "")} · mejor en ${getPreferredTimeframeScopeForVersion(selectedCandidateVersionProfile).split(",").join(" / ")}.`
-                      : "Selecciona una versión candidata para ver su estilo operativo."}
-                  />
-                  <InfoCard
-                    title="Dónde rinde mejor"
-                    text={selectedCandidateVersionProfile?.ideal_market_conditions?.length
-                      ? selectedCandidateVersionProfile.ideal_market_conditions.join(", ")
-                      : "Todavía sin contexto ideal definido para esta variante."}
-                  />
-                </div>
                 <div className="signal-note-block with-bottom-gap">
                   <input
                     className="signal-memory-input"
@@ -1086,23 +931,6 @@ export function MemoryView(props: MemoryViewProps) {
                   Crear prueba manual
                 </button>
               </div>
-
-              <aside className="automation-manual-side">
-                <div className="automation-side-card">
-                  <span className="automation-module-kicker">Qué estás haciendo</span>
-                  <h4>Estás creando una comparación nueva</h4>
-                  <p>
-                    La base representa lo actual. La candidata representa la idea nueva. El sistema luego comparará ambas antes de confiar en la nueva.
-                  </p>
-                </div>
-                <div className="automation-side-card">
-                  <span className="automation-module-kicker">Sugerencia base</span>
-                  <h4>La comparación más lógica hoy</h4>
-                  <p>
-                    Comparar <strong>Tendencia alineada v1</strong> vs <strong>Tendencia alineada v2</strong> en tu watchlist y en marcos <strong>1h / 4h</strong>.
-                  </p>
-                </div>
-              </aside>
             </div>
 
             <div className="automation-subsection">
@@ -1190,23 +1018,17 @@ export function MemoryView(props: MemoryViewProps) {
             subtitle="Aquí el sistema observa resultados reales y propone cambios concretos. Todavía no toca producción: solo recomienda y deja evidencia."
             helpTitle="IA que aprende"
             helpBody="La capa adaptativa analiza historial cerrado y propone ajustes concretos, pero todavia no cambia produccion por su cuenta."
+            helpBullets={[
+              "Detecta patrones en el historial real.",
+              "Propone un ajuste concreto para probarlo primero.",
+              "No promueve versiones ni cambia parametros sola en produccion.",
+            ]}
             actions={
               <button className="btn-secondary-soft" type="button" onClick={() => void handleGenerateRecommendations()}>
                 Generar sugerencias
               </button>
             }
           >
-            <div className="signal-analytics-grid">
-              <InfoCard
-                title="Qué hace la IA aquí"
-                text="La IA revisa el historial real, detecta patrones y propone un ajuste concreto para probarlo antes en una prueba segura."
-              />
-              <InfoCard
-                title="Qué todavía no hace"
-                text="No cambia parámetros sola, no promueve versiones a producción y no opera por su cuenta. Solo recomienda el siguiente ajuste razonable."
-              />
-            </div>
-
             <div className="stats-grid">
               <StatCard label="Sugerencias activas" value={String(recommendations.length)} sub="Ajustes abiertos en observación" accentClass="accent-blue" />
               <StatCard label="Confianza alta" value={String(recommendations.filter((item) => Number(item.confidence || 0) >= 0.75).length)} sub="Sugerencias con evidencia más fuerte" accentClass="accent-emerald" />
@@ -1239,18 +1061,12 @@ export function MemoryView(props: MemoryViewProps) {
             subtitle="Aquí conviertes una señal abierta en un trade candidato. Primero pasa por reglas de riesgo y luego decides si la envías como orden demo."
             helpTitle="Puente a Binance Demo"
             helpBody="Esta capa toma señales abiertas, las traduce a candidatos de ejecucion y revisa si respetan tu perfil de riesgo antes de permitir una orden demo."
+            helpBullets={[
+              "Toma señales abiertas y las convierte en candidatos de ejecucion.",
+              "Revisa si respetan tu perfil de riesgo.",
+              "Todavia deja el envio real como paso manual.",
+            ]}
           >
-            <div className="signal-analytics-grid">
-              <InfoCard
-                title="Qué hace esta capa"
-                text="Toma señales abiertas, revisa si respetan tu perfil de riesgo y te dice cuáles están listas para operar en Binance Demo."
-              />
-              <InfoCard
-                title="Qué todavía no hace sola"
-                text="Todavía no dispara órdenes automáticas por su cuenta. Primero las valida, las prepara y te deja el botón de ejecución manual."
-              />
-            </div>
-
             <div className="stats-grid">
               <StatCard
                 label="Cuenta demo"
@@ -1406,15 +1222,6 @@ export function MemoryView(props: MemoryViewProps) {
               "Los filtros te ayudan a bajar rapido a moneda, estado, marco o setup.",
             ]}
           >
-            <p className="section-note with-bottom-gap">
-              Monedas en watchlist: {props.watchlist.length ? props.watchlist.join(", ") : "todavía no has marcado ninguna con estrella"}.
-            </p>
-            <p className="section-note with-bottom-gap">
-              `Abierta` significa que la señal sigue activa: todavía no ha tocado el objetivo ni la invalidación, o aún no la has cerrado manualmente.
-            </p>
-            <p className="section-note with-bottom-gap">
-              `Activa` es la estrategia que ganó en esa lectura. `Alternativa` te enseña qué otra estrategia estuvo cerca para que entiendas por qué el motor eligió una y no otra.
-            </p>
             <div className="memory-filter-bar">
               <select className="timeframe-select signal-select" value={periodFilter} onChange={(event) => setPeriodFilter(event.target.value as "all" | "1d" | "7d" | "30d")}>
                 <option value="all">Todo el historial</option>
@@ -1533,41 +1340,6 @@ function summarizeByKey(signals: SignalSnapshot[], getKey: (signal: SignalSnapsh
     .sort((a, b) => b.pnl - a.pnl || b.winRate - a.winRate || b.total - a.total);
 }
 
-function GuideAccordion({
-  title,
-  subtitle,
-  defaultOpen = false,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <details className="guide-accordion" open={defaultOpen}>
-      <summary className="guide-accordion-summary">
-        <div>
-          <strong>{title}</strong>
-          <span>{subtitle}</span>
-        </div>
-        <span className="guide-accordion-toggle">Expandir / minimizar</span>
-      </summary>
-      <div className="guide-accordion-body">{children}</div>
-    </details>
-  );
-}
-
-function StepCard({ step, title, text }: { step: string; title: string; text: string }) {
-  return (
-    <div className="step-card">
-      <span className="step-card-badge">{step}</span>
-      <strong>{title}</strong>
-      <p>{text}</p>
-    </div>
-  );
-}
-
 function FieldGuideCard({
   title,
   text,
@@ -1579,38 +1351,18 @@ function FieldGuideCard({
 }) {
   return (
     <div className="field-guide-card">
-      <label className="field-guide-title">{title}</label>
-      <p className="field-guide-copy">{text}</p>
-      {children}
-    </div>
-  );
-}
-
-function AutomationFlowCard({
-  eyebrow,
-  title,
-  text,
-}: {
-  eyebrow: string;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="automation-flow-card">
-      <span className="automation-flow-eyebrow">{eyebrow}</span>
-      <strong>{title}</strong>
-      <p>{text}</p>
-    </div>
-  );
-}
-
-function InfoCard({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="signal-analytics-card">
-      <div className="signal-analytics-head">
-        <h4>{title}</h4>
-        <p>{text}</p>
+      <div className="signal-field-head">
+        <label className="field-guide-title">{title}</label>
+        <button
+          type="button"
+          className="card-help-button signal-inline-help"
+          aria-label={`Ayuda sobre ${title}`}
+          onClick={() => openHelp({ title, body: text })}
+        >
+          ?
+        </button>
       </div>
+      {children}
     </div>
   );
 }
@@ -2078,13 +1830,6 @@ function getFriendlyStrategyVersionLabel(strategyId: string, version: string, la
   return `${getFriendlyStrategyName(strategyId, label)} ${version}`;
 }
 
-function getFriendlyTradingStyle(style?: string) {
-  if (style === "scalping / intradía") return "Scalping / intradía";
-  if (style === "intradía") return "Intradía";
-  if (style === "swing corto") return "Swing corto";
-  return style || "Sin perfil";
-}
-
 function getSampleStrength(sampleSize: number) {
   if (sampleSize >= 12) {
     return { label: "Fuerte", className: "sandbox" };
@@ -2097,21 +1842,6 @@ function getSampleStrength(sampleSize: number) {
 
 function getPreferredTimeframeScopeForVersion(version?: StrategyVersionRecord) {
   return version?.preferred_timeframes?.length ? version.preferred_timeframes.join(",") : "all";
-}
-
-function getStrategyStyleSummary(strategyLabel: string, versions: StrategyVersionRecord[]) {
-  const normalized = strategyLabel.toLowerCase();
-  const version = versions.find((item) => {
-    const candidateLabel = getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label).toLowerCase();
-    return candidateLabel === normalized;
-  });
-
-  if (!version) {
-    return "Todavía no hay perfil operativo claro guardado para esa estrategia.";
-  }
-
-  const frames = getPreferredTimeframeScopeForVersion(version).split(",").join(" / ");
-  return `${getFriendlyTradingStyle(version.trading_style || "")} · mejor en ${frames} · perfil ${version.holding_profile || "mixto"}.`;
 }
 
 function getCandidateSummary(signal: SignalSnapshot) {

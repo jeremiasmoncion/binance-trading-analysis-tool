@@ -63,6 +63,16 @@ interface ExperimentPaperStats {
   candidateRunnable: boolean;
 }
 
+interface SignalCohortStats {
+  total: number;
+  wins: number;
+  pnl: number;
+  winRate: number;
+  avgPnl: number;
+  avgScore: number;
+  avgRr: number;
+}
+
 const RUNNABLE_STRATEGY_VERSION_KEYS = new Set([
   "trend-alignment:v1",
   "trend-alignment:v2",
@@ -511,6 +521,43 @@ export function MemoryView(props: MemoryViewProps) {
     operationalOpenSignals.length,
     topBlockedReason,
   ]);
+  const closedSignals = useMemo(
+    () => props.signals.filter((item) => item.outcome_status !== "pending"),
+    [props.signals],
+  );
+  const executedClosedSignals = useMemo(
+    () => closedSignals.filter((item) => item.execution_mode === "execute" || Boolean(item.execution_order_id)),
+    [closedSignals],
+  );
+  const operationalClosedSignals = useMemo(
+    () => closedSignals.filter((item) => item.signal_payload?.decision?.executionEligible === true),
+    [closedSignals],
+  );
+  const skippedOperationalClosedSignals = useMemo(
+    () => operationalClosedSignals.filter((item) => item.execution_mode !== "execute" && !item.execution_order_id),
+    [operationalClosedSignals],
+  );
+  const blockedOrObservationClosedSignals = useMemo(
+    () => closedSignals.filter((item) => item.signal_payload?.decision?.executionEligible === false),
+    [closedSignals],
+  );
+  const executedClosedStats = useMemo(() => summarizeSignalCohort(executedClosedSignals), [executedClosedSignals]);
+  const skippedOperationalStats = useMemo(() => summarizeSignalCohort(skippedOperationalClosedSignals), [skippedOperationalClosedSignals]);
+  const blockedObservationStats = useMemo(() => summarizeSignalCohort(blockedOrObservationClosedSignals), [blockedOrObservationClosedSignals]);
+  const eligibleOpenStats = useMemo(() => summarizeCandidateCohort(eligibleExecutionCandidates), [eligibleExecutionCandidates]);
+  const blockedOpenStats = useMemo(() => summarizeCandidateCohort(blockedExecutionCandidates), [blockedExecutionCandidates]);
+  const executionAuditInsight = useMemo(() => {
+    if (skippedOperationalStats.total >= 5 && skippedOperationalStats.avgPnl > executedClosedStats.avgPnl) {
+      return `Las operativas no ejecutadas están dejando ${formatSignedPrice(skippedOperationalStats.avgPnl)} por señal frente a ${formatSignedPrice(executedClosedStats.avgPnl)} en las ejecutadas. El filtro actual podría estar dejando ventaja fuera.`;
+    }
+    if (executedClosedStats.total >= 5 && executedClosedStats.avgPnl > skippedOperationalStats.avgPnl) {
+      return `Las señales que sí llegan a demo están dejando mejor promedio (${formatSignedPrice(executedClosedStats.avgPnl)}) que las operativas no ejecutadas (${formatSignedPrice(skippedOperationalStats.avgPnl)}).`;
+    }
+    if (blockedObservationStats.total >= 5 && blockedObservationStats.winRate > executedClosedStats.winRate) {
+      return `Las señales fuera de demo están ganando ${blockedObservationStats.winRate.toFixed(0)}% frente a ${executedClosedStats.winRate.toFixed(0)}% en demo. Conviene revisar si el filtro está demasiado rígido.`;
+    }
+    return "Todavía hace falta más muestra comparativa para decidir si demo está filtrando mejor o si está dejando fuera parte del edge.";
+  }, [blockedObservationStats, executedClosedStats, skippedOperationalStats]);
 
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
@@ -1443,6 +1490,29 @@ export function MemoryView(props: MemoryViewProps) {
           </SectionCard>
 
           <SectionCard
+            title="Auditoría del filtro demo"
+            subtitle="Aquí comparas si el filtro demo está seleccionando mejor o si está dejando fuera señales con ventaja."
+            helpTitle="Auditoria del filtro demo"
+            helpBody="Esta vista compara cohortes reales: señales ejecutadas, operativas no ejecutadas y señales fuera del flujo demo para ver si el filtro está alineado con el edge del sistema."
+          >
+            <div className="stats-grid">
+              <StatCard label="Ejecutadas cerradas" value={String(executedClosedStats.total)} sub={`${executedClosedStats.winRate.toFixed(0)}% acierto · ${formatSignedPrice(executedClosedStats.pnl)}`} toneClass={executedClosedStats.pnl > 0 ? "portfolio-positive" : executedClosedStats.pnl < 0 ? "portfolio-negative" : ""} accentClass="accent-green" />
+              <StatCard label="Operativas no ejecutadas" value={String(skippedOperationalStats.total)} sub={`${skippedOperationalStats.winRate.toFixed(0)}% acierto · ${formatSignedPrice(skippedOperationalStats.pnl)}`} toneClass={skippedOperationalStats.pnl > 0 ? "portfolio-positive" : skippedOperationalStats.pnl < 0 ? "portfolio-negative" : ""} accentClass="accent-blue" />
+              <StatCard label="Fuera de demo" value={String(blockedObservationStats.total)} sub={`${blockedObservationStats.winRate.toFixed(0)}% acierto · ${formatSignedPrice(blockedObservationStats.pnl)}`} toneClass={blockedObservationStats.pnl > 0 ? "portfolio-positive" : blockedObservationStats.pnl < 0 ? "portfolio-negative" : ""} accentClass="accent-amber" />
+              <StatCard label="Bloqueo principal" value={blockedExecutionCandidates.length ? String(blockedExecutionCandidates.length) : "--"} sub={topBlockedReason || "Sin bloqueos actuales"} accentClass="accent-amber" />
+            </div>
+            <div className="stats-grid compact-stats-grid">
+              <StatCard label="Score medio elegibles" value={eligibleOpenStats.total ? eligibleOpenStats.avgScore.toFixed(1) : "--"} sub={eligibleOpenStats.total ? `RR medio ${eligibleOpenStats.avgRr.toFixed(2)}` : "Sin elegibles ahora"} accentClass="accent-emerald" />
+              <StatCard label="Score medio bloqueadas" value={blockedOpenStats.total ? blockedOpenStats.avgScore.toFixed(1) : "--"} sub={blockedOpenStats.total ? `RR medio ${blockedOpenStats.avgRr.toFixed(2)}` : "Sin bloqueadas ahora"} accentClass="accent-blue" />
+              <StatCard label="PnL medio ejecutadas" value={executedClosedStats.total ? formatSignedPrice(executedClosedStats.avgPnl) : "--"} sub="Promedio por señal cerrada en demo" toneClass={executedClosedStats.avgPnl > 0 ? "portfolio-positive" : executedClosedStats.avgPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-green" />
+              <StatCard label="PnL medio omitidas" value={skippedOperationalStats.total ? formatSignedPrice(skippedOperationalStats.avgPnl) : "--"} sub="Operativas que no llegaron a demo" toneClass={skippedOperationalStats.avgPnl > 0 ? "portfolio-positive" : skippedOperationalStats.avgPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-amber" />
+            </div>
+            <p className="section-note with-top-gap">
+              {executionAuditInsight}
+            </p>
+          </SectionCard>
+
+          <SectionCard
             title="Intentos y órdenes demo recientes"
             subtitle="Aquí queda el rastro de previews, bloqueos y órdenes que ya salieron hacia Binance Demo."
             helpTitle="Intentos y ordenes demo"
@@ -1604,6 +1674,46 @@ function summarizeByKey(signals: SignalSnapshot[], getKey: (signal: SignalSnapsh
       winRate: stats.total ? (stats.wins / stats.total) * 100 : 0,
     }))
     .sort((a, b) => b.pnl - a.pnl || b.winRate - a.winRate || b.total - a.total);
+}
+
+function summarizeSignalCohort(signals: SignalSnapshot[]): SignalCohortStats {
+  const total = signals.length;
+  const wins = signals.filter((item) => item.outcome_status === "win").length;
+  const pnl = signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
+  const avgScore = total
+    ? signals.reduce((sum, item) => sum + Number(item.signal_score || 0), 0) / total
+    : 0;
+  const rrSignals = signals.filter((item) => Number(item.rr_ratio || 0) > 0);
+  const avgRr = rrSignals.length
+    ? rrSignals.reduce((sum, item) => sum + Number(item.rr_ratio || 0), 0) / rrSignals.length
+    : 0;
+
+  return {
+    total,
+    wins,
+    pnl,
+    winRate: total ? (wins / total) * 100 : 0,
+    avgPnl: total ? pnl / total : 0,
+    avgScore,
+    avgRr,
+  };
+}
+
+function summarizeCandidateCohort(candidates: ExecutionCandidate[]) {
+  const total = candidates.length;
+  const avgScore = total
+    ? candidates.reduce((sum, item) => sum + Number(item.score || 0), 0) / total
+    : 0;
+  const rrCandidates = candidates.filter((item) => Number(item.rrRatio || 0) > 0);
+  const avgRr = rrCandidates.length
+    ? rrCandidates.reduce((sum, item) => sum + Number(item.rrRatio || 0), 0) / rrCandidates.length
+    : 0;
+
+  return {
+    total,
+    avgScore,
+    avgRr,
+  };
 }
 
 function FieldGuideCard({

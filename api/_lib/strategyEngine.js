@@ -700,6 +700,8 @@ function buildExecutionScopeOverrideRecommendations(signals, profile) {
       continue;
     }
 
+    const confidence = Math.min(0.94, 0.54 + stats.total * 0.025 + Math.abs(stats.pnl) / 180);
+    const status = stats.total >= 8 && confidence >= 0.7 ? "sandbox" : "draft";
     recommendations.push({
       recommendation_key: `execution-scope:${group.strategyId}:${group.timeframe}:${strongPerformance ? "relax" : "tighten"}`,
       strategy_id: group.strategyId,
@@ -713,8 +715,8 @@ function buildExecutionScopeOverrideRecommendations(signals, profile) {
         : `Este scope está dejando una lectura floja. Conviene subir el filtro demo aquí antes de seguir ejecutándolo igual que el resto.`,
       current_value: thresholds.minSignalScore,
       suggested_value: suggestedScore,
-      confidence: Math.min(0.94, 0.54 + stats.total * 0.025 + Math.abs(stats.pnl) / 180),
-      status: "draft",
+      confidence,
+      status,
       evidence: {
         recommendationType: "execution-scope-override",
         timeframe: group.timeframe,
@@ -729,11 +731,41 @@ function buildExecutionScopeOverrideRecommendations(signals, profile) {
         suggestedMinRrRatio: Number(suggestedRr.toFixed(2)),
         scopeStrength: strongPerformance ? "strong" : "weak",
         overrideAlreadyPresent: Boolean(thresholds.override),
+        promotionMode: strongPerformance ? "manual-relax" : "controlled-tighten",
       },
     });
   }
 
   return recommendations;
+}
+
+function mergeRecommendationRow(existing, nextRow) {
+  if (!existing) return nextRow;
+  const preservedEvidence = existing.evidence && typeof existing.evidence === "object" ? existing.evidence : {};
+  const nextEvidence = nextRow.evidence && typeof nextRow.evidence === "object" ? nextRow.evidence : {};
+  const preservedStatus = existing.status === "active" || existing.status === "sandbox" ? existing.status : nextRow.status;
+  return {
+    ...nextRow,
+    id: existing.id,
+    status: preservedStatus,
+    evidence: {
+      ...nextEvidence,
+      ...preservedEvidence,
+      ...nextEvidence,
+    },
+  };
+}
+
+function shouldAutoApplyScopeRecommendation(recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  return (
+    evidence.recommendationType === "execution-scope-override"
+    && recommendation.status === "sandbox"
+    && evidence.scopeStrength === "weak"
+    && Number(evidence.sampleSize || 0) >= 12
+    && Number(recommendation.confidence || 0) >= 0.78
+    && !evidence.appliedAt
+  );
 }
 
 function buildRecommendationRows(signals, versions, executionProfile) {
@@ -893,13 +925,16 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     limit: "300",
   });
 
-  const [versions, signals, executionProfile] = await Promise.all([
+  const [versions, signals, executionProfile, existingRecommendations] = await Promise.all([
     supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionParams.toString()}`),
     supabaseRequest(`${SIGNALS_TABLE}?${signalsParams.toString()}`),
     getExecutionProfileForUser(normalizedUsername),
+    supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?select=*`).catch(() => []),
   ]);
 
-  const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile);
+  const existingByKey = new Map((existingRecommendations || []).map((item) => [item.recommendation_key, item]));
+  const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile)
+    .map((item) => mergeRecommendationRow(existingByKey.get(item.recommendation_key), item));
   if (!rowsToUpsert.length) return [];
 
   const rows = await supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?on_conflict=recommendation_key`, {
@@ -908,7 +943,16 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     body: rowsToUpsert,
   });
 
-  return rows || [];
+  const finalRows = [];
+  for (const row of rows || []) {
+    if (shouldAutoApplyScopeRecommendation(row)) {
+      finalRows.push((await applyExecutionScopeRecommendation(normalizedUsername, row)).recommendation);
+      continue;
+    }
+    finalRows.push(row);
+  }
+
+  return finalRows;
 }
 
 function getRecommendationVariantVersion(baseVersion, versions, recommendationId) {
@@ -1021,6 +1065,27 @@ export async function activateAdaptiveRecommendation(req) {
 
   const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
   if (evidence.recommendationType === "execution-scope-override") {
+    if (recommendation.status === "draft") {
+      const sandboxRows = await supabaseRequest(
+        `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
+        {
+          method: "PATCH",
+          headers: { Prefer: "return=representation" },
+          body: {
+            status: "sandbox",
+            evidence: {
+              ...evidence,
+              sandboxAt: new Date().toISOString(),
+            },
+          },
+        },
+      );
+      return {
+        recommendation: sandboxRows?.[0] || { ...recommendation, status: "sandbox" },
+        profile: null,
+        activationMode: "execution-scope-override",
+      };
+    }
     return applyExecutionScopeRecommendation(session.username, recommendation);
   }
 

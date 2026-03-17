@@ -2370,12 +2370,16 @@ function AdaptiveRecommendationCard({
   const appliedScope = evidence.appliedOverride && typeof evidence.appliedOverride === "object"
     ? evidence.appliedOverride as { strategyId?: string; timeframe?: string }
     : null;
+  const scopeStrength = String(evidence.scopeStrength || "");
+  const isScopeSandbox = isScopeRecommendation && item.status === "sandbox" && !appliedScope;
   const activationLabel = isScopeRecommendation
     ? isActivating
       ? "Aplicando override..."
       : item.status === "active"
         ? "Override aplicado al perfil demo"
-        : "Aplicar al perfil demo"
+        : item.status === "sandbox"
+          ? "Promover al perfil demo"
+          : "Mandar a prueba segura"
     : isActivating
       ? "Creando candidata..."
       : "Crear candidata y mandar a prueba segura";
@@ -2429,6 +2433,18 @@ function AdaptiveRecommendationCard({
         Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}{isScopeRecommendation && typeof evidence.avgScore === "number" ? ` · score medio ${Number(evidence.avgScore).toFixed(1)}` : ""}{isScopeRecommendation && typeof evidence.avgRr === "number" ? ` · RR medio ${Number(evidence.avgRr).toFixed(2)}` : ""}.
       </p>
 
+      {isScopeRecommendation ? (
+        <p className="section-note">
+          {item.status === "draft"
+            ? "Todavía está en borrador: primero la mandas a prueba segura antes de tocar el perfil demo."
+            : item.status === "sandbox"
+              ? scopeStrength === "weak"
+                ? "Ya pasó a prueba segura. Si confirmas, este override endurece el filtro demo para cortar setups flojos en este scope."
+                : "Ya pasó a prueba segura. Si confirmas, este override abre un poco el filtro demo en un scope que viene rindiendo mejor."
+              : "Este ajuste ya quedó aplicado al perfil demo y participa en el filtro operativo actual."}
+        </p>
+      ) : null}
+
       <div className="inline-actions with-top-gap">
         {hasSandbox ? (
           <>
@@ -2447,6 +2463,15 @@ function AdaptiveRecommendationCard({
             <span className="signal-analytics-pill status-running">
               Perfil demo actualizado
             </span>
+          </>
+        ) : isScopeSandbox ? (
+          <>
+            <span className="signal-status-note">
+              Estado actual: <span className="text-strong">Prueba segura del filtro demo</span>
+            </span>
+            <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onActivate} disabled={isActivating}>
+              {activationLabel}
+            </button>
           </>
         ) : (
           <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onActivate} disabled={isActivating}>

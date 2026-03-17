@@ -3025,6 +3025,11 @@ function PaperTestingCard({
   onPromote: () => void;
   isPromoting: boolean;
 }) {
+  const metadata = item.experiment.metadata || {};
+  const isAdaptivePrimaryChallenge = metadata.createdFrom === "adaptive-primary-promotion";
+  const challengedTimeframe = typeof metadata.timeframe === "string" ? metadata.timeframe : item.experiment.timeframe_scope || "all";
+  const explicitBaseVersion = typeof metadata.baseVersion === "string" ? metadata.baseVersion : "";
+  const explicitCandidateVersion = typeof metadata.candidateVersion === "string" ? metadata.candidateVersion : "";
   const delta = item.comparableSampleReady ? item.candidatePrimaryPnl - item.basePrimaryPnl : null;
   const deltaClass = delta != null && delta > 0 ? "portfolio-positive" : delta != null && delta < 0 ? "portfolio-negative" : "";
   const candidateLine = item.candidateClosedCount
@@ -3043,8 +3048,21 @@ function PaperTestingCard({
     <div className="signal-analytics-card">
       <div className="signal-analytics-head">
         <h4>{item.baseLabel} vs {item.candidateLabel}</h4>
-        <p>{formatMarketScope(item.experiment.market_scope)} · {formatTimeframeScope(item.experiment.timeframe_scope)} · muestra {item.sampleSize}</p>
+        <p>
+          {isAdaptivePrimaryChallenge
+            ? `Desafío por temporalidad · ${formatTimeframeScope(challengedTimeframe)} · ${formatMarketScope(item.experiment.market_scope)} · muestra ${item.sampleSize}`
+            : `${formatMarketScope(item.experiment.market_scope)} · ${formatTimeframeScope(item.experiment.timeframe_scope)} · muestra ${item.sampleSize}`}
+        </p>
       </div>
+
+      {isAdaptivePrimaryChallenge ? (
+        <p className="section-note">
+          Marco retado: <span className="text-strong">{formatTimeframeScope(challengedTimeframe)}</span>. La base actual es{" "}
+          <span className="text-strong">{getFriendlyStrategyVersionLabel(item.experiment.base_strategy_id, explicitBaseVersion || item.experiment.candidate_version)}</span>{" "}
+          y la candidata quiere tomar este timeframe con{" "}
+          <span className="text-strong">{getFriendlyStrategyVersionLabel(item.experiment.candidate_strategy_id, explicitCandidateVersion || item.experiment.candidate_version)}</span>.
+        </p>
+      ) : null}
 
       <div className="signal-analytics-list">
         <div className="signal-analytics-item is-experiment">
@@ -3106,7 +3124,9 @@ function AdaptiveRecommendationCard({
   const experimentId = typeof evidence.experimentId === "number" ? evidence.experimentId : 0;
   const hasSandbox = item.status === "sandbox" && candidateVersion;
   const isScopeRecommendation = evidence.recommendationType === "execution-scope-override";
+  const isAdaptivePrimaryPromotion = evidence.recommendationType === "adaptive-primary-promotion";
   const timeframe = String(evidence.timeframe || "");
+  const baseVersion = String(evidence.baseVersion || item.strategy_version || "").trim();
   const currentMinRrRatio = Number(evidence.currentMinRrRatio || 0);
   const suggestedMinRrRatio = Number(evidence.suggestedMinRrRatio || 0);
   const appliedScope = evidence.appliedOverride && typeof evidence.appliedOverride === "object"
@@ -3126,6 +3146,12 @@ function AdaptiveRecommendationCard({
         : item.status === "sandbox"
           ? "Promover al perfil demo"
           : "Mandar a prueba segura"
+    : isAdaptivePrimaryPromotion
+      ? isActivating
+        ? "Creando desafío..."
+        : item.status === "sandbox"
+          ? `Ver prueba segura #${experimentId || "--"}`
+          : "Mandar a prueba por timeframe"
     : isActivating
       ? "Creando candidata..."
       : "Crear candidata y mandar a prueba segura";
@@ -3141,7 +3167,13 @@ function AdaptiveRecommendationCard({
         <div className="signal-analytics-item is-experiment">
           <div className="signal-analytics-copy">
             <strong>{getFriendlyStrategyVersionLabel(item.strategy_id, item.strategy_version)}</strong>
-            <span>{isScopeRecommendation ? `Scope demo: ${item.strategy_id} · ${timeframe}` : `Parámetro: ${item.parameter_key}`}</span>
+            <span>
+              {isScopeRecommendation
+                ? `Scope demo: ${item.strategy_id} · ${timeframe}`
+                : isAdaptivePrimaryPromotion
+                  ? `Marco retado: ${formatTimeframeScope(timeframe)} · Base ${getFriendlyStrategyVersionLabel(item.strategy_id, baseVersion)} · Candidata ${getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion)}`
+                  : `Parámetro: ${item.parameter_key}`}
+            </span>
           </div>
           <div className={`signal-analytics-pill ${confidenceClass}`}>
             {confidencePct}% confianza
@@ -3160,23 +3192,27 @@ function AdaptiveRecommendationCard({
 
       <div className="stats-grid compact-stats-grid no-bottom-gap">
         <StatCard
-          label={isScopeRecommendation ? "Score demo actual" : "Valor actual"}
-          value={String(item.current_value ?? "--")}
-          sub={isScopeRecommendation ? `RR actual ${currentMinRrRatio.toFixed(2)}` : "Parámetro vigente"}
+          label={isScopeRecommendation ? "Score demo actual" : isAdaptivePrimaryPromotion ? "Base actual" : "Valor actual"}
+          value={isAdaptivePrimaryPromotion ? getFriendlyStrategyVersionLabel(item.strategy_id, baseVersion) : String(item.current_value ?? "--")}
+          sub={isScopeRecommendation ? `RR actual ${currentMinRrRatio.toFixed(2)}` : isAdaptivePrimaryPromotion ? "Versión que hoy manda en este marco" : "Parámetro vigente"}
           accentClass="accent-blue"
         />
         <StatCard
-          label={isScopeRecommendation ? "Score demo sugerido" : "Valor sugerido"}
-          value={String(item.suggested_value ?? "--")}
+          label={isScopeRecommendation ? "Score demo sugerido" : isAdaptivePrimaryPromotion ? "Candidata líder" : "Valor sugerido"}
+          value={isAdaptivePrimaryPromotion ? getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion) : String(item.suggested_value ?? "--")}
           sub={isScopeRecommendation
             ? `RR sugerido ${suggestedMinRrRatio.toFixed(2)}`
+            : isAdaptivePrimaryPromotion
+              ? typeof evidence.leadOverNext === "number"
+                ? `Ventaja ${Number(evidence.leadOverNext).toFixed(2)} sobre la siguiente`
+                : "Versión que viene liderando este timeframe"
             : delta === 0 ? "Sin cambio" : delta > 0 ? `Sube ${delta}` : `Baja ${Math.abs(delta)}`}
           accentClass="accent-emerald"
         />
       </div>
 
       <p className="section-note with-top-gap">
-        Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}{isScopeRecommendation && typeof evidence.avgScore === "number" ? ` · score medio ${Number(evidence.avgScore).toFixed(1)}` : ""}{isScopeRecommendation && typeof evidence.avgRr === "number" ? ` · RR medio ${Number(evidence.avgRr).toFixed(2)}` : ""}.
+        Evidencia: {evidence.sampleSize ? `${String(evidence.sampleSize)} señales` : "sin muestra"} · {typeof evidence.winRate === "number" ? `${Number(evidence.winRate).toFixed(0)}% acierto` : "sin win rate"} · {typeof evidence.pnl === "number" ? formatSignedPrice(Number(evidence.pnl)) : "sin PnL"}{(isScopeRecommendation || isAdaptivePrimaryPromotion) && typeof evidence.avgScore === "number" ? ` · score medio ${Number(evidence.avgScore).toFixed(1)}` : ""}{(isScopeRecommendation || isAdaptivePrimaryPromotion) && typeof evidence.avgRr === "number" ? ` · RR medio ${Number(evidence.avgRr).toFixed(2)}` : ""}.
       </p>
 
       {isScopeRecommendation ? (
@@ -3193,6 +3229,14 @@ function AdaptiveRecommendationCard({
                 ? "Este ajuste ya quedó aplicado al perfil demo como corte prioritario de un scope que venía metiendo ruido."
                 : "Este ajuste ya quedó aplicado al perfil demo y participa en el filtro operativo actual."}
         </p>
+      ) : isAdaptivePrimaryPromotion ? (
+        <p className="section-note">
+          {item.status === "draft"
+            ? "La IA detectó que otra versión viene liderando este marco con datos reales. Primero la mandas a prueba segura para validar si de verdad debe tomar la prioridad."
+            : item.status === "sandbox"
+              ? `Ya se abrió la prueba segura #${experimentId || "--"} para retar la prioridad de ${formatTimeframeScope(timeframe)}.`
+              : "Esta recomendación ya quedó convertida en una prueba o promoción operativa."}
+        </p>
       ) : null}
 
       {policyAutomation ? (
@@ -3204,7 +3248,16 @@ function AdaptiveRecommendationCard({
       ) : null}
 
       <div className="inline-actions with-top-gap">
-        {hasSandbox ? (
+        {isAdaptivePrimaryPromotion && item.status === "sandbox" && experimentId ? (
+          <>
+            <span className="signal-status-note">
+              Desafío abierto: <span className="text-strong">Marco {formatTimeframeScope(timeframe)}</span>
+            </span>
+            <span className="signal-analytics-pill status-sandbox">
+              Prueba segura #{experimentId}
+            </span>
+          </>
+        ) : hasSandbox ? (
           <>
             <span className="signal-status-note">
               Variante candidata: <span className="text-strong">{getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion)}</span>

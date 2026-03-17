@@ -746,9 +746,10 @@ export function MemoryView(props: MemoryViewProps) {
 
       {activeTab === "experiments" ? (
         <section id="signals-experiments">
+          <div className="automation-shell">
           <SectionCard
-            title="Qué automatiza el sistema"
-            subtitle="Aquí ves qué pruebas propone solo, cuáles siguen bajo observación y cuáles todavía dependen de una decisión manual."
+            title="Mapa rápido de automatización"
+            subtitle="Primero entiende el tablero: qué hace el sistema solo, qué puedes construir tú y qué pruebas ya están corriendo."
           >
             <GuideAccordion
               title="Cómo usar esta pestaña paso a paso"
@@ -779,34 +780,53 @@ export function MemoryView(props: MemoryViewProps) {
               </div>
             </GuideAccordion>
 
-            <div className="signal-analytics-grid">
-              <GuideAccordion
-                title="Lo que hace solo el sistema"
-                subtitle="Puedes cerrarlo cuando ya no necesites la ayuda visual."
-              >
-                <p className="section-note">
-                  El sistema puede detectar una mejora, sugerirla, crear una candidata y mandarla a prueba segura sin que tengas que construir todo a mano.
-                </p>
-              </GuideAccordion>
-              <GuideAccordion
-                title="Lo que sigues decidiendo tú"
-                subtitle="Esto te mantiene con control aunque la IA vaya aprendiendo."
-              >
-                <p className="section-note">
-                  Tú todavía decides si crear una prueba propia, cambiar el enfoque, dejar una variante solo en observación o ignorar una propuesta.
-                </p>
-              </GuideAccordion>
+            <div className="automation-flow-grid">
+              <AutomationFlowCard
+                eyebrow="Fase 1"
+                title="El sistema detecta"
+                text="Revisa resultados, nota una oportunidad y arma una propuesta inicial sin cambiar nada importante."
+              />
+              <AutomationFlowCard
+                eyebrow="Fase 2"
+                title="Se crea una prueba"
+                text="La idea nueva pasa a borrador o prueba segura para que compita con la estrategia actual."
+              />
+              <AutomationFlowCard
+                eyebrow="Fase 3"
+                title="Se compara"
+                text="La base y la candidata se miden en el mismo contexto para ver quién rinde mejor."
+              />
+              <AutomationFlowCard
+                eyebrow="Fase 4"
+                title="La IA aprende"
+                text="Con ese resultado, el sistema decide si seguir observando, insistir o descartar la variante."
+              />
             </div>
-            <div className="with-top-gap" />
-            <div className="signal-analytics-list">
-              <div className="signal-analytics-item is-experiment">
-                <div className="signal-analytics-copy">
-                  <strong>{trendPromotionRecommendation.title}</strong>
-                  <span>{trendPromotionRecommendation.reason}</span>
-                </div>
-                <div className={`signal-analytics-pill status-${trendPromotionRecommendation.statusClass}`}>
-                  {trendPromotionRecommendation.statusLabel}
-                </div>
+
+            <div className="automation-overview-grid">
+              <div className="automation-module automation-module-auto">
+                <span className="automation-module-kicker">Automático</span>
+                <h4>Lo que el sistema hace por su cuenta</h4>
+                <p>
+                  Detecta una mejora, la propone, crea una candidata y puede mandarla a prueba segura sin que tengas que construir todo a mano.
+                </p>
+              </div>
+              <div className="automation-module automation-module-manual">
+                <span className="automation-module-kicker">Manual</span>
+                <h4>Lo que sigues controlando tú</h4>
+                <p>
+                  Tú decides si crear una prueba propia, cambiar el enfoque, dejar una variante solo en observación o ignorar una propuesta.
+                </p>
+              </div>
+            </div>
+            <div className="automation-status-banner">
+              <div className="automation-status-copy">
+                <span className="automation-kicker">Decisión actual del sistema</span>
+                <strong>{trendPromotionRecommendation.title}</strong>
+                <p>{trendPromotionRecommendation.reason}</p>
+              </div>
+              <div className={`signal-analytics-pill status-${trendPromotionRecommendation.statusClass}`}>
+                {trendPromotionRecommendation.statusLabel}
               </div>
             </div>
             <div className="inline-actions with-top-gap">
@@ -832,141 +852,198 @@ export function MemoryView(props: MemoryViewProps) {
           </SectionCard>
 
           <SectionCard
-            title="Crear una prueba manual"
+            title="Zona manual"
             subtitle="Si quieres intervenir tú mismo, aquí comparas estrategias o versiones antes de dejarlas crecer dentro del sistema."
           >
-            <GuideAccordion
-              title="Qué estás construyendo aquí"
-              subtitle="Abre esto si quieres una explicación simple de cada campo."
-            >
-              <div className="signal-step-grid">
-                <StepCard step="A" title="Base" text="La estrategia actual que tomarás como referencia." />
-                <StepCard step="B" title="Candidata" text="La estrategia o versión nueva que quieres poner a competir." />
-                <StepCard step="C" title="Mercado y marcos" text="Aquí defines en qué contexto quieres probar esa comparación." />
-                <StepCard step="D" title="Objetivo de la prueba" text="Escribe qué quieres validar para luego entender el resultado con claridad." />
-              </div>
-            </GuideAccordion>
-            <div className="experiment-builder-grid">
-              <FieldGuideCard
-                title="Paso 1 · Estrategia base"
-                text="Es la referencia actual contra la que vas a medir la candidata."
-              >
-                <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
-                  {registry.map((item) => (
-                    <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
-                  ))}
-                </select>
-              </FieldGuideCard>
-              <FieldGuideCard
-                title="Paso 2 · Estrategia candidata"
-                text="Es la idea nueva que quieres someter a prueba."
-              >
-                <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
-                  {registry.map((item) => (
-                    <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
-                  ))}
-                </select>
-              </FieldGuideCard>
-              <FieldGuideCard
-                title="Paso 3 · Versión de la candidata"
-                text="Aquí eliges la versión exacta que va a competir."
-              >
-                <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
-                  {availableCandidateVersions.map((item) => (
-                    <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label)}</option>
-                  ))}
-                </select>
-              </FieldGuideCard>
-              <FieldGuideCard
-                title="Paso 4 · Tipo de mercado"
-                text="Define si quieres probarlo en todo el mercado o solo en un contexto concreto."
-              >
-                <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
-                  <option value="all">Todo el mercado</option>
-                  <option value="watchlist">Solo watchlist</option>
-                  <option value="trend">Mercado en tendencia</option>
-                  <option value="range">Mercado en rango</option>
-                </select>
-              </FieldGuideCard>
-              <FieldGuideCard
-                title="Paso 5 · Marcos de tiempo"
-                text="Aquí decides en qué temporalidades se hará la comparación."
-              >
-                <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
-                  <option value="all">Todos los marcos</option>
-                  {timeframes.map((item) => (
-                    <option key={`scope-${item}`} value={item}>{item}</option>
-                  ))}
-                </select>
-              </FieldGuideCard>
-            </div>
-            <div className="signal-analytics-grid compact-top-gap">
-              <InfoCard
-                title="Cómo opera la candidata"
-                text={selectedCandidateVersionProfile
-                  ? `${getFriendlyTradingStyle(selectedCandidateVersionProfile.trading_style || "")} · mejor en ${getPreferredTimeframeScopeForVersion(selectedCandidateVersionProfile).split(",").join(" / ")}.`
-                  : "Selecciona una versión candidata para ver su estilo operativo."}
-              />
-              <InfoCard
-                title="Dónde rinde mejor"
-                text={selectedCandidateVersionProfile?.ideal_market_conditions?.length
-                  ? selectedCandidateVersionProfile.ideal_market_conditions.join(", ")
-                  : "Todavía sin contexto ideal definido para esta variante."}
-              />
-            </div>
-            <div className="signal-note-block with-bottom-gap">
-              <input
-                className="signal-memory-input"
-                value={experimentSummary}
-                onChange={(event) => setExperimentSummary(event.target.value)}
-                placeholder="Qué quieres validar con esta prueba manual"
-              />
-              <span className="signal-status-note">
-                Escribe una frase simple. Ejemplo: “quiero ver si la candidata funciona mejor en 1h dentro del watchlist”.
-              </span>
-            </div>
-            <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
-              Crear prueba manual
-            </button>
-
-            <div className="signal-analytics-list with-top-gap">
-              {!experiments.length ? (
-                <p className="section-note">Todavía no hay pruebas guardadas. Crea la primera para empezar a comparar variantes.</p>
-              ) : (
-                experiments.map((item) => (
-                  <div key={`experiment-${item.id}`} className="signal-analytics-item is-experiment">
-                    <div className="signal-analytics-copy">
-                      <strong>{getExperimentTitle(item)}</strong>
-                      <span>
-                        {formatMarketScope(item.market_scope)} · {formatTimeframeScope(item.timeframe_scope)} · {item.summary || "Sin resumen todavía"}
-                        {item.metadata?.recommendationStatus ? ` · ${String(item.metadata.recommendationStatus)}` : ""}
-                      </span>
-                    </div>
-                    <div className={`signal-analytics-pill status-${item.status}`}>{getExperimentStatusLabel(item.status)}</div>
+            <div className="automation-manual-layout">
+              <div className="automation-manual-main">
+                <GuideAccordion
+                  title="Qué estás construyendo aquí"
+                  subtitle="Abre esto si quieres una explicación simple de cada campo."
+                >
+                  <div className="signal-step-grid">
+                    <StepCard step="A" title="Base" text="La estrategia actual que tomarás como referencia." />
+                    <StepCard step="B" title="Candidata" text="La estrategia o versión nueva que quieres poner a competir." />
+                    <StepCard step="C" title="Mercado y marcos" text="Aquí defines en qué contexto quieres probar esa comparación." />
+                    <StepCard step="D" title="Objetivo de la prueba" text="Escribe qué quieres validar para luego entender el resultado con claridad." />
                   </div>
-                ))
-              )}
+                </GuideAccordion>
+
+                <div className="experiment-builder-grid">
+                  <FieldGuideCard
+                    title="Paso 1 · Estrategia base"
+                    text="Es la referencia actual contra la que vas a medir la candidata."
+                  >
+                    <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
+                      {registry.map((item) => (
+                        <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
+                      ))}
+                    </select>
+                  </FieldGuideCard>
+                  <FieldGuideCard
+                    title="Paso 2 · Estrategia candidata"
+                    text="Es la idea nueva que quieres someter a prueba."
+                  >
+                    <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
+                      {registry.map((item) => (
+                        <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
+                      ))}
+                    </select>
+                  </FieldGuideCard>
+                  <FieldGuideCard
+                    title="Paso 3 · Versión de la candidata"
+                    text="Aquí eliges la versión exacta que va a competir."
+                  >
+                    <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
+                      {availableCandidateVersions.map((item) => (
+                        <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label)}</option>
+                      ))}
+                    </select>
+                  </FieldGuideCard>
+                  <FieldGuideCard
+                    title="Paso 4 · Tipo de mercado"
+                    text="Define si quieres probarlo en todo el mercado o solo en un contexto concreto."
+                  >
+                    <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
+                      <option value="all">Todo el mercado</option>
+                      <option value="watchlist">Solo watchlist</option>
+                      <option value="trend">Mercado en tendencia</option>
+                      <option value="range">Mercado en rango</option>
+                    </select>
+                  </FieldGuideCard>
+                  <FieldGuideCard
+                    title="Paso 5 · Marcos de tiempo"
+                    text="Aquí decides en qué temporalidades se hará la comparación."
+                  >
+                    <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
+                      <option value="all">Todos los marcos</option>
+                      {timeframes.map((item) => (
+                        <option key={`scope-${item}`} value={item}>{item}</option>
+                      ))}
+                    </select>
+                  </FieldGuideCard>
+                </div>
+                <div className="signal-analytics-grid compact-top-gap">
+                  <InfoCard
+                    title="Cómo opera la candidata"
+                    text={selectedCandidateVersionProfile
+                      ? `${getFriendlyTradingStyle(selectedCandidateVersionProfile.trading_style || "")} · mejor en ${getPreferredTimeframeScopeForVersion(selectedCandidateVersionProfile).split(",").join(" / ")}.`
+                      : "Selecciona una versión candidata para ver su estilo operativo."}
+                  />
+                  <InfoCard
+                    title="Dónde rinde mejor"
+                    text={selectedCandidateVersionProfile?.ideal_market_conditions?.length
+                      ? selectedCandidateVersionProfile.ideal_market_conditions.join(", ")
+                      : "Todavía sin contexto ideal definido para esta variante."}
+                  />
+                </div>
+                <div className="signal-note-block with-bottom-gap">
+                  <input
+                    className="signal-memory-input"
+                    value={experimentSummary}
+                    onChange={(event) => setExperimentSummary(event.target.value)}
+                    placeholder="Qué quieres validar con esta prueba manual"
+                  />
+                  <span className="signal-status-note">
+                    Escribe una frase simple. Ejemplo: “quiero ver si la candidata funciona mejor en 1h dentro del watchlist”.
+                  </span>
+                </div>
+                <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
+                  Crear prueba manual
+                </button>
+              </div>
+
+              <aside className="automation-manual-side">
+                <div className="automation-side-card">
+                  <span className="automation-module-kicker">Qué estás haciendo</span>
+                  <h4>Estás creando una comparación nueva</h4>
+                  <p>
+                    La base representa lo actual. La candidata representa la idea nueva. El sistema luego comparará ambas antes de confiar en la nueva.
+                  </p>
+                </div>
+                <div className="automation-side-card">
+                  <span className="automation-module-kicker">Sugerencia base</span>
+                  <h4>La comparación más lógica hoy</h4>
+                  <p>
+                    Comparar <strong>Tendencia alineada v1</strong> vs <strong>Tendencia alineada v2</strong> en tu watchlist y en marcos <strong>1h / 4h</strong>.
+                  </p>
+                </div>
+              </aside>
             </div>
 
-            <p className="section-note with-top-gap">
-              Recomendación base del sistema: comparar `Tendencia alineada v1` vs `Tendencia alineada v2` en tu watchlist y en marcos `1h` / `4h` antes de fortalecer cambios.
-            </p>
+            <div className="automation-subsection">
+              <div className="automation-subsection-head">
+                <h4>Pruebas creadas</h4>
+                <p>Aquí se listan todas las comparaciones que ya creaste, aunque todavía no estén activas.</p>
+              </div>
+              <details className="guide-accordion automation-collapse" open>
+                <summary className="guide-accordion-summary">
+                  <div>
+                    <strong>Ver comparaciones guardadas</strong>
+                    <span>Expande o minimiza esta lista cuando ya no la necesites.</span>
+                  </div>
+                  <span className="guide-accordion-toggle">Expandir / minimizar</span>
+                </summary>
+                <div className="guide-accordion-body">
+                  <div className="experiment-record-grid with-top-gap">
+                    {!experiments.length ? (
+                      <p className="section-note">Todavía no hay pruebas guardadas. Crea la primera para empezar a comparar variantes.</p>
+                    ) : (
+                      experiments.map((item) => (
+                        <div key={`experiment-${item.id}`} className="experiment-record-card">
+                          <div className="experiment-record-main">
+                            <div className="experiment-record-topline">
+                              <strong>{getExperimentTitle(item)}</strong>
+                              <div className={`signal-analytics-pill status-${item.status}`}>{getExperimentStatusLabel(item.status)}</div>
+                            </div>
+                            <span className="experiment-record-meta">
+                              {formatMarketScope(item.market_scope)} · {formatTimeframeScope(item.timeframe_scope)}
+                            </span>
+                            <p className="experiment-record-summary">
+                              {item.summary || "Todavía no tiene un objetivo escrito. Puedes usar el resumen para dejar claro qué querías validar."}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </details>
+            </div>
           </SectionCard>
 
           <SectionCard
             title="Pruebas ya en observación"
             subtitle="Aquí ves cómo le va a cada variante que ya entró en observación controlada."
           >
+            <div className="automation-live-head">
+              <div className="automation-live-intro">
+                <span className="automation-module-kicker">Seguimiento en vivo</span>
+                <h4>Lo que ya está compitiendo de verdad</h4>
+                <p>Estas tarjetas ya no son ideas. Aquí comparas la base contra la candidata con resultados reales.</p>
+              </div>
+              <div className="automation-live-summary">
+                <div className="automation-live-chip">
+                  <strong>{sandboxStats.length}</strong>
+                  <span>pruebas activas</span>
+                </div>
+                <div className="automation-live-chip">
+                  <strong>{sandboxStats.reduce((sum, item) => sum + item.sampleSize, 0)}</strong>
+                  <span>casos observados</span>
+                </div>
+              </div>
+            </div>
             {!sandboxStats.length ? (
               <p className="section-note">Todavía no hay pruebas seguras activas. Cuando una pase de borrador a prueba segura, aparecerá aquí con su lectura comparativa.</p>
             ) : (
-              <div className="signal-analytics-grid">
+              <div className="signal-analytics-grid automation-live-grid">
                 {sandboxStats.map((item) => (
                   <PaperTestingCard key={`sandbox-${item.experiment.id}`} item={item} />
                 ))}
               </div>
             )}
           </SectionCard>
+          </div>
         </section>
       ) : null}
 
@@ -1199,6 +1276,24 @@ function FieldGuideCard({
       <label className="field-guide-title">{title}</label>
       <p className="field-guide-copy">{text}</p>
       {children}
+    </div>
+  );
+}
+
+function AutomationFlowCard({
+  eyebrow,
+  title,
+  text,
+}: {
+  eyebrow: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="automation-flow-card">
+      <span className="automation-flow-eyebrow">{eyebrow}</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
     </div>
   );
 }

@@ -197,6 +197,139 @@
   gap: 16px;
 }
 
+.automation-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.automation-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.automation-flow-card {
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  border-radius: 16px;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.82), rgba(15, 23, 42, 0.9)),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 52%);
+  display: grid;
+  gap: 8px;
+}
+
+.automation-flow-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #60a5fa;
+}
+
+.automation-flow-card strong {
+  font-size: 15px;
+  color: #f8fafc;
+}
+
+.automation-flow-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.automation-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.automation-module {
+  border-radius: 16px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  display: grid;
+  gap: 10px;
+}
+
+.automation-module-auto {
+  background: linear-gradient(180deg, rgba(3, 105, 161, 0.16), rgba(15, 23, 42, 0.82));
+}
+
+.automation-module-manual {
+  background: linear-gradient(180deg, rgba(120, 53, 15, 0.16), rgba(15, 23, 42, 0.82));
+}
+
+.automation-module-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #93c5fd;
+}
+
+.automation-module h4,
+.automation-live-intro h4,
+.automation-subsection-head h4,
+.automation-side-card h4 {
+  margin: 0;
+  font-size: 20px;
+  color: #f8fafc;
+}
+
+.automation-module p,
+.automation-live-intro p,
+.automation-subsection-head p,
+.automation-side-card p,
+.experiment-record-summary {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.automation-status-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border-radius: 18px;
+  padding: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.92)),
+    radial-gradient(circle at right top, rgba(16, 185, 129, 0.14), transparent 44%);
+  margin-bottom: 10px;
+}
+
+.automation-status-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #86efac;
+}
+
+.automation-status-copy strong {
+  font-size: 22px;
+  color: #f8fafc;
+}
+
+.automation-status-copy p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
 .guide-accordion {
   border: 1px solid rgba(59, 130, 246, 0.16);
   border-radius: 14px;
@@ -289,6 +422,29 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.automation-manual-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.95fr);
+  gap: 16px;
+}
+
+.automation-manual-main,
+.automation-manual-side {
+  display: grid;
+  gap: 14px;
+}
+
+.automation-side-card {
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 16px;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.78)),
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.1), transparent 48%);
+  display: grid;
+  gap: 10px;
 }
 
 .field-guide-card {
@@ -463,6 +619,102 @@
   padding: 10px 14px;
 }
 
+.automation-subsection {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.automation-subsection-head {
+  display: grid;
+  gap: 6px;
+}
+
+.automation-collapse {
+  margin-bottom: 0;
+}
+
+.experiment-record-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.experiment-record-card {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.84)),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 45%);
+}
+
+.experiment-record-main {
+  display: grid;
+  gap: 8px;
+}
+
+.experiment-record-topline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.experiment-record-topline strong {
+  font-size: 17px;
+  color: #f8fafc;
+}
+
+.experiment-record-meta {
+  font-size: 12px;
+  color: #93c5fd;
+}
+
+.experiment-record-summary {
+  padding-top: 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.automation-live-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.automation-live-intro {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-live-summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.automation-live-chip {
+  min-width: 120px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  gap: 4px;
+}
+
+.automation-live-chip strong {
+  font-size: 20px;
+  color: #f8fafc;
+}
+
+.automation-live-chip span {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
 #signals-history .portfolio-table th,
 #signals-history .portfolio-table td {
   padding-top: 12px;
@@ -515,6 +767,10 @@
 #signals-strategies .signal-analytics-grid,
 #signals-experiments .signal-analytics-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+#signals-experiments .signal-analytics-grid.automation-live-grid {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 }
 
 #balanceView .history-panel,
@@ -655,6 +911,17 @@ body.dark-theme .market-score-track {
     grid-template-columns: 1fr 1fr;
   }
 
+  .automation-flow-grid,
+  .automation-overview-grid,
+  .automation-manual-layout,
+  .automation-live-head {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-live-summary {
+    justify-content: flex-start;
+  }
+
   #balanceView .module-tabs,
   #memoryView .module-tabs {
     top: 72px;
@@ -702,6 +969,24 @@ body.dark-theme .market-score-track {
 
   .signal-analytics-card {
     padding: 12px;
+  }
+
+  .automation-flow-card,
+  .automation-module,
+  .automation-side-card,
+  .automation-status-banner,
+  .experiment-record-card {
+    padding: 14px;
+  }
+
+  .automation-status-banner,
+  .experiment-record-topline {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-live-chip {
+    min-width: 0;
+    width: 100%;
   }
 
   .signal-analytics-item {

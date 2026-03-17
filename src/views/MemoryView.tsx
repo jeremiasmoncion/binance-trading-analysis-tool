@@ -79,6 +79,59 @@ const RUNNABLE_STRATEGY_VERSION_KEYS = new Set([
   "breakout:v1",
 ]);
 
+const EXECUTION_BASE_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"];
+
+const EXECUTION_PROFILE_PRESETS = [
+  {
+    id: "calibration",
+    label: "Calibración",
+    description: "Abre el filtro para recoger muestra real sin perder controles duros.",
+    values: {
+      enabled: true,
+      autoExecuteEnabled: false,
+      minSignalScore: 30,
+      minRrRatio: 0.25,
+      maxDailyAutoExecutions: 2,
+      cooldownAfterLosses: 4,
+      allowedTimeframes: ["5m", "15m", "1h", "4h"],
+      allowedStrategies: ["trend-alignment", "breakout"],
+      note: "Perfil de calibración para recoger muestra y revisar qué filtros sí tienen edge real.",
+    },
+  },
+  {
+    id: "balanced",
+    label: "Balanceado",
+    description: "Busca flujo estable sin bajar demasiado la calidad de entrada.",
+    values: {
+      enabled: true,
+      autoExecuteEnabled: true,
+      minSignalScore: 45,
+      minRrRatio: 0.5,
+      maxDailyAutoExecutions: 3,
+      cooldownAfterLosses: 3,
+      allowedTimeframes: ["15m", "1h", "4h"],
+      allowedStrategies: ["trend-alignment", "breakout"],
+      note: "Perfil balanceado para operar demo con filtros medios y autoejecución contenida.",
+    },
+  },
+  {
+    id: "strict",
+    label: "Estricto",
+    description: "Solo deja pasar setups más limpios y contextos más lentos.",
+    values: {
+      enabled: true,
+      autoExecuteEnabled: true,
+      minSignalScore: 60,
+      minRrRatio: 1.5,
+      maxDailyAutoExecutions: 2,
+      cooldownAfterLosses: 2,
+      allowedTimeframes: ["1h", "4h"],
+      allowedStrategies: ["trend-alignment"],
+      note: "Perfil estricto orientado a setups más selectivos y menor ruido intradía.",
+    },
+  },
+] as const;
+
 function buildScannerStatusFromExecution(
   execution: WatchlistScanExecution,
   previousStatus: WatchlistScannerStatus | null,
@@ -571,6 +624,38 @@ export function MemoryView(props: MemoryViewProps) {
     [experimentCandidate, versions],
   );
 
+  const executionStrategyOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    registry.forEach((item) => {
+      if (!byId.has(item.strategy_id)) byId.set(item.strategy_id, item.label || item.strategy_id);
+    });
+    props.signals.forEach((item) => {
+      if (!item.strategy_name) return;
+      if (!byId.has(item.strategy_name)) byId.set(item.strategy_name, item.strategy_label || item.strategy_name);
+    });
+    return Array.from(byId.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [props.signals, registry]);
+
+  const executionTimeframeOptions = useMemo(
+    () => Array.from(new Set([...EXECUTION_BASE_TIMEFRAMES, ...timeframes, ...(executionProfileForm?.allowedTimeframes || [])])),
+    [executionProfileForm?.allowedTimeframes, timeframes],
+  );
+
+  const activeExecutionPreset = useMemo(() => {
+    if (!executionProfileForm) return "";
+    return EXECUTION_PROFILE_PRESETS.find((preset) => (
+      preset.values.autoExecuteEnabled === executionProfileForm.autoExecuteEnabled
+      && preset.values.minSignalScore === executionProfileForm.minSignalScore
+      && Math.abs(preset.values.minRrRatio - executionProfileForm.minRrRatio) < 0.001
+      && preset.values.maxDailyAutoExecutions === executionProfileForm.maxDailyAutoExecutions
+      && preset.values.cooldownAfterLosses === executionProfileForm.cooldownAfterLosses
+      && sameSet(preset.values.allowedTimeframes, executionProfileForm.allowedTimeframes)
+      && sameSet(preset.values.allowedStrategies, executionProfileForm.allowedStrategies)
+    ))?.id || "";
+  }, [executionProfileForm]);
+
   useEffect(() => {
     if (!availableCandidateVersions.length) return;
     if (!availableCandidateVersions.some((item) => item.version === experimentVersion)) {
@@ -855,6 +940,33 @@ export function MemoryView(props: MemoryViewProps) {
       setExecutionBusy(false);
       stopLoading(loaderId);
     }
+  }
+
+  function handleApplyExecutionPreset(presetId: string) {
+    const preset = EXECUTION_PROFILE_PRESETS.find((item) => item.id === presetId);
+    if (!preset) return;
+    setExecutionProfileForm((current) => current ? {
+      ...current,
+      ...preset.values,
+      allowedStrategies: [...preset.values.allowedStrategies],
+      allowedTimeframes: [...preset.values.allowedTimeframes],
+    } : current);
+  }
+
+  function handleToggleExecutionSelection(
+    field: "allowedStrategies" | "allowedTimeframes",
+    value: string,
+  ) {
+    setExecutionProfileForm((current) => {
+      if (!current) return current;
+      const nextValues = current[field].includes(value)
+        ? current[field].filter((item) => item !== value)
+        : [...current[field], value];
+      return {
+        ...current,
+        [field]: nextValues,
+      };
+    });
   }
 
   return (
@@ -1405,47 +1517,187 @@ export function MemoryView(props: MemoryViewProps) {
               <EmptyState message="No se pudo cargar el perfil de ejecución todavía." />
             ) : (
               <>
-                <div className="experiment-builder-grid">
-                  <FieldGuideCard title="Motor habilitado" text="Si lo apagas, ninguna señal pasará a ejecución.">
-                    <select className="timeframe-select signal-select" value={executionProfileForm.enabled ? "yes" : "no"} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, enabled: event.target.value === "yes" } : current)}>
-                      <option value="yes">Sí</option>
-                      <option value="no">No</option>
-                    </select>
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Autoejecución" text="Déjala apagada por ahora. Más adelante esto permitirá operar sin clic manual.">
-                    <select className="timeframe-select signal-select" value={executionProfileForm.autoExecuteEnabled ? "yes" : "no"} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, autoExecuteEnabled: event.target.value === "yes" } : current)}>
-                      <option value="no">Apagada</option>
-                      <option value="yes">Encendida</option>
-                    </select>
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Riesgo por trade (%)" text="Cuánto capital puede usar una operación como máximo.">
-                    <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.riskPerTradePct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, riskPerTradePct: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Máximo por posición (USD)" text="Límite duro por operación aunque tu cuenta sea más grande.">
-                    <input className="signal-memory-input" type="number" min="5" step="5" value={executionProfileForm.maxPositionUsd} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxPositionUsd: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Máx. órdenes abiertas" text="Si ya llegaste a este número, nuevas compras quedan bloqueadas.">
-                    <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.maxOpenPositions} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxOpenPositions: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Pérdida diaria máxima (%)" text="Si se supera, el sistema deja de permitir nuevas entradas.">
-                    <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.maxDailyLossPct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyLossPct: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Máx. autos por día" text="Cuántas entradas automáticas puede lanzar el vigilante antes de detenerse.">
-                    <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.maxDailyAutoExecutions} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyAutoExecutions: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Enfriamiento tras pérdidas" text="Si hay esta cantidad de pérdidas seguidas, la auto-ejecución se pausa sola.">
-                    <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.cooldownAfterLosses} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, cooldownAfterLosses: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="Convicción mínima" text="Solo deja pasar señales con esta puntuación o más.">
-                    <input className="signal-memory-input" type="number" min="1" max="100" step="1" value={executionProfileForm.minSignalScore} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minSignalScore: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
-                  <FieldGuideCard title="RR mínimo" text="Si la relación riesgo/beneficio es peor que esto, se bloquea.">
-                    <input className="signal-memory-input" type="number" min="0.5" step="0.1" value={executionProfileForm.minRrRatio} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minRrRatio: Number(event.target.value || 0) } : current)} />
-                  </FieldGuideCard>
+                <div className="execution-profile-layout">
+                  <div className="execution-profile-main">
+                    <div className="execution-preset-row">
+                      {EXECUTION_PROFILE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          className={`execution-preset-card${activeExecutionPreset === preset.id ? " is-active" : ""}`}
+                          onClick={() => handleApplyExecutionPreset(preset.id)}
+                        >
+                          <strong>{preset.label}</strong>
+                          <span>{preset.description}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="execution-profile-group-grid">
+                      <FieldGuideCard title="Estado del motor" text="Aquí defines si el sistema puede ejecutar y si la parte automática queda viva o solo en modo revisión.">
+                        <div className="execution-toggle-row">
+                          <button
+                            type="button"
+                            className={`execution-toggle-button${executionProfileForm.enabled ? " is-active" : ""}`}
+                            onClick={() => setExecutionProfileForm((current) => current ? { ...current, enabled: true } : current)}
+                          >
+                            Motor encendido
+                          </button>
+                          <button
+                            type="button"
+                            className={`execution-toggle-button${!executionProfileForm.enabled ? " is-active" : ""}`}
+                            onClick={() => setExecutionProfileForm((current) => current ? { ...current, enabled: false } : current)}
+                          >
+                            Motor apagado
+                          </button>
+                        </div>
+                        <div className="execution-toggle-row">
+                          <button
+                            type="button"
+                            className={`execution-toggle-button${executionProfileForm.autoExecuteEnabled ? " is-active" : ""}`}
+                            onClick={() => setExecutionProfileForm((current) => current ? { ...current, autoExecuteEnabled: true } : current)}
+                          >
+                            Autoejecución on
+                          </button>
+                          <button
+                            type="button"
+                            className={`execution-toggle-button${!executionProfileForm.autoExecuteEnabled ? " is-active" : ""}`}
+                            onClick={() => setExecutionProfileForm((current) => current ? { ...current, autoExecuteEnabled: false } : current)}
+                          >
+                            Solo revisión manual
+                          </button>
+                        </div>
+                      </FieldGuideCard>
+
+                      <FieldGuideCard title="Calidad mínima" text="Estos son los filtros que más afectan cuántas señales realmente pasan a demo.">
+                        <div className="execution-dual-input-grid">
+                          <label className="execution-range-card">
+                            <span>Convicción mínima</span>
+                            <input className="signal-memory-input" type="number" min="1" max="100" step="1" value={executionProfileForm.minSignalScore} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minSignalScore: Number(event.target.value || 0) } : current)} />
+                          </label>
+                          <label className="execution-range-card">
+                            <span>RR mínimo</span>
+                            <input className="signal-memory-input" type="number" min="0.1" step="0.05" value={executionProfileForm.minRrRatio} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minRrRatio: Number(event.target.value || 0) } : current)} />
+                          </label>
+                        </div>
+                      </FieldGuideCard>
+
+                      <FieldGuideCard title="Riesgo y tamaño" text="Estos límites sí son de seguridad dura y conviene cambiarlos con más cuidado.">
+                        <div className="execution-dual-input-grid">
+                          <label className="execution-range-card">
+                            <span>Riesgo por trade (%)</span>
+                            <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.riskPerTradePct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, riskPerTradePct: Number(event.target.value || 0) } : current)} />
+                          </label>
+                          <label className="execution-range-card">
+                            <span>Máximo por posición (USD)</span>
+                            <input className="signal-memory-input" type="number" min="5" step="5" value={executionProfileForm.maxPositionUsd} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxPositionUsd: Number(event.target.value || 0) } : current)} />
+                          </label>
+                          <label className="execution-range-card">
+                            <span>Máx. órdenes abiertas</span>
+                            <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.maxOpenPositions} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxOpenPositions: Number(event.target.value || 0) } : current)} />
+                          </label>
+                          <label className="execution-range-card">
+                            <span>Pérdida diaria máxima (%)</span>
+                            <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.maxDailyLossPct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyLossPct: Number(event.target.value || 0) } : current)} />
+                          </label>
+                        </div>
+                      </FieldGuideCard>
+
+                      <FieldGuideCard title="Cadencia automática" text="Sirve para frenar el watcher si encadena malas decisiones o si ya operó demasiado hoy.">
+                        <div className="execution-dual-input-grid">
+                          <label className="execution-range-card">
+                            <span>Máx. autos por día</span>
+                            <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.maxDailyAutoExecutions} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyAutoExecutions: Number(event.target.value || 0) } : current)} />
+                          </label>
+                          <label className="execution-range-card">
+                            <span>Enfriamiento tras pérdidas</span>
+                            <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.cooldownAfterLosses} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, cooldownAfterLosses: Number(event.target.value || 0) } : current)} />
+                          </label>
+                        </div>
+                      </FieldGuideCard>
+                    </div>
+
+                    <div className="execution-profile-selector-grid">
+                      <FieldGuideCard title="Estrategias permitidas" text="Aquí decides qué familias pueden siquiera competir por pasar a demo.">
+                        <div className="execution-filter-chip-row">
+                          {executionStrategyOptions.map((option) => (
+                            <button
+                              key={option.id}
+                              type="button"
+                              className={`execution-filter-chip${executionProfileForm.allowedStrategies.includes(option.id) ? " is-active" : ""}`}
+                              onClick={() => handleToggleExecutionSelection("allowedStrategies", option.id)}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </FieldGuideCard>
+
+                      <FieldGuideCard title="Temporalidades permitidas" text="Este era uno de los campos que faltaba exponer. Desde aquí eliges qué marcos sí pueden pasar a demo.">
+                        <div className="execution-filter-chip-row">
+                          {executionTimeframeOptions.map((timeframe) => (
+                            <button
+                              key={timeframe}
+                              type="button"
+                              className={`execution-filter-chip${executionProfileForm.allowedTimeframes.includes(timeframe) ? " is-active" : ""}`}
+                              onClick={() => handleToggleExecutionSelection("allowedTimeframes", timeframe)}
+                            >
+                              {timeframe}
+                            </button>
+                          ))}
+                        </div>
+                      </FieldGuideCard>
+                    </div>
+
+                    <FieldGuideCard title="Nota operativa del perfil" text="Sirve para dejar documentado para qué estás usando este filtro ahora mismo: calibración, revisión o ejecución más estricta.">
+                      <textarea
+                        className="signal-memory-input execution-profile-note"
+                        value={executionProfileForm.note || ""}
+                        onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, note: event.target.value } : current)}
+                        placeholder="Ejemplo: perfil de calibración para recoger muestra en 5m y 15m sin autoejecución agresiva."
+                        rows={3}
+                      />
+                    </FieldGuideCard>
+                  </div>
+
+                  <div className="execution-profile-side">
+                    <div className="automation-side-card execution-profile-side-card">
+                      <span className="automation-live-kicker">Lectura rápida del filtro</span>
+                      <h4>{activeExecutionPreset ? EXECUTION_PROFILE_PRESETS.find((item) => item.id === activeExecutionPreset)?.label : "Perfil personalizado"}</h4>
+                      <p>
+                        {executionProfileForm.enabled
+                          ? executionProfileForm.autoExecuteEnabled
+                            ? "El motor puede enviar órdenes demo sin clic manual cuando una señal sí pase todas las reglas."
+                            : "El motor filtra señales, pero la orden solo avanza si tú la disparas manualmente."
+                          : "El motor demo está apagado, así que ninguna señal avanzará a preview ni a orden."}
+                      </p>
+                      <div className="guide-pill-grid">
+                        <span className="guide-pill">Score {executionProfileForm.minSignalScore}+</span>
+                        <span className="guide-pill">RR {executionProfileForm.minRrRatio.toFixed(2)}+</span>
+                        <span className="guide-pill">{executionProfileForm.allowedTimeframes.length} marcos</span>
+                        <span className="guide-pill">{executionProfileForm.allowedStrategies.length} estrategias</span>
+                      </div>
+                      <div className="profile-data-list">
+                        <div className="profile-data-row">
+                          <span>Temporalidades</span>
+                          <strong>{executionProfileForm.allowedTimeframes.join(", ") || "Sin filtro"}</strong>
+                        </div>
+                        <div className="profile-data-row">
+                          <span>Estrategias</span>
+                          <strong>{executionProfileForm.allowedStrategies.join(", ") || "Sin filtro"}</strong>
+                        </div>
+                        <div className="profile-data-row">
+                          <span>Autos por día</span>
+                          <strong>{executionProfileForm.maxDailyAutoExecutions}</strong>
+                        </div>
+                        <div className="profile-data-row">
+                          <span>Enfriamiento</span>
+                          <strong>{executionProfileForm.cooldownAfterLosses} pérdidas</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p className="section-note with-top-gap">
-                  Estrategias permitidas: {executionProfileForm.allowedStrategies.join(", ")} · Marcos permitidos: {executionProfileForm.allowedTimeframes.join(", ")}.
-                </p>
               </>
             )}
           </SectionCard>
@@ -1697,6 +1949,12 @@ function summarizeSignalCohort(signals: SignalSnapshot[]): SignalCohortStats {
     avgScore,
     avgRr,
   };
+}
+
+function sameSet(left: readonly string[], right: readonly string[]) {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((item) => rightSet.has(item));
 }
 
 function summarizeCandidateCohort(candidates: ExecutionCandidate[]) {

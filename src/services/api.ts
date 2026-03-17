@@ -42,6 +42,57 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
   return payload as T;
 }
 
+const marketCache = {
+  candles: new Map<string, { expiresAt: number; value: unknown }>(),
+  ticker24h: new Map<string, { expiresAt: number; value: unknown }>(),
+  symbols: { expiresAt: 0, value: [] as string[] },
+};
+
+const marketInFlight = {
+  candles: new Map<string, Promise<unknown>>(),
+  ticker24h: new Map<string, Promise<unknown>>(),
+  symbols: null as Promise<string[]> | null,
+};
+
+async function fetchCachedMarketResource<T>({
+  cache,
+  inflight,
+  key,
+  ttlMs,
+  loader,
+}: {
+  cache: Map<string, { expiresAt: number; value: unknown }>;
+  inflight: Map<string, Promise<unknown>>;
+  key: string;
+  ttlMs: number;
+  loader: () => Promise<T>;
+}): Promise<T> {
+  const now = Date.now();
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.value as T;
+  }
+
+  const currentRequest = inflight.get(key);
+  if (currentRequest) {
+    return currentRequest as Promise<T>;
+  }
+
+  const request = loader()
+    .then((value) => {
+      cache.set(key, { expiresAt: Date.now() + ttlMs, value });
+      inflight.delete(key);
+      return value;
+    })
+    .catch((error) => {
+      inflight.delete(key);
+      throw error;
+    });
+
+  inflight.set(key, request);
+  return request;
+}
+
 export const authService = {
   login(username: string, password: string) {
     return apiRequest("/api/auth/login", {
@@ -331,6 +382,13 @@ function openBinanceStream<T>(streamPath: string, onMessage: (payload: T) => voi
   };
 }
 
+function openMultiBinanceStreams<T>(streamPaths: string[], onMessage: (payload: T, streamPath: string) => void) {
+  const closers = streamPaths.map((streamPath) => openBinanceStream<T>(streamPath, (payload) => onMessage(payload, streamPath)));
+  return () => {
+    closers.forEach((close) => close());
+  };
+}
+
 export interface ExchangeSymbol {
   symbol: string;
   status: string;
@@ -340,27 +398,44 @@ export interface ExchangeSymbol {
 
 export const marketService = {
   async fetchCandles(symbol: string, timeframe: string) {
+    const cacheKey = `${symbol}:${timeframe}`;
     try {
-      const response = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${symbol.replace("/", "")}&interval=${timeframe}&limit=80`,
-      );
-      const data = await response.json();
-      return data.map((d: string[]) => ({
-        time: Number(d[0]) / 1000,
-        open: Number(d[1]),
-        high: Number(d[2]),
-        low: Number(d[3]),
-        close: Number(d[4]),
-        volume: Number(d[5]),
-      }));
+      return await fetchCachedMarketResource({
+        cache: marketCache.candles,
+        inflight: marketInFlight.candles,
+        key: cacheKey,
+        ttlMs: 15_000,
+        loader: async () => {
+          const response = await fetch(
+            `https://api.binance.com/api/v3/klines?symbol=${symbol.replace("/", "")}&interval=${timeframe}&limit=80`,
+          );
+          const data = await response.json();
+          return data.map((d: string[]) => ({
+            time: Number(d[0]) / 1000,
+            open: Number(d[1]),
+            high: Number(d[2]),
+            low: Number(d[3]),
+            close: Number(d[4]),
+            volume: Number(d[5]),
+          }));
+        },
+      });
     } catch {
       return null;
     }
   },
   async fetch24h(symbol: string): Promise<MarketTicker> {
     try {
-      const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol.replace("/", "")}`);
-      return await response.json();
+      return await fetchCachedMarketResource({
+        cache: marketCache.ticker24h,
+        inflight: marketInFlight.ticker24h,
+        key: symbol,
+        ttlMs: 10_000,
+        loader: async () => {
+          const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol.replace("/", "")}`);
+          return response.json();
+        },
+      });
     } catch {
       return {
         lastPrice: "70000",
@@ -372,21 +447,51 @@ export const marketService = {
     }
   },
   async fetchSymbols(): Promise<string[]> {
-    try {
-      const response = await fetch("https://api.binance.com/api/v3/exchangeInfo");
-      const data = await response.json();
-      const symbols = Array.isArray(data?.symbols) ? (data.symbols as ExchangeSymbol[]) : [];
-      return symbols
-        .filter((item) => item.status === "TRADING" && item.quoteAsset === "USDT")
-        .map((item) => `${item.baseAsset}/${item.quoteAsset}`);
-    } catch {
-      return [];
+    const now = Date.now();
+    if (marketCache.symbols.expiresAt > now && marketCache.symbols.value.length) {
+      return marketCache.symbols.value;
     }
+
+    if (marketInFlight.symbols) {
+      return marketInFlight.symbols;
+    }
+
+    marketInFlight.symbols = (async () => {
+      try {
+        const response = await fetch("https://api.binance.com/api/v3/exchangeInfo");
+        const data = await response.json();
+        const symbols = Array.isArray(data?.symbols) ? (data.symbols as ExchangeSymbol[]) : [];
+        const nextSymbols = symbols
+          .filter((item) => item.status === "TRADING" && item.quoteAsset === "USDT")
+          .map((item) => `${item.baseAsset}/${item.quoteAsset}`);
+        marketCache.symbols = {
+          expiresAt: Date.now() + 30 * 60_000,
+          value: nextSymbols,
+        };
+        return nextSymbols;
+      } catch {
+        return [];
+      } finally {
+        marketInFlight.symbols = null;
+      }
+    })();
+
+    return marketInFlight.symbols;
   },
   openTickerStream(symbol: string, onMessage: (payload: MarketTickerStreamPayload) => void) {
     return openBinanceStream<MarketTickerStreamPayload>(`${symbol.replace("/", "").toLowerCase()}@ticker`, onMessage);
   },
   openKlineStream(symbol: string, timeframe: string, onMessage: (payload: MarketKlineStreamPayload) => void) {
     return openBinanceStream<MarketKlineStreamPayload>(`${symbol.replace("/", "").toLowerCase()}@kline_${timeframe}`, onMessage);
+  },
+  openComparisonStream(symbols: string[], onMessage: (symbol: string, payload: MarketTickerStreamPayload) => void) {
+    const streamPaths = symbols.map((symbol) => `${symbol.replace("/", "").toLowerCase()}@ticker`);
+    return openMultiBinanceStreams<MarketTickerStreamPayload>(streamPaths, (payload, streamPath) => {
+      const rawSymbol = streamPath.split("@")[0].toUpperCase();
+      const symbol = rawSymbol.endsWith("USDT")
+        ? `${rawSymbol.slice(0, -4)}/USDT`
+        : rawSymbol;
+      onMessage(symbol, payload);
+    });
   },
 };

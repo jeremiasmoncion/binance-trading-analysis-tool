@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
 import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
 import { runStrategyEngine } from "../strategies";
@@ -90,6 +90,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [currentPrice, setCurrentPrice] = useState(0);
   const [market24h, setMarket24h] = useState({ change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" });
   const [availableCoins, setAvailableCoins] = useState<string[]>(POPULAR_COINS);
+  const multiTimeframesRef = useRef<TimeframeSignal[]>([]);
+  const activeTimeframeRef = useRef(timeframe);
+  const tickerFrameRef = useRef<number | null>(null);
+  const klineFrameRef = useRef<number | null>(null);
+  const latestTickerRef = useRef<{ price: number; change: number; high: number; low: number; volume: number } | null>(null);
+  const latestKlineRef = useRef<Candle | null>(null);
 
   const coinLookup = useMemo(() => new Set(availableCoins), [availableCoins]);
 
@@ -100,11 +106,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
 
   const applyLiveDerivedState = useCallback((nextCandles: Candle[], livePrice?: number) => {
     const nextIndicators = calcIndicators(nextCandles);
-    const nextMultiTimeframes = updateLiveTimeframes(multiTimeframes, timeframe, generateSignal(nextIndicators));
+    const nextSignalSeed = generateSignal(nextIndicators);
+    const nextMultiTimeframes = updateLiveTimeframes(multiTimeframesRef.current, activeTimeframeRef.current, nextSignalSeed);
     const strategyExecution = runStrategyEngine({
       candles: nextCandles,
       indicators: nextIndicators,
-      timeframe,
+      timeframe: activeTimeframeRef.current,
       multiTimeframes: nextMultiTimeframes,
     });
     const nextSignal = strategyExecution.primary.signal;
@@ -121,27 +128,46 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     setStrategyCandidates(strategyExecution.candidates);
     setMultiTimeframes(alignedTimeframes);
     setCurrentPrice(livePrice && livePrice > 0 ? livePrice : nextIndicators.current);
-  }, [multiTimeframes, timeframe]);
+    multiTimeframesRef.current = alignedTimeframes;
+  }, []);
 
   const fetchData = useCallback(async (coin = currentCoin, nextTimeframe = timeframe) => {
     setStatus("loading");
     try {
-      const fetchedCandles = (await marketService.fetchCandles(coin, nextTimeframe)) || generateFallbackCandles(nextTimeframe);
+      const [fetchedCandlesResponse, multiTfPayloads, ticker, nextComparison] = await Promise.all([
+        marketService.fetchCandles(coin, nextTimeframe),
+        Promise.all(
+          MAP_TIMEFRAMES.map(async (mapTf) => {
+            const tfCandles = (await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf);
+            const tfSignal = generateSignal(calcIndicators(tfCandles));
+            return {
+              timeframe: mapTf,
+              label: tfSignal.label,
+              note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
+              trend: tfSignal.trend,
+              score: tfSignal.score,
+              aligned: false,
+            };
+          }),
+        ),
+        marketService.fetch24h(coin),
+        Promise.all(
+          POPULAR_COINS.slice(0, 4).map(async (symbol) => {
+            const data = await marketService.fetch24h(symbol);
+            const change = Number(data.priceChangePercent || 0);
+            return {
+              symbol,
+              price: Number(data.lastPrice || 0),
+              change,
+              impulse: change > 2 ? "Fuerte" : change > 0 ? "Moderado" : "Débil",
+            };
+          }),
+        ),
+      ]);
+
+      const fetchedCandles = fetchedCandlesResponse || generateFallbackCandles(nextTimeframe);
       const nextIndicators = calcIndicators(fetchedCandles);
-      const nextMultiTimeframes = await Promise.all(
-        MAP_TIMEFRAMES.map(async (mapTf) => {
-          const tfCandles = (await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf);
-          const tfSignal = generateSignal(calcIndicators(tfCandles));
-          return {
-            timeframe: mapTf,
-            label: tfSignal.label,
-            note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
-            trend: tfSignal.trend,
-            score: tfSignal.score,
-            aligned: false,
-          };
-        }),
-      );
+      const nextMultiTimeframes = multiTfPayloads;
       const strategyExecution = runStrategyEngine({
         candles: fetchedCandles,
         indicators: nextIndicators,
@@ -155,20 +181,6 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         aligned: item.label === nextSignal.label,
       }));
 
-      const ticker = await marketService.fetch24h(coin);
-      const nextComparison = await Promise.all(
-        POPULAR_COINS.slice(0, 4).map(async (symbol) => {
-          const data = await marketService.fetch24h(symbol);
-          const change = Number(data.priceChangePercent || 0);
-          return {
-            symbol,
-            price: Number(data.lastPrice || 0),
-            change,
-            impulse: change > 2 ? "Fuerte" : change > 0 ? "Moderado" : "Débil",
-          };
-        }),
-      );
-
       setCurrentCoin(coin);
       setTimeframe(nextTimeframe);
       setCandles(fetchedCandles);
@@ -179,6 +191,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setStrategy(strategyExecution.primary.strategy);
       setStrategyCandidates(strategyExecution.candidates);
       setMultiTimeframes(alignedTimeframes);
+      multiTimeframesRef.current = alignedTimeframes;
       setComparison(nextComparison);
       setMarket24h({
         change: Number(ticker.priceChangePercent || 0),
@@ -192,6 +205,14 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setStatus("error");
     }
   }, [currentCoin, timeframe]);
+
+  useEffect(() => {
+    activeTimeframeRef.current = timeframe;
+  }, [timeframe]);
+
+  useEffect(() => {
+    multiTimeframesRef.current = multiTimeframes;
+  }, [multiTimeframes]);
 
   useEffect(() => {
     let active = true;
@@ -220,28 +241,42 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
 
   useEffect(() => {
     const closeStream = marketService.openTickerStream(currentCoin, (payload) => {
-      const nextPrice = Number(payload.c || 0);
-      const nextChange = Number(payload.P || 0);
-      const nextHigh = Number(payload.h || 0);
-      const nextLow = Number(payload.l || 0);
-      const nextVolume = Number(payload.v || 0);
+      latestTickerRef.current = {
+        price: Number(payload.c || 0),
+        change: Number(payload.P || 0),
+        high: Number(payload.h || 0),
+        low: Number(payload.l || 0),
+        volume: Number(payload.v || 0),
+      };
 
-      if (nextPrice > 0) {
-        setCurrentPrice(nextPrice);
-      }
+      if (tickerFrameRef.current === null) {
+        tickerFrameRef.current = window.requestAnimationFrame(() => {
+          tickerFrameRef.current = null;
+          const snapshot = latestTickerRef.current;
+          if (!snapshot) return;
 
-      if (nextPrice > 0 || nextHigh > 0 || nextLow > 0 || nextVolume > 0) {
-        setMarket24h({
-          change: nextChange || 0,
-          high: nextHigh || 0,
-          low: nextLow || 0,
-          volume: `${(nextVolume / 1000).toFixed(1)} BTC`,
-          updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          if (snapshot.price > 0) {
+            setCurrentPrice(snapshot.price);
+          }
+
+          if (snapshot.price > 0 || snapshot.high > 0 || snapshot.low > 0 || snapshot.volume > 0) {
+            setMarket24h({
+              change: snapshot.change || 0,
+              high: snapshot.high || 0,
+              low: snapshot.low || 0,
+              volume: `${(snapshot.volume / 1000).toFixed(1)} BTC`,
+              updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            });
+          }
         });
       }
     });
 
     return () => {
+      if (tickerFrameRef.current !== null) {
+        window.cancelAnimationFrame(tickerFrameRef.current);
+        tickerFrameRef.current = null;
+      }
       closeStream();
     };
   }, [currentCoin]);
@@ -251,7 +286,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       const kline = payload.k;
       if (!kline?.t) return;
 
-      const incomingCandle: Candle = {
+      latestKlineRef.current = {
         time: Math.floor(kline.t / 1000),
         open: Number(kline.o || 0),
         high: Number(kline.h || 0),
@@ -260,18 +295,59 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         volume: Number(kline.v || 0),
       };
 
-      setCandles((prevCandles) => {
-        const source = prevCandles.length ? prevCandles : generateFallbackCandles(timeframe);
-        const nextCandles = mergeLiveCandle(source, incomingCandle);
-        applyLiveDerivedState(nextCandles, incomingCandle.close);
-        return nextCandles;
+      if (klineFrameRef.current === null) {
+        klineFrameRef.current = window.requestAnimationFrame(() => {
+          klineFrameRef.current = null;
+          const incomingCandle = latestKlineRef.current;
+          if (!incomingCandle) return;
+
+          setCandles((prevCandles) => {
+            const source = prevCandles.length ? prevCandles : generateFallbackCandles(activeTimeframeRef.current);
+            const nextCandles = mergeLiveCandle(source, incomingCandle);
+            applyLiveDerivedState(nextCandles, incomingCandle.close);
+            return nextCandles;
+          });
+        });
+      }
+    });
+
+    return () => {
+      if (klineFrameRef.current !== null) {
+        window.cancelAnimationFrame(klineFrameRef.current);
+        klineFrameRef.current = null;
+      }
+      closeStream();
+    };
+  }, [applyLiveDerivedState, currentCoin, timeframe]);
+
+  useEffect(() => {
+    const comparisonSymbols = POPULAR_COINS.slice(0, 4);
+    const closeComparisonStream = marketService.openComparisonStream(comparisonSymbols, (symbol, payload) => {
+      const nextPrice = Number(payload.c || 0);
+      const nextChange = Number(payload.P || 0);
+      if (nextPrice <= 0 && nextChange === 0) return;
+
+      setComparison((prev) => {
+        if (!prev.length) return prev;
+        let changed = false;
+        const next = prev.map((item) => {
+          if (item.symbol !== symbol) return item;
+          changed = true;
+          return {
+            ...item,
+            price: nextPrice > 0 ? nextPrice : item.price,
+            change: Number.isFinite(nextChange) ? nextChange : item.change,
+            impulse: nextChange > 2 ? "Fuerte" : nextChange > 0 ? "Moderado" : "Débil",
+          };
+        });
+        return changed ? next : prev;
       });
     });
 
     return () => {
-      closeStream();
+      closeComparisonStream();
     };
-  }, [applyLiveDerivedState, currentCoin, timeframe]);
+  }, []);
 
   return {
     currentCoin,

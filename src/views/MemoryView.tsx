@@ -86,6 +86,25 @@ interface AdaptiveLearningInsight {
   accentClass: string;
 }
 
+interface ScopeEdgeRank {
+  key: string;
+  strategyId: string;
+  timeframe: string;
+  total: number;
+  winRate: number;
+  pnl: number;
+  avgPnl: number;
+  avgScore: number;
+  avgRr: number;
+  eligibleCount: number;
+  blockedCount: number;
+  hasOverride: boolean;
+  rankScore: number;
+  action: "relax" | "tighten" | "cut" | "watch";
+  reading: string;
+  accentClass: string;
+}
+
 const RUNNABLE_STRATEGY_VERSION_KEYS = new Set([
   "trend-alignment:v1",
   "trend-alignment:v2",
@@ -731,12 +750,45 @@ export function MemoryView(props: MemoryViewProps) {
       const eligibleScoped = candidateScopedSignals.filter((item) => item.status === "eligible");
       const blockedScoped = candidateScopedSignals.filter((item) => item.status === "blocked");
       const stats = summarizeSignalCohort(closedScopedSignals);
+      const relatedRecommendation = recommendations
+        .filter((item) => {
+          const evidence = item.evidence || {};
+          return (
+            evidence.recommendationType === "execution-scope-override"
+            && item.strategy_id === override.strategyId
+            && String(evidence.timeframe || "") === override.timeframe
+          );
+        })
+        .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime())[0];
+      const appliedAtRaw = relatedRecommendation?.evidence && typeof relatedRecommendation.evidence === "object"
+        ? relatedRecommendation.evidence.appliedAt
+        : null;
+      const appliedAt = typeof appliedAtRaw === "string" ? new Date(appliedAtRaw).getTime() : 0;
+      const beforeScopedSignals = appliedAt
+        ? closedScopedSignals.filter((item) => new Date(item.updated_at || item.created_at).getTime() < appliedAt)
+        : [];
+      const afterScopedSignals = appliedAt
+        ? closedScopedSignals.filter((item) => new Date(item.updated_at || item.created_at).getTime() >= appliedAt)
+        : closedScopedSignals;
+      const beforeStats = summarizeSignalCohort(beforeScopedSignals);
+      const afterStats = summarizeSignalCohort(afterScopedSignals);
       const currentScore = override.minSignalScore ?? executionProfileForm?.minSignalScore ?? 0;
       const currentRr = override.minRrRatio ?? executionProfileForm?.minRrRatio ?? 0;
       let reading = "Todavía hace falta más muestra para saber si este scope está ayudando.";
       let accentClass = "accent-blue";
 
-      if (stats.total >= 5) {
+      if (appliedAt && beforeStats.total >= 3 && afterStats.total >= 3) {
+        if (afterStats.avgPnl > beforeStats.avgPnl && afterStats.winRate >= beforeStats.winRate) {
+          reading = "Desde que se aplicó este override, el scope viene cerrando mejor que antes. El ajuste parece ayudar.";
+          accentClass = "accent-emerald";
+        } else if (afterStats.avgPnl < beforeStats.avgPnl || afterStats.winRate < beforeStats.winRate) {
+          reading = "Después del override este scope no mejoró lo suficiente. Conviene endurecerlo más o quitarlo.";
+          accentClass = "accent-amber";
+        } else {
+          reading = "El override no rompió el scope, pero todavía no deja una mejora clara frente al tramo anterior.";
+          accentClass = "accent-blue";
+        }
+      } else if (stats.total >= 5) {
         if (stats.avgPnl > 0 && stats.winRate >= 55) {
           reading = "Este scope viene sosteniendo resultado positivo y parece aguantar un filtro más abierto o estable.";
           accentClass = "accent-emerald";
@@ -762,6 +814,10 @@ export function MemoryView(props: MemoryViewProps) {
         avgPnl: stats.avgPnl,
         eligibleCount: eligibleScoped.length,
         blockedCount: blockedScoped.length,
+        beforeTotal: beforeStats.total,
+        beforeAvgPnl: beforeStats.avgPnl,
+        afterTotal: afterStats.total,
+        afterAvgPnl: afterStats.avgPnl,
         reading,
         accentClass,
       };
@@ -772,7 +828,85 @@ export function MemoryView(props: MemoryViewProps) {
     executionProfileForm?.minSignalScore,
     executionProfileForm?.scopeOverrides,
     props.executionCenter?.candidates,
+    recommendations,
   ]);
+
+  const scopeEdgeRanking = useMemo(() => {
+    const groups = new Map<string, { strategyId: string; timeframe: string; signals: SignalSnapshot[] }>();
+    closedSignals.forEach((item) => {
+      const strategyId = String(item.strategy_name || "");
+      const timeframe = String(item.timeframe || "");
+      if (!strategyId || !timeframe) return;
+      const key = `${strategyId}:${timeframe}`;
+      const current = groups.get(key) || { strategyId, timeframe, signals: [] };
+      current.signals.push(item);
+      groups.set(key, current);
+    });
+
+    const ranked = Array.from(groups.values())
+      .map((group) => {
+        const stats = summarizeSignalCohort(group.signals);
+        const scopedCandidates = (props.executionCenter?.candidates || []).filter(
+          (item) => item.strategyName === group.strategyId && item.timeframe === group.timeframe,
+        );
+        const eligibleCount = scopedCandidates.filter((item) => item.status === "eligible").length;
+        const blockedCount = scopedCandidates.filter((item) => item.status === "blocked").length;
+        const hasOverride = Boolean((executionProfileForm?.scopeOverrides || []).find(
+          (item) => item.strategyId === group.strategyId && item.timeframe === group.timeframe,
+        ));
+        const severeWeak = stats.total >= 8 && (
+          stats.avgPnl <= -0.6
+          || (stats.winRate <= 38 && stats.pnl < 0)
+          || (stats.pnl <= -4 && stats.winRate <= 45)
+        );
+        const strong = stats.total >= 5 && stats.avgPnl > 0 && stats.winRate >= 55;
+        const weak = severeWeak || (stats.total >= 5 && (stats.avgPnl < 0 || stats.winRate < 45));
+        const action: ScopeEdgeRank["action"] = strong ? "relax" : severeWeak ? "cut" : weak ? "tighten" : "watch";
+        const rankScore = Number((
+          stats.avgPnl * 4
+          + (stats.winRate - 50) * 0.45
+          + Math.min(stats.total, 20) * 0.35
+          + (eligibleCount - blockedCount) * 0.15
+        ).toFixed(2));
+        const reading = strong
+          ? "Este scope viene empujando el edge real y podría soportar un filtro más abierto o estable."
+          : severeWeak
+            ? "Este scope está metiendo ruido de forma consistente. Conviene podarlo o casi cerrarlo en demo."
+            : weak
+              ? "Este scope sigue flojo. Vale la pena endurecer score y RR antes de seguir dejándolo pasar igual."
+              : "Todavía no deja una lectura lo bastante fuerte para abrir o cortar más.";
+        const accentClass = strong ? "accent-emerald" : severeWeak || weak ? "accent-amber" : "accent-blue";
+
+        return {
+          key: `${group.strategyId}-${group.timeframe}`,
+          strategyId: group.strategyId,
+          timeframe: group.timeframe,
+          total: stats.total,
+          winRate: stats.winRate,
+          pnl: stats.pnl,
+          avgPnl: stats.avgPnl,
+          avgScore: stats.avgScore,
+          avgRr: stats.avgRr,
+          eligibleCount,
+          blockedCount,
+          hasOverride,
+          rankScore,
+          action,
+          reading,
+          accentClass,
+        } satisfies ScopeEdgeRank;
+      })
+      .filter((item) => item.total >= 4)
+      .sort((left, right) => right.rankScore - left.rankScore);
+
+    return {
+      strongest: ranked.filter((item) => item.action === "relax" || item.action === "watch").slice(0, 3),
+      weakest: ranked
+        .filter((item) => item.action === "cut" || item.action === "tighten")
+        .sort((left, right) => left.rankScore - right.rankScore)
+        .slice(0, 3),
+    };
+  }, [closedSignals, executionProfileForm?.scopeOverrides, props.executionCenter?.candidates]);
 
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
@@ -1649,6 +1783,56 @@ export function MemoryView(props: MemoryViewProps) {
               ))}
             </div>
 
+            <div className="signal-analytics-grid">
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Scopes que mejor están respondiendo</h4>
+                  <p>Aquí se rankean las combinaciones de estrategia y temporalidad que hoy sostienen mejor el edge real.</p>
+                </div>
+                {!scopeEdgeRanking.strongest.length ? (
+                  <EmptyState message="Todavía no hay scopes fuertes con muestra suficiente para rankear arriba." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {scopeEdgeRanking.strongest.map((item) => (
+                      <div key={`scope-strong-${item.key}`} className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{item.strategyId} · {item.timeframe}</strong>
+                          <span>{item.total} cierres · {item.winRate.toFixed(0)}% acierto · {formatSignedPrice(item.pnl)} · score {item.avgScore.toFixed(1)} · RR {item.avgRr.toFixed(2)}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${item.hasOverride ? "status-running" : "status-sandbox"}`}>
+                          {item.hasOverride ? "override activo" : item.action === "relax" ? "scope fuerte" : "en observación"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Scopes que más están metiendo ruido</h4>
+                  <p>Estos son los candidatos más claros para endurecer o casi cortar antes de abrir capas nuevas.</p>
+                </div>
+                {!scopeEdgeRanking.weakest.length ? (
+                  <EmptyState message="Todavía no hay scopes flojos con suficiente evidencia para podarlos con confianza." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {scopeEdgeRanking.weakest.map((item) => (
+                      <div key={`scope-weak-${item.key}`} className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{item.strategyId} · {item.timeframe}</strong>
+                          <span>{item.total} cierres · {item.winRate.toFixed(0)}% acierto · {formatSignedPrice(item.pnl)} · {item.reading}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${item.action === "cut" ? "status-paused" : "status-draft"}`}>
+                          {item.action === "cut" ? "corte prioritario" : "endurecer"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             {!recommendations.length ? (
               <EmptyState message="Todavía no hay sugerencias adaptativas listas para promover. Abajo ya puedes ver los aprendizajes que el sistema sí está detectando con el historial real." />
             ) : (
@@ -2054,6 +2238,11 @@ export function MemoryView(props: MemoryViewProps) {
                       <StatCard label="Cierres reales" value={String(item.closedTotal)} sub={`${item.winRate.toFixed(0)}% acierto`} accentClass={item.accentClass} />
                       <StatCard label="PnL acumulado" value={formatSignedPrice(item.pnl)} sub={`Promedio ${formatSignedPrice(item.avgPnl)}`} toneClass={item.pnl > 0 ? "portfolio-positive" : item.pnl < 0 ? "portfolio-negative" : ""} accentClass={item.accentClass} />
                       <StatCard label="Embudo actual" value={`${item.eligibleCount}/${item.blockedCount}`} sub="Elegibles / bloqueadas ahora" accentClass="accent-amber" />
+                    </div>
+
+                    <div className="stats-grid compact-stats-grid no-bottom-gap">
+                      <StatCard label="Antes del override" value={item.beforeTotal ? formatSignedPrice(item.beforeAvgPnl) : "--"} sub={item.beforeTotal ? `${item.beforeTotal} cierres previos` : "Sin tramo previo comparable"} toneClass={item.beforeAvgPnl > 0 ? "portfolio-positive" : item.beforeAvgPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-blue" />
+                      <StatCard label="Después del override" value={item.afterTotal ? formatSignedPrice(item.afterAvgPnl) : "--"} sub={item.afterTotal ? `${item.afterTotal} cierres posteriores` : "Sin tramo posterior comparable"} toneClass={item.afterAvgPnl > 0 ? "portfolio-positive" : item.afterAvgPnl < 0 ? "portfolio-negative" : ""} accentClass={item.accentClass} />
                     </div>
 
                     {item.note ? (
@@ -2474,6 +2663,7 @@ function AdaptiveRecommendationCard({
     ? evidence.appliedOverride as { strategyId?: string; timeframe?: string }
     : null;
   const scopeStrength = String(evidence.scopeStrength || "");
+  const scopeAction = String(evidence.scopeAction || "");
   const isScopeSandbox = isScopeRecommendation && item.status === "sandbox" && !appliedScope;
   const activationLabel = isScopeRecommendation
     ? isActivating
@@ -2541,10 +2731,14 @@ function AdaptiveRecommendationCard({
           {item.status === "draft"
             ? "Todavía está en borrador: primero la mandas a prueba segura antes de tocar el perfil demo."
             : item.status === "sandbox"
-              ? scopeStrength === "weak"
-                ? "Ya pasó a prueba segura. Si confirmas, este override endurece el filtro demo para cortar setups flojos en este scope."
-                : "Ya pasó a prueba segura. Si confirmas, este override abre un poco el filtro demo en un scope que viene rindiendo mejor."
-              : "Este ajuste ya quedó aplicado al perfil demo y participa en el filtro operativo actual."}
+              ? scopeAction === "cut"
+                ? "Ya pasó a prueba segura. Si confirmas, este override casi cierra este scope en demo para cortar ruido que ya está destruyendo edge."
+                : scopeStrength === "weak" || scopeAction === "tighten"
+                  ? "Ya pasó a prueba segura. Si confirmas, este override endurece el filtro demo para cortar setups flojos en este scope."
+                  : "Ya pasó a prueba segura. Si confirmas, este override abre un poco el filtro demo en un scope que viene rindiendo mejor."
+              : scopeAction === "cut"
+                ? "Este ajuste ya quedó aplicado al perfil demo como corte prioritario de un scope que venía metiendo ruido."
+                : "Este ajuste ya quedó aplicado al perfil demo y participa en el filtro operativo actual."}
         </p>
       ) : null}
 

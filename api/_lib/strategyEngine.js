@@ -682,16 +682,26 @@ function buildExecutionScopeOverrideRecommendations(signals, profile) {
     const avgScore = group.signals.reduce((sum, item) => sum + Number(item.signal_score || 0), 0) / stats.total;
     const avgRr = group.signals.reduce((sum, item) => sum + Number(item.rr_ratio || 0), 0) / stats.total;
     const strongPerformance = stats.pnl > 0 && stats.winRate >= 56;
-    const weakPerformance = stats.pnl < 0 || stats.winRate <= 43;
+    const severeWeakPerformance = stats.total >= 8 && (
+      stats.avgPnl <= -0.6
+      || (stats.winRate <= 38 && stats.pnl < 0)
+      || (stats.pnl <= -4 && stats.winRate <= 45)
+    );
+    const weakPerformance = severeWeakPerformance || stats.pnl < 0 || stats.winRate <= 43;
     if (!strongPerformance && !weakPerformance) continue;
 
     const dominantVersion = [...group.versionCounts.entries()].sort((left, right) => right[1] - left[1])[0]?.[0] || "v1";
+    const scopeAction = strongPerformance ? "relax" : severeWeakPerformance ? "cut" : "tighten";
     const suggestedScore = strongPerformance
       ? Math.max(18, Math.min(thresholds.minSignalScore - 6, roundToStep(avgScore - 2)))
-      : Math.min(92, Math.max(thresholds.minSignalScore + 6, roundToStep(avgScore + 4)));
+      : severeWeakPerformance
+        ? Math.min(96, Math.max(thresholds.minSignalScore + 14, roundToStep(avgScore + 10)))
+        : Math.min(92, Math.max(thresholds.minSignalScore + 6, roundToStep(avgScore + 4)));
     const suggestedRr = strongPerformance
       ? Math.max(0.15, Math.min(thresholds.minRrRatio - 0.12, roundToStep(avgRr - 0.05, 0.05)))
-      : Math.min(3, Math.max(thresholds.minRrRatio + 0.15, roundToStep(avgRr + 0.1, 0.05)));
+      : severeWeakPerformance
+        ? Math.min(3, Math.max(thresholds.minRrRatio + 0.35, roundToStep(avgRr + 0.25, 0.05)))
+        : Math.min(3, Math.max(thresholds.minRrRatio + 0.15, roundToStep(avgRr + 0.1, 0.05)));
 
     if (
       Math.abs(suggestedScore - thresholds.minSignalScore) < 2
@@ -700,19 +710,24 @@ function buildExecutionScopeOverrideRecommendations(signals, profile) {
       continue;
     }
 
-    const confidence = Math.min(0.94, 0.54 + stats.total * 0.025 + Math.abs(stats.pnl) / 180);
-    const status = stats.total >= 8 && confidence >= 0.7 ? "sandbox" : "draft";
+    const confidenceBase = severeWeakPerformance ? 0.6 : 0.54;
+    const confidence = Math.min(0.96, confidenceBase + stats.total * 0.025 + Math.abs(stats.pnl) / 160);
+    const status = stats.total >= (severeWeakPerformance ? 7 : 8) && confidence >= (severeWeakPerformance ? 0.68 : 0.7) ? "sandbox" : "draft";
     recommendations.push({
-      recommendation_key: `execution-scope:${group.strategyId}:${group.timeframe}:${strongPerformance ? "relax" : "tighten"}`,
+      recommendation_key: `execution-scope:${group.strategyId}:${group.timeframe}:${scopeAction}`,
       strategy_id: group.strategyId,
       strategy_version: dominantVersion,
       parameter_key: "executionScope",
       title: strongPerformance
         ? `Abrir más ${group.strategyId} en ${group.timeframe}`
-        : `Endurecer ${group.strategyId} en ${group.timeframe}`,
+        : severeWeakPerformance
+          ? `Cortar ${group.strategyId} en ${group.timeframe}`
+          : `Endurecer ${group.strategyId} en ${group.timeframe}`,
       summary: strongPerformance
         ? `Este scope está respondiendo mejor que la media con muestra suficiente. Conviene darle un filtro demo más flexible para capturar más setups útiles.`
-        : `Este scope está dejando una lectura floja. Conviene subir el filtro demo aquí antes de seguir ejecutándolo igual que el resto.`,
+        : severeWeakPerformance
+          ? `Este scope está destruyendo edge con suficiente muestra real. Conviene casi cerrarlo en demo hasta que deje de meter ruido.`
+          : `Este scope está dejando una lectura floja. Conviene subir el filtro demo aquí antes de seguir ejecutándolo igual que el resto.`,
       current_value: thresholds.minSignalScore,
       suggested_value: suggestedScore,
       confidence,
@@ -723,15 +738,18 @@ function buildExecutionScopeOverrideRecommendations(signals, profile) {
         sampleSize: stats.total,
         winRate: stats.winRate,
         pnl: stats.pnl,
+        avgPnl: Number(stats.avgPnl.toFixed(2)),
         avgScore: Number(avgScore.toFixed(1)),
         avgRr: Number(avgRr.toFixed(2)),
         currentMinSignalScore: thresholds.minSignalScore,
         suggestedMinSignalScore: suggestedScore,
         currentMinRrRatio: Number(thresholds.minRrRatio.toFixed(2)),
         suggestedMinRrRatio: Number(suggestedRr.toFixed(2)),
-        scopeStrength: strongPerformance ? "strong" : "weak",
+        scopeStrength: strongPerformance ? "strong" : severeWeakPerformance ? "critical-weak" : "weak",
+        scopeAction,
+        severity: severeWeakPerformance ? "high" : strongPerformance ? "opportunity" : "medium",
         overrideAlreadyPresent: Boolean(thresholds.override),
-        promotionMode: strongPerformance ? "manual-relax" : "controlled-tighten",
+        promotionMode: strongPerformance ? "manual-relax" : severeWeakPerformance ? "priority-cut" : "controlled-tighten",
       },
     });
   }
@@ -758,12 +776,21 @@ function mergeRecommendationRow(existing, nextRow) {
 
 function shouldAutoApplyScopeRecommendation(recommendation) {
   const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const scopeAction = String(evidence.scopeAction || "");
   return (
     evidence.recommendationType === "execution-scope-override"
     && recommendation.status === "sandbox"
-    && evidence.scopeStrength === "weak"
-    && Number(evidence.sampleSize || 0) >= 12
-    && Number(recommendation.confidence || 0) >= 0.78
+    && (
+      (
+        evidence.scopeStrength === "weak"
+        && Number(evidence.sampleSize || 0) >= 12
+        && Number(recommendation.confidence || 0) >= 0.78
+      ) || (
+        scopeAction === "cut"
+        && Number(evidence.sampleSize || 0) >= 8
+        && Number(recommendation.confidence || 0) >= 0.72
+      )
+    )
     && !evidence.appliedAt
   );
 }
@@ -978,6 +1005,7 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
   const timeframe = String(evidence.timeframe || "");
   const minSignalScore = Number(evidence.suggestedMinSignalScore ?? recommendation.suggested_value);
   const minRrRatio = Number(evidence.suggestedMinRrRatio ?? evidence.currentMinRrRatio ?? 0);
+  const scopeAction = String(evidence.scopeAction || "tighten");
   if (!timeframe || !Number.isFinite(minSignalScore) || !Number.isFinite(minRrRatio)) {
     throw new Error("La recomendación no trae un scope demo válido para aplicar");
   }
@@ -990,7 +1018,7 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
     enabled: true,
     minSignalScore,
     minRrRatio,
-    note: `Aplicado desde ${recommendation.recommendation_key}`,
+    note: `${scopeAction === "cut" ? "Corte" : scopeAction === "relax" ? "Apertura" : "Ajuste"} aplicado desde ${recommendation.recommendation_key}`,
   };
   const scopeOverrides = (currentProfile.scopeOverrides || []).filter(
     (item) => !(item.strategyId === nextOverride.strategyId && item.timeframe === nextOverride.timeframe),

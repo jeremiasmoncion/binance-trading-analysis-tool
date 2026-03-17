@@ -8,6 +8,8 @@ import {
   sendJson,
 } from "./binance.js";
 import { listSignalSnapshotsForUser, updateSignalExecutionLink } from "./signals.js";
+import { updateSignalSnapshotForUser } from "./signals.js";
+import { generateAdaptiveRecommendationsForUser } from "./strategyEngine.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -140,6 +142,12 @@ function buildDailyAutoExecutions(executionOrders) {
 function getProtectionPayload(responsePayload) {
   if (!responsePayload || typeof responsePayload !== "object") return null;
   return "protection" in responsePayload ? responsePayload.protection || null : null;
+}
+
+function getExecutionOriginLabel(record) {
+  if (record.origin === "watcher") return "Auto por vigilante";
+  if (record.signal_id) return "Desde señales";
+  return "Manual usuario";
 }
 
 function getPrimaryOrderId(record) {
@@ -479,6 +487,35 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   };
 }
 
+function deriveClosedExecutionFromExchange(record, portfolioPayload) {
+  const recentOrders = Array.isArray(portfolioPayload?.recentOrders) ? portfolioPayload.recentOrders : [];
+  const recentTrades = Array.isArray(portfolioPayload?.recentTrades) ? portfolioPayload.recentTrades : [];
+  const linkedIds = typeof record.linked_order_ids === "object" && record.linked_order_ids ? record.linked_order_ids : {};
+  const protectionIds = Array.isArray(linkedIds.protectionOrderIds) ? linkedIds.protectionOrderIds.map((item) => Number(item || 0)).filter(Boolean) : [];
+  if (!protectionIds.length) return null;
+
+  const protectionOrders = recentOrders
+    .filter((item) => protectionIds.includes(Number(item.orderId || 0)))
+    .sort((a, b) => Number(b.updateTime || 0) - Number(a.updateTime || 0));
+  const filledOrder = protectionOrders.find((item) => item.status === "FILLED");
+  if (!filledOrder) return null;
+
+  const matchingTrades = recentTrades.filter((item) => Number(item.orderId || 0) === Number(filledOrder.orderId || 0));
+  const realizedPnl = matchingTrades.reduce((sum, item) => sum + Number(item.realizedPnl || 0), 0);
+  const filledType = String(filledOrder.type || "");
+  const outcomeStatus = filledType === "LIMIT_MAKER" ? "win" : filledType === "STOP_LOSS_LIMIT" ? "loss" : null;
+  if (!outcomeStatus) return null;
+
+  return {
+    lifecycleStatus: outcomeStatus === "win" ? "closed_win" : "closed_loss",
+    protectionStatus: "consumed",
+    signalOutcomeStatus: outcomeStatus,
+    realizedPnl,
+    closedAt: new Date(Number(filledOrder.updateTime || Date.now())).toISOString(),
+    closingOrder: filledOrder,
+  };
+}
+
 async function syncExecutionOrdersForUser(username, portfolioPayload, signals, executionOrders) {
   if (!Array.isArray(executionOrders) || !executionOrders.length) return executionOrders || [];
 
@@ -499,6 +536,7 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
     let signalOutcomeStatus = record.signal_outcome_status || null;
     let realizedPnl = Number(record.realized_pnl || 0);
     let closedAt = record.closed_at || null;
+    const exchangeClosure = deriveClosedExecutionFromExchange(record, portfolioPayload);
 
     if (record.status === "preview") {
       lifecycleStatus = "preview";
@@ -506,6 +544,12 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
     } else if (record.status === "blocked") {
       lifecycleStatus = "blocked";
       protectionStatus = "none";
+    } else if (exchangeClosure && (!signal?.outcome_status || signal.outcome_status === "pending")) {
+      lifecycleStatus = exchangeClosure.lifecycleStatus;
+      protectionStatus = exchangeClosure.protectionStatus;
+      signalOutcomeStatus = exchangeClosure.signalOutcomeStatus;
+      realizedPnl = Number(exchangeClosure.realizedPnl || 0);
+      closedAt = exchangeClosure.closedAt;
     } else if (signal?.outcome_status && signal.outcome_status !== "pending") {
       signalOutcomeStatus = signal.outcome_status;
       realizedPnl = Number(signal.outcome_pnl || 0);
@@ -562,9 +606,33 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
         }).catch(() => null);
         if (patchedSignal) signalMap.set(Number(signal.id), patchedSignal);
       }
+
+      const shouldCloseSignalFromExecution = signal.outcome_status === "pending"
+        && (signalOutcomeStatus === "win" || signalOutcomeStatus === "loss")
+        && lifecycleStatus.startsWith("closed_");
+      if (shouldCloseSignalFromExecution) {
+        const originLabel = getExecutionOriginLabel(record);
+        const closeNote = `${signal.note ? `${signal.note} · ` : ""}Cierre real de Binance Demo detectado por ${originLabel.toLowerCase()} el ${new Date(closedAt || Date.now()).toLocaleString("es-DO")}.`;
+        const patchedSignal = await updateSignalSnapshotForUser(username, signal.id, {
+          outcomeStatus: signalOutcomeStatus,
+          outcomePnl: realizedPnl,
+          note: closeNote,
+        }).catch(() => null);
+        if (patchedSignal) {
+          signalMap.set(Number(signal.id), patchedSignal);
+          signal.outcome_status = signalOutcomeStatus;
+          signal.outcome_pnl = realizedPnl;
+          signal.note = closeNote;
+        }
+      }
     }
 
     nextOrders.push(nextRecord);
+  }
+
+  const closedCount = nextOrders.filter((item) => String(item.lifecycle_status || "").startsWith("closed_")).length;
+  if (closedCount > 0) {
+    await generateAdaptiveRecommendationsForUser(username).catch(() => null);
   }
 
   return nextOrders;

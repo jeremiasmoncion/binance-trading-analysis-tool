@@ -411,7 +411,7 @@ function AssetRow({ asset }: { asset: PortfolioAsset }) {
 function OrderRow({ order }: { order: BinanceOrderSummary }) {
   return (
     <tr>
-      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{new Date(order.updateTime).toLocaleString("es-DO")}</span></div></td>
+      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{new Date(order.updateTime).toLocaleString("es-DO")}</span><span>{order.originLabel || "Manual usuario"}</span></div></td>
       <td><span className={order.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{order.side === "BUY" ? "Compra" : "Venta"}</span></td>
       <td>{order.type}</td>
       <td>{order.price > 0 ? formatPrice(order.price) : "Market"}</td>
@@ -425,7 +425,7 @@ function OrderRow({ order }: { order: BinanceOrderSummary }) {
 function ClosedOrderRow({ order }: { order: BinanceOrderSummary }) {
   return (
     <tr>
-      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{order.price > 0 ? formatPrice(order.price) : "Market"}</span></div></td>
+      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{order.price > 0 ? formatPrice(order.price) : "Market"}</span><span>{order.originLabel || "Manual usuario"}</span></div></td>
       <td><span className={order.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{order.side === "BUY" ? "Compra" : "Venta"}</span></td>
       <td>{order.type}</td>
       <td>{order.status}</td>
@@ -439,7 +439,7 @@ function ClosedOrderRow({ order }: { order: BinanceOrderSummary }) {
 function TradeRow({ trade }: { trade: BinanceTradeSummary }) {
   return (
     <tr>
-      <td><div className="portfolio-asset"><strong>{trade.symbol}</strong><span>{trade.orderId ? `Orden ${trade.orderId}` : "Trade"}</span></div></td>
+      <td><div className="portfolio-asset"><strong>{trade.symbol}</strong><span>{trade.orderId ? `Orden ${trade.orderId}` : "Trade"}</span><span>{trade.originLabel || "Manual usuario"}</span></div></td>
       <td><span className={trade.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{trade.side === "BUY" ? "Compra" : "Venta"}</span></td>
       <td>{formatPrice(trade.price)}</td>
       <td>{formatAmount(trade.qty)}</td>

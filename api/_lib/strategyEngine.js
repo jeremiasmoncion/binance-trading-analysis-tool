@@ -528,6 +528,11 @@ function getPreferredTimeframeScope(versions, strategyId, version) {
 
 export async function generateAdaptiveRecommendations(req) {
   const session = requireSession(req);
+  return generateAdaptiveRecommendationsForUser(session.username);
+}
+
+export async function generateAdaptiveRecommendationsForUser(username) {
+  const normalizedUsername = String(username || "").trim();
 
   const versionParams = new URLSearchParams({
     select: "*",
@@ -535,7 +540,7 @@ export async function generateAdaptiveRecommendations(req) {
   });
   const signalsParams = new URLSearchParams({
     select: "strategy_name,strategy_version,outcome_status,outcome_pnl,signal_payload",
-    username: `eq.${session.username}`,
+    username: `eq.${normalizedUsername}`,
     order: "created_at.desc",
     limit: "300",
   });

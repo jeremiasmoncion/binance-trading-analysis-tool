@@ -5,6 +5,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "crype-dev-session-secret";
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const BINANCE_CONNECTIONS_TABLE = process.env.SUPABASE_BINANCE_TABLE || "binance_testnet_connections";
+const EXECUTION_ORDERS_TABLE = process.env.SUPABASE_EXECUTION_ORDERS_TABLE || "execution_orders";
 const BINANCE_TESTNET_API_URL = "https://demo-api.binance.com";
 
 function getEncryptionKey() {
@@ -278,6 +279,8 @@ function normalizeTrade(trade) {
     commissionAsset,
     time: Number(trade.time || 0),
     orderId: Number(trade.orderId || 0),
+    originLabel: "Manual usuario",
+    sourceType: "manual-user",
   };
 }
 
@@ -301,7 +304,42 @@ function normalizeOrder(order) {
     quoteQty,
     time: Number(order.time || 0),
     updateTime: Number(order.updateTime || order.time || 0),
+    originLabel: "Manual usuario",
+    sourceType: "manual-user",
   };
+}
+
+async function listExecutionOrderLinks(username) {
+  const params = new URLSearchParams({
+    select: "signal_id,order_id,origin,linked_order_ids,response_payload",
+    username: `eq.${String(username)}`,
+    limit: "200",
+    order: "created_at.desc",
+  });
+  return supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`).catch(() => []);
+}
+
+function buildExecutionOriginIndex(rows) {
+  const byOrderId = new Map();
+  (rows || []).forEach((row) => {
+    const origin = row.origin === "watcher" ? "Desde señales" : row.signal_id ? "Desde señales" : "Manual usuario";
+    const sourceType = row.origin === "watcher" ? "signals-auto" : row.signal_id ? "signals-manual" : "manual-user";
+    const linkIds = [];
+    const primaryId = Number(row.order_id || row.response_payload?.order?.orderId || 0);
+    if (primaryId) linkIds.push(primaryId);
+    const linked = row.linked_order_ids && typeof row.linked_order_ids === "object" ? row.linked_order_ids : {};
+    const protectionIds = Array.isArray(linked.protectionOrderIds) ? linked.protectionOrderIds : [];
+    protectionIds.forEach((item) => {
+      const id = Number(item || 0);
+      if (id) linkIds.push(id);
+    });
+    linkIds.forEach((id) => {
+      if (!byOrderId.has(id)) {
+        byOrderId.set(id, { originLabel: origin, sourceType });
+      }
+    });
+  });
+  return byOrderId;
 }
 
 function calculatePositionFromTrades(trades, asset) {
@@ -399,6 +437,8 @@ async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSe
       ].filter(Boolean)
     )
   );
+  const executionOrderLinks = await listExecutionOrderLinks(session.username);
+  const executionOriginByOrderId = buildExecutionOriginIndex(executionOrderLinks);
 
   const symbolHistory = await Promise.all(
     trackedSymbols.map(async (symbol) => {
@@ -503,14 +543,28 @@ async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSe
       const position = symbolPositions.get(item.symbol);
       return position?.tradeSummaries || [];
     })
+    .map((trade) => ({
+      ...trade,
+      ...(executionOriginByOrderId.get(Number(trade.orderId || 0)) || {}),
+    }))
     .sort((a, b) => b.time - a.time)
     .slice(0, 20);
   const recentOrders = symbolHistory
-    .flatMap((item) => item.orders.map((order) => normalizeOrder(order)))
+    .flatMap((item) => item.orders.map((order) => {
+      const normalized = normalizeOrder(order);
+      return {
+        ...normalized,
+        ...(executionOriginByOrderId.get(Number(normalized.orderId || 0)) || {}),
+      };
+    }))
     .filter((order) => order.status !== "NEW" && order.status !== "PARTIALLY_FILLED")
     .sort((a, b) => b.updateTime - a.updateTime)
     .slice(0, 20);
   const normalizedOpenOrders = openOrders
+    .map((order) => ({
+      ...order,
+      ...(executionOriginByOrderId.get(Number(order.orderId || 0)) || {}),
+    }))
     .sort((a, b) => b.updateTime - a.updateTime)
     .slice(0, 20);
 

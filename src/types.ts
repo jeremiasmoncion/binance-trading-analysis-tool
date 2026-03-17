@@ -432,6 +432,8 @@ export interface BinanceOrderSummary {
   quoteQty: number;
   time: number;
   updateTime: number;
+  originLabel?: string;
+  sourceType?: "signals-auto" | "signals-manual" | "manual-user";
 }
 
 export interface BinanceTradeSummary {
@@ -445,6 +447,8 @@ export interface BinanceTradeSummary {
   time: number;
   orderId?: number;
   realizedPnl?: number;
+  originLabel?: string;
+  sourceType?: "signals-auto" | "signals-manual" | "manual-user";
 }
 
 export interface ExecutionProfile {

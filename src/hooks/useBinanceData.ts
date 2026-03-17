@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { authService, binanceService } from "../services/api";
+import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { BinanceConnection, PortfolioPayload, UserSession, ViewName } from "../types";
 
 interface BinanceFormState {
@@ -71,6 +72,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   }, [portfolioPeriod]);
 
   const connect = useCallback(async () => {
+    const loaderId = startLoading({ label: "Conectando Binance Demo", detail: binanceForm.alias.trim() || "Nueva conexión" });
     try {
       await binanceService.connect(binanceForm.apiKey.trim(), binanceForm.apiSecret.trim(), binanceForm.alias.trim());
       setBinanceForm((prev) => ({ ...prev, apiSecret: "" }));
@@ -78,12 +80,24 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (currentView === "balance") {
         await refreshPortfolio();
       }
+      showToast({
+        tone: "success",
+        title: "Binance Demo conectado",
+        message: "La cuenta de prueba ya quedó lista para balance, señales y ejecución demo.",
+      });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "No se pudo conectar Binance Demo Spot");
+      showToast({
+        tone: "error",
+        title: "No se pudo conectar Binance Demo",
+        message: error instanceof Error ? error.message : "Revisa las credenciales y vuelve a intentarlo.",
+      });
+    } finally {
+      stopLoading(loaderId);
     }
   }, [binanceForm, currentView, refreshPortfolio, refreshProfileData]);
 
   const disconnect = useCallback(async () => {
+    const loaderId = startLoading({ label: "Desconectando Binance Demo", detail: "Cerrando acceso de cuenta" });
     try {
       await binanceService.disconnect();
       setBinanceForm({ alias: "", apiKey: "", apiSecret: "" });
@@ -91,8 +105,19 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (currentView === "balance") {
         await refreshPortfolio();
       }
+      showToast({
+        tone: "warning",
+        title: "Binance Demo desconectado",
+        message: "El sistema dejó de usar la cuenta de prueba hasta que vuelvas a conectarla.",
+      });
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "No se pudo desconectar Binance Demo Spot");
+      showToast({
+        tone: "error",
+        title: "No se pudo desconectar",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez en unos segundos.",
+      });
+    } finally {
+      stopLoading(loaderId);
     }
   }, [currentView, refreshPortfolio, refreshProfileData]);
 

@@ -3,6 +3,7 @@ import { AppView } from "./components/AppView";
 import { LoginOverlay } from "./components/LoginOverlay";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
+import { SystemUiHost } from "./components/ui/SystemUiHost";
 import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
 import { useCalculator } from "./hooks/useCalculator";
@@ -11,6 +12,7 @@ import { useSignalMemory } from "./hooks/useSignalMemory";
 import { useTheme } from "./hooks/useTheme";
 import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
+import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
 
 export function App() {
@@ -98,6 +100,29 @@ export function App() {
     });
   }
 
+  async function handleRefreshAnalysis() {
+    const loaderId = startLoading({
+      label: "Actualizando análisis",
+      detail: `${market.currentCoin} · ${market.timeframe}`,
+    });
+    try {
+      await market.fetchData(market.currentCoin, market.timeframe);
+      showToast({
+        tone: "success",
+        title: "Análisis actualizado",
+        message: `El mercado de ${market.currentCoin} ya se refrescó con datos recientes.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo actualizar",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez en unos segundos.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }
+
   if (!auth.currentUser) {
     return (
       <LoginOverlay
@@ -120,6 +145,7 @@ export function App() {
 
   return (
     <div className={`app-shell${view.sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+      <SystemUiHost />
       <Sidebar
         user={auth.currentUser}
         currentView={view.currentView}
@@ -143,7 +169,7 @@ export function App() {
           theme={theme}
           onCoinChange={market.selectCoin}
           onTimeframeChange={market.selectTimeframe}
-          onRefresh={() => void market.fetchData(market.currentCoin, market.timeframe)}
+          onRefresh={() => void handleRefreshAnalysis()}
           onToggleWatchlist={() => watchlist.toggleWatchlist(market.currentCoin)}
           onToggleTheme={toggleTheme}
           onOpenAdmin={view.openProfile}
@@ -180,6 +206,11 @@ export function App() {
               multiTimeframes: market.multiTimeframes,
               strategy: market.strategy,
               strategyCandidates: market.strategyCandidates,
+            });
+            showToast({
+              tone: "success",
+              title: "Señal guardada",
+              message: `${market.currentCoin} se añadió al historial para seguir su resultado.`,
             });
           }}
           indicators={market.indicators}

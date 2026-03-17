@@ -4,6 +4,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
+import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import { binanceService, strategyEngineService, watchlistService } from "../services/api";
 import type {
   ExecutionCenterPayload,
@@ -114,12 +115,10 @@ export function MemoryView(props: MemoryViewProps) {
   const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
-  const [scannerToast, setScannerToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [executionCenter, setExecutionCenter] = useState<ExecutionCenterPayload | null>(null);
   const [executionProfileForm, setExecutionProfileForm] = useState<ExecutionCenterPayload["profile"] | null>(null);
   const [executionBusy, setExecutionBusy] = useState(false);
   const [executionSaving, setExecutionSaving] = useState(false);
-  const [executionToast, setExecutionToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -144,18 +143,6 @@ export function MemoryView(props: MemoryViewProps) {
       ignore = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (!scannerToast) return undefined;
-    const timer = window.setTimeout(() => setScannerToast(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [scannerToast]);
-
-  useEffect(() => {
-    if (!executionToast) return undefined;
-    const timer = window.setTimeout(() => setExecutionToast(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [executionToast]);
 
   useEffect(() => {
     let ignore = false;
@@ -531,6 +518,10 @@ export function MemoryView(props: MemoryViewProps) {
 
   async function handleRunScanner() {
     setScannerBusy(true);
+    const loaderId = startLoading({
+      label: "Revisando watchlist",
+      detail: "Escaneando monedas, marcos y reglas de automatización.",
+    });
     try {
       const execution = await watchlistService.runScan();
       const refreshed = await watchlistService.scanStatus().catch(() => null);
@@ -545,50 +536,65 @@ export function MemoryView(props: MemoryViewProps) {
       ].join(" · ");
       setScannerNotice(errorMessage || `Vigilante ejecutado correctamente. ${successSummary}.`);
       if (errorMessage) {
-        setScannerToast({
+        showToast({
           tone: "error",
-          message: `El vigilante sí escaneó, pero no pudo guardar el resumen del run: ${errorMessage}`,
+          title: "Escaneo parcial",
+          message: `El vigilante sí escaneó, pero no pudo guardar todo el resumen: ${errorMessage}`,
         });
       } else {
-        setScannerToast({
+        showToast({
           tone: "success",
-          message: `Vigilante ejecutado. ${execution.summary.signalsCreated} señales creadas y ${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas.`,
+          title: "Vigilante actualizado",
+          message: `Se crearon ${execution.summary.signalsCreated} señales y ${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas.`,
         });
       }
     } catch (error) {
       setScannerNotice("No se pudo ejecutar el vigilante ahora mismo.");
-      setScannerToast({
+      showToast({
         tone: "error",
+        title: "No se pudo revisar ahora",
         message: error instanceof Error ? error.message : "No se pudo ejecutar el vigilante ahora mismo.",
       });
     } finally {
       setScannerBusy(false);
+      stopLoading(loaderId);
     }
   }
 
   async function handleSaveExecutionProfile() {
     if (!executionProfileForm) return;
     setExecutionSaving(true);
+    const loaderId = startLoading({
+      label: "Guardando perfil de ejecución",
+      detail: "Actualizando límites y reglas del motor demo.",
+    });
     try {
       const payload = await binanceService.updateExecutionProfile(executionProfileForm);
       setExecutionProfileForm(payload.profile);
       await refreshExecutionCenter();
-      setExecutionToast({
+      showToast({
         tone: "success",
-        message: "Perfil de ejecución demo actualizado correctamente.",
+        title: "Perfil actualizado",
+        message: "Las reglas de ejecución demo ya quedaron guardadas.",
       });
     } catch (error) {
-      setExecutionToast({
+      showToast({
         tone: "error",
+        title: "No se pudo guardar el perfil",
         message: error instanceof Error ? error.message : "No se pudo guardar el perfil de ejecución.",
       });
     } finally {
       setExecutionSaving(false);
+      stopLoading(loaderId);
     }
   }
 
   async function handleRunExecution(signalId: number, mode: "preview" | "execute") {
     setExecutionBusy(true);
+    const loaderId = startLoading({
+      label: mode === "execute" ? "Enviando orden demo" : "Preparando trade",
+      detail: mode === "execute" ? "Aplicando reglas, protección y envío a Binance Demo." : "Validando la señal antes de enviarla.",
+    });
     try {
       const payload = await binanceService.executeSignal(signalId, mode) as {
         candidate?: { status?: string; reasons?: string[] };
@@ -598,8 +604,9 @@ export function MemoryView(props: MemoryViewProps) {
         };
       };
       await refreshExecutionCenter();
-      setExecutionToast({
+      showToast({
         tone: "success",
+        title: mode === "execute" ? "Trade demo enviado" : "Trade preparado",
         message: mode === "execute"
           ? payload?.protection?.protectionAttached
             ? "Orden Demo enviada con protección TP/SL."
@@ -607,33 +614,26 @@ export function MemoryView(props: MemoryViewProps) {
           : "Trade candidato preparado correctamente para revisión.",
       });
       if (payload?.candidate?.status === "blocked") {
-        setExecutionToast({
+        showToast({
           tone: "error",
+          title: "Trade bloqueado",
           message: payload.candidate.reasons?.[0] || "La señal quedó bloqueada por reglas de riesgo.",
         });
       }
     } catch (error) {
-      setExecutionToast({
+      showToast({
         tone: "error",
+        title: "No se pudo ejecutar",
         message: error instanceof Error ? error.message : "No se pudo procesar la ejecución demo.",
       });
     } finally {
       setExecutionBusy(false);
+      stopLoading(loaderId);
     }
   }
 
   return (
     <div id="memoryView" className="view-panel active">
-      {scannerToast ? (
-        <div className={`system-toast ${scannerToast.tone === "error" ? "is-error" : "is-success"}`}>
-          {scannerToast.message}
-        </div>
-      ) : null}
-      {executionToast ? (
-        <div className={`system-toast execution-toast ${executionToast.tone === "error" ? "is-error" : "is-success"}`}>
-          {executionToast.message}
-        </div>
-      ) : null}
       <section id="signals-overview">
         <SectionCard
           title="Centro de señales"

@@ -58,6 +58,12 @@ function roundDown(value, step) {
   return Number(rounded.toFixed(8));
 }
 
+function roundUp(value, step) {
+  if (!step || step <= 0) return Number(value || 0);
+  const rounded = Math.ceil(Number(value || 0) / step) * step;
+  return Number(rounded.toFixed(8));
+}
+
 function getBaseAsset(coin) {
   return String(coin || "").replace("/USDT", "");
 }
@@ -158,6 +164,83 @@ async function getSymbolRules(symbol) {
     stepSize: Number(lotSize?.stepSize || 0.000001),
     minQty: Number(lotSize?.minQty || 0),
     minNotional: Number(minNotionalFilter?.minNotional || 5),
+    tickSize: Number(
+      (Array.isArray(market.filters)
+        ? market.filters.find((item) => item.filterType === "PRICE_FILTER")?.tickSize
+        : null) || 0.0001
+    ),
+  };
+}
+
+async function attachProtectiveExit({
+  apiKey,
+  apiSecret,
+  candidate,
+  executedQty,
+  rules,
+}) {
+  if (candidate.side !== "BUY") {
+    return {
+      protectionAttached: false,
+      protectionMode: "not-applicable",
+      protectionNote: "La venta spot no deja una nueva posición abierta para proteger con TP/SL.",
+      protectionOrder: null,
+    };
+  }
+
+  if (!(candidate.plan.tp > 0) || !(candidate.plan.sl > 0)) {
+    return {
+      protectionAttached: false,
+      protectionMode: "missing-levels",
+      protectionNote: "La señal no tenía TP o SL válidos para montar protección automática.",
+      protectionOrder: null,
+    };
+  }
+
+  const protectiveQty = roundDown(executedQty, rules.stepSize);
+  if (protectiveQty <= 0 || protectiveQty < rules.minQty) {
+    return {
+      protectionAttached: false,
+      protectionMode: "qty-too-small",
+      protectionNote: "La cantidad ejecutada quedó por debajo del mínimo para montar la salida protegida.",
+      protectionOrder: null,
+    };
+  }
+
+  const takeProfitPrice = roundDown(candidate.plan.tp, rules.tickSize);
+  const stopPrice = roundDown(candidate.plan.sl, rules.tickSize);
+  const stopLimitPrice = roundDown(candidate.plan.sl * 0.997, rules.tickSize);
+
+  if (!(takeProfitPrice > stopPrice) || !(stopPrice > stopLimitPrice)) {
+    return {
+      protectionAttached: false,
+      protectionMode: "invalid-prices",
+      protectionNote: "Los niveles TP/SL no quedaron en un orden válido para crear la protección.",
+      protectionOrder: null,
+    };
+  }
+
+  const protectionOrder = await fetchBinanceSigned(
+    "/api/v3/order/oco",
+    apiKey,
+    apiSecret,
+    {
+      symbol: candidate.symbol,
+      side: "SELL",
+      quantity: protectiveQty,
+      price: takeProfitPrice,
+      stopPrice,
+      stopLimitPrice,
+      stopLimitTimeInForce: "GTC",
+    },
+    { method: "POST" },
+  );
+
+  return {
+    protectionAttached: true,
+    protectionMode: "oco",
+    protectionNote: `Salida protegida creada con TP ${takeProfitPrice} y SL ${stopPrice}.`,
+    protectionOrder,
   };
 }
 
@@ -336,16 +419,46 @@ async function executeSignalTrade(req) {
     { method: "POST" },
   );
 
+  const executedQty = Number(result.executedQty || candidate.qty || 0);
+  let protectionResult = {
+    protectionAttached: false,
+    protectionMode: "not-attempted",
+    protectionNote: "No se intentó crear protección todavía.",
+    protectionOrder: null,
+  };
+
+  try {
+    protectionResult = await attachProtectiveExit({
+      apiKey,
+      apiSecret,
+      candidate,
+      executedQty,
+      rules: await getSymbolRules(candidate.symbol),
+    });
+  } catch (error) {
+    protectionResult = {
+      protectionAttached: false,
+      protectionMode: "failed",
+      protectionNote: error instanceof Error
+        ? `La orden principal salió, pero la protección falló: ${error.message}`
+        : "La orden principal salió, pero la protección falló.",
+      protectionOrder: null,
+    };
+  }
+
   const record = await insertExecutionRecord({
     ...recordBase,
     status: "placed",
     order_id: Number(result.orderId || 0) || null,
     client_order_id: String(result.clientOrderId || ""),
-    notes: "Orden Demo enviada desde Señales.",
-    response_payload: result,
+    notes: protectionResult.protectionNote,
+    response_payload: {
+      order: result,
+      protection: protectionResult,
+    },
   });
 
-  return { mode, candidate, record, order: result };
+  return { mode, candidate, record, order: result, protection: protectionResult };
 }
 
 export {

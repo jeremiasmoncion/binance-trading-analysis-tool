@@ -14,11 +14,21 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
+import { strategyEngineService } from "./services/api";
+import type { StrategyRecommendationRecord } from "./types";
 
 export function App() {
   const view = useViewState("dashboard");
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const bootstrappedRef = useRef(false);
+  const connectionToastStateRef = useRef<{ bootstrapped: boolean; lastConnected: boolean | null }>({
+    bootstrapped: false,
+    lastConnected: null,
+  });
+  const seenExecutionEventsRef = useRef<Set<string>>(new Set());
+  const executionEventsBootstrappedRef = useRef(false);
+  const seenAutomationEventsRef = useRef<Set<string>>(new Set());
+  const automationEventsBootstrappedRef = useRef(false);
 
   const auth = useAuth();
   const market = useMarketData({ currentView: view.currentView });
@@ -93,6 +103,201 @@ export function App() {
     market.indicators?.current,
     evaluatePendingSignals,
   ]);
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      connectionToastStateRef.current = { bootstrapped: false, lastConnected: null };
+      return;
+    }
+
+    const connected = Boolean(binance.binanceConnection?.connected);
+    if (!connectionToastStateRef.current.bootstrapped) {
+      connectionToastStateRef.current = { bootstrapped: true, lastConnected: connected };
+      return;
+    }
+
+    if (connectionToastStateRef.current.lastConnected === connected) {
+      return;
+    }
+
+    connectionToastStateRef.current.lastConnected = connected;
+
+    if (connected) {
+      showToast({
+        tone: "success",
+        title: "Binance Demo reconectado",
+        message: "La cuenta volvió a estar disponible para balance, señales y ejecución demo.",
+      });
+      return;
+    }
+
+    showToast({
+      tone: "error",
+      title: "Binance Demo desconectado",
+      message: "La conexión cayó y el sistema dejó de leer balance y ejecución hasta que vuelva.",
+    });
+  }, [auth.currentUser, binance.binanceConnection?.connected]);
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      executionEventsBootstrappedRef.current = false;
+      seenExecutionEventsRef.current = new Set();
+      return;
+    }
+
+    const recentOrders = binance.executionCenter?.recentOrders || [];
+    if (!recentOrders.length) return;
+
+    const buildEventKey = (item: typeof recentOrders[number]) => [
+      item.id,
+      item.lifecycle_status || item.status,
+      item.closed_at || item.last_synced_at || item.created_at,
+    ].join(":");
+
+    if (!executionEventsBootstrappedRef.current) {
+      seenExecutionEventsRef.current = new Set(recentOrders.map(buildEventKey));
+      executionEventsBootstrappedRef.current = true;
+      return;
+    }
+
+    recentOrders.forEach((item) => {
+      const eventKey = buildEventKey(item);
+      if (seenExecutionEventsRef.current.has(eventKey)) return;
+      seenExecutionEventsRef.current.add(eventKey);
+
+      const label = `${item.coin || "Señal"} ${item.side ? `· ${String(item.side).toUpperCase()}` : ""}`.trim();
+      const strategyLabel = [item.strategy_name, item.timeframe].filter(Boolean).join(" · ");
+      const lifecycle = String(item.lifecycle_status || item.status || "");
+
+      if (item.mode !== "execute") return;
+
+      if (lifecycle === "placed" || lifecycle === "protected" || lifecycle === "filled_unprotected") {
+        showToast({
+          tone: lifecycle === "protected" ? "success" : "info",
+          title: "Operación demo abierta",
+          message: strategyLabel
+            ? `${label} ya entró a Binance Demo. ${strategyLabel}.`
+            : `${label} ya entró a Binance Demo.`,
+        });
+        return;
+      }
+
+      if (lifecycle === "closed_win") {
+        const pnlText = item.realized_pnl != null ? ` Resultado ${item.realized_pnl >= 0 ? "+" : ""}${Number(item.realized_pnl).toFixed(2)} USDT.` : "";
+        showToast({
+          tone: "success",
+          title: "Operación demo cerrada en ganancia",
+          message: `${label} cerró positivo.${pnlText}`.trim(),
+        });
+        return;
+      }
+
+      if (lifecycle === "closed_loss") {
+        const pnlText = item.realized_pnl != null ? ` Resultado ${Number(item.realized_pnl).toFixed(2)} USDT.` : "";
+        showToast({
+          tone: "error",
+          title: "Operación demo cerrada en pérdida",
+          message: `${label} cerró negativo.${pnlText}`.trim(),
+        });
+        return;
+      }
+
+      if (lifecycle === "closed_invalidated") {
+        showToast({
+          tone: "warning",
+          title: "Operación demo invalidada",
+          message: `${label} salió sin TP ni SL ganador.`,
+        });
+      }
+    });
+  }, [auth.currentUser, binance.executionCenter?.recentOrders]);
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      automationEventsBootstrappedRef.current = false;
+      seenAutomationEventsRef.current = new Set();
+      return;
+    }
+
+    let cancelled = false;
+
+    const emitAutomationToasts = (recommendations: StrategyRecommendationRecord[]) => {
+      const automatedItems = recommendations.filter((item) => {
+        const evidence = item.evidence;
+        return evidence && typeof evidence === "object" && "policyAutomation" in evidence && evidence.policyAutomation;
+      });
+
+      const buildAutomationKey = (item: StrategyRecommendationRecord) => {
+        const evidence = item.evidence as { policyAutomation?: { action?: string; appliedAt?: string; finalAppliedAt?: string; finalState?: string } };
+        const policy = evidence.policyAutomation || {};
+        return [
+          item.id,
+          policy.action || "policy",
+          policy.finalState || "state",
+          policy.finalAppliedAt || policy.appliedAt || item.updated_at || item.created_at,
+        ].join(":");
+      };
+
+      if (!automationEventsBootstrappedRef.current) {
+        seenAutomationEventsRef.current = new Set(automatedItems.map(buildAutomationKey));
+        automationEventsBootstrappedRef.current = true;
+        return;
+      }
+
+      automatedItems.forEach((item) => {
+        const eventKey = buildAutomationKey(item);
+        if (seenAutomationEventsRef.current.has(eventKey)) return;
+        seenAutomationEventsRef.current.add(eventKey);
+
+        const evidence = item.evidence as {
+          recommendationType?: string;
+          scopeSummary?: string;
+          policyAutomation?: { action?: string; finalState?: string };
+        };
+        const policy = evidence.policyAutomation || {};
+        const scopeLabel = evidence.scopeSummary || `${item.strategy_id} · ${item.parameter_key}`;
+
+        if (policy.finalState === "applied" || policy.action === "cut" || policy.action === "tighten") {
+          showToast({
+            tone: "warning",
+            title: "La IA ajustó el motor automáticamente",
+            message: `${scopeLabel} fue endurecido para podar ruido del sistema.`,
+          });
+          return;
+        }
+
+        if (policy.finalState === "sandbox" || policy.action === "sandbox") {
+          showToast({
+            tone: "info",
+            title: "La IA mandó un ajuste a prueba segura",
+            message: `${scopeLabel} entró en observación controlada antes de tocar demo.`,
+          });
+        }
+      });
+    };
+
+    const refreshAutomationNotifications = async () => {
+      try {
+        const payload = await strategyEngineService.listRecommendations();
+        if (!cancelled) {
+          emitAutomationToasts(payload.recommendations || []);
+        }
+      } catch {
+        // silent: this runs as a background notifier
+      }
+    };
+
+    void refreshAutomationNotifications();
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshAutomationNotifications();
+    }, 25_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [auth.currentUser]);
 
   async function handleLogout() {
     await auth.handleLogout(async () => {

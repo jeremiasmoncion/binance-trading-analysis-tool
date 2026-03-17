@@ -103,6 +103,7 @@ interface ScopeEdgeRank {
   action: "relax" | "tighten" | "cut" | "watch";
   reading: string;
   accentClass: string;
+  recommendation?: StrategyRecommendationRecord | null;
 }
 
 const RUNNABLE_STRATEGY_VERSION_KEYS = new Set([
@@ -854,6 +855,16 @@ export function MemoryView(props: MemoryViewProps) {
         const hasOverride = Boolean((executionProfileForm?.scopeOverrides || []).find(
           (item) => item.strategyId === group.strategyId && item.timeframe === group.timeframe,
         ));
+        const recommendation = recommendations
+          .filter((item) => {
+            const evidence = item.evidence || {};
+            return (
+              evidence.recommendationType === "execution-scope-override"
+              && item.strategy_id === group.strategyId
+              && String(evidence.timeframe || "") === group.timeframe
+            );
+          })
+          .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime())[0] || null;
         const severeWeak = stats.total >= 8 && (
           stats.avgPnl <= -0.6
           || (stats.winRate <= 38 && stats.pnl < 0)
@@ -894,6 +905,7 @@ export function MemoryView(props: MemoryViewProps) {
           action,
           reading,
           accentClass,
+          recommendation,
         } satisfies ScopeEdgeRank;
       })
       .filter((item) => item.total >= 4)
@@ -906,7 +918,7 @@ export function MemoryView(props: MemoryViewProps) {
         .sort((left, right) => left.rankScore - right.rankScore)
         .slice(0, 3),
     };
-  }, [closedSignals, executionProfileForm?.scopeOverrides, props.executionCenter?.candidates]);
+  }, [closedSignals, executionProfileForm?.scopeOverrides, props.executionCenter?.candidates, recommendations]);
 
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
@@ -1799,8 +1811,24 @@ export function MemoryView(props: MemoryViewProps) {
                           <strong>{item.strategyId} · {item.timeframe}</strong>
                           <span>{item.total} cierres · {item.winRate.toFixed(0)}% acierto · {formatSignedPrice(item.pnl)} · score {item.avgScore.toFixed(1)} · RR {item.avgRr.toFixed(2)}</span>
                         </div>
-                        <div className={`signal-analytics-pill ${item.hasOverride ? "status-running" : "status-sandbox"}`}>
-                          {item.hasOverride ? "override activo" : item.action === "relax" ? "scope fuerte" : "en observación"}
+                        <div className="inline-actions">
+                          <div className={`signal-analytics-pill ${item.hasOverride ? "status-running" : "status-sandbox"}`}>
+                            {item.hasOverride ? "override activo" : item.action === "relax" ? "scope fuerte" : "en observación"}
+                          </div>
+                          {item.recommendation ? (
+                            <button
+                              className="btn-secondary-soft signal-inline-button"
+                              type="button"
+                              onClick={() => void handleActivateRecommendation(item.recommendation!)}
+                              disabled={activatingRecommendationKey === item.recommendation.recommendation_key || item.recommendation.status === "active"}
+                            >
+                              {item.recommendation.status === "draft"
+                                ? "Mandar a prueba"
+                                : item.recommendation.status === "sandbox"
+                                  ? "Aplicar override"
+                                  : "Ya aplicado"}
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -1823,8 +1851,26 @@ export function MemoryView(props: MemoryViewProps) {
                           <strong>{item.strategyId} · {item.timeframe}</strong>
                           <span>{item.total} cierres · {item.winRate.toFixed(0)}% acierto · {formatSignedPrice(item.pnl)} · {item.reading}</span>
                         </div>
-                        <div className={`signal-analytics-pill ${item.action === "cut" ? "status-paused" : "status-draft"}`}>
-                          {item.action === "cut" ? "corte prioritario" : "endurecer"}
+                        <div className="inline-actions">
+                          <div className={`signal-analytics-pill ${item.action === "cut" ? "status-paused" : "status-draft"}`}>
+                            {item.action === "cut" ? "corte prioritario" : "endurecer"}
+                          </div>
+                          {item.recommendation ? (
+                            <button
+                              className="btn-secondary-soft signal-inline-button"
+                              type="button"
+                              onClick={() => void handleActivateRecommendation(item.recommendation!)}
+                              disabled={activatingRecommendationKey === item.recommendation.recommendation_key || item.recommendation.status === "active"}
+                            >
+                              {item.recommendation.status === "draft"
+                                ? "Mandar a prueba"
+                                : item.recommendation.status === "sandbox"
+                                  ? item.action === "cut"
+                                    ? "Aplicar corte"
+                                    : "Aplicar override"
+                                  : "Ya aplicado"}
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ))}

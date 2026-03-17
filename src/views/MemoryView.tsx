@@ -947,6 +947,10 @@ export function MemoryView(props: MemoryViewProps) {
       const evidence = item.evidence || {};
       return evidence.recommendationType === "execution-scope-override" && item.status === "sandbox";
     }).length;
+    const automatedPolicyActions = recommendations.filter((item) => {
+      const evidence = item.evidence || {};
+      return evidence.recommendationType === "execution-scope-override" && evidence.policyAutomation;
+    }).length;
 
     let nextAction: AutomationCommandCard = {
       title: "Seguir recolectando muestra útil",
@@ -995,6 +999,7 @@ export function MemoryView(props: MemoryViewProps) {
       promotableExperiments,
       draftScopeRecommendations,
       sandboxScopeRecommendations,
+      automatedPolicyActions,
       nextAction,
     };
   }, [executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking]);
@@ -1552,6 +1557,12 @@ export function MemoryView(props: MemoryViewProps) {
                 value={String(automationMasterBoard.draftScopeRecommendations + automationMasterBoard.sandboxScopeRecommendations)}
                 sub={`${automationMasterBoard.draftScopeRecommendations} en draft · ${automationMasterBoard.sandboxScopeRecommendations} en sandbox`}
                 accentClass="accent-blue"
+              />
+              <StatCard
+                label="Policy automática"
+                value={String(automationMasterBoard.automatedPolicyActions)}
+                sub="Scopes movidos o aplicados por umbral"
+                accentClass="accent-amber"
               />
             </div>
 
@@ -2896,6 +2907,9 @@ function AdaptiveRecommendationCard({
     : null;
   const scopeStrength = String(evidence.scopeStrength || "");
   const scopeAction = String(evidence.scopeAction || "");
+  const policyAutomation = evidence.policyAutomation && typeof evidence.policyAutomation === "object"
+    ? evidence.policyAutomation as { type?: string; action?: string; appliedAt?: string; finalState?: string }
+    : null;
   const isScopeSandbox = isScopeRecommendation && item.status === "sandbox" && !appliedScope;
   const activationLabel = isScopeRecommendation
     ? isActivating
@@ -2971,6 +2985,14 @@ function AdaptiveRecommendationCard({
               : scopeAction === "cut"
                 ? "Este ajuste ya quedó aplicado al perfil demo como corte prioritario de un scope que venía metiendo ruido."
                 : "Este ajuste ya quedó aplicado al perfil demo y participa en el filtro operativo actual."}
+        </p>
+      ) : null}
+
+      {policyAutomation ? (
+        <p className="section-note">
+          Policy automática: {policyAutomation.type === "auto-sandbox"
+            ? "el sistema la movió solo a prueba segura por umbral"
+            : "el sistema la aplicó solo por evidencia suficiente"}.
         </p>
       ) : null}
 

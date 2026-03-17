@@ -795,6 +795,60 @@ function shouldAutoApplyScopeRecommendation(recommendation) {
   );
 }
 
+function getScopeRecommendationPolicyAction(recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const scopeAction = String(evidence.scopeAction || "");
+  const sampleSize = Number(evidence.sampleSize || 0);
+  const confidence = Number(recommendation.confidence || 0);
+
+  if (recommendation.status === "draft") {
+    if (scopeAction === "cut" && sampleSize >= 7 && confidence >= 0.68) {
+      return "auto-sandbox";
+    }
+    if (scopeAction === "tighten" && sampleSize >= 10 && confidence >= 0.74) {
+      return "auto-sandbox";
+    }
+    if (scopeAction === "relax" && sampleSize >= 12 && confidence >= 0.82) {
+      return "auto-sandbox";
+    }
+  }
+
+  if (recommendation.status === "sandbox") {
+    if (scopeAction === "cut" && sampleSize >= 8 && confidence >= 0.72) {
+      return "auto-apply";
+    }
+    if (scopeAction === "tighten" && sampleSize >= 14 && confidence >= 0.82) {
+      return "auto-apply";
+    }
+  }
+
+  return "";
+}
+
+async function moveScopeRecommendationToSandbox(recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const rows = await supabaseRequest(
+    `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        status: "sandbox",
+        evidence: {
+          ...evidence,
+          sandboxAt: evidence.sandboxAt || new Date().toISOString(),
+          policyAutomation: {
+            type: "auto-sandbox",
+            action: evidence.scopeAction || "",
+            appliedAt: new Date().toISOString(),
+          },
+        },
+      },
+    },
+  );
+  return rows?.[0] || recommendation;
+}
+
 function buildRecommendationRows(signals, versions, executionProfile) {
   const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
   if (!closedSignals.length) return [];
@@ -972,11 +1026,16 @@ export async function generateAdaptiveRecommendationsForUser(username) {
 
   const finalRows = [];
   for (const row of rows || []) {
-    if (shouldAutoApplyScopeRecommendation(row)) {
-      finalRows.push((await applyExecutionScopeRecommendation(normalizedUsername, row)).recommendation);
+    let nextRow = row;
+    const policyAction = getScopeRecommendationPolicyAction(nextRow);
+    if (policyAction === "auto-sandbox") {
+      nextRow = await moveScopeRecommendationToSandbox(nextRow);
+    }
+    if (shouldAutoApplyScopeRecommendation(nextRow) || getScopeRecommendationPolicyAction(nextRow) === "auto-apply") {
+      finalRows.push((await applyExecutionScopeRecommendation(normalizedUsername, nextRow)).recommendation);
       continue;
     }
-    finalRows.push(row);
+    finalRows.push(nextRow);
   }
 
   return finalRows;
@@ -1006,6 +1065,10 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
   const minSignalScore = Number(evidence.suggestedMinSignalScore ?? recommendation.suggested_value);
   const minRrRatio = Number(evidence.suggestedMinRrRatio ?? evidence.currentMinRrRatio ?? 0);
   const scopeAction = String(evidence.scopeAction || "tighten");
+  const automatedPolicy =
+    evidence.policyAutomation && typeof evidence.policyAutomation === "object"
+      ? evidence.policyAutomation
+      : null;
   if (!timeframe || !Number.isFinite(minSignalScore) || !Number.isFinite(minRrRatio)) {
     throw new Error("La recomendación no trae un scope demo válido para aplicar");
   }
@@ -1061,6 +1124,11 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
           ...evidence,
           appliedAt: new Date().toISOString(),
           appliedOverride: nextOverride,
+          policyAutomation: automatedPolicy ? {
+            ...automatedPolicy,
+            finalState: "active",
+            finalAppliedAt: new Date().toISOString(),
+          } : evidence.policyAutomation,
         },
       },
     },

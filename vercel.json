@@ -6,6 +6,9 @@
     "api/binance/portfolio.js": {
       "regions": ["fra1"]
     },
+    "api/binance/execution.js": {
+      "regions": ["fra1"]
+    },
     "api/watchlist/scan.js": {
       "regions": ["fra1"]
     }

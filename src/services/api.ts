@@ -1,5 +1,7 @@
 import type {
   BinanceConnection,
+  ExecutionCenterPayload,
+  ExecutionProfile,
   DashboardAnalysis,
   OperationPlan,
   PortfolioPayload,
@@ -85,6 +87,21 @@ export const binanceService = {
   },
   disconnect() {
     return apiRequest("/api/binance/connection", { method: "DELETE" });
+  },
+  getExecutionCenter() {
+    return apiRequest<ExecutionCenterPayload>("/api/binance/execution");
+  },
+  updateExecutionProfile(profile: Partial<ExecutionProfile>) {
+    return apiRequest<{ profile: ExecutionProfile }>("/api/binance/execution", {
+      method: "PATCH",
+      body: JSON.stringify(profile),
+    });
+  },
+  executeSignal(signalId: number, mode: "preview" | "execute") {
+    return apiRequest("/api/binance/execution", {
+      method: "POST",
+      body: JSON.stringify({ signalId, mode }),
+    });
   },
 };
 

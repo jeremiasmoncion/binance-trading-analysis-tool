@@ -67,7 +67,7 @@ function signQuery(secret, params) {
   return createHmac("sha256", secret).update(params).digest("hex");
 }
 
-async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}) {
+async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}, requestOptions = {}) {
   const search = new URLSearchParams({
     ...Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)])),
     timestamp: String(Date.now()),
@@ -75,6 +75,7 @@ async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}) {
   search.set("signature", signQuery(apiSecret, search.toString()));
 
   const response = await fetch(`${BINANCE_TESTNET_API_URL}${path}?${search.toString()}`, {
+    method: requestOptions.method || "GET",
     headers: { "X-MBX-APIKEY": apiKey },
   });
 
@@ -540,6 +541,9 @@ export {
   BINANCE_TESTNET_API_URL,
   connectBinanceTestnet,
   disconnectBinanceTestnet,
+  fetchBinancePublic,
+  fetchBinanceSigned,
+  getCredentialsForSession,
   getPortfolioSnapshot,
   getBinanceConnectionState,
   sendJson,

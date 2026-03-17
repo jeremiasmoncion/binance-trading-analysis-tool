@@ -3,9 +3,12 @@ import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { formatPrice, formatSignedPrice } from "../lib/format";
-import { strategyEngineService, watchlistService } from "../services/api";
+import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
+import { binanceService, strategyEngineService, watchlistService } from "../services/api";
 import type {
+  ExecutionCenterPayload,
+  ExecutionCandidate,
+  ExecutionOrderRecord,
   RecommendationActivationResult,
   SignalOutcomeStatus,
   SignalSnapshot,
@@ -23,7 +26,7 @@ interface MemoryViewProps {
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
-type SignalsTab = "overview" | "performance" | "strategies" | "adaptive" | "experiments" | "history";
+type SignalsTab = "overview" | "performance" | "strategies" | "adaptive" | "experiments" | "execution" | "history";
 
 interface AggregateRow {
   label: string;
@@ -112,6 +115,11 @@ export function MemoryView(props: MemoryViewProps) {
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
   const [scannerToast, setScannerToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
+  const [executionCenter, setExecutionCenter] = useState<ExecutionCenterPayload | null>(null);
+  const [executionProfileForm, setExecutionProfileForm] = useState<ExecutionCenterPayload["profile"] | null>(null);
+  const [executionBusy, setExecutionBusy] = useState(false);
+  const [executionSaving, setExecutionSaving] = useState(false);
+  const [executionToast, setExecutionToast] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -144,6 +152,12 @@ export function MemoryView(props: MemoryViewProps) {
   }, [scannerToast]);
 
   useEffect(() => {
+    if (!executionToast) return undefined;
+    const timer = window.setTimeout(() => setExecutionToast(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [executionToast]);
+
+  useEffect(() => {
     let ignore = false;
 
     void watchlistService.scanStatus()
@@ -158,6 +172,35 @@ export function MemoryView(props: MemoryViewProps) {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    void binanceService.getExecutionCenter()
+      .then((payload) => {
+        if (!ignore) {
+          setExecutionCenter(payload);
+          setExecutionProfileForm(payload.profile);
+        }
+      })
+      .catch(() => {
+        if (!ignore) {
+          setExecutionCenter(null);
+          setExecutionProfileForm(null);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  async function refreshExecutionCenter() {
+    const payload = await binanceService.getExecutionCenter();
+    setExecutionCenter(payload);
+    setExecutionProfileForm(payload.profile);
+    return payload;
+  }
 
   const timeframes = useMemo(
     () => Array.from(new Set(props.signals.map((item) => item.timeframe))).sort(),
@@ -518,11 +561,66 @@ export function MemoryView(props: MemoryViewProps) {
     }
   }
 
+  async function handleSaveExecutionProfile() {
+    if (!executionProfileForm) return;
+    setExecutionSaving(true);
+    try {
+      const payload = await binanceService.updateExecutionProfile(executionProfileForm);
+      setExecutionProfileForm(payload.profile);
+      await refreshExecutionCenter();
+      setExecutionToast({
+        tone: "success",
+        message: "Perfil de ejecución demo actualizado correctamente.",
+      });
+    } catch (error) {
+      setExecutionToast({
+        tone: "error",
+        message: error instanceof Error ? error.message : "No se pudo guardar el perfil de ejecución.",
+      });
+    } finally {
+      setExecutionSaving(false);
+    }
+  }
+
+  async function handleRunExecution(signalId: number, mode: "preview" | "execute") {
+    setExecutionBusy(true);
+    try {
+      const payload = await binanceService.executeSignal(signalId, mode) as {
+        candidate?: { status?: string; reasons?: string[] };
+      };
+      await refreshExecutionCenter();
+      setExecutionToast({
+        tone: "success",
+        message: mode === "execute"
+          ? "Orden Demo enviada correctamente."
+          : "Trade candidato preparado correctamente para revisión.",
+      });
+      if (payload?.candidate?.status === "blocked") {
+        setExecutionToast({
+          tone: "error",
+          message: payload.candidate.reasons?.[0] || "La señal quedó bloqueada por reglas de riesgo.",
+        });
+      }
+    } catch (error) {
+      setExecutionToast({
+        tone: "error",
+        message: error instanceof Error ? error.message : "No se pudo procesar la ejecución demo.",
+      });
+    } finally {
+      setExecutionBusy(false);
+    }
+  }
+
   return (
     <div id="memoryView" className="view-panel active">
       {scannerToast ? (
         <div className={`system-toast ${scannerToast.tone === "error" ? "is-error" : "is-success"}`}>
           {scannerToast.message}
+        </div>
+      ) : null}
+      {executionToast ? (
+        <div className={`system-toast execution-toast ${executionToast.tone === "error" ? "is-error" : "is-success"}`}>
+          {executionToast.message}
         </div>
       ) : null}
       <section id="signals-overview">
@@ -539,6 +637,7 @@ export function MemoryView(props: MemoryViewProps) {
           { key: "strategies", label: "Motor" },
           { key: "adaptive", label: "IA que aprende" },
           { key: "experiments", label: "Automatización" },
+          { key: "execution", label: "Ejecución demo" },
           { key: "history", label: "Historial" },
         ]}
         activeKey={activeTab}
@@ -1094,6 +1193,141 @@ export function MemoryView(props: MemoryViewProps) {
         </section>
       ) : null}
 
+      {activeTab === "execution" ? (
+        <section id="signals-execution">
+          <SectionCard
+            title="Puente a Binance Demo"
+            subtitle="Aquí conviertes una señal abierta en un trade candidato. Primero pasa por reglas de riesgo y luego decides si la envías como orden demo."
+          >
+            <div className="signal-analytics-grid">
+              <InfoCard
+                title="Qué hace esta capa"
+                text="Toma señales abiertas, revisa si respetan tu perfil de riesgo y te dice cuáles están listas para operar en Binance Demo."
+              />
+              <InfoCard
+                title="Qué todavía no hace sola"
+                text="Todavía no dispara órdenes automáticas por su cuenta. Primero las valida, las prepara y te deja el botón de ejecución manual."
+              />
+            </div>
+
+            <div className="stats-grid">
+              <StatCard
+                label="Cuenta demo"
+                value={executionCenter?.account.connected ? "Conectada" : "Sin conexión"}
+                sub={executionCenter?.account.alias || "Conecta Binance Demo Spot en Perfil"}
+                accentClass="accent-blue"
+              />
+              <StatCard
+                label="Liquidez"
+                value={formatPrice(executionCenter?.account.cashValue || 0)}
+                sub={`Capital total ${formatPrice(executionCenter?.account.totalValue || 0)}`}
+                accentClass="accent-emerald"
+              />
+              <StatCard
+                label="Órdenes abiertas"
+                value={String(executionCenter?.account.openOrdersCount || 0)}
+                sub="Órdenes demo ya activas en Binance"
+                accentClass="accent-amber"
+              />
+              <StatCard
+                label="Pérdida diaria"
+                value={`${Number(executionCenter?.account.dailyLossPct || 0).toFixed(2)}%`}
+                sub="Se usa para bloquear nuevas ejecuciones si hace falta"
+                accentClass="accent-blue"
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Perfil de ejecución demo"
+            subtitle="Estas son las reglas mínimas que el sistema revisa antes de dejar pasar una orden."
+            actions={(
+              <button className="btn-secondary-soft signal-inline-button" type="button" onClick={() => void handleSaveExecutionProfile()} disabled={executionSaving || !executionProfileForm}>
+                {executionSaving ? "Guardando..." : "Guardar perfil"}
+              </button>
+            )}
+          >
+            {!executionProfileForm ? (
+              <EmptyState message="No se pudo cargar el perfil de ejecución todavía." />
+            ) : (
+              <>
+                <div className="experiment-builder-grid">
+                  <FieldGuideCard title="Motor habilitado" text="Si lo apagas, ninguna señal pasará a ejecución.">
+                    <select className="timeframe-select signal-select" value={executionProfileForm.enabled ? "yes" : "no"} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, enabled: event.target.value === "yes" } : current)}>
+                      <option value="yes">Sí</option>
+                      <option value="no">No</option>
+                    </select>
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Autoejecución" text="Déjala apagada por ahora. Más adelante esto permitirá operar sin clic manual.">
+                    <select className="timeframe-select signal-select" value={executionProfileForm.autoExecuteEnabled ? "yes" : "no"} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, autoExecuteEnabled: event.target.value === "yes" } : current)}>
+                      <option value="no">Apagada</option>
+                      <option value="yes">Encendida</option>
+                    </select>
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Riesgo por trade (%)" text="Cuánto capital puede usar una operación como máximo.">
+                    <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.riskPerTradePct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, riskPerTradePct: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Máximo por posición (USD)" text="Límite duro por operación aunque tu cuenta sea más grande.">
+                    <input className="signal-memory-input" type="number" min="5" step="5" value={executionProfileForm.maxPositionUsd} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxPositionUsd: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Máx. órdenes abiertas" text="Si ya llegaste a este número, nuevas compras quedan bloqueadas.">
+                    <input className="signal-memory-input" type="number" min="1" step="1" value={executionProfileForm.maxOpenPositions} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxOpenPositions: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Pérdida diaria máxima (%)" text="Si se supera, el sistema deja de permitir nuevas entradas.">
+                    <input className="signal-memory-input" type="number" min="0.5" step="0.5" value={executionProfileForm.maxDailyLossPct} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, maxDailyLossPct: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="Convicción mínima" text="Solo deja pasar señales con esta puntuación o más.">
+                    <input className="signal-memory-input" type="number" min="1" max="100" step="1" value={executionProfileForm.minSignalScore} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minSignalScore: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                  <FieldGuideCard title="RR mínimo" text="Si la relación riesgo/beneficio es peor que esto, se bloquea.">
+                    <input className="signal-memory-input" type="number" min="0.5" step="0.1" value={executionProfileForm.minRrRatio} onChange={(event) => setExecutionProfileForm((current) => current ? { ...current, minRrRatio: Number(event.target.value || 0) } : current)} />
+                  </FieldGuideCard>
+                </div>
+                <p className="section-note with-top-gap">
+                  Estrategias permitidas: {executionProfileForm.allowedStrategies.join(", ")} · Marcos permitidos: {executionProfileForm.allowedTimeframes.join(", ")}.
+                </p>
+              </>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Señales listas para orden demo"
+            subtitle="Aquí ves cuáles señales abiertas pueden pasar a ejecución y cuáles quedan bloqueadas por reglas de riesgo."
+          >
+            {!executionCenter?.candidates?.length ? (
+              <EmptyState message="Todavía no hay señales abiertas listas para evaluar en ejecución demo." />
+            ) : (
+              <div className="execution-candidate-grid">
+                {executionCenter.candidates.map((item) => (
+                  <ExecutionCandidateCard
+                    key={`execution-${item.signalId}`}
+                    item={item}
+                    busy={executionBusy}
+                    onPreview={() => void handleRunExecution(item.signalId, "preview")}
+                    onExecute={() => void handleRunExecution(item.signalId, "execute")}
+                  />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Intentos y órdenes demo recientes"
+            subtitle="Aquí queda el rastro de previews, bloqueos y órdenes que ya salieron hacia Binance Demo."
+          >
+            {!executionCenter?.recentOrders?.length ? (
+              <EmptyState message="Aún no hay intentos de ejecución demo guardados." />
+            ) : (
+              <div className="experiment-record-grid">
+                {executionCenter.recentOrders.map((item) => (
+                  <ExecutionOrderCard key={`execution-order-${item.id}`} item={item} />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </section>
+      ) : null}
+
       {activeTab === "history" ? (
         <section id="signals-history">
           <SectionCard
@@ -1496,6 +1730,88 @@ function AdaptiveRecommendationCard({
       </div>
     </div>
   );
+}
+
+function ExecutionCandidateCard({
+  item,
+  busy,
+  onPreview,
+  onExecute,
+}: {
+  item: ExecutionCandidate;
+  busy: boolean;
+  onPreview: () => void;
+  onExecute: () => void;
+}) {
+  return (
+    <div className={`execution-candidate-card ${item.status === "eligible" ? "is-eligible" : "is-blocked"}`}>
+      <div className="execution-candidate-head">
+        <div>
+          <span className="automation-module-kicker">{item.coin} · {item.timeframe}</span>
+          <h4>{item.signalLabel} con {getFriendlyStrategyVersionLabel(item.strategyName, item.strategyVersion)}</h4>
+        </div>
+        <div className={`signal-analytics-pill status-${item.status === "eligible" ? "sandbox" : "draft"}`}>
+          {item.status === "eligible" ? "Operable" : "Bloqueada"}
+        </div>
+      </div>
+      <div className="stats-grid compact-stats-grid no-bottom-gap">
+        <StatCard label="Precio actual" value={formatPrice(item.currentPrice)} sub={`Score ${item.score}%`} accentClass="accent-blue" />
+        <StatCard label="Tamaño" value={item.qty > 0 ? formatAmount(item.qty) : "--"} sub={item.notionalUsd > 0 ? formatPrice(item.notionalUsd) : "Sin tamaño válido"} accentClass="accent-emerald" />
+        <StatCard label="RR" value={item.rrRatio ? item.rrRatio.toFixed(2) : "--"} sub={`SL ${formatPrice(item.plan.sl || 0)} · TP ${formatPrice(item.plan.tp || 0)}`} accentClass="accent-amber" />
+      </div>
+      <div className="execution-reason-box">
+        <strong>{item.status === "eligible" ? "Por qué sí puede pasar" : "Por qué quedó bloqueada"}</strong>
+        <ul>
+          {(item.reasons.length ? item.reasons : ["Cumple las reglas mínimas del perfil de riesgo para pasar a Binance Demo."]).map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      </div>
+      <div className="inline-actions with-top-gap">
+        <button className="btn-secondary-soft signal-inline-button" type="button" onClick={onPreview} disabled={busy}>
+          {busy ? "Procesando..." : "Preparar trade"}
+        </button>
+        <button className="btn-primary signal-inline-button" type="button" onClick={onExecute} disabled={busy || item.status !== "eligible"}>
+          Enviar orden demo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ExecutionOrderCard({ item }: { item: ExecutionOrderRecord }) {
+  return (
+    <div className="experiment-record-card execution-order-card">
+      <div className="experiment-record-main">
+        <div className="experiment-record-topline">
+          <strong>{item.coin} · {item.side || "--"} · {getFriendlyExecutionMode(item.mode)}</strong>
+          <div className={`signal-analytics-pill status-${item.status === "placed" ? "sandbox" : item.status === "preview" ? "paused" : "draft"}`}>
+            {getFriendlyExecutionStatus(item.status)}
+          </div>
+        </div>
+        <span className="experiment-record-meta">
+          {item.strategy_name ? getFriendlyStrategyVersionLabel(item.strategy_name, item.strategy_version || "") : "Sin estrategia"} · {item.timeframe || "--"} · {new Date(item.created_at).toLocaleString("es-DO")}
+        </span>
+        <p className="experiment-record-summary">
+          {item.notes || "Sin nota adicional."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function getFriendlyExecutionMode(mode: string) {
+  if (mode === "execute") return "orden enviada";
+  if (mode === "preview") return "solo preparación";
+  return "modo no definido";
+}
+
+function getFriendlyExecutionStatus(status: string) {
+  if (status === "placed") return "orden demo enviada";
+  if (status === "preview") return "preparada para revisar";
+  if (status === "blocked") return "bloqueada por reglas";
+  if (status === "rejected") return "rechazada";
+  return "sin estado";
 }
 
 function SignalRow({

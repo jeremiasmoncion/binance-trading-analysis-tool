@@ -385,6 +385,81 @@ export interface BinanceTradeSummary {
   realizedPnl?: number;
 }
 
+export interface ExecutionProfile {
+  username: string;
+  enabled: boolean;
+  autoExecuteEnabled: boolean;
+  riskPerTradePct: number;
+  maxOpenPositions: number;
+  maxPositionUsd: number;
+  maxDailyLossPct: number;
+  minSignalScore: number;
+  minRrRatio: number;
+  allowedStrategies: string[];
+  allowedTimeframes: string[];
+  note?: string;
+  updatedAt?: string | null;
+}
+
+export interface ExecutionCandidate {
+  signalId: number;
+  coin: string;
+  symbol: string;
+  timeframe: string;
+  strategyName: string;
+  strategyVersion: string;
+  signalLabel: string;
+  score: number;
+  rrRatio: number;
+  side: "BUY" | "SELL" | "";
+  currentPrice: number;
+  qty: number;
+  notionalUsd: number;
+  status: "eligible" | "blocked";
+  reasons: string[];
+  plan: {
+    entry: number;
+    tp: number;
+    tp2: number;
+    sl: number;
+  };
+}
+
+export interface ExecutionOrderRecord {
+  id: number;
+  username: string;
+  signal_id?: number;
+  coin: string;
+  timeframe?: string;
+  strategy_name?: string;
+  strategy_version?: string;
+  side?: string;
+  quantity?: number;
+  notional_usd?: number;
+  current_price?: number;
+  mode: string;
+  status: string;
+  order_id?: number;
+  client_order_id?: string;
+  notes?: string;
+  response_payload?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ExecutionCenterPayload {
+  profile: ExecutionProfile;
+  account: {
+    connected: boolean;
+    alias?: string;
+    cashValue: number;
+    totalValue: number;
+    openOrdersCount: number;
+    dailyLossPct: number;
+  };
+  candidates: ExecutionCandidate[];
+  recentOrders: ExecutionOrderRecord[];
+}
+
 export interface AppState {
   currentUser: UserSession | null;
   currentView: ViewName;

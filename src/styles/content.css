@@ -619,6 +619,79 @@
   padding: 10px 14px;
 }
 
+.execution-toast {
+  bottom: 78px;
+}
+
+.execution-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.execution-candidate-card,
+.execution-order-card {
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.execution-candidate-card.is-eligible {
+  border-color: rgba(34, 197, 94, 0.22);
+  background:
+    linear-gradient(180deg, rgba(2, 44, 34, 0.4), rgba(15, 23, 42, 0.88)),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 46%);
+}
+
+.execution-candidate-card.is-blocked {
+  border-color: rgba(245, 158, 11, 0.22);
+  background:
+    linear-gradient(180deg, rgba(69, 26, 3, 0.32), rgba(15, 23, 42, 0.88)),
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.1), transparent 46%);
+}
+
+.execution-candidate-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.execution-candidate-head h4 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  color: #f8fafc;
+}
+
+.execution-reason-box {
+  margin-top: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.32);
+  padding: 14px;
+}
+
+.execution-reason-box strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #f8fafc;
+}
+
+.execution-reason-box ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.execution-reason-box li + li {
+  margin-top: 4px;
+}
+
 .automation-subsection {
   margin-top: 18px;
   display: grid;
@@ -885,6 +958,25 @@ body.dark-theme .signal-analytics-pill.status-archived {
   color: #cbd5e1;
 }
 
+body.dark-theme .execution-candidate-card,
+body.dark-theme .execution-order-card {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+body.dark-theme .execution-candidate-card.is-eligible {
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+body.dark-theme .execution-candidate-card.is-blocked {
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+body.dark-theme .execution-reason-box {
+  background: rgba(2, 6, 23, 0.3);
+  border-color: rgba(59, 130, 246, 0.18);
+}
+
 body.dark-theme .strategy-candidate-pill {
   background: rgba(37, 99, 235, 0.14);
   border-color: rgba(96, 165, 250, 0.18);
@@ -933,7 +1025,8 @@ body.dark-theme .market-score-track {
   }
 
   .signal-step-grid,
-  .experiment-builder-grid {
+  .experiment-builder-grid,
+  .execution-candidate-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -975,12 +1068,15 @@ body.dark-theme .market-score-track {
   .automation-module,
   .automation-side-card,
   .automation-status-banner,
-  .experiment-record-card {
+  .experiment-record-card,
+  .execution-candidate-card,
+  .execution-order-card {
     padding: 14px;
   }
 
   .automation-status-banner,
-  .experiment-record-topline {
+  .experiment-record-topline,
+  .execution-candidate-head {
     grid-template-columns: 1fr;
   }
 

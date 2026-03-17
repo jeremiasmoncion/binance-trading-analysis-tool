@@ -310,6 +310,40 @@ export interface SignalSnapshot {
       alignmentScore?: number;
       contextSignature?: string;
     };
+    executionLearning?: {
+      updatedAt?: string;
+      origin?: string;
+      mode?: string;
+      lifecycleStatus?: string;
+      protectionStatus?: string;
+      protectionMode?: string;
+      protectionAttached?: boolean;
+      protectionRetries?: number;
+      orderSide?: string;
+      notionalUsd?: number;
+      quantity?: number;
+      realizedPnl?: number;
+      pnlPctOnNotional?: number;
+      durationMinutes?: number;
+      closeDetectedAt?: string | null;
+      rrRatio?: number;
+      score?: number;
+      direction?: string;
+      marketRegime?: string;
+      timeframeBias?: string;
+      volumeCondition?: string;
+      levelContext?: string;
+      alignmentScore?: number;
+      contextSignature?: string;
+      decisionSource?: string;
+      decisionEligible?: boolean;
+      primaryStrategyId?: string;
+      primaryStrategyVersion?: string;
+      timeframe?: string;
+      coin?: string;
+      entryToTpPct?: number;
+      entryToSlPct?: number;
+    };
   };
 }
 
@@ -556,7 +590,42 @@ export interface ExecutionOrderRecord {
   last_synced_at?: string;
   closed_at?: string;
   notes?: string;
-  response_payload?: Record<string, unknown>;
+  response_payload?: Record<string, unknown> & {
+    learning_snapshot?: {
+      updatedAt?: string;
+      origin?: string;
+      mode?: string;
+      lifecycleStatus?: string;
+      protectionStatus?: string;
+      protectionMode?: string;
+      protectionAttached?: boolean;
+      protectionRetries?: number;
+      orderSide?: string;
+      notionalUsd?: number;
+      quantity?: number;
+      realizedPnl?: number;
+      pnlPctOnNotional?: number;
+      durationMinutes?: number;
+      closeDetectedAt?: string | null;
+      rrRatio?: number;
+      score?: number;
+      direction?: string;
+      marketRegime?: string;
+      timeframeBias?: string;
+      volumeCondition?: string;
+      levelContext?: string;
+      alignmentScore?: number;
+      contextSignature?: string;
+      decisionSource?: string;
+      decisionEligible?: boolean;
+      primaryStrategyId?: string;
+      primaryStrategyVersion?: string;
+      timeframe?: string;
+      coin?: string;
+      entryToTpPct?: number;
+      entryToSlPct?: number;
+    };
+  };
   created_at: string;
 }
 

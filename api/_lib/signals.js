@@ -203,6 +203,17 @@ async function updateSignalSnapshot(req, id) {
 }
 
 async function updateSignalSnapshotForUser(username, id, body) {
+  const existingRows = await supabaseRequest(
+    `${SIGNALS_TABLE}?id=eq.${id}&username=eq.${String(username)}&select=id,signal_payload&limit=1`,
+  );
+  const existing = existingRows?.[0] || null;
+  const nextPayload = body.signalPayloadMerge && typeof body.signalPayloadMerge === "object"
+    ? {
+      ...(existing?.signal_payload && typeof existing.signal_payload === "object" ? existing.signal_payload : {}),
+      ...body.signalPayloadMerge,
+    }
+    : undefined;
+
   const params = new URLSearchParams({
     id: `eq.${id}`,
     username: `eq.${String(username)}`,
@@ -215,6 +226,7 @@ async function updateSignalSnapshotForUser(username, id, body) {
       outcome_status: String(body.outcomeStatus || "pending"),
       outcome_pnl: Number(body.outcomePnl || 0),
       note: String(body.note || ""),
+      ...(nextPayload ? { signal_payload: nextPayload } : {}),
     },
   });
   return rows?.[0] || null;

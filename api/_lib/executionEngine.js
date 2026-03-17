@@ -218,6 +218,66 @@ function buildDailyAutoExecutions(executionOrders) {
   }).length;
 }
 
+function minutesBetween(startAt, endAt) {
+  const startMs = new Date(startAt || 0).getTime();
+  const endMs = new Date(endAt || 0).getTime();
+  if (!startMs || !endMs || Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) return 0;
+  return Math.round((endMs - startMs) / 60000);
+}
+
+function buildExecutionLearningSnapshot({ signal, record, lifecycleStatus, protectionStatus, realizedPnl, closedAt }) {
+  const payload = signal?.signal_payload && typeof signal.signal_payload === "object" ? signal.signal_payload : {};
+  const plan = payload.plan && typeof payload.plan === "object" ? payload.plan : {};
+  const context = payload.context && typeof payload.context === "object" ? payload.context : {};
+  const decision = payload.decision && typeof payload.decision === "object" ? payload.decision : {};
+  const entry = Number(signal?.entry_price || plan.entry || record?.current_price || 0);
+  const tp = Number(signal?.tp_price || plan.tp || 0);
+  const sl = Number(signal?.sl_price || plan.sl || 0);
+  const rrRatio = Number(signal?.rr_ratio || plan.rrRatio || 0);
+  const notionalUsd = Number(record?.notional_usd || record?.response_payload?.candidate?.notionalUsd || 0);
+  const durationMinutes = closedAt ? minutesBetween(record?.created_at || signal?.created_at, closedAt) : 0;
+  const pnlPctOnNotional = notionalUsd > 0 ? Number(((Number(realizedPnl || 0) / notionalUsd) * 100).toFixed(4)) : 0;
+  const entryToTpPct = entry > 0 && tp > 0 ? Number((((tp - entry) / entry) * 100).toFixed(4)) : 0;
+  const entryToSlPct = entry > 0 && sl > 0 ? Number((((entry - sl) / entry) * 100).toFixed(4)) : 0;
+  const protection = getProtectionPayload(record?.response_payload);
+  const retryState = getProtectionRetryState(record?.response_payload);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    origin: String(record?.origin || record?.response_payload?.origin || ""),
+    mode: String(record?.mode || ""),
+    lifecycleStatus: String(lifecycleStatus || record?.lifecycle_status || ""),
+    protectionStatus: String(protectionStatus || record?.protection_status || ""),
+    protectionMode: String(protection?.protectionMode || ""),
+    protectionAttached: Boolean(protection?.protectionAttached),
+    protectionRetries: Number(retryState.attempts || 0),
+    orderSide: String(record?.side || ""),
+    notionalUsd,
+    quantity: Number(record?.quantity || 0),
+    realizedPnl: Number(realizedPnl || 0),
+    pnlPctOnNotional,
+    durationMinutes,
+    closeDetectedAt: closedAt || null,
+    rrRatio,
+    score: Number(signal?.signal_score || payload?.signal?.score || 0),
+    direction: String(context.direction || ""),
+    marketRegime: String(context.marketRegime || ""),
+    timeframeBias: String(context.timeframeBias || ""),
+    volumeCondition: String(context.volumeCondition || ""),
+    levelContext: String(context.levelContext || ""),
+    alignmentScore: Number(context.alignmentScore || 0),
+    contextSignature: String(context.contextSignature || ""),
+    decisionSource: String(decision.source || ""),
+    decisionEligible: Boolean(decision.executionEligible),
+    primaryStrategyId: String(decision.primaryStrategy?.id || signal?.strategy_name || ""),
+    primaryStrategyVersion: String(decision.primaryStrategy?.version || signal?.strategy_version || ""),
+    timeframe: String(signal?.timeframe || record?.timeframe || ""),
+    coin: String(signal?.coin || record?.coin || ""),
+    entryToTpPct,
+    entryToSlPct,
+  };
+}
+
 function getProtectionPayload(responsePayload) {
   if (!responsePayload || typeof responsePayload !== "object") return null;
   return "protection" in responsePayload ? responsePayload.protection || null : null;
@@ -719,6 +779,17 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
       realized_pnl: realizedPnl,
       last_synced_at: new Date().toISOString(),
       closed_at: closedAt,
+      response_payload: {
+        ...(record.response_payload && typeof record.response_payload === "object" ? record.response_payload : {}),
+        learning_snapshot: buildExecutionLearningSnapshot({
+          signal,
+          record,
+          lifecycleStatus,
+          protectionStatus,
+          realizedPnl,
+          closedAt,
+        }),
+      },
     };
 
     const hasChanged = lifecycleStatus !== record.lifecycle_status
@@ -754,10 +825,21 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
       if (shouldCloseSignalFromExecution) {
         const originLabel = getExecutionOriginLabel(record);
         const closeNote = `${signal.note ? `${signal.note} · ` : ""}Cierre real de Binance Demo detectado por ${originLabel.toLowerCase()} el ${new Date(closedAt || Date.now()).toLocaleString("es-DO")}.`;
+        const learningSnapshot = buildExecutionLearningSnapshot({
+          signal,
+          record: nextRecord,
+          lifecycleStatus,
+          protectionStatus,
+          realizedPnl,
+          closedAt,
+        });
         const patchedSignal = await updateSignalSnapshotForUser(username, signal.id, {
           outcomeStatus: signalOutcomeStatus,
           outcomePnl: realizedPnl,
           note: closeNote,
+          signalPayloadMerge: {
+            executionLearning: learningSnapshot,
+          },
         }).catch(() => null);
         if (patchedSignal) {
           signalMap.set(Number(signal.id), patchedSignal);
@@ -919,6 +1001,8 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
     ? { apiKey: options.apiKey, apiSecret: options.apiSecret }
     : await getCredentialsForUsername(username);
   const center = await getExecutionCenterForUser(username);
+  const sourceSignals = await listSignalSnapshotsForUser(username, { limit: 200 }).catch(() => []);
+  const sourceSignal = (sourceSignals || []).find((item) => Number(item.id) === Number(signalId)) || null;
   const candidate = center.candidates.find((item) => item.signalId === signalId);
   if (!candidate) throw new Error("No encontramos esa señal abierta dentro de los candidatos actuales.");
 
@@ -1023,6 +1107,28 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
       origin,
       order: result,
       protection: protectionResult,
+      learning_snapshot: buildExecutionLearningSnapshot({
+        signal: sourceSignal,
+        record: {
+          ...recordBase,
+          origin,
+          response_payload: { order: result, protection: protectionResult },
+        },
+        lifecycleStatus: protectionResult.protectionAttached
+          ? "protected"
+          : protectionResult.protectionMode === "not-applicable"
+            ? "filled"
+            : "filled_unprotected",
+        protectionStatus: protectionResult.protectionAttached
+          ? "active"
+          : protectionResult.protectionMode === "not-applicable"
+            ? "not-applicable"
+            : protectionResult.protectionMode === "failed"
+              ? "failed"
+              : "none",
+        realizedPnl: 0,
+        closedAt: null,
+      }),
     },
   });
 

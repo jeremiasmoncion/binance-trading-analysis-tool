@@ -197,6 +197,122 @@
   gap: 16px;
 }
 
+.guide-accordion {
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.guide-accordion-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.guide-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-accordion-summary strong {
+  display: block;
+  font-size: 15px;
+  color: #f8fafc;
+  margin-bottom: 4px;
+}
+
+.guide-accordion-summary span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.guide-accordion-toggle {
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.guide-accordion-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.signal-step-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.step-card {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.step-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #1d4ed8;
+  color: #eff6ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.step-card strong {
+  font-size: 14px;
+  color: #f8fafc;
+}
+
+.step-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.experiment-builder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.field-guide-card {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.field-guide-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.field-guide-copy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
 .system-toast {
   position: fixed;
   right: 20px;
@@ -465,6 +581,13 @@ body.dark-theme .signal-analytics-card {
   border-color: rgba(59, 130, 246, 0.2);
 }
 
+body.dark-theme .guide-accordion,
+body.dark-theme .step-card,
+body.dark-theme .field-guide-card {
+  background: rgba(15, 23, 42, 0.35);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
 body.dark-theme .signal-analytics-rank {
   background: #1d4ed8;
   color: #eff6ff;
@@ -539,6 +662,11 @@ body.dark-theme .market-score-track {
 
   #signals-strategies .signal-analytics-grid,
   #signals-experiments .signal-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-step-grid,
+  .experiment-builder-grid {
     grid-template-columns: 1fr;
   }
 }

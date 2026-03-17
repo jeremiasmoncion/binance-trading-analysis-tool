@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -750,15 +750,52 @@ export function MemoryView(props: MemoryViewProps) {
             title="Qué automatiza el sistema"
             subtitle="Aquí ves qué pruebas propone solo, cuáles siguen bajo observación y cuáles todavía dependen de una decisión manual."
           >
+            <GuideAccordion
+              title="Cómo usar esta pestaña paso a paso"
+              subtitle="Ábrela cuando quieras entender el flujo sin leer términos técnicos."
+              defaultOpen
+            >
+              <div className="signal-step-grid">
+                <StepCard
+                  step="1"
+                  title="El sistema detecta una idea"
+                  text="Si ve que una estrategia nueva podría mejorar, la marca como candidata en vez de cambiarla directamente."
+                />
+                <StepCard
+                  step="2"
+                  title="La manda a prueba segura"
+                  text="Primero la observa en un entorno controlado para comparar si realmente supera a la versión base."
+                />
+                <StepCard
+                  step="3"
+                  title="Tú puedes intervenir"
+                  text="También puedes crear pruebas manuales si quieres comparar estrategias o versiones por tu cuenta."
+                />
+                <StepCard
+                  step="4"
+                  title="Luego la IA aprende"
+                  text="Con esos resultados, la IA entiende qué funciona mejor y en qué contexto conviene seguir insistiendo."
+                />
+              </div>
+            </GuideAccordion>
+
             <div className="signal-analytics-grid">
-              <InfoCard
-                title="Automático"
-                text="El sistema puede detectar una mejora, sugerirla y preparar una prueba segura sin que tengas que construirla a mano."
-              />
-              <InfoCard
-                title="Manual"
-                text="Tú todavía decides si crear una prueba propia, cambiar el enfoque o dejar una variante solo en observación."
-              />
+              <GuideAccordion
+                title="Lo que hace solo el sistema"
+                subtitle="Puedes cerrarlo cuando ya no necesites la ayuda visual."
+              >
+                <p className="section-note">
+                  El sistema puede detectar una mejora, sugerirla, crear una candidata y mandarla a prueba segura sin que tengas que construir todo a mano.
+                </p>
+              </GuideAccordion>
+              <GuideAccordion
+                title="Lo que sigues decidiendo tú"
+                subtitle="Esto te mantiene con control aunque la IA vaya aprendiendo."
+              >
+                <p className="section-note">
+                  Tú todavía decides si crear una prueba propia, cambiar el enfoque, dejar una variante solo en observación o ignorar una propuesta.
+                </p>
+              </GuideAccordion>
             </div>
             <div className="with-top-gap" />
             <div className="signal-analytics-list">
@@ -798,34 +835,70 @@ export function MemoryView(props: MemoryViewProps) {
             title="Crear una prueba manual"
             subtitle="Si quieres intervenir tú mismo, aquí comparas estrategias o versiones antes de dejarlas crecer dentro del sistema."
           >
-            <div className="memory-filter-bar">
-              <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
-                {registry.map((item) => (
-                  <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
-                ))}
-              </select>
-              <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
-                {registry.map((item) => (
-                  <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
-                ))}
-              </select>
-              <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
-                {availableCandidateVersions.map((item) => (
-                  <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label)}</option>
-                ))}
-              </select>
-              <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
-                <option value="all">Todo el mercado</option>
-                <option value="watchlist">Solo watchlist</option>
-                <option value="trend">Mercado en tendencia</option>
-                <option value="range">Mercado en rango</option>
-              </select>
-              <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
-                <option value="all">Todos los marcos</option>
-                {timeframes.map((item) => (
-                  <option key={`scope-${item}`} value={item}>{item}</option>
-                ))}
-              </select>
+            <GuideAccordion
+              title="Qué estás construyendo aquí"
+              subtitle="Abre esto si quieres una explicación simple de cada campo."
+            >
+              <div className="signal-step-grid">
+                <StepCard step="A" title="Base" text="La estrategia actual que tomarás como referencia." />
+                <StepCard step="B" title="Candidata" text="La estrategia o versión nueva que quieres poner a competir." />
+                <StepCard step="C" title="Mercado y marcos" text="Aquí defines en qué contexto quieres probar esa comparación." />
+                <StepCard step="D" title="Objetivo de la prueba" text="Escribe qué quieres validar para luego entender el resultado con claridad." />
+              </div>
+            </GuideAccordion>
+            <div className="experiment-builder-grid">
+              <FieldGuideCard
+                title="Paso 1 · Estrategia base"
+                text="Es la referencia actual contra la que vas a medir la candidata."
+              >
+                <select className="timeframe-select signal-select" value={experimentBase} onChange={(event) => setExperimentBase(event.target.value)}>
+                  {registry.map((item) => (
+                    <option key={`base-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
+                  ))}
+                </select>
+              </FieldGuideCard>
+              <FieldGuideCard
+                title="Paso 2 · Estrategia candidata"
+                text="Es la idea nueva que quieres someter a prueba."
+              >
+                <select className="timeframe-select signal-select" value={experimentCandidate} onChange={(event) => setExperimentCandidate(event.target.value)}>
+                  {registry.map((item) => (
+                    <option key={`candidate-${item.strategy_id}`} value={item.strategy_id}>{getFriendlyStrategyName(item.strategy_id, item.label)}</option>
+                  ))}
+                </select>
+              </FieldGuideCard>
+              <FieldGuideCard
+                title="Paso 3 · Versión de la candidata"
+                text="Aquí eliges la versión exacta que va a competir."
+              >
+                <select className="timeframe-select signal-select" value={experimentVersion} onChange={(event) => setExperimentVersion(event.target.value)}>
+                  {availableCandidateVersions.map((item) => (
+                    <option key={`${item.strategy_id}-${item.version}`} value={item.version}>{getFriendlyStrategyVersionLabel(item.strategy_id, item.version, item.label)}</option>
+                  ))}
+                </select>
+              </FieldGuideCard>
+              <FieldGuideCard
+                title="Paso 4 · Tipo de mercado"
+                text="Define si quieres probarlo en todo el mercado o solo en un contexto concreto."
+              >
+                <select className="timeframe-select signal-select" value={experimentMarketScope} onChange={(event) => setExperimentMarketScope(event.target.value)}>
+                  <option value="all">Todo el mercado</option>
+                  <option value="watchlist">Solo watchlist</option>
+                  <option value="trend">Mercado en tendencia</option>
+                  <option value="range">Mercado en rango</option>
+                </select>
+              </FieldGuideCard>
+              <FieldGuideCard
+                title="Paso 5 · Marcos de tiempo"
+                text="Aquí decides en qué temporalidades se hará la comparación."
+              >
+                <select className="timeframe-select signal-select" value={experimentTimeframeScope} onChange={(event) => setExperimentTimeframeScope(event.target.value)}>
+                  <option value="all">Todos los marcos</option>
+                  {timeframes.map((item) => (
+                    <option key={`scope-${item}`} value={item}>{item}</option>
+                  ))}
+                </select>
+              </FieldGuideCard>
             </div>
             <div className="signal-analytics-grid compact-top-gap">
               <InfoCard
@@ -849,7 +922,7 @@ export function MemoryView(props: MemoryViewProps) {
                 placeholder="Qué quieres validar con esta prueba manual"
               />
               <span className="signal-status-note">
-                La idea es que primero pruebes aquí y luego la IA use ese resultado como evidencia real.
+                Escribe una frase simple. Ejemplo: “quiero ver si la candidata funciona mejor en 1h dentro del watchlist”.
               </span>
             </div>
             <button className="btn-secondary-soft" type="button" onClick={() => void handleCreateExperiment()}>
@@ -865,7 +938,7 @@ export function MemoryView(props: MemoryViewProps) {
                     <div className="signal-analytics-copy">
                       <strong>{getExperimentTitle(item)}</strong>
                       <span>
-                        {item.market_scope || "all"} · {item.timeframe_scope || "all"} · {item.summary || "Sin resumen todavía"}
+                        {formatMarketScope(item.market_scope)} · {formatTimeframeScope(item.timeframe_scope)} · {item.summary || "Sin resumen todavía"}
                         {item.metadata?.recommendationStatus ? ` · ${String(item.metadata.recommendationStatus)}` : ""}
                       </span>
                     </div>
@@ -1075,6 +1148,59 @@ function summarizeByKey(signals: SignalSnapshot[], getKey: (signal: SignalSnapsh
       winRate: stats.total ? (stats.wins / stats.total) * 100 : 0,
     }))
     .sort((a, b) => b.pnl - a.pnl || b.winRate - a.winRate || b.total - a.total);
+}
+
+function GuideAccordion({
+  title,
+  subtitle,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details className="guide-accordion" open={defaultOpen}>
+      <summary className="guide-accordion-summary">
+        <div>
+          <strong>{title}</strong>
+          <span>{subtitle}</span>
+        </div>
+        <span className="guide-accordion-toggle">Expandir / minimizar</span>
+      </summary>
+      <div className="guide-accordion-body">{children}</div>
+    </details>
+  );
+}
+
+function StepCard({ step, title, text }: { step: string; title: string; text: string }) {
+  return (
+    <div className="step-card">
+      <span className="step-card-badge">{step}</span>
+      <strong>{title}</strong>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+function FieldGuideCard({
+  title,
+  text,
+  children,
+}: {
+  title: string;
+  text: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="field-guide-card">
+      <label className="field-guide-title">{title}</label>
+      <p className="field-guide-copy">{text}</p>
+      {children}
+    </div>
+  );
 }
 
 function InfoCard({ title, text }: { title: string; text: string }) {

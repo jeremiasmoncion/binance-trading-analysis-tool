@@ -29,6 +29,47 @@ function getSmartRefreshInterval(timeframe: string, tradingStyle?: string) {
   return Math.max(60_000, Math.min(timeframeBase, styleBase));
 }
 
+function mergeLiveCandle(prevCandles: Candle[], incoming: Candle) {
+  if (!prevCandles.length) {
+    return [incoming];
+  }
+
+  const nextCandles = prevCandles.slice();
+  const last = nextCandles[nextCandles.length - 1];
+
+  if (last.time === incoming.time) {
+    nextCandles[nextCandles.length - 1] = incoming;
+    return nextCandles;
+  }
+
+  if (incoming.time > last.time) {
+    nextCandles.push(incoming);
+    return nextCandles.slice(-160);
+  }
+
+  const existingIndex = nextCandles.findIndex((candle) => candle.time === incoming.time);
+  if (existingIndex >= 0) {
+    nextCandles[existingIndex] = incoming;
+  }
+
+  return nextCandles;
+}
+
+function updateLiveTimeframes(items: TimeframeSignal[], activeTimeframe: string, nextSignal: Signal) {
+  return items.map((item) => (
+    item.timeframe === activeTimeframe
+      ? {
+        ...item,
+        label: nextSignal.label,
+        note: nextSignal.trend === "Neutral" ? "Sin sesgo claro" : nextSignal.trend,
+        trend: nextSignal.trend,
+        score: nextSignal.score,
+        aligned: true,
+      }
+      : item
+  ));
+}
+
 export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState("1h");
@@ -56,6 +97,31 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     () => getSupportResistance(candles.length ? candles : generateFallbackCandles(timeframe)),
     [candles, timeframe],
   );
+
+  const applyLiveDerivedState = useCallback((nextCandles: Candle[], livePrice?: number) => {
+    const nextIndicators = calcIndicators(nextCandles);
+    const nextMultiTimeframes = updateLiveTimeframes(multiTimeframes, timeframe, generateSignal(nextIndicators));
+    const strategyExecution = runStrategyEngine({
+      candles: nextCandles,
+      indicators: nextIndicators,
+      timeframe,
+      multiTimeframes: nextMultiTimeframes,
+    });
+    const nextSignal = strategyExecution.primary.signal;
+    const nextAnalysis = strategyExecution.primary.analysis;
+    const alignedTimeframes = nextMultiTimeframes.map((item) => ({
+      ...item,
+      aligned: item.label === nextSignal.label,
+    }));
+
+    setIndicators(nextIndicators);
+    setSignal(nextSignal);
+    setAnalysis(nextAnalysis);
+    setStrategy(strategyExecution.primary.strategy);
+    setStrategyCandidates(strategyExecution.candidates);
+    setMultiTimeframes(alignedTimeframes);
+    setCurrentPrice(livePrice && livePrice > 0 ? livePrice : nextIndicators.current);
+  }, [multiTimeframes, timeframe]);
 
   const fetchData = useCallback(async (coin = currentCoin, nextTimeframe = timeframe) => {
     setStatus("loading");
@@ -179,6 +245,33 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       closeStream();
     };
   }, [currentCoin]);
+
+  useEffect(() => {
+    const closeStream = marketService.openKlineStream(currentCoin, timeframe, (payload) => {
+      const kline = payload.k;
+      if (!kline?.t) return;
+
+      const incomingCandle: Candle = {
+        time: Math.floor(kline.t / 1000),
+        open: Number(kline.o || 0),
+        high: Number(kline.h || 0),
+        low: Number(kline.l || 0),
+        close: Number(kline.c || 0),
+        volume: Number(kline.v || 0),
+      };
+
+      setCandles((prevCandles) => {
+        const source = prevCandles.length ? prevCandles : generateFallbackCandles(timeframe);
+        const nextCandles = mergeLiveCandle(source, incomingCandle);
+        applyLiveDerivedState(nextCandles, incomingCandle.close);
+        return nextCandles;
+      });
+    });
+
+    return () => {
+      closeStream();
+    };
+  }, [applyLiveDerivedState, currentCoin, timeframe]);
 
   return {
     currentCoin,

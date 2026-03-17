@@ -233,6 +233,104 @@ export interface MarketTickerStreamPayload {
   v?: string;
 }
 
+export interface MarketKlineStreamPayload {
+  k?: {
+    t?: number;
+    T?: number;
+    i?: string;
+    o?: string;
+    c?: string;
+    h?: string;
+    l?: string;
+    v?: string;
+    x?: boolean;
+  };
+}
+
+function openBinanceStream<T>(streamPath: string, onMessage: (payload: T) => void) {
+  let socket: WebSocket | null = null;
+  let reconnectTimer: number | null = null;
+  let manuallyClosed = false;
+  let retryCount = 0;
+
+  const clearReconnectTimer = () => {
+    if (reconnectTimer !== null) {
+      window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  };
+
+  const connect = () => {
+    if (manuallyClosed) return;
+
+    try {
+      socket = new WebSocket(`wss://stream.binance.com:9443/ws/${streamPath}`);
+    } catch {
+      scheduleReconnect();
+      return;
+    }
+
+    socket.onopen = () => {
+      retryCount = 0;
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as T;
+        onMessage(payload);
+      } catch {
+        // ignore malformed frames
+      }
+    };
+
+    socket.onerror = () => {
+      try {
+        socket?.close();
+      } catch {
+        // ignore close errors
+      }
+    };
+
+    socket.onclose = () => {
+      socket = null;
+      if (!manuallyClosed) {
+        scheduleReconnect();
+      }
+    };
+  };
+
+  const scheduleReconnect = () => {
+    clearReconnectTimer();
+    const delay = Math.min(8_000, 1_000 * 2 ** retryCount);
+    retryCount += 1;
+    reconnectTimer = window.setTimeout(() => {
+      connect();
+    }, delay);
+  };
+
+  const handleVisibility = () => {
+    if (manuallyClosed) return;
+    if (document.visibilityState === "visible" && !socket) {
+      clearReconnectTimer();
+      connect();
+    }
+  };
+
+  connect();
+  document.addEventListener("visibilitychange", handleVisibility);
+
+  return () => {
+    manuallyClosed = true;
+    clearReconnectTimer();
+    document.removeEventListener("visibilitychange", handleVisibility);
+    try {
+      socket?.close();
+    } catch {
+      // ignore close errors
+    }
+  };
+}
+
 export interface ExchangeSymbol {
   symbol: string;
   status: string;
@@ -286,27 +384,9 @@ export const marketService = {
     }
   },
   openTickerStream(symbol: string, onMessage: (payload: MarketTickerStreamPayload) => void) {
-    try {
-      const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.replace("/", "").toLowerCase()}@ticker`);
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data) as MarketTickerStreamPayload;
-          onMessage(payload);
-        } catch {
-          // ignore malformed frames
-        }
-      };
-      return () => {
-        try {
-          ws.close();
-        } catch {
-          // ignore close errors
-        }
-      };
-    } catch {
-      return () => {
-        // websocket unavailable
-      };
-    }
+    return openBinanceStream<MarketTickerStreamPayload>(`${symbol.replace("/", "").toLowerCase()}@ticker`, onMessage);
+  },
+  openKlineStream(symbol: string, timeframe: string, onMessage: (payload: MarketKlineStreamPayload) => void) {
+    return openBinanceStream<MarketKlineStreamPayload>(`${symbol.replace("/", "").toLowerCase()}@kline_${timeframe}`, onMessage);
   },
 };

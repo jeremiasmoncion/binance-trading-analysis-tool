@@ -1777,6 +1777,20 @@
   gap: 20px;
 }
 
+#balanceView .premium-overview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+#balanceView .stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 24px;
+}
+
+#balanceView .stat-card {
+  padding: 24px;
+}
+
 #signals-strategies .signal-analytics-grid,
 #signals-experiments .signal-analytics-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

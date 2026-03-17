@@ -664,50 +664,101 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
   const v1Stats = summarizeSignals(v1Signals);
   const v2Stats = summarizeSignals(v2Signals);
   const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "").trim().toLowerCase();
-
-  if (activeScorer === "adaptive-v2") return [];
+  const recentV2Signals = v2Signals
+    .slice()
+    .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime())
+    .slice(0, 20);
+  const recentV2Stats = summarizeSignals(recentV2Signals);
   if (v1Stats.total < 6 || v2Stats.total < 6) return [];
 
   const v1AvgPnl = v1Stats.total ? v1Stats.pnl / v1Stats.total : 0;
   const v2AvgPnl = v2Stats.total ? v2Stats.pnl / v2Stats.total : 0;
   const edgeDelta = Number((v2AvgPnl - v1AvgPnl).toFixed(2));
   const winRateDelta = Number((v2Stats.winRate - v1Stats.winRate).toFixed(2));
-  const confidence = Math.min(
+  const promotionConfidence = Math.min(
     0.96,
     0.58 + Math.min(v2Stats.total, 20) * 0.018 + Math.max(0, edgeDelta) * 0.06 + Math.max(0, winRateDelta) * 0.006,
   );
+  const recommendations = [];
 
-  if (edgeDelta <= 0 && winRateDelta < 0) return [];
-  if (edgeDelta < 0.15 && winRateDelta < 4) return [];
+  if (activeScorer !== "adaptive-v2") {
+    if (!(edgeDelta <= 0 && winRateDelta < 0) && !(edgeDelta < 0.15 && winRateDelta < 4)) {
+      recommendations.push({
+        recommendation_key: "adaptive-scorer:adaptive-v1->adaptive-v2",
+        strategy_id: "adaptive-scorer",
+        strategy_version: "adaptive-v1",
+        parameter_key: "scorerPolicy",
+        title: "Promover adaptive-v2 como scorer principal",
+        summary: "La capa basada en features ya está cerrando mejor que el scorer previo. Conviene validarla y, si mantiene edge, dejarla pesar más en el motor.",
+        current_value: Number(v1AvgPnl.toFixed(2)),
+        suggested_value: Number(v2AvgPnl.toFixed(2)),
+        confidence: Number(promotionConfidence.toFixed(2)),
+        status: v2Stats.total >= 10 && edgeDelta >= 0.3 && winRateDelta >= 2 ? "sandbox" : "draft",
+        evidence: {
+          recommendationType: "adaptive-scorer-promotion",
+          action: "promote",
+          baseScorer: "adaptive-v1",
+          candidateScorer: "adaptive-v2",
+          sampleSizeV1: v1Stats.total,
+          sampleSizeV2: v2Stats.total,
+          avgPnlV1: Number(v1AvgPnl.toFixed(2)),
+          avgPnlV2: Number(v2AvgPnl.toFixed(2)),
+          pnlV1: Number(v1Stats.pnl.toFixed(2)),
+          pnlV2: Number(v2Stats.pnl.toFixed(2)),
+          winRateV1: Number(v1Stats.winRate.toFixed(2)),
+          winRateV2: Number(v2Stats.winRate.toFixed(2)),
+          edgeDelta,
+          winRateDelta,
+          promotionMode: "adaptive-scorer-challenge",
+        },
+      });
+    }
+  } else if (
+    recentV2Stats.total >= 5
+    && (
+      recentV2Stats.pnl < 0
+      || recentV2Stats.winRate < 45
+      || (recentV2Stats.total >= 5 && recentV2Stats.avgPnl < v1AvgPnl && recentV2Stats.winRate < v1Stats.winRate)
+    )
+  ) {
+    const rollbackConfidence = Math.min(
+      0.95,
+      0.56 + Math.min(recentV2Stats.total, 12) * 0.025 + Math.max(0, Math.abs(recentV2Stats.avgPnl - v1AvgPnl)) * 0.08,
+    );
+    recommendations.push({
+      recommendation_key: "adaptive-scorer:adaptive-v2->adaptive-v1",
+      strategy_id: "adaptive-scorer",
+      strategy_version: "adaptive-v2",
+      parameter_key: "scorerPolicy",
+      title: "Replegar adaptive-v2 y volver a adaptive-v1",
+      summary: "El scorer basado en features ya no está sosteniendo el edge reciente. Conviene ponerlo en observación y devolver el peso principal al scorer anterior.",
+      current_value: Number(recentV2Stats.avgPnl.toFixed(2)),
+      suggested_value: Number(v1AvgPnl.toFixed(2)),
+      confidence: Number(rollbackConfidence.toFixed(2)),
+      status: recentV2Stats.total >= 8 && recentV2Stats.avgPnl < v1AvgPnl ? "sandbox" : "draft",
+      evidence: {
+        recommendationType: "adaptive-scorer-promotion",
+        action: "rollback",
+        baseScorer: "adaptive-v2",
+        candidateScorer: "adaptive-v1",
+        sampleSizeV1: v1Stats.total,
+        sampleSizeV2: v2Stats.total,
+        sampleSizeRecent: recentV2Stats.total,
+        avgPnlV1: Number(v1AvgPnl.toFixed(2)),
+        avgPnlV2: Number(v2AvgPnl.toFixed(2)),
+        avgPnlRecent: Number(recentV2Stats.avgPnl.toFixed(2)),
+        pnlRecent: Number(recentV2Stats.pnl.toFixed(2)),
+        winRateV1: Number(v1Stats.winRate.toFixed(2)),
+        winRateV2: Number(v2Stats.winRate.toFixed(2)),
+        winRateRecent: Number(recentV2Stats.winRate.toFixed(2)),
+        edgeDelta: Number((recentV2Stats.avgPnl - v1AvgPnl).toFixed(2)),
+        winRateDelta: Number((recentV2Stats.winRate - v1Stats.winRate).toFixed(2)),
+        promotionMode: "adaptive-scorer-rollback",
+      },
+    });
+  }
 
-  return [{
-    recommendation_key: "adaptive-scorer:adaptive-v1->adaptive-v2",
-    strategy_id: "adaptive-scorer",
-    strategy_version: "adaptive-v1",
-    parameter_key: "scorerPolicy",
-    title: "Promover adaptive-v2 como scorer principal",
-    summary: "La capa basada en features ya está cerrando mejor que el scorer previo. Conviene validarla y, si mantiene edge, dejarla pesar más en el motor.",
-    current_value: Number(v1AvgPnl.toFixed(2)),
-    suggested_value: Number(v2AvgPnl.toFixed(2)),
-    confidence: Number(confidence.toFixed(2)),
-    status: v2Stats.total >= 10 && edgeDelta >= 0.3 && winRateDelta >= 2 ? "sandbox" : "draft",
-    evidence: {
-      recommendationType: "adaptive-scorer-promotion",
-      baseScorer: "adaptive-v1",
-      candidateScorer: "adaptive-v2",
-      sampleSizeV1: v1Stats.total,
-      sampleSizeV2: v2Stats.total,
-      avgPnlV1: Number(v1AvgPnl.toFixed(2)),
-      avgPnlV2: Number(v2AvgPnl.toFixed(2)),
-      pnlV1: Number(v1Stats.pnl.toFixed(2)),
-      pnlV2: Number(v2Stats.pnl.toFixed(2)),
-      winRateV1: Number(v1Stats.winRate.toFixed(2)),
-      winRateV2: Number(v2Stats.winRate.toFixed(2)),
-      edgeDelta,
-      winRateDelta,
-      promotionMode: "adaptive-scorer-challenge",
-    },
-  }];
+  return recommendations;
 }
 
 function normalizeContextMarketRegime(signal) {

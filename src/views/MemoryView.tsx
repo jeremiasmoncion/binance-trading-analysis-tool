@@ -850,6 +850,42 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [closedSignals]);
 
+  const scorerGovernance = useMemo(() => {
+    const activeScorer = String(decisionState?.scorerPolicy?.activeScorer || "").trim().toLowerCase() || "adaptive-v1";
+    const recentScored = closedSignals
+      .filter((item) => item.signal_payload?.decision?.scorer?.label)
+      .slice()
+      .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime());
+    const recentWindow = recentScored.slice(0, 20);
+    const recentActive = recentWindow.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer);
+    const recentOther = recentWindow.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() !== activeScorer);
+    const recentActiveStats = summarizeSignalCohort(recentActive);
+    const recentOtherStats = summarizeSignalCohort(recentOther);
+    let reading = "El scorer activo todavía no tiene suficiente muestra reciente para gobernanza automática fuerte.";
+    let accentClass = "accent-blue";
+
+    if (recentActiveStats.total >= 5 && recentOtherStats.total >= 5) {
+      if (recentActiveStats.avgPnl > recentOtherStats.avgPnl && recentActiveStats.winRate >= recentOtherStats.winRate) {
+        reading = "El scorer activo sigue defendiendo mejor el tramo reciente. No hay señal de rollback inmediata.";
+        accentClass = "accent-emerald";
+      } else if (recentActiveStats.avgPnl < recentOtherStats.avgPnl) {
+        reading = "El scorer activo ya se está degradando frente a la alternativa reciente. Conviene observar promoción inversa o rollback.";
+        accentClass = "accent-amber";
+      } else {
+        reading = "El scorer activo y la alternativa están muy parejos en la ventana reciente.";
+      }
+    }
+
+    return {
+      activeScorer,
+      recentActiveStats,
+      recentOtherStats,
+      reading,
+      accentClass,
+      windowSize: recentWindow.length,
+    };
+  }, [closedSignals, decisionState?.scorerPolicy?.activeScorer]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1126,10 +1162,11 @@ export function MemoryView(props: MemoryViewProps) {
       strongestContextBias,
       adaptiveScoreImpact,
       scorerModelImpact,
+      scorerGovernance,
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerModelImpact]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerGovernance, scorerModelImpact]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1800,6 +1837,16 @@ export function MemoryView(props: MemoryViewProps) {
                 sub={decisionState?.scorerPolicy?.promotedAt ? `Promovido ${new Date(decisionState.scorerPolicy.promotedAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : "Sin promoción formal todavía"}
                 accentClass={decisionState?.scorerPolicy?.activeScorer === "adaptive-v2" ? "accent-emerald" : "accent-blue"}
               />
+              <StatCard
+                label="Gobernanza reciente"
+                value={automationMasterBoard.scorerGovernance.activeScorer}
+                sub={
+                  automationMasterBoard.scorerGovernance.windowSize > 0
+                    ? `${automationMasterBoard.scorerGovernance.recentActiveStats.total} activas · ${automationMasterBoard.scorerGovernance.recentOtherStats.total} alternas`
+                    : "Sin ventana reciente todavía"
+                }
+                accentClass={automationMasterBoard.scorerGovernance.accentClass}
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -1854,6 +1901,17 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                         <div className={`signal-analytics-pill ${automationMasterBoard.scorerModelImpact.accentClass === "accent-emerald" ? "status-running" : automationMasterBoard.scorerModelImpact.accentClass === "accent-amber" ? "status-draft" : "status-sandbox"}`}>
                           {automationMasterBoard.scorerModelImpact.winner || "comparando"}
+                        </div>
+                      </div>
+                    ) : null}
+                    {automationMasterBoard.scorerGovernance.windowSize > 0 ? (
+                      <div className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>Gobernanza reciente del scorer</strong>
+                          <span>{automationMasterBoard.scorerGovernance.activeScorer} {formatSignedPrice(automationMasterBoard.scorerGovernance.recentActiveStats.avgPnl)} · {automationMasterBoard.scorerGovernance.recentActiveStats.winRate.toFixed(0)}% vs alterna {formatSignedPrice(automationMasterBoard.scorerGovernance.recentOtherStats.avgPnl)} · {automationMasterBoard.scorerGovernance.recentOtherStats.winRate.toFixed(0)}%</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${automationMasterBoard.scorerGovernance.accentClass === "accent-emerald" ? "status-running" : automationMasterBoard.scorerGovernance.accentClass === "accent-amber" ? "status-draft" : "status-sandbox"}`}>
+                          {automationMasterBoard.scorerGovernance.accentClass === "accent-amber" ? "vigilar" : "estable"}
                         </div>
                       </div>
                     ) : null}
@@ -1917,6 +1975,11 @@ export function MemoryView(props: MemoryViewProps) {
             {decisionState?.scorerPolicy?.activeScorer ? (
               <p className="section-note">
                 Política de scorer: el motor está corriendo con <strong>{decisionState.scorerPolicy.activeScorer}</strong>{decisionState.scorerPolicy.promotedAt ? ` desde ${new Date(decisionState.scorerPolicy.promotedAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : ""}.
+              </p>
+            ) : null}
+            {automationMasterBoard.scorerGovernance.windowSize > 0 ? (
+              <p className="section-note">
+                Gobernanza reciente: {automationMasterBoard.scorerGovernance.reading}
               </p>
             ) : null}
 
@@ -3320,6 +3383,7 @@ function AdaptiveRecommendationCard({
   const isScopeRecommendation = evidence.recommendationType === "execution-scope-override";
   const isAdaptivePrimaryPromotion = evidence.recommendationType === "adaptive-primary-promotion";
   const isAdaptiveScorerPromotion = evidence.recommendationType === "adaptive-scorer-promotion";
+  const scorerAction = String(evidence.action || "promote");
   const timeframe = String(evidence.timeframe || "");
   const baseVersion = String(evidence.baseVersion || item.strategy_version || "").trim();
   const baseScorer = String(evidence.baseScorer || "adaptive-v1");
@@ -3378,7 +3442,7 @@ function AdaptiveRecommendationCard({
                 : isAdaptivePrimaryPromotion
                   ? `Marco retado: ${formatTimeframeScope(timeframe)} · Base ${getFriendlyStrategyVersionLabel(item.strategy_id, baseVersion)} · Candidata ${getFriendlyStrategyVersionLabel(item.strategy_id, candidateVersion)}`
                   : isAdaptiveScorerPromotion
-                    ? `Scorer actual: ${baseScorer} · Candidato: ${candidateScorer}`
+                    ? `Scorer actual: ${baseScorer} · ${scorerAction === "rollback" ? "Retorno" : "Candidato"}: ${candidateScorer}`
                   : `Parámetro: ${item.parameter_key}`}
             </span>
           </div>
@@ -3451,10 +3515,16 @@ function AdaptiveRecommendationCard({
       ) : isAdaptiveScorerPromotion ? (
         <p className="section-note">
           {item.status === "draft"
-            ? "La comparación entre scorers ya favorece a adaptive-v2, pero primero conviene validarlo como candidato promovible."
+            ? scorerAction === "rollback"
+              ? "La ventana reciente ya sugiere que el scorer actual se está degradando. Conviene validar el rollback antes de dejarlo seguir pesando igual."
+              : "La comparación entre scorers ya favorece al scorer basado en features, pero primero conviene validarlo como candidato promovible."
             : item.status === "sandbox"
-              ? "Adaptive-v2 ya está en prueba segura como scorer promovible. Si confirmas, el motor le dará más peso que al scorer anterior."
-              : "Adaptive-v2 ya quedó promovido y ahora pesa más dentro del motor adaptativo."}
+              ? scorerAction === "rollback"
+                ? "El rollback del scorer ya está en prueba segura. Si confirmas, el motor volverá a dar prioridad al scorer anterior."
+                : "Adaptive-v2 ya está en prueba segura como scorer promovible. Si confirmas, el motor le dará más peso que al scorer anterior."
+              : scorerAction === "rollback"
+                ? "El rollback ya fue aplicado y el motor redujo el peso del scorer degradado."
+                : "Adaptive-v2 ya quedó promovido y ahora pesa más dentro del motor adaptativo."}
         </p>
       ) : null}
 
@@ -3500,7 +3570,7 @@ function AdaptiveRecommendationCard({
               Política activa: <span className="text-strong">{candidateScorer}</span>
             </span>
             <span className="signal-analytics-pill status-running">
-              Motor adaptativo reforzado
+              {scorerAction === "rollback" ? "Rollback aplicado" : "Motor adaptativo reforzado"}
             </span>
           </>
         ) : isScopeSandbox ? (

@@ -129,7 +129,7 @@ export function DashboardView(props: DashboardViewProps) {
             <div className="dashboard-overview-copy">
               <h1 className="dashboard-overview-title">Dashboard</h1>
               <p className="dashboard-overview-subtitle">
-                Centro de mando de CRYPE para vigilar capital, bot operativo, IA, ejecución demo y presión del mercado sin convertir esta vista en una pantalla de señales.
+                Capital, bots y actividad en una sola vista.
               </p>
             </div>
             <div className="dashboard-overview-actions">

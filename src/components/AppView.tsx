@@ -95,6 +95,8 @@ export function AppView(props: AppViewProps) {
           multiTimeframes={props.multiTimeframes}
           candles={props.candles}
           chartRef={props.chartRef}
+          portfolioData={props.portfolioData}
+          executionCenter={props.executionCenter}
           onSaveSignal={props.onSaveSignal}
         />
       );

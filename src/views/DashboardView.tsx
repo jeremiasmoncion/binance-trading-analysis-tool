@@ -1,6 +1,6 @@
 import { CoinsIcon, DownloadIcon, HelpCircleIcon, SparklesIcon, TrendUpIcon, WalletIcon } from "../components/Icons";
 import { formatPct, formatPrice, formatSignedPct } from "../lib/format";
-import type { Candle, DashboardAnalysis, OperationPlan, Signal, StrategyCandidate, StrategyDescriptor, TimeframeSignal } from "../types";
+import type { Candle, DashboardAnalysis, ExecutionCenterPayload, OperationPlan, PortfolioPayload, Signal, StrategyCandidate, StrategyDescriptor, TimeframeSignal } from "../types";
 import { openHelp } from "../lib/ui-events";
 
 interface DashboardViewProps {
@@ -16,6 +16,8 @@ interface DashboardViewProps {
   multiTimeframes: TimeframeSignal[];
   candles: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
+  portfolioData: PortfolioPayload | null;
+  executionCenter: ExecutionCenterPayload | null;
   onSaveSignal: () => void;
 }
 
@@ -27,12 +29,35 @@ export function DashboardView(props: DashboardViewProps) {
   const firstClose = props.candles[0]?.close ?? props.currentPrice ?? 0;
   const lastClose = props.candles.at(-1)?.close ?? props.currentPrice ?? 0;
   const marketDriftPct = firstClose > 0 ? ((lastClose - firstClose) / firstClose) * 100 : 0;
-  const activeBotsLabel = "1 / 1";
+  const portfolioTotal = props.portfolioData?.portfolio?.totalValue
+    ?? props.executionCenter?.account.totalValue
+    ?? 0;
+  const portfolioChangeValue = props.portfolioData?.portfolio?.periodChangeValue ?? 0;
+  const portfolioChangePct = props.portfolioData?.portfolio?.periodChangePct ?? marketDriftPct;
+  const totalBots = 1;
+  const activeBots = props.executionCenter?.profile.enabled ? 1 : 0;
+  const activeBotsLabel = `${activeBots} / ${totalBots}`;
   const alignmentCount = analysis?.alignmentCount ?? 0;
   const alignmentTotal = analysis?.alignmentTotal ?? Math.max(props.multiTimeframes.length, 1);
-  const aiConfidence = signal?.score ?? 0;
-  const overviewSignalTone = aiConfidence >= 70 ? "positive" : aiConfidence >= 45 ? "neutral" : "negative";
-  const marketTone = marketDriftPct >= 0.4 ? "positive" : marketDriftPct <= -0.4 ? "negative" : "neutral";
+  const last24hCutoff = Date.now() - 24 * 60 * 60 * 1000;
+  const botClosedOrders24h = (props.executionCenter?.recentOrders || []).filter((item) => {
+    if (item.mode !== "execute") return false;
+    const closedAt = item.closed_at ? new Date(item.closed_at).getTime() : 0;
+    return closedAt >= last24hCutoff && Number.isFinite(closedAt);
+  });
+  const botGeneratedPnl24h = botClosedOrders24h.reduce((sum, item) => sum + (item.realized_pnl || 0), 0);
+  const botOutcomes24h = botClosedOrders24h.filter((item) => {
+    const status = String(item.lifecycle_status || item.signal_outcome_status || "");
+    return status === "closed_win" || status === "closed_loss" || status === "win" || status === "loss" || typeof item.realized_pnl === "number";
+  });
+  const botWins24h = botOutcomes24h.filter((item) => {
+    const status = String(item.lifecycle_status || item.signal_outcome_status || "");
+    if (status === "closed_win" || status === "win") return true;
+    if (status === "closed_loss" || status === "loss") return false;
+    return (item.realized_pnl || 0) > 0;
+  }).length;
+  const botWinRate24h = botOutcomes24h.length ? (botWins24h / botOutcomes24h.length) * 100 : 0;
+  const botsPnlTone = botGeneratedPnl24h > 0 ? "positive" : botGeneratedPnl24h < 0 ? "negative" : "neutral";
 
   return (
     <div id="dashboardView" className="view-panel active">
@@ -63,16 +88,16 @@ export function DashboardView(props: DashboardViewProps) {
                 <span className="dashboard-overview-icon dashboard-overview-icon-wallet">
                   <WalletIcon />
                 </span>
-                <span className={`dashboard-overview-badge ${marketTone}`}>
-                  {formatSignedPct(marketDriftPct)}
+                <span className={`dashboard-overview-badge ${portfolioChangePct >= 0.1 ? "positive" : portfolioChangePct <= -0.1 ? "negative" : "neutral"}`}>
+                  {formatSignedPct(portfolioChangePct)}
                 </span>
               </div>
-              <div className="dashboard-overview-label">Mercado activo</div>
-              <div className="dashboard-overview-value">{formatPrice(props.currentPrice || 0)}</div>
+              <div className="dashboard-overview-label">Total portfolio</div>
+              <div className="dashboard-overview-value">{formatPrice(portfolioTotal)}</div>
               <div className="dashboard-overview-divider" />
               <div className="dashboard-overview-foot">
-                <span>{props.currentCoin}</span>
-                <strong>{props.timeframe.toUpperCase()}</strong>
+                <span>24h Change</span>
+                <strong>{formatPrice(portfolioChangeValue)}</strong>
               </div>
             </article>
 
@@ -90,8 +115,8 @@ export function DashboardView(props: DashboardViewProps) {
               <div className="dashboard-overview-value">{activeBotsLabel}</div>
               <div className="dashboard-overview-divider" />
               <div className="dashboard-overview-foot">
-                <span>Ritmo del motor</span>
-                <strong>{formatSchedulerInterval(props.strategyRefreshIntervalMs)}</strong>
+                <span>Órdenes abiertas</span>
+                <strong>{props.executionCenter?.account.openOrdersCount ?? 0}</strong>
               </div>
             </article>
 
@@ -100,16 +125,16 @@ export function DashboardView(props: DashboardViewProps) {
                 <span className="dashboard-overview-icon dashboard-overview-icon-intelligence">
                   <TrendUpIcon />
                 </span>
-                <span className={`dashboard-overview-badge ${overviewSignalTone}`}>
-                  {analysis?.setupQuality || "Operativa"}
+                <span className={`dashboard-overview-badge ${botsPnlTone}`}>
+                  {botGeneratedPnl24h >= 0 ? "Profit" : "Drawdown"}
                 </span>
               </div>
-              <div className="dashboard-overview-label">IA / Intelligence</div>
-              <div className={`dashboard-overview-value ${overviewSignalTone}`}>{aiConfidence}%</div>
+              <div className="dashboard-overview-label">Bots generated (24h)</div>
+              <div className={`dashboard-overview-value ${botsPnlTone}`}>{formatPrice(botGeneratedPnl24h)}</div>
               <div className="dashboard-overview-divider" />
               <div className="dashboard-overview-foot">
-                <span>{props.strategy.label}</span>
-                <strong>{analysis?.riskLabel || "Riesgo medio"}</strong>
+                <span>Win rate</span>
+                <strong>{formatPct(botWinRate24h)}</strong>
               </div>
             </article>
 

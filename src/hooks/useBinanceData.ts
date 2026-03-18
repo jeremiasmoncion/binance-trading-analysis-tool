@@ -219,7 +219,17 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (activeUsernameRef.current !== username) {
         return { ok: false as const, payload: null, message: "Sesión cambió durante la carga." };
       }
-      setDashboardSummary(payload);
+      setDashboardSummary((previous) => {
+        const portfolioValue = Number(payload?.portfolio?.totalValue || 0);
+        const topAssetsCount = Array.isArray(payload?.topAssets) ? payload.topAssets.length : 0;
+        const recentOrdersCount = Array.isArray(payload?.execution?.recentOrders) ? payload.execution.recentOrders.length : 0;
+        const hasUsefulPayload = portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
+
+        if (!hasUsefulPayload && payload?.connectionIssue && previous) {
+          return previous;
+        }
+        return payload;
+      });
       return { ok: true as const, payload, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer el dashboard.";

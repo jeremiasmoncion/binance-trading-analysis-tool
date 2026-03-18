@@ -629,12 +629,22 @@ function deriveDashboardCandidateCounts(signals = []) {
 }
 
 async function getExecutionDashboardSummaryForUser(username) {
-  const [profile, portfolioPayload, signals, executionOrdersRaw] = await Promise.all([
+  const [profile, livePortfolioPayload, signals, executionOrdersRaw] = await Promise.all([
     getExecutionProfileForUser(username),
     getPortfolioSnapshotForUsername(username, "1d", "live"),
     listSignalSnapshotsForUser(username, { limit: 80 }),
     listExecutionOrdersForUser(username),
   ]);
+
+  let portfolioPayload = livePortfolioPayload;
+  const livePortfolioValue = Number(livePortfolioPayload?.portfolio?.totalValue || 0);
+  const liveAssetsCount = Array.isArray(livePortfolioPayload?.assets) ? livePortfolioPayload.assets.length : 0;
+  const liveConnectionIssue = Boolean(livePortfolioPayload?.connectionIssue);
+  const shouldFallbackToFullSnapshot = liveConnectionIssue || (livePortfolioValue <= 0 && liveAssetsCount === 0);
+
+  if (shouldFallbackToFullSnapshot) {
+    portfolioPayload = await getPortfolioSnapshotForUsername(username, "1d", "full");
+  }
 
   const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals || [], executionOrdersRaw || []);
   const recentExecuteOrders = (executionOrders || [])
@@ -657,6 +667,7 @@ async function getExecutionDashboardSummaryForUser(username) {
       connected: Boolean(portfolioPayload?.connected),
       accountAlias: portfolioPayload?.accountAlias || "",
     },
+    connectionIssue: portfolioPayload?.connectionIssue || undefined,
     portfolio: portfolioPayload?.portfolio || {
       period: "1d",
       totalValue: 0,

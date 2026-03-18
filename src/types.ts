@@ -1022,6 +1022,7 @@ export interface DashboardSummaryPayload {
     connected: boolean;
     accountAlias?: string;
   };
+  connectionIssue?: string;
   portfolio: PortfolioTotals;
   topAssets: PortfolioAsset[];
   execution: {

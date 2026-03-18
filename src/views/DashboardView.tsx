@@ -58,22 +58,32 @@ export function DashboardView(props: DashboardViewProps) {
   const [tradeSearch, setTradeSearch] = useState("");
   const signal = props.signal;
   const analysis = props.analysis;
-  const portfolio = props.dashboardSummary?.portfolio || props.portfolioData?.portfolio;
-  const executionAccount = props.dashboardSummary
+  const hasUsefulDashboardSummary = useMemo(() => {
+    if (!props.dashboardSummary) return false;
+    const portfolioValue = Number(props.dashboardSummary.portfolio?.totalValue || 0);
+    const topAssetsCount = Array.isArray(props.dashboardSummary.topAssets) ? props.dashboardSummary.topAssets.length : 0;
+    const recentOrdersCount = Array.isArray(props.dashboardSummary.execution?.recentOrders)
+      ? props.dashboardSummary.execution.recentOrders.length
+      : 0;
+    return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
+  }, [props.dashboardSummary]);
+  const summary = hasUsefulDashboardSummary ? props.dashboardSummary : null;
+  const portfolio = summary?.portfolio || props.portfolioData?.portfolio;
+  const executionAccount = summary
     ? {
-        connected: props.dashboardSummary.connection.connected,
-        alias: props.dashboardSummary.connection.accountAlias || "",
-        cashValue: Number(props.dashboardSummary.portfolio.cashValue || 0),
-        totalValue: Number(props.dashboardSummary.portfolio.totalValue || 0),
-        openOrdersCount: props.dashboardSummary.execution.openOrdersCount,
-        dailyLossPct: props.dashboardSummary.execution.dailyLossPct,
-        dailyAutoExecutions: props.dashboardSummary.execution.dailyAutoExecutions,
-        recentLossStreak: props.dashboardSummary.execution.recentLossStreak,
-        autoExecutionRemaining: props.dashboardSummary.execution.autoExecutionRemaining,
+        connected: summary.connection.connected,
+        alias: summary.connection.accountAlias || "",
+        cashValue: Number(summary.portfolio.cashValue || 0),
+        totalValue: Number(summary.portfolio.totalValue || 0),
+        openOrdersCount: summary.execution.openOrdersCount,
+        dailyLossPct: summary.execution.dailyLossPct,
+        dailyAutoExecutions: summary.execution.dailyAutoExecutions,
+        recentLossStreak: summary.execution.recentLossStreak,
+        autoExecutionRemaining: summary.execution.autoExecutionRemaining,
       }
     : props.executionCenter?.account;
-  const executionProfileEnabled = props.dashboardSummary
-    ? props.dashboardSummary.execution.profileEnabled
+  const executionProfileEnabled = summary
+    ? summary.execution.profileEnabled
     : props.executionCenter?.profile?.enabled;
   const currentPrice = props.currentPrice || props.candles.at(-1)?.close || 0;
   const firstClose = props.candles[0]?.close ?? currentPrice;
@@ -81,12 +91,13 @@ export function DashboardView(props: DashboardViewProps) {
   const portfolioTotal = portfolio?.totalValue ?? executionAccount?.totalValue ?? 0;
   const portfolioChangeValue = portfolio?.periodChangeValue ?? 0;
   const portfolioChangePct = portfolio?.periodChangePct ?? marketDriftPct;
-  const activeBots = props.dashboardSummary?.execution.activeBots ?? (executionProfileEnabled ? 1 : 0);
-  const totalBots = props.dashboardSummary?.execution.totalBots ?? 1;
+  const activeBots = summary?.execution.activeBots ?? (executionProfileEnabled ? 1 : 0);
+  const totalBots = summary?.execution.totalBots ?? 1;
   const activeBotsLabel = `${activeBots} / ${totalBots}`;
   const last24hCutoff = Date.now() - 24 * 60 * 60 * 1000;
 
-  const recentExecuteOrders = (props.dashboardSummary?.execution.recentOrders || props.executionCenter?.recentOrders || []).filter((item) => item.mode === "execute");
+  const executionRecentOrders = summary?.execution.recentOrders || props.executionCenter?.recentOrders || [];
+  const recentExecuteOrders = executionRecentOrders.filter((item) => item.mode === "execute");
   const botClosedOrders24h = recentExecuteOrders.filter((item) => {
     const closedAt = item.closed_at ? new Date(item.closed_at).getTime() : 0;
     return closedAt >= last24hCutoff && Number.isFinite(closedAt);
@@ -99,11 +110,11 @@ export function DashboardView(props: DashboardViewProps) {
   const botWins24h = botOutcomes24h.filter((item) => isPositiveClosedOutcome(item)).length;
   const botWinRate24h = botOutcomes24h.length ? (botWins24h / botOutcomes24h.length) * 100 : 0;
   const botsPnlTone = botGeneratedPnl24h > 0 ? "positive" : botGeneratedPnl24h < 0 ? "negative" : "neutral";
-  const eligibleCandidates = props.dashboardSummary
-    ? Array.from({ length: props.dashboardSummary.execution.eligibleCount }, (_, index) => ({ status: "eligible", id: index }))
+  const eligibleCandidates = summary
+    ? Array.from({ length: summary.execution.eligibleCount }, (_, index) => ({ status: "eligible", id: index }))
     : (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible");
-  const blockedCandidates = props.dashboardSummary
-    ? Array.from({ length: props.dashboardSummary.execution.blockedCount }, (_, index) => ({ status: "blocked", id: index }))
+  const blockedCandidates = summary
+    ? Array.from({ length: summary.execution.blockedCount }, (_, index) => ({ status: "blocked", id: index }))
     : (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked");
   const recentOrders = recentExecuteOrders.slice(0, 5);
   const recentTrades = useMemo(
@@ -164,8 +175,8 @@ export function DashboardView(props: DashboardViewProps) {
     ],
   );
   const topAssets = useMemo(
-    () => buildTopAssets(props.dashboardSummary?.topAssets || props.portfolioData?.assets || []),
-    [props.dashboardSummary?.topAssets, props.portfolioData?.assets],
+    () => buildTopAssets(summary?.topAssets || props.portfolioData?.assets || []),
+    [summary?.topAssets, props.portfolioData?.assets],
   );
   const recentActivity = useMemo(
     () => buildRecentActivity(props.portfolioData, recentExecuteOrders),

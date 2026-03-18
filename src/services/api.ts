@@ -199,8 +199,8 @@ export const binanceService = {
   getConnection() {
     return apiRequest<BinanceConnection>("/api/binance/connection");
   },
-  getPortfolio(period: string) {
-    return apiRequest<PortfolioPayload>(`/api/binance/portfolio?period=${encodeURIComponent(period)}`);
+  getPortfolio(period: string, mode: "full" | "live" = "full") {
+    return apiRequest<PortfolioPayload>(`/api/binance/portfolio?period=${encodeURIComponent(period)}&mode=${encodeURIComponent(mode)}`);
   },
   connect(apiKey: string, apiSecret: string, accountAlias: string) {
     return apiRequest("/api/binance/connection", {

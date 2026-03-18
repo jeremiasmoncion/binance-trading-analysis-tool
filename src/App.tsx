@@ -468,6 +468,7 @@ export function App() {
           hideSmallAssets={binance.hideSmallAssets}
           onPortfolioPeriodChange={(period) => void binance.refreshPortfolioWithFeedback(period)}
           onRefreshPortfolio={() => void binance.refreshPortfolioWithFeedback()}
+          onRefreshPortfolioFull={() => void binance.refreshPortfolio(binance.portfolioPeriod, "full")}
           onRefreshExecutionCenter={() => binance.refreshExecutionCenter()}
           onToggleHideSmallAssets={binance.setHideSmallAssets}
           signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}

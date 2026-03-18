@@ -62,6 +62,7 @@ interface AppViewProps {
   hideSmallAssets: boolean;
   onPortfolioPeriodChange: (period: string) => void;
   onRefreshPortfolio: () => void;
+  onRefreshPortfolioFull: () => void;
   onRefreshExecutionCenter: () => Promise<unknown>;
   onToggleHideSmallAssets: (value: boolean) => void;
   signalMemory: SignalSnapshot[];
@@ -169,6 +170,7 @@ export function AppView(props: AppViewProps) {
           hideSmallAssets={props.hideSmallAssets}
           onPeriodChange={props.onPortfolioPeriodChange}
           onRefresh={props.onRefreshPortfolio}
+          onRefreshFull={props.onRefreshPortfolioFull}
           onToggleHideSmall={props.onToggleHideSmallAssets}
         />
       );

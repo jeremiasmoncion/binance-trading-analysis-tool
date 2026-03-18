@@ -14,6 +14,78 @@ interface UseBinanceDataOptions {
   currentView: ViewName;
 }
 
+function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: PortfolioPayload, period: string): PortfolioPayload {
+  if (!previous || !previous.assets?.length) {
+    return live;
+  }
+
+  const previousByAsset = new Map(previous.assets.map((asset) => [asset.asset, asset]));
+  const mergedAssets = (live.assets || []).map((asset) => {
+    const prev = previousByAsset.get(asset.asset);
+    if (!prev) {
+      return asset;
+    }
+
+    const avgEntryPrice = asset.asset === "USDT" ? 1 : Number(prev.avgEntryPrice || 0);
+    const investedValue = avgEntryPrice > 0 ? asset.quantity * avgEntryPrice : asset.marketValue;
+    const pnlValue = asset.marketValue - investedValue;
+    const pnlPct = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
+
+    return {
+      ...prev,
+      ...asset,
+      avgEntryPrice,
+      tradeCount: prev.tradeCount || 0,
+      realizedPnl: Number(prev.realizedPnl || 0),
+      investedValue,
+      pnlValue,
+      pnlPct: Number(pnlPct.toFixed(2)),
+    };
+  });
+
+  const totalValue = mergedAssets.reduce((sum, asset) => sum + Number(asset.marketValue || 0), 0);
+  const investedValue = mergedAssets.reduce((sum, asset) => sum + Number(asset.investedValue || 0), 0);
+  const realizedPnl = mergedAssets.reduce((sum, asset) => sum + Number(asset.realizedPnl || 0), 0);
+  const unrealizedPnl = mergedAssets.reduce((sum, asset) => sum + Number(asset.pnlValue || 0), 0);
+  const periodChangeValue = mergedAssets.reduce((sum, asset) => sum + Number(asset.periodChangeValue || 0), 0);
+  const periodBaseValue = totalValue - periodChangeValue;
+  const periodChangePct = periodBaseValue > 0 ? (periodChangeValue / periodBaseValue) * 100 : 0;
+  const cashAsset = mergedAssets.find((asset) => asset.asset === "USDT");
+  const openPositions = mergedAssets.filter((asset) => asset.asset !== "USDT" && Number(asset.quantity || 0) > 0);
+  const hiddenLockedAssets = live.hiddenLockedAssets || previous.hiddenLockedAssets || [];
+  const hiddenLockedValue = hiddenLockedAssets.reduce((sum: number, asset) => sum + Number(asset.marketValue || 0), 0);
+
+  return {
+    ...previous,
+    ...live,
+    snapshotMode: "live",
+    assets: mergedAssets,
+    recentOrders: previous.recentOrders || live.recentOrders || [],
+    recentTrades: previous.recentTrades || live.recentTrades || [],
+    openOrders: live.openOrders || previous.openOrders || [],
+    portfolio: {
+      ...(previous.portfolio || {}),
+      ...(live.portfolio || {}),
+      period,
+      totalValue,
+      investedValue,
+      realizedPnl,
+      unrealizedPnl,
+      unrealizedPnlPct: investedValue > 0 ? Number(((unrealizedPnl / investedValue) * 100).toFixed(2)) : 0,
+      totalPnl: realizedPnl + unrealizedPnl,
+      periodChangeValue,
+      periodChangePct: Number(periodChangePct.toFixed(2)),
+      cashValue: Number(cashAsset?.marketValue || 0),
+      positionsValue: totalValue - Number(cashAsset?.marketValue || 0),
+      openPositionsCount: openPositions.length,
+      winnersCount: openPositions.filter((asset) => Number(asset.pnlValue || 0) > 0).length,
+      hiddenLockedValue,
+      hiddenLockedAssetsCount: hiddenLockedAssets.length,
+      updatedAt: live.portfolio?.updatedAt || new Date().toISOString(),
+    },
+  };
+}
+
 export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptions) {
   const [binanceConnection, setBinanceConnection] = useState<BinanceConnection | null>(null);
   const [portfolioData, setPortfolioData] = useState<PortfolioPayload | null>(null);
@@ -59,22 +131,23 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     }
   }, [currentUser]);
 
-  const refreshPortfolio = useCallback(async (period = portfolioPeriod) => {
+  const refreshPortfolio = useCallback(async (period = portfolioPeriod, mode: "full" | "live" = "full") => {
     const username = currentUser?.username || "";
     if (!username) {
       return { ok: false as const, message: "Sesion no disponible." };
     }
     try {
-      const payload = await binanceService.getPortfolio(period);
+      const payload = await binanceService.getPortfolio(period, mode);
       if (activeUsernameRef.current !== username) {
         return { ok: false as const, message: "Sesión cambió durante la carga." };
       }
-      setPortfolioData(payload);
+      setPortfolioData((previous) => (mode === "live" ? mergePortfolioLivePayload(previous, payload, period) : payload));
       setPortfolioPeriod(period);
       return { ok: true as const, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer el balance.";
       setPortfolioData({
+        snapshotMode: mode,
         assets: [],
         portfolio: {
           period,
@@ -155,10 +228,10 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     }
   }, [refreshProfileData]);
 
-  const refreshPortfolioWithFeedback = useCallback(async (period = portfolioPeriod) => {
+  const refreshPortfolioWithFeedback = useCallback(async (period = portfolioPeriod, mode: "full" | "live" = "full") => {
     const loaderId = startLoading({ label: "Actualizando balance", detail: `Periodo ${period}` });
     try {
-      const result = await refreshPortfolio(period);
+      const result = await refreshPortfolio(period, mode);
       showToast(result.ok
         ? {
             tone: "success",
@@ -187,7 +260,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       await binanceService.connect(binanceForm.apiKey.trim(), binanceForm.apiSecret.trim(), binanceForm.alias.trim());
       setBinanceForm((prev) => ({ ...prev, apiSecret: "" }));
       await refreshProfileData();
-      await Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
+      await Promise.all([refreshPortfolio(portfolioPeriod, "full"), refreshExecutionCenter()]);
       showToast({
         tone: "success",
         title: "Binance Demo conectado",
@@ -212,7 +285,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setExecutionCenter(null);
       await refreshProfileData();
       if (currentView === "balance") {
-        await refreshPortfolio();
+        await refreshPortfolio(portfolioPeriod, "full");
       }
       showToast({
         tone: "warning",
@@ -243,7 +316,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     void (async () => {
       const result = await refreshProfileData();
       if (result.connection?.connected) {
-        await Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
+        await Promise.all([refreshPortfolio(portfolioPeriod, "full"), refreshExecutionCenter()]);
       }
     })();
   }, [currentUser, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
@@ -255,22 +328,22 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
     if (currentView === "balance") {
-      void refreshPortfolio();
+      void refreshPortfolio(portfolioPeriod, "live");
       return;
     }
     if (currentView === "dashboard") {
-      void Promise.all([refreshPortfolio(), refreshExecutionCenter()]);
+      void Promise.all([refreshPortfolio(portfolioPeriod, "live"), refreshExecutionCenter()]);
     }
-  }, [binanceConnection?.connected, currentUser, currentView, refreshExecutionCenter, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshExecutionCenter, refreshPortfolio]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;
 
     const portfolioRefreshInterval =
       currentView === "balance"
-        ? 45_000
+        ? 20_000
         : currentView === "dashboard"
-          ? 90_000
+          ? 60_000
           : 120_000;
 
     const executionRefreshInterval =
@@ -282,7 +355,8 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
 
     const portfolioIntervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
-      void refreshPortfolio();
+      const mode = currentView === "balance" || currentView === "dashboard" ? "live" : "full";
+      void refreshPortfolio(portfolioPeriod, mode);
     }, portfolioRefreshInterval);
 
     const executionIntervalId = window.setInterval(() => {
@@ -294,7 +368,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       window.clearInterval(portfolioIntervalId);
       window.clearInterval(executionIntervalId);
     };
-  }, [binanceConnection?.connected, currentUser, currentView, refreshExecutionCenter, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshExecutionCenter, refreshPortfolio]);
 
   return {
     binanceConnection,

@@ -805,9 +805,11 @@ export interface PortfolioTotals {
 }
 
 export interface PortfolioPayload {
+  snapshotMode?: "full" | "live";
   summary?: BinanceSummary;
   portfolio?: PortfolioTotals;
   assets: PortfolioAsset[];
+  hiddenLockedAssets?: PortfolioAsset[];
   openOrders?: BinanceOrderSummary[];
   recentOrders?: BinanceOrderSummary[];
   recentTrades?: BinanceTradeSummary[];

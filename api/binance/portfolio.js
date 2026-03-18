@@ -7,7 +7,8 @@ export default async function handler(req, res) {
     }
 
     const period = typeof req.query?.period === "string" ? req.query.period : "1d";
-    return sendJson(res, 200, await getPortfolioSnapshot(req, period));
+    const mode = req.query?.mode === "live" ? "live" : "full";
+    return sendJson(res, 200, await getPortfolioSnapshot(req, period, mode));
   } catch (error) {
     return sendJson(res, 400, {
       message: error.message || "No se pudo cargar el portafolio de Binance Demo Spot",

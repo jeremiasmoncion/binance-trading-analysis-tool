@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDownIcon, DownloadIcon, SearchIcon, SlidersHorizontalIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
@@ -10,6 +10,7 @@ interface BalanceViewProps {
   hideSmallAssets: boolean;
   onPeriodChange: (period: string) => void;
   onRefresh: () => void;
+  onRefreshFull: () => void;
   onToggleHideSmall: (value: boolean) => void;
 }
 
@@ -89,6 +90,12 @@ export function BalanceView(props: BalanceViewProps) {
       return matchesFilter && matchesSearch;
     });
   }, [assetFilter, assetSearch, visibleAssets]);
+
+  useEffect(() => {
+    if (activeTab === "history") {
+      props.onRefreshFull();
+    }
+  }, [activeTab, props.onRefreshFull]);
 
   return (
     <div id="balanceView" className="view-panel active wallet-template-view">

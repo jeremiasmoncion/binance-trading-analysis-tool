@@ -251,6 +251,7 @@ async function getBinanceConnectionState(req) {
   }
   return {
     connected: true,
+    snapshotMode: "full",
     username: session.username,
     accountAlias: row.account_alias || "",
     maskedApiKey: maskApiKey(apiKey),
@@ -455,12 +456,153 @@ function formatMoneyNumber(value) {
   return Number((value || 0).toFixed(8));
 }
 
-async function getPortfolioSnapshot(req, period = "1d") {
-  const session = await getAuthenticatedSession(req);
-  return getPortfolioSnapshotForUsername(session.username, period);
+async function getPortfolioLiveSnapshotFromCredentials({ session, row, apiKey, apiSecret }, period = "1d") {
+  const account = await fetchBinanceSigned("/api/v3/account", apiKey, apiSecret, { omitZeroBalances: true });
+  const openOrdersPayload = await fetchBinanceSigned("/api/v3/openOrders", apiKey, apiSecret).catch(() => []);
+  const openOrders = Array.isArray(openOrdersPayload) ? openOrdersPayload.map(normalizeOrder) : [];
+  const balances = (account.balances || [])
+    .map((balance) => {
+      const free = Number(balance.free || 0);
+      const locked = Number(balance.locked || 0);
+      return { asset: balance.asset, free, locked, total: free + locked };
+    })
+    .filter((balance) => balance.total > 0);
+
+  const trackedSymbols = Array.from(
+    new Set(
+      [
+        ...balances.map((balance) => getSymbolForAsset(balance.asset)).filter(Boolean),
+        ...openOrders.map((order) => order.symbol).filter(Boolean),
+      ].filter(Boolean)
+    )
+  );
+
+  const executionOrderLinks = await listExecutionOrderLinks(session.username);
+  const executionOriginByOrderId = buildExecutionOriginIndex(executionOrderLinks);
+
+  const assets = await Promise.all(
+    balances.map(async (balance) => {
+      if (balance.asset === "USDT") {
+        return {
+          asset: "USDT",
+          symbol: "USDT",
+          quantity: balance.total,
+          free: balance.free,
+          locked: balance.locked,
+          currentPrice: 1,
+          referencePrice: 1,
+          marketValue: balance.total,
+          investedValue: balance.total,
+          pnlValue: 0,
+          pnlPct: 0,
+          realizedPnl: 0,
+          periodChangeValue: 0,
+          periodChangePct: 0,
+          avgEntryPrice: 1,
+          tradeCount: 0,
+        };
+      }
+
+      const symbol = getSymbolForAsset(balance.asset);
+      if (!symbol) return null;
+
+      const [priceTicker, dayTicker, referencePrice] = await Promise.all([
+        fetchBinancePublic("/api/v3/ticker/price", { symbol }).catch(() => ({ price: "0" })),
+        fetchBinancePublic("/api/v3/ticker/24hr", { symbol }).catch(() => ({ priceChangePercent: "0" })),
+        fetchReferencePrice(symbol, period).catch(() => null),
+      ]);
+
+      const currentPrice = Number(priceTicker.price || 0);
+      const marketValue = balance.total * currentPrice;
+      const refPrice = Number(referencePrice || 0) || currentPrice;
+      const periodChangeValue = balance.total * (currentPrice - refPrice);
+      const periodChangePct = refPrice > 0 ? ((currentPrice - refPrice) / refPrice) * 100 : Number(dayTicker.priceChangePercent || 0);
+
+      return {
+        asset: balance.asset,
+        symbol,
+        quantity: balance.total,
+        free: balance.free,
+        locked: balance.locked,
+        currentPrice: formatMoneyNumber(currentPrice),
+        referencePrice: formatMoneyNumber(refPrice),
+        marketValue: formatMoneyNumber(marketValue),
+        investedValue: formatMoneyNumber(marketValue),
+        pnlValue: 0,
+        pnlPct: 0,
+        realizedPnl: 0,
+        periodChangeValue: formatMoneyNumber(periodChangeValue),
+        periodChangePct: Number(periodChangePct.toFixed(2)),
+        avgEntryPrice: 0,
+        tradeCount: 0,
+      };
+    })
+  );
+
+  const cleanAssets = assets.filter(Boolean).sort((a, b) => b.marketValue - a.marketValue);
+  const hiddenLockedAssets = cleanAssets.filter((asset) => asset.free <= 0 && asset.locked > 0);
+  const visibleAssets = cleanAssets.filter((asset) => !(asset.free <= 0 && asset.locked > 0));
+  const totalValue = visibleAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+  const periodChangeValue = visibleAssets.reduce((sum, asset) => sum + asset.periodChangeValue, 0);
+  const periodBaseValue = totalValue - periodChangeValue;
+  const periodChangePct = periodBaseValue > 0 ? (periodChangeValue / periodBaseValue) * 100 : 0;
+  const cashAsset = visibleAssets.find((asset) => asset.asset === "USDT");
+  const openPositions = visibleAssets.filter((asset) => asset.asset !== "USDT" && asset.quantity > 0);
+  const hiddenLockedValue = hiddenLockedAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
+  const normalizedOpenOrders = openOrders
+    .map((order) => ({
+      ...order,
+      ...(executionOriginByOrderId.get(Number(order.orderId || 0)) || {}),
+    }))
+    .sort((a, b) => b.updateTime - a.updateTime)
+    .slice(0, 20);
+
+  return {
+    connected: true,
+    snapshotMode: "live",
+    username: session.username,
+    accountAlias: row.account_alias || "",
+    maskedApiKey: maskApiKey(apiKey),
+    summary: {
+      uid: account.uid || null,
+      accountType: account.accountType || "SPOT",
+      permissions: Array.isArray(account.permissions) ? account.permissions : [],
+      canTrade: Boolean(account.canTrade),
+      canWithdraw: Boolean(account.canWithdraw),
+      canDeposit: Boolean(account.canDeposit),
+    },
+    portfolio: {
+      period,
+      totalValue: formatMoneyNumber(totalValue),
+      investedValue: formatMoneyNumber(totalValue),
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      unrealizedPnlPct: 0,
+      totalPnl: 0,
+      periodChangeValue: formatMoneyNumber(periodChangeValue),
+      periodChangePct: Number(periodChangePct.toFixed(2)),
+      cashValue: formatMoneyNumber(cashAsset?.marketValue || 0),
+      positionsValue: formatMoneyNumber(totalValue - (cashAsset?.marketValue || 0)),
+      openPositionsCount: openPositions.length,
+      winnersCount: 0,
+      hiddenLockedValue: formatMoneyNumber(hiddenLockedValue),
+      hiddenLockedAssetsCount: hiddenLockedAssets.length,
+      updatedAt: new Date().toISOString(),
+    },
+    assets: visibleAssets,
+    hiddenLockedAssets,
+    openOrders: normalizedOpenOrders,
+    recentOrders: [],
+    recentTrades: [],
+  };
 }
 
-async function getPortfolioSnapshotForUsername(username, period = "1d") {
+async function getPortfolioSnapshot(req, period = "1d", mode = "full") {
+  const session = await getAuthenticatedSession(req);
+  return getPortfolioSnapshotForUsername(session.username, period, mode);
+}
+
+async function getPortfolioSnapshotForUsername(username, period = "1d", mode = "full") {
   const normalizedUsername = String(username || "").trim();
   const row = await getStoredConnection(normalizedUsername).catch(() => null);
   if (!row) {
@@ -480,6 +622,9 @@ async function getPortfolioSnapshotForUsername(username, period = "1d") {
       apiKey: decryptValue(row.api_key_encrypted),
       apiSecret: decryptValue(row.api_secret_encrypted),
     };
+    if (mode === "live") {
+      return await getPortfolioLiveSnapshotFromCredentials(credentials, period);
+    }
     return await getPortfolioSnapshotFromCredentials(credentials, period);
   } catch (error) {
     return buildFallbackPortfolioSnapshot({
@@ -496,6 +641,7 @@ async function getPortfolioSnapshotForUsername(username, period = "1d") {
 function buildFallbackPortfolioSnapshot({ username, period, connected, accountAlias, maskedApiKey = "", reason = "" }) {
   return {
     connected,
+    snapshotMode: "full",
     username,
     accountAlias,
     maskedApiKey,

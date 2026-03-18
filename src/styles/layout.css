@@ -644,16 +644,33 @@
 .wallet-tab-bar {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px;
-  border-radius: 20px;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 24px;
   border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 14px 28px rgba(148, 163, 184, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 14px 28px rgba(148, 163, 184, 0.1);
 }
 
 .wallet-tab-button {
-  min-width: 98px;
+  min-width: 176px;
+  min-height: 58px;
+  padding-inline: 28px;
+  border-radius: 22px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wallet-tab-button:not(.active) {
+  color: #64748b;
+}
+
+.wallet-tab-button.active {
+  background: linear-gradient(135deg, #6366f1 0%, #5b6dff 100%);
+  box-shadow: 0 12px 26px rgba(91, 109, 255, 0.22);
 }
 
 .wallet-toolbar-actions,
@@ -1021,6 +1038,7 @@ body.dark-theme .wallet-search-shell input {
 
 body.dark-theme .wallet-tab-button {
   color: var(--crype-dark-muted);
+  background: transparent;
 }
 
 body.dark-theme .wallet-tab-button.active,

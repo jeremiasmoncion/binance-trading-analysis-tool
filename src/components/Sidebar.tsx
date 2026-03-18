@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import type { UserSession, ViewName } from "../types";
-import { PanelLeftIcon } from "./Icons";
 
 type NavItem = { view: ViewName; label: string; icon: ReactNode };
 
@@ -90,11 +89,10 @@ interface SidebarProps {
   currentView: ViewName;
   collapsed: boolean;
   onViewChange: (view: ViewName) => void;
-  onToggleCollapse: () => void;
   onLogout: () => void;
 }
 
-export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCollapse, onLogout }: SidebarProps) {
+export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }: SidebarProps) {
   return (
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-header">
@@ -108,16 +106,6 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
               <p>IA Trading Platform</p>
             </div>
           </div>
-
-          <button
-            type="button"
-            className="sidebar-toggle sidebar-toggle-standalone"
-            onClick={onToggleCollapse}
-            aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-            title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-          >
-            <PanelLeftIcon className={collapsed ? "is-collapsed" : ""} />
-          </button>
         </div>
       </div>
 

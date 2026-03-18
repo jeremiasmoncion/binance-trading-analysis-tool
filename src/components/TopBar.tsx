@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellIcon, BoltIcon, ChevronDownIcon, MoonIcon, SunIcon } from "./Icons";
+import { BellIcon, BoltIcon, ChevronDownIcon, MoonIcon, PanelLeftIcon, SunIcon } from "./Icons";
 import type { UserSession } from "../types";
 
 interface TopBarProps {
@@ -14,11 +14,13 @@ interface TopBarProps {
   user: UserSession;
   showAdmin: boolean;
   theme: "light" | "dark";
+  sidebarCollapsed: boolean;
   onCoinChange: (coin: string) => boolean;
   onTimeframeChange: (timeframe: string) => void;
   onRefresh: () => void;
   onToggleWatchlist: () => void;
   onToggleTheme: () => void;
+  onToggleSidebar: () => void;
   onOpenAdmin: () => void;
   onLogout: () => void;
 }
@@ -86,6 +88,15 @@ export function TopBar(props: TopBarProps) {
   return (
     <header className="top-bar">
       <div className="top-left">
+        <button
+          className="topbar-sidebar-toggle"
+          type="button"
+          onClick={props.onToggleSidebar}
+          aria-label={props.sidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+        >
+          <PanelLeftIcon className={props.sidebarCollapsed ? "is-collapsed" : ""} />
+        </button>
+
         <div className="search-coin" ref={wrapperRef}>
           {query ? (
             <button

@@ -356,7 +356,6 @@ export function App() {
         currentView={view.currentView}
         collapsed={view.sidebarCollapsed}
         onViewChange={view.setCurrentView}
-        onToggleCollapse={view.toggleSidebar}
         onLogout={handleLogout}
       />
 
@@ -373,11 +372,13 @@ export function App() {
           user={auth.currentUser}
           showAdmin={auth.currentUser.role === "admin"}
           theme={theme}
+          sidebarCollapsed={view.sidebarCollapsed}
           onCoinChange={market.selectCoin}
           onTimeframeChange={market.selectTimeframe}
           onRefresh={() => void handleRefreshAnalysis()}
           onToggleWatchlist={() => watchlist.toggleWatchlist(market.currentCoin)}
           onToggleTheme={toggleTheme}
+          onToggleSidebar={view.toggleSidebar}
           onOpenAdmin={view.openProfile}
           onLogout={handleLogout}
         />

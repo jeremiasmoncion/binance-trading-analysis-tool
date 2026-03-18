@@ -1,5 +1,6 @@
 import { getSession, parseJsonBody, sendJson } from "./auth.js";
 import { isRunnableStrategyVersion } from "./marketRuntime.js";
+import { backfillSignalLearningDatasetForUser } from "./signals.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -13,6 +14,8 @@ const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVE
 const ADAPTIVE_ACTIONS_LOG_TABLE = process.env.SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE || "adaptive_actions_log";
 const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 const AI_MODEL_CONFIGS_TABLE = process.env.SUPABASE_AI_MODEL_CONFIGS_TABLE || "ai_model_configs";
+const BACKTEST_RUNS_TABLE = process.env.SUPABASE_BACKTEST_RUNS_TABLE || "backtest_runs";
+const BACKTEST_RUN_WINDOWS_TABLE = process.env.SUPABASE_BACKTEST_RUN_WINDOWS_TABLE || "backtest_run_windows";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
@@ -141,7 +144,13 @@ async function supabaseRequest(path, options = {}) {
   }
 
   if (response.status === 204) return null;
-  return response.json();
+  const text = await response.text().catch(() => "");
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function isMissingRelationError(error) {
@@ -156,6 +165,24 @@ function normalizeArray(value) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+async function parseRequestBody(req) {
+  if (req?.body !== undefined && req?.body !== null) {
+    return parseJsonBody(req);
+  }
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 function parseProfileNoteEnvelope(rawNote) {
@@ -569,6 +596,40 @@ function normalizeModelWindowGovernanceHistory(rows) {
   }).filter((item) => item.activeScorer || item.candidateScorer);
 }
 
+function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
+  return (rows || []).map((row) => {
+    const reportPayload = row?.report_payload && typeof row.report_payload === "object" ? row.report_payload : {};
+    const rawWindows = windowsByRunId.get(Number(row?.id)) || reportPayload.replayWindows || [];
+    const windows = (rawWindows || []).map((item) => ({
+      label: String(item.label || "Recent"),
+      key: String(item.key || String(item.label || "recent").toLowerCase()),
+      total: Number(item.total || item.sampleSize || 0),
+      activeScorer: String(item.activeScorer || ""),
+      challengerScorer: String(item.challengerScorer || ""),
+      activeAvgPnl: Number(item.activeAvgPnl || 0),
+      challengerAvgPnl: Number(item.challengerAvgPnl || 0),
+      activeWinRate: Number(item.activeWinRate || 0),
+      challengerWinRate: Number(item.challengerWinRate || 0),
+      verdict: String(item.verdict || ""),
+    }));
+    return {
+      id: row?.id == null ? undefined : Number(row.id),
+      label: String(row?.label || reportPayload?.label || "Run manual"),
+      triggerSource: String(row?.trigger_source || reportPayload?.triggerSource || "manual"),
+      activeScorer: String(row?.active_scorer || reportPayload?.summary?.activeScorer || "adaptive-v1"),
+      maturityScore: Number(row?.maturity_score ?? reportPayload?.summary?.maturityScore ?? 0),
+      closedSignals: Number(row?.closed_signals ?? reportPayload?.summary?.closedSignals ?? 0),
+      featureSnapshots: Number(row?.feature_snapshots ?? reportPayload?.summary?.featureSnapshots ?? 0),
+      passedInvariants: Number(row?.passed_invariants ?? reportPayload?.summary?.passedInvariants ?? 0),
+      warnedInvariants: Number(row?.warned_invariants ?? reportPayload?.summary?.warnedInvariants ?? 0),
+      failedInvariants: Number(row?.failed_invariants ?? reportPayload?.summary?.failedInvariants ?? 0),
+      summary: String(row?.summary || reportPayload?.summaryText || "Sin resumen"),
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+      windows,
+    };
+  });
+}
+
 function normalizeModelConfigRegistry(rows) {
   return (rows || []).map((row) => {
     const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
@@ -642,6 +703,151 @@ async function upsertModelConfigsForUser(username, modelRuns, activeScorer) {
     if (isMissingRelationError(error)) return [];
     throw error;
   }
+}
+
+async function fetchBacktestRunsForUser(username, limit = 12) {
+  try {
+    const params = new URLSearchParams({
+      select: "*",
+      username: `eq.${String(username)}`,
+      order: "created_at.desc",
+      limit: String(limit),
+    });
+    const runs = await supabaseRequest(`${BACKTEST_RUNS_TABLE}?${params.toString()}`);
+    const runIds = (runs || []).map((item) => Number(item.id)).filter(Boolean);
+    const windowsByRunId = new Map();
+    if (runIds.length) {
+      const windowParams = new URLSearchParams({
+        select: "*",
+        run_id: `in.(${runIds.join(",")})`,
+        order: "created_at.desc",
+      });
+      const windows = await supabaseRequest(`${BACKTEST_RUN_WINDOWS_TABLE}?${windowParams.toString()}`).catch(() => []);
+      for (const row of windows || []) {
+        const runId = Number(row?.run_id || 0);
+        if (!runId) continue;
+        if (!windowsByRunId.has(runId)) windowsByRunId.set(runId, []);
+        windowsByRunId.get(runId).push({
+          label: String(row?.window_label || "Recent"),
+          key: String(row?.window_key || String(row?.window_label || "recent").toLowerCase()),
+          total: Number(row?.sample_size || 0),
+          activeScorer: String(row?.active_scorer || ""),
+          challengerScorer: String(row?.challenger_scorer || ""),
+          activeAvgPnl: Number(row?.active_avg_pnl || 0),
+          challengerAvgPnl: Number(row?.challenger_avg_pnl || 0),
+          activeWinRate: Number(row?.active_win_rate || 0),
+          challengerWinRate: Number(row?.challenger_win_rate || 0),
+          verdict: String(row?.verdict || ""),
+        });
+      }
+    }
+    return normalizeBacktestRuns(runs, windowsByRunId);
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  const fallbackRows = await fetchRecentAdaptiveActions(username, "backtest-run", limit);
+  return normalizeBacktestRuns((fallbackRows || []).map((row) => ({
+    id: row?.id,
+    label: row?.target_key,
+    trigger_source: row?.source,
+    active_scorer: row?.details?.summary?.activeScorer,
+    maturity_score: row?.details?.summary?.maturityScore,
+    closed_signals: row?.details?.summary?.closedSignals,
+    feature_snapshots: row?.details?.summary?.featureSnapshots,
+    passed_invariants: row?.details?.summary?.passedInvariants,
+    warned_invariants: row?.details?.summary?.warnedInvariants,
+    failed_invariants: row?.details?.summary?.failedInvariants,
+    summary: row?.summary,
+    report_payload: row?.details,
+    created_at: row?.created_at,
+  })));
+}
+
+async function persistBacktestRunForUser(username, report, options = {}) {
+  const runLabel = String(options.label || `Run ${new Date().toLocaleString("es-DO")}`);
+  const summaryText = `${report.summary.activeScorer} · madurez ${report.summary.maturityScore}/100 · ${report.summary.closedSignals} cierres auditados`;
+  const runPayload = {
+    username: String(username),
+    label: runLabel,
+    trigger_source: String(options.triggerSource || "manual"),
+    active_scorer: String(report.summary.activeScorer || "adaptive-v1"),
+    maturity_score: Number(report.summary.maturityScore || 0),
+    closed_signals: Number(report.summary.closedSignals || 0),
+    feature_snapshots: Number(report.summary.featureSnapshots || 0),
+    passed_invariants: Number(report.summary.passedInvariants || 0),
+    warned_invariants: Number(report.summary.warnedInvariants || 0),
+    failed_invariants: Number(report.summary.failedInvariants || 0),
+    summary: summaryText,
+    report_payload: {
+      ...report,
+      label: runLabel,
+      triggerSource: String(options.triggerSource || "manual"),
+      summaryText,
+    },
+  };
+
+  try {
+    const rows = await supabaseRequest(BACKTEST_RUNS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: [runPayload],
+    });
+    const runRow = rows?.[0];
+    const runId = Number(runRow?.id || 0);
+    if (runId && Array.isArray(report.replayWindows) && report.replayWindows.length) {
+      await supabaseRequest(BACKTEST_RUN_WINDOWS_TABLE, {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: report.replayWindows.map((item) => ({
+          run_id: runId,
+          window_key: String(item.key || String(item.label || "recent").toLowerCase()),
+          window_label: String(item.label || "Recent"),
+          sample_size: Number(item.total || item.sampleSize || 0),
+          active_scorer: String(item.activeScorer || ""),
+          challenger_scorer: String(item.challengerScorer || ""),
+          active_avg_pnl: Number(item.activeAvgPnl || 0),
+          challenger_avg_pnl: Number(item.challengerAvgPnl || 0),
+          active_win_rate: Number(item.activeWinRate || 0),
+          challenger_win_rate: Number(item.challengerWinRate || 0),
+          verdict: String(item.verdict || ""),
+        })),
+      }).catch((error) => {
+        if (!isMissingRelationError(error)) throw error;
+      });
+    }
+    return normalizeBacktestRuns(rows || [runPayload])[0] || null;
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  await insertAdaptiveActionLogForUser(username, {
+    actionType: "backtest-run",
+    targetType: "backtest-run",
+    targetKey: runLabel,
+    source: String(options.triggerSource || "manual"),
+    status: "completed",
+    summary: summaryText,
+    details: {
+      ...runPayload.report_payload,
+      replayWindows: report.replayWindows,
+    },
+  }).catch(() => null);
+
+  return {
+    label: runLabel,
+    triggerSource: String(options.triggerSource || "manual"),
+    activeScorer: String(report.summary.activeScorer || "adaptive-v1"),
+    maturityScore: Number(report.summary.maturityScore || 0),
+    closedSignals: Number(report.summary.closedSignals || 0),
+    featureSnapshots: Number(report.summary.featureSnapshots || 0),
+    passedInvariants: Number(report.summary.passedInvariants || 0),
+    warnedInvariants: Number(report.summary.warnedInvariants || 0),
+    failedInvariants: Number(report.summary.failedInvariants || 0),
+    summary: summaryText,
+    createdAt: new Date().toISOString(),
+    windows: Array.isArray(report.replayWindows) ? report.replayWindows : [],
+  };
 }
 
 async function setActiveModelConfigForUser(username, candidateScorer, scorerPolicy, modelRegistry = []) {
@@ -2472,7 +2678,8 @@ function summarizeSignals(signals) {
   const losses = signals.filter((item) => item.outcome_status === "loss").length;
   const pnl = signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
   const winRate = total ? (wins / total) * 100 : 0;
-  return { total, wins, losses, pnl, winRate };
+  const avgPnl = total ? pnl / total : 0;
+  return { total, wins, losses, pnl, winRate, avgPnl };
 }
 
 function getSignalDirection(item) {
@@ -2973,6 +3180,277 @@ function getPreferredTimeframeScope(versions, strategyId, version) {
 export async function generateAdaptiveRecommendations(req) {
   const session = requireSession(req);
   return generateAdaptiveRecommendationsForUser(session.username);
+}
+
+function buildValidationInvariants({
+  executionProfile,
+  decisionState,
+  signals,
+  featureSnapshots,
+}) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const signalsWithScorer = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label);
+  const signalsWithExecutionLearning = closedSignals.filter((item) => item.signal_payload?.executionLearning);
+  const modelConfigRegistry = Array.isArray(decisionState?.modelConfigRegistry) ? decisionState.modelConfigRegistry : [];
+  const activeConfigs = modelConfigRegistry.filter((item) => item.active);
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "");
+  const matchingActiveConfig = activeConfigs.find((item) => String(item.label || "").toLowerCase() === activeScorer.toLowerCase());
+  const featureCoverage = closedSignals.length ? (featureSnapshots.length / closedSignals.length) * 100 : 0;
+  return [
+    {
+      key: "scorer-coverage",
+      label: "Cobertura de scorer en señales cerradas",
+      status: signalsWithScorer.length >= Math.max(8, Math.floor(closedSignals.length * 0.6)) ? "pass" : "warn",
+      detail: `${signalsWithScorer.length}/${closedSignals.length || 0} señales cerradas guardan scorer explicable.`,
+      severity: signalsWithScorer.length >= Math.max(8, Math.floor(closedSignals.length * 0.6)) ? "low" : "medium",
+    },
+    {
+      key: "execution-learning-coverage",
+      label: "Cobertura de aprendizaje de ejecución",
+      status: signalsWithExecutionLearning.length >= Math.max(6, Math.floor(closedSignals.length * 0.45)) ? "pass" : "warn",
+      detail: `${signalsWithExecutionLearning.length}/${closedSignals.length || 0} señales cerradas ya traen executionLearning persistido.`,
+      severity: signalsWithExecutionLearning.length >= Math.max(6, Math.floor(closedSignals.length * 0.45)) ? "low" : "medium",
+    },
+    {
+      key: "single-active-model-config",
+      label: "Un solo modelo activo en configs",
+      status: activeConfigs.length === 1 ? "pass" : activeConfigs.length === 0 ? "warn" : "fail",
+      detail: activeConfigs.length === 1
+        ? `La configuración persistida apunta a ${activeConfigs[0].label}.`
+        : activeConfigs.length === 0
+          ? "No hay un modelo activo persistido en ai_model_configs."
+          : `Se detectaron ${activeConfigs.length} modelos activos a la vez.`,
+      severity: activeConfigs.length === 1 ? "low" : activeConfigs.length === 0 ? "medium" : "high",
+    },
+    {
+      key: "scorer-policy-aligned",
+      label: "Alineación entre scorerPolicy y model config",
+      status: !activeScorer || matchingActiveConfig ? "pass" : "warn",
+      detail: !activeScorer
+        ? "Todavía no hay scorerPolicy activo formal."
+        : matchingActiveConfig
+          ? `El scorerPolicy activo (${activeScorer}) coincide con ai_model_configs.`
+          : `El scorerPolicy activo (${activeScorer}) todavía no coincide con un config activo persistido.`,
+      severity: !activeScorer || matchingActiveConfig ? "low" : "medium",
+    },
+    {
+      key: "feature-coverage",
+      label: "Cobertura de feature snapshots",
+      status: featureCoverage >= 70 ? "pass" : featureCoverage >= 40 ? "warn" : "fail",
+      detail: `${featureSnapshots.length} filas estructuradas para ${closedSignals.length || 0} señales cerradas (${featureCoverage.toFixed(0)}%).`,
+      severity: featureCoverage >= 70 ? "low" : featureCoverage >= 40 ? "medium" : "high",
+    },
+  ];
+}
+
+function buildValidationScorerTable(signals, executionProfile) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const scorerGroups = new Map();
+  for (const item of closedSignals) {
+    const label = String(item.signal_payload?.decision?.scorer?.label || "unscored").toLowerCase();
+    const current = scorerGroups.get(label) || [];
+    current.push(item);
+    scorerGroups.set(label, current);
+  }
+  const rows = Array.from(scorerGroups.entries()).map(([label, items]) => {
+    const stats = summarizeSignals(items);
+    return {
+      label,
+      total: stats.total,
+      avgPnl: Number(stats.avgPnl.toFixed(2)),
+      pnl: Number(stats.pnl.toFixed(2)),
+      winRate: Number(stats.winRate.toFixed(2)),
+      active: String(executionProfile?.scorerPolicy?.activeScorer || "").toLowerCase() === label,
+    };
+  }).sort((left, right) => Number(right.avgPnl || 0) - Number(left.avgPnl || 0));
+  return rows;
+}
+
+function buildReplayWindows(signals, executionProfile, decisionState) {
+  const closedSignals = (signals || [])
+    .filter((item) => item.outcome_status && item.outcome_status !== "pending")
+    .slice()
+    .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime());
+  const windows = [
+    { label: "short", size: 20 },
+    { label: "recent", size: 50 },
+    { label: "global", size: 120 },
+  ];
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").toLowerCase();
+  const bestCandidate = String(
+    decisionState?.modelWindowGovernance?.candidateScorer
+    || decisionState?.shadowModelEvaluation?.candidateScorer
+    || "",
+  ).toLowerCase();
+
+  return windows.map((window) => {
+    const rows = closedSignals.slice(0, window.size);
+    const activeRows = rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer);
+    const challengerRows = bestCandidate
+      ? rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === bestCandidate)
+      : [];
+    const activeStats = summarizeSignals(activeRows);
+    const challengerStats = summarizeSignals(challengerRows);
+    const activeAvg = Number(activeStats.avgPnl.toFixed(2));
+    const challengerAvg = Number(challengerStats.avgPnl.toFixed(2));
+    const verdict = !bestCandidate
+      ? "Sin challenger claro todavía"
+      : challengerStats.total < 5 || activeStats.total < 5
+        ? "Muestra corta"
+        : challengerAvg > activeAvg && challengerStats.winRate >= activeStats.winRate
+          ? `${bestCandidate} habría defendido mejor esta ventana`
+          : `${activeScorer} sigue defendiendo mejor esta ventana`;
+    return {
+      label: window.label.charAt(0).toUpperCase() + window.label.slice(1),
+      key: window.label,
+      total: rows.length,
+      sampleSize: rows.length,
+      activeScorer,
+      challengerScorer: bestCandidate || "--",
+      activeAvgPnl: activeAvg,
+      challengerAvgPnl: challengerAvg,
+      activeWinRate: Number(activeStats.winRate.toFixed(2)),
+      challengerWinRate: Number(challengerStats.winRate.toFixed(2)),
+      verdict,
+    };
+  });
+}
+
+function buildValidationScenarios(decisionState, replayWindows) {
+  const scenarios = [];
+  const modelWindowGovernance = decisionState?.modelWindowGovernance || null;
+  if (modelWindowGovernance) {
+    scenarios.push({
+      title: "Gobernanza multi-ventana",
+      status: modelWindowGovernance.action === "promote" ? "good" : modelWindowGovernance.action === "rollback" ? "warning" : "neutral",
+      summary: modelWindowGovernance.summary,
+    });
+  }
+  const latestGovernance = Array.isArray(decisionState?.modelWindowGovernanceHistory)
+    ? decisionState.modelWindowGovernanceHistory[0]
+    : null;
+  if (latestGovernance) {
+    scenarios.push({
+      title: "Última decisión formal",
+      status: latestGovernance.action === "promote" ? "good" : latestGovernance.action === "rollback" ? "warning" : "neutral",
+      summary: latestGovernance.summary || `${latestGovernance.activeScorer} -> ${latestGovernance.candidateScorer}`,
+    });
+  }
+  replayWindows.forEach((item) => {
+    scenarios.push({
+      title: `Replay ${item.label}`,
+      status: item.verdict.includes("habría defendido mejor") ? "warning" : item.verdict.includes("sigue defendiendo mejor") ? "good" : "neutral",
+      summary: `${item.activeScorer} ${item.activeAvgPnl >= 0 ? "+" : ""}${item.activeAvgPnl} vs ${item.challengerScorer} ${item.challengerAvgPnl >= 0 ? "+" : ""}${item.challengerAvgPnl}. ${item.verdict}`,
+    });
+  });
+  return scenarios.slice(0, 6);
+}
+
+export async function getStrategyValidationReportForUser(username) {
+  const normalizedUsername = String(username || "").trim();
+  const [signals, featureSnapshots, decisionState] = await Promise.all([
+    supabaseRequest(`${SIGNALS_TABLE}?select=id,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_payload,execution_order_id&username=eq.${normalizedUsername}&order=created_at.desc&limit=300`).catch(() => []),
+    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
+    getSystemStrategyDecisionState(normalizedUsername),
+  ]);
+
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const invariants = buildValidationInvariants({
+    executionProfile: { scorerPolicy: decisionState?.scorerPolicy || null },
+    decisionState,
+    signals,
+    featureSnapshots,
+  });
+  const scorerTable = buildValidationScorerTable(signals || [], { scorerPolicy: decisionState?.scorerPolicy || null });
+  const replayWindows = buildReplayWindows(signals || [], { scorerPolicy: decisionState?.scorerPolicy || null }, decisionState);
+  const scenarios = buildValidationScenarios(decisionState, replayWindows);
+  const passed = invariants.filter((item) => item.status === "pass").length;
+  const failed = invariants.filter((item) => item.status === "fail").length;
+  const warned = invariants.filter((item) => item.status === "warn").length;
+  const maturityScore = Math.max(
+    0,
+    Math.min(
+      100,
+      42
+        + passed * 9
+        - failed * 8
+        + (decisionState?.modelWindowGovernance?.action === "promote" ? 10 : decisionState?.modelWindowGovernance?.action === "sandbox" ? 6 : 0)
+        + (decisionState?.scorerPolicy?.activeScorer?.startsWith("model-") ? 10 : 0)
+        + (closedSignals.length >= 40 ? 8 : closedSignals.length >= 20 ? 4 : 0),
+    ),
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      maturityScore: Number(maturityScore.toFixed(0)),
+      closedSignals: closedSignals.length,
+      featureSnapshots: featureSnapshots.length,
+      passedInvariants: passed,
+      warnedInvariants: warned,
+      failedInvariants: failed,
+      activeScorer: decisionState?.scorerPolicy?.activeScorer || "adaptive-v1",
+    },
+    invariants,
+    scorerTable,
+    replayWindows,
+    scenarios,
+    modelWindowGovernance: decisionState?.modelWindowGovernance || null,
+    modelWindowGovernanceHistory: decisionState?.modelWindowGovernanceHistory || [],
+  };
+}
+
+export async function getStrategyValidationLabForUser(username) {
+  const report = await getStrategyValidationReportForUser(username);
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  return { report, runs };
+}
+
+export async function getStrategyValidationReport(req) {
+  const session = requireSession(req);
+  return getStrategyValidationReportForUser(session.username);
+}
+
+export async function getStrategyValidationLab(req) {
+  const session = requireSession(req);
+  return getStrategyValidationLabForUser(session.username);
+}
+
+export async function runStrategyBacktestForUser(username, options = {}) {
+  const report = await getStrategyValidationReportForUser(username);
+  const run = await persistBacktestRunForUser(username, report, options);
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  return { report, run, runs };
+}
+
+export async function runStrategyBacktest(req) {
+  const session = requireSession(req);
+  const body = await parseRequestBody(req);
+  return runStrategyBacktestForUser(session.username, {
+    label: body?.label,
+    triggerSource: body?.triggerSource || "manual",
+  });
+}
+
+export async function backfillStrategyLearningDatasetForUser(username, options = {}) {
+  const backfill = await backfillSignalLearningDatasetForUser(username, options);
+  const report = await getStrategyValidationReportForUser(username);
+  const run = await persistBacktestRunForUser(username, report, {
+    label: options.label || "Post-backfill validation",
+    triggerSource: options.triggerSource || "dataset-backfill",
+  });
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  return { backfill, report, run, runs };
+}
+
+export async function backfillStrategyLearningDataset(req) {
+  const session = requireSession(req);
+  const body = await parseRequestBody(req);
+  return backfillStrategyLearningDatasetForUser(session.username, {
+    label: body?.label,
+    triggerSource: body?.triggerSource || "admin-backfill",
+    limit: body?.limit,
+  });
 }
 
 export async function generateAdaptiveRecommendationsForUser(username) {

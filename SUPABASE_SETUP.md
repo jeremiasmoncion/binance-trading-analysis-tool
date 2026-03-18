@@ -37,6 +37,8 @@ Agrega estas variables al proyecto en Vercel:
 - `SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE` (opcional, default `adaptive_actions_log`)
 - `SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE` (opcional, default `signal_feature_snapshots`)
 - `SUPABASE_AI_MODEL_CONFIGS_TABLE` (opcional, default `ai_model_configs`)
+- `SUPABASE_BACKTEST_RUNS_TABLE` (opcional, default `backtest_runs`)
+- `SUPABASE_BACKTEST_RUN_WINDOWS_TABLE` (opcional, default `backtest_run_windows`)
 - `CRON_SECRET`
 - `BINANCE_MARKET_DATA_URL` (opcional, recomendado `https://demo-api.binance.com` si el backend no puede consultar `api.binance.com`)
 
@@ -55,6 +57,26 @@ Cuando `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` estén definidos:
 - `/api/strategy-engine` expone el registro, versionado y experimentos del motor de estrategias
 - `/api/strategy-engine/recommendations` genera y lee sugerencias adaptativas de parámetros
 - `/api/binance/execution` prepara trades candidatos, guarda intentos y puede enviar órdenes reales a Binance Demo con guardrails básicos
-- `execution_scope_overrides`, `adaptive_actions_log`, `signal_feature_snapshots` y `ai_model_configs` dejan la base lista para evolucionar desde heurística adaptativa hacia un scorer/modelo real con configs persistidas
+- `execution_scope_overrides`, `adaptive_actions_log`, `signal_feature_snapshots`, `ai_model_configs`, `backtest_runs` y `backtest_run_windows` dejan la base lista para evolucionar desde heurística adaptativa hacia un scorer/modelo real con validación técnica persistida
 
 Mientras esas variables no existan, la app sigue usando el fallback local para no romper la preview.
+
+## 4. Checklist para pasar a producción con 24/7
+
+Antes de mover `Señales` a producción para vigilancia 24/7, conviene validar esto:
+
+1. En Vercel Production, confirma que existan todas las variables de entorno del bloque anterior.
+2. Verifica que [vercel.json](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/vercel.json) siga incluyendo el cron de `/api/watchlist/scan`.
+3. Confirma que ya ejecutaste también [supabase/watchlist_scanner.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/watchlist_scanner.sql) y [supabase/ai_data_layer.sql](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/supabase/ai_data_layer.sql).
+4. En `Admin > Vigilante`, la meta es empezar a ver:
+   - `schedulerRuns > 0`
+   - `latestSchedulerRun` reciente
+   - cooldown de Binance solo ocasional, no constante
+5. Si `latestSchedulerRun` sigue vacío, el cron todavía no está corriendo de verdad en producción aunque la UI se vea bien.
+6. Si el cooldown de Binance se activa demasiado, conviene endurecer más la autoejecución demo antes de abrir más autonomía.
+
+Lectura honesta:
+
+- `manual` confirma que el vigilante funciona.
+- `scheduler` confirma que el 24/7 funciona.
+- el objetivo final no es solo crear señales, sino hacerlo sin castigar Binance ni llenarte la base de ruido.

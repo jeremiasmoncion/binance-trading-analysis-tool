@@ -365,6 +365,86 @@ export interface StrategyDecisionState {
   }>;
 }
 
+export interface StrategyValidationInvariant {
+  label: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+}
+
+export interface StrategyValidationScorerRow {
+  label: string;
+  total: number;
+  avgPnl: number;
+  pnl: number;
+  winRate: number;
+  active: boolean;
+}
+
+export interface StrategyValidationReplayWindow {
+  label: "Short" | "Recent" | "Global";
+  key: "short" | "recent" | "global";
+  total: number;
+  activeScorer: string;
+  challengerScorer: string;
+  activeAvgPnl: number;
+  challengerAvgPnl: number;
+  activeWinRate: number;
+  challengerWinRate: number;
+  verdict: string;
+}
+
+export interface StrategyValidationScenario {
+  title: string;
+  status: "good" | "warning" | "neutral";
+  summary: string;
+}
+
+export interface StrategyValidationReport {
+  generatedAt: string;
+  summary: {
+    maturityScore: number;
+    closedSignals: number;
+    featureSnapshots: number;
+    passedInvariants: number;
+    warnedInvariants: number;
+    failedInvariants: number;
+    activeScorer: string;
+  };
+  invariants: StrategyValidationInvariant[];
+  scorerTable: StrategyValidationScorerRow[];
+  replayWindows: StrategyValidationReplayWindow[];
+  scenarios: StrategyValidationScenario[];
+  modelWindowGovernance: StrategyDecisionState["modelWindowGovernance"];
+  modelWindowGovernanceHistory: NonNullable<StrategyDecisionState["modelWindowGovernanceHistory"]>;
+}
+
+export interface StrategyBacktestRun {
+  id?: number;
+  label: string;
+  triggerSource: string;
+  activeScorer: string;
+  maturityScore: number;
+  closedSignals: number;
+  featureSnapshots: number;
+  passedInvariants: number;
+  warnedInvariants: number;
+  failedInvariants: number;
+  summary: string;
+  createdAt?: string;
+  windows: StrategyValidationReplayWindow[];
+}
+
+export interface StrategyValidationLabPayload {
+  report: StrategyValidationReport;
+  runs: StrategyBacktestRun[];
+  run?: StrategyBacktestRun | null;
+  backfill?: {
+    scannedClosedSignals: number;
+    executionLearningBackfilled: number;
+    featureSnapshotsBackfilled: number;
+  };
+}
+
 export interface RecommendationActivationResult {
   recommendation: StrategyRecommendationRecord;
   version?: StrategyVersionRecord | null;
@@ -607,6 +687,10 @@ export interface WatchlistScanRun {
   status: string;
   errors?: string[];
   created_at: string;
+  auto_orders_placed?: number;
+  auto_orders_blocked?: number;
+  auto_orders_skipped?: number;
+  auto_execution_cooldown_until?: string | null;
 }
 
 export interface WatchlistScannerStatus {
@@ -618,10 +702,15 @@ export interface WatchlistScannerStatus {
     coins: string[];
   }>;
   latestRun: WatchlistScanRun | null;
+  latestSchedulerRun?: WatchlistScanRun | null;
   runs: WatchlistScanRun[];
   summary: {
     watchedUsers: number;
     watchedCoins: number;
+    schedulerRuns?: number;
+    autoExecutionCooldownUntil?: string | null;
+    autoExecutionCooldownActive?: boolean;
+    autoExecutionCooldownReason?: string;
   };
 }
 
@@ -636,8 +725,10 @@ export interface WatchlistScanExecution {
     signalsClosed: number;
     autoOrdersPlaced: number;
     autoOrdersBlocked: number;
+    autoOrdersSkipped?: number;
     errors: string[];
     runPersistError?: string | null;
+    autoExecutionCooldownUntil?: string | null;
   }>;
   summary: {
     users: number;

@@ -1,7 +1,7 @@
 import { getSession, sendJson } from "./auth.js";
 import { executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
 import { buildMarketSnapshot, fetchTickerPrice, getScannableTimeframes, getTimeframeScanInterval } from "./marketRuntime.js";
-import { createSignalSnapshotForUser, evaluatePendingSignalsForUser } from "./signals.js";
+import { createSignalSnapshotForUser, evaluatePendingSignalsForUser, listSignalSnapshotsForUser } from "./signals.js";
 import { applySystemStrategyDecision, getSystemStrategyDecisionState } from "./strategyEngine.js";
 import { listWatchlistScanTargets } from "./watchlist.js";
 
@@ -9,6 +9,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const WATCHLIST_SCAN_STATE_TABLE = process.env.SUPABASE_WATCHLIST_SCAN_STATE_TABLE || "watchlist_scan_state";
 const WATCHLIST_SCAN_RUNS_TABLE = process.env.SUPABASE_WATCHLIST_SCAN_RUNS_TABLE || "watchlist_scan_runs";
+const SCANNER_SYSTEM_COIN = "__scanner__";
+const SCANNER_SYSTEM_TIMEFRAME = "system";
+const DEFAULT_AUTO_EXECUTION_COOLDOWN_MS = 15 * 60 * 1000;
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -56,6 +59,50 @@ function isActionableSignal(snapshot) {
   const { primary } = snapshot;
   return primary.signal.label !== "Esperar"
     || (primary.analysis.setupQuality === "Alta" && primary.analysis.alignmentCount >= 4);
+}
+
+function getScannerSystemState(scanState) {
+  const row = scanState.get(`${SCANNER_SYSTEM_COIN}|${SCANNER_SYSTEM_TIMEFRAME}`);
+  return row?.last_summary && typeof row.last_summary === "object" ? row.last_summary : {};
+}
+
+function getScannerCooldownUntil(summary) {
+  const rawValue = summary?.autoExecutionCooldownUntil;
+  const timestamp = rawValue ? new Date(rawValue).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function buildScannerSystemStateRow(username, previousSummary, nextSummary) {
+  return {
+    username,
+    coin: SCANNER_SYSTEM_COIN,
+    timeframe: SCANNER_SYSTEM_TIMEFRAME,
+    last_scanned_at: new Date().toISOString(),
+    last_strategy_id: null,
+    last_strategy_version: null,
+    last_signal_created_at: null,
+    last_summary: {
+      ...(previousSummary && typeof previousSummary === "object" ? previousSummary : {}),
+      ...(nextSummary && typeof nextSummary === "object" ? nextSummary : {}),
+      updatedAt: new Date().toISOString(),
+    },
+  };
+}
+
+function parseBinanceThrottle(error) {
+  const message = String(error?.message || "");
+  const normalized = message.toLowerCase();
+  if (!normalized.includes("request weight") && !normalized.includes("ip banned")) {
+    return null;
+  }
+  const untilMatch = message.match(/until\s+(\d{10,13})/i);
+  const cooldownUntil = untilMatch
+    ? new Date(Number(untilMatch[1])).toISOString()
+    : new Date(Date.now() + DEFAULT_AUTO_EXECUTION_COOLDOWN_MS).toISOString();
+  return {
+    cooldownUntil,
+    reason: message,
+  };
 }
 
 async function getScanState(username) {
@@ -121,14 +168,23 @@ async function scanUserWatchlist(target, scanSource) {
   const scanState = await getScanState(target.username);
   const executionProfile = await getExecutionProfileForUser(target.username).catch(() => null);
   const decisionState = await getSystemStrategyDecisionState(target.username).catch(() => null);
+  const pendingSignals = await listSignalSnapshotsForUser(target.username, {
+    outcomeStatus: "pending",
+    limit: 200,
+  }).catch(() => []);
   const coins = Array.from(new Set(target.coins || []));
   const timeframes = getScannableTimeframes();
+  const pendingCoins = new Set((pendingSignals || []).map((item) => item.coin).filter(Boolean));
+  const previousSystemSummary = getScannerSystemState(scanState);
+  let autoExecutionCooldownUntil = getScannerCooldownUntil(previousSystemSummary);
+  let autoExecutionCooldownReason = String(previousSystemSummary?.autoExecutionCooldownReason || "");
   const priceMap = {};
   const stateUpdates = [];
   const signalRows = [];
   const errors = [];
   let autoOrdersPlaced = 0;
   let autoOrdersBlocked = 0;
+  let autoOrdersSkipped = 0;
   let scannedFrames = 0;
 
   const coinResults = await runWithConcurrency(coins, 4, async (coin) => {
@@ -146,7 +202,7 @@ async function scanUserWatchlist(target, scanSource) {
       return shouldScanNow(previousState?.last_scanned_at, timeframe);
     });
 
-    if (!dueTimeframes.length) {
+    if (!dueTimeframes.length && !pendingCoins.has(coin)) {
       return {
         priceMap: nextPriceMap,
         stateUpdates: nextStateUpdates,
@@ -158,27 +214,32 @@ async function scanUserWatchlist(target, scanSource) {
       };
     }
 
-    const ticker = await fetchTickerPrice(coin).catch(() => null);
-    if (ticker?.lastPrice) {
-      nextPriceMap[coin] = ticker.lastPrice;
-    }
-
     const candleCache = new Map();
-    await Promise.all(
-      Array.from(new Set([...getScannableTimeframes(), "5m", "15m", "1h", "4h", "1d"])).map(async (timeframe) => {
-        try {
-          const snapshot = await buildMarketSnapshot(coin, timeframe, { candleCache });
-          candleCache.set(`${coin}|${timeframe}|snapshot`, snapshot);
-        } catch (error) {
-          nextErrors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
-        }
-      }),
-    );
+    if (dueTimeframes.length) {
+      await Promise.all(
+        Array.from(new Set([...getScannableTimeframes(), "5m", "15m", "1h", "4h", "1d"])).map(async (timeframe) => {
+          try {
+            const snapshot = await buildMarketSnapshot(coin, timeframe, { candleCache });
+            candleCache.set(`${coin}|${timeframe}|snapshot`, snapshot);
+          } catch (error) {
+            nextErrors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
+          }
+        }),
+      );
+    } else if (pendingCoins.has(coin)) {
+      const ticker = await fetchTickerPrice(coin).catch(() => null);
+      if (ticker?.lastPrice) {
+        nextPriceMap[coin] = ticker.lastPrice;
+      }
+    }
 
     for (const timeframe of dueTimeframes) {
       const previousState = scanState.get(`${coin}|${timeframe}`);
       try {
         const snapshot = candleCache.get(`${coin}|${timeframe}|snapshot`) || await buildMarketSnapshot(coin, timeframe, { candleCache });
+        if (!nextPriceMap[coin] && snapshot?.currentPrice) {
+          nextPriceMap[coin] = snapshot.currentPrice;
+        }
         const resolvedDecision = applySystemStrategyDecision(snapshot, decisionState, {
           marketScope: "watchlist",
           timeframe,
@@ -211,18 +272,28 @@ async function scanUserWatchlist(target, scanSource) {
             nextSignalRows.push(createdSignal);
             createdSignalAt = new Date().toISOString();
             if (executionProfile?.enabled && executionProfile?.autoExecuteEnabled) {
-              try {
-                const autoExecution = await executeSignalTradeForUser(target.username, createdSignal.id, "execute", {
-                  origin: "watcher",
-                });
-                if (autoExecution?.record?.status === "placed") {
-                  nextAutoOrdersPlaced += 1;
-                } else {
-                  nextAutoOrdersBlocked += 1;
-                }
-              } catch (error) {
+              if (autoExecutionCooldownUntil > Date.now()) {
                 nextAutoOrdersBlocked += 1;
-                nextErrors.push(`${coin} ${timeframe}: auto-ejecución falló: ${error.message || "error desconocido"}`);
+                autoOrdersSkipped += 1;
+              } else {
+                try {
+                  const autoExecution = await executeSignalTradeForUser(target.username, createdSignal.id, "execute", {
+                    origin: "watcher",
+                  });
+                  if (autoExecution?.record?.status === "placed") {
+                    nextAutoOrdersPlaced += 1;
+                  } else {
+                    nextAutoOrdersBlocked += 1;
+                  }
+                } catch (error) {
+                  nextAutoOrdersBlocked += 1;
+                  const throttle = parseBinanceThrottle(error);
+                  if (throttle) {
+                    autoExecutionCooldownUntil = new Date(throttle.cooldownUntil).getTime();
+                    autoExecutionCooldownReason = throttle.reason;
+                  }
+                  nextErrors.push(`${coin} ${timeframe}: auto-ejecución falló: ${error.message || "error desconocido"}`);
+                }
               }
             }
           }
@@ -273,6 +344,21 @@ async function scanUserWatchlist(target, scanSource) {
     notePrefix: "Auto-cerrada por el vigilante del watchlist",
   }).catch(() => []);
 
+  stateUpdates.push(buildScannerSystemStateRow(target.username, previousSystemSummary, {
+    autoExecutionCooldownUntil: autoExecutionCooldownUntil > Date.now()
+      ? new Date(autoExecutionCooldownUntil).toISOString()
+      : null,
+    autoExecutionCooldownReason: autoExecutionCooldownUntil > Date.now() ? autoExecutionCooldownReason : "",
+    lastRunSource: scanSource,
+    lastRunSignalsCreated: signalRows.length,
+    lastRunSignalsClosed: closedSignals.length,
+    lastRunFramesScanned: scannedFrames,
+    lastRunAutoOrdersPlaced: autoOrdersPlaced,
+    lastRunAutoOrdersBlocked: autoOrdersBlocked,
+    lastRunAutoOrdersSkipped: autoOrdersSkipped,
+    lastRunHadErrors: errors.length > 0,
+  }));
+
   await upsertScanState(stateUpdates);
   let runPersistError = null;
   try {
@@ -297,12 +383,16 @@ async function scanUserWatchlist(target, scanSource) {
     activeListName: target.activeListName,
     coinsCount: coins.length,
     scannedFrames,
-      signalsCreated: signalRows.length,
-      signalsClosed: closedSignals.length,
-      autoOrdersPlaced,
-      autoOrdersBlocked,
-      errors,
-      runPersistError,
+    signalsCreated: signalRows.length,
+    signalsClosed: closedSignals.length,
+    autoOrdersPlaced,
+    autoOrdersBlocked,
+    autoOrdersSkipped,
+    errors,
+    runPersistError,
+    autoExecutionCooldownUntil: autoExecutionCooldownUntil > Date.now()
+      ? new Date(autoExecutionCooldownUntil).toISOString()
+      : null,
   };
 }
 
@@ -355,7 +445,10 @@ export async function getWatchlistScannerStatus(req) {
 
   const targets = await listWatchlistScanTargets(username);
   const runs = await listRecentRuns(username);
+  const schedulerRuns = (runs || []).filter((item) => item.scan_source === "scheduler");
   const latestRun = runs?.[0] || null;
+  const scanState = username ? await getScanState(username).catch(() => new Map()) : new Map();
+  const systemSummary = getScannerSystemState(scanState);
 
   return {
     username,
@@ -366,10 +459,15 @@ export async function getWatchlistScannerStatus(req) {
       coins: item.coins,
     })),
     latestRun,
+    latestSchedulerRun: schedulerRuns[0] || null,
     runs: runs || [],
     summary: {
       watchedUsers: targets.length,
       watchedCoins: targets.reduce((sum, item) => sum + item.coins.length, 0),
+      schedulerRuns: schedulerRuns.length,
+      autoExecutionCooldownUntil: systemSummary?.autoExecutionCooldownUntil || null,
+      autoExecutionCooldownActive: getScannerCooldownUntil(systemSummary) > Date.now(),
+      autoExecutionCooldownReason: String(systemSummary?.autoExecutionCooldownReason || ""),
     },
   };
 }

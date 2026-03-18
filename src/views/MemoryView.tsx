@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
@@ -264,8 +264,6 @@ export function MemoryView(props: MemoryViewProps) {
   const [candidatesPage, setCandidatesPage] = useState(1);
   const [recentOrdersPage, setRecentOrdersPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
-  const lastAutoScanAtRef = useRef(0);
-
   useEffect(() => {
     let ignore = false;
 
@@ -1608,32 +1606,6 @@ export function MemoryView(props: MemoryViewProps) {
       stopLoading(loaderId);
     }
   }, [scannerStatus]);
-
-  useEffect(() => {
-    if (scannerBusy || document.visibilityState === "hidden") return;
-    if (!scannerStatus?.targets?.length) return;
-
-    const maybeRunAutoScan = () => {
-      if (document.visibilityState === "hidden") return;
-      if (scannerBusy) return;
-      if (!scannerStatus?.targets?.length) return;
-
-      const latestRunAt = scannerStatus.latestRun?.created_at
-        ? new Date(scannerStatus.latestRun.created_at).getTime()
-        : 0;
-      const ageMs = latestRunAt ? Date.now() - latestRunAt : Number.POSITIVE_INFINITY;
-      const autoCadenceMs = 60_000;
-      if (ageMs < autoCadenceMs) return;
-      if (Date.now() - lastAutoScanAtRef.current < autoCadenceMs) return;
-
-      lastAutoScanAtRef.current = Date.now();
-      void handleRunScanner({ silent: true, source: "auto" });
-    };
-
-    maybeRunAutoScan();
-    const intervalId = window.setInterval(maybeRunAutoScan, 15_000);
-    return () => window.clearInterval(intervalId);
-  }, [handleRunScanner, scannerBusy, scannerStatus]);
 
   async function handleSaveExecutionProfile() {
     if (!executionProfileForm) return;

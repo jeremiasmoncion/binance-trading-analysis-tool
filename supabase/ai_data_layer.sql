@@ -120,6 +120,45 @@ create table if not exists public.ai_model_configs (
 create index if not exists ai_model_configs_user_idx
   on public.ai_model_configs (username, updated_at desc);
 
+create table if not exists public.backtest_runs (
+  id bigint generated always as identity primary key,
+  username text not null,
+  label text not null,
+  trigger_source text not null default 'manual',
+  active_scorer text not null,
+  maturity_score integer not null default 0,
+  closed_signals integer not null default 0,
+  feature_snapshots integer not null default 0,
+  passed_invariants integer not null default 0,
+  warned_invariants integer not null default 0,
+  failed_invariants integer not null default 0,
+  summary text,
+  report_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists backtest_runs_user_idx
+  on public.backtest_runs (username, created_at desc);
+
+create table if not exists public.backtest_run_windows (
+  id bigint generated always as identity primary key,
+  run_id bigint not null references public.backtest_runs(id) on delete cascade,
+  window_key text not null,
+  window_label text not null,
+  sample_size integer not null default 0,
+  active_scorer text not null,
+  challenger_scorer text not null,
+  active_avg_pnl numeric not null default 0,
+  challenger_avg_pnl numeric not null default 0,
+  active_win_rate numeric not null default 0,
+  challenger_win_rate numeric not null default 0,
+  verdict text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists backtest_run_windows_run_idx
+  on public.backtest_run_windows (run_id, created_at desc);
+
 create or replace function public.set_ai_data_layer_updated_at()
 returns trigger
 language plpgsql

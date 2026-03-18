@@ -12,7 +12,7 @@ const WATCHLIST_SCAN_RUNS_TABLE = process.env.SUPABASE_WATCHLIST_SCAN_RUNS_TABLE
 const SCANNER_SYSTEM_COIN = "__scanner__";
 const SCANNER_SYSTEM_TIMEFRAME = "system";
 const DEFAULT_AUTO_EXECUTION_COOLDOWN_MS = 15 * 60 * 1000;
-const MAX_AUTO_EXECUTION_ATTEMPTS_PER_SCAN = 2;
+const MAX_AUTO_EXECUTION_ATTEMPTS_PER_SCAN = 1;
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -104,6 +104,27 @@ function parseBinanceThrottle(error) {
     cooldownUntil,
     reason: message,
   };
+}
+
+function canAutoExecuteSignal(createdSignal, executionProfile) {
+  if (!executionProfile?.enabled || !executionProfile?.autoExecuteEnabled) return false;
+  const timeframe = String(createdSignal?.timeframe || "");
+  const score = Number(createdSignal?.signal_score || 0);
+  const rrRatio = Number(createdSignal?.rr_ratio || 0);
+  const payload = createdSignal?.signal_payload && typeof createdSignal.signal_payload === "object"
+    ? createdSignal.signal_payload
+    : {};
+  const analysis = payload.analysis && typeof payload.analysis === "object" ? payload.analysis : {};
+  const setupQuality = String(analysis.setupQuality || "");
+  const alignmentCount = Number(analysis.alignmentCount || 0);
+
+  if (timeframe === "5m") return false;
+  if (setupQuality !== "Alta") return false;
+  if (alignmentCount < 4) return false;
+  if (score < Number(executionProfile.minSignalScore || 0) + 5) return false;
+  if (rrRatio > 0 && rrRatio < Number(executionProfile.minRrRatio || 0) + 0.2) return false;
+
+  return true;
 }
 
 async function getScanState(username) {
@@ -273,7 +294,7 @@ async function scanUserWatchlist(target, scanSource) {
           if (createdSignal?.id) {
             nextSignalRows.push(createdSignal);
             createdSignalAt = new Date().toISOString();
-            if (executionProfile?.enabled && executionProfile?.autoExecuteEnabled) {
+            if (canAutoExecuteSignal(createdSignal, executionProfile)) {
               if (autoExecutionAttempts >= MAX_AUTO_EXECUTION_ATTEMPTS_PER_SCAN) {
                 nextAutoOrdersBlocked += 1;
                 autoOrdersSkipped += 1;

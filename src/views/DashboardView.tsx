@@ -375,7 +375,7 @@ export function DashboardView(props: DashboardViewProps) {
           <div className="dashboard-analytics-card">
             {activeTab === "recent-trades" ? (
               <div className="dashboard-trades-shell">
-                <div className="dashboard-trades-card">
+                <div className="dashboard-trades-card ui-interactive-surface">
                   <div className="ui-data-header dashboard-trades-header">
                     <div className="ui-data-title-block">
                       <h3 className="dashboard-side-title">Trade History</h3>
@@ -493,7 +493,7 @@ export function DashboardView(props: DashboardViewProps) {
                   </div>
                 </div>
 
-                <aside className="dashboard-side-card dashboard-tab-side-card">
+                <aside className="dashboard-side-card dashboard-tab-side-card ui-interactive-surface">
                   {activeTab === "bot-performance" ? (
                     <>
                       <div className="dashboard-panel-head">
@@ -614,7 +614,7 @@ export function DashboardView(props: DashboardViewProps) {
             {botSystemCards.map((card) => {
               const Icon = card.icon;
               return (
-                <article key={card.title} className="dashboard-bot-card">
+                <article key={card.title} className="dashboard-bot-card ui-interactive-surface">
                   <div className="dashboard-bot-card-head">
                     <div className={`dashboard-bot-card-icon ${card.iconTone}`}>
                       <Icon />
@@ -652,7 +652,7 @@ export function DashboardView(props: DashboardViewProps) {
         </section>
 
         <section className="dashboard-bottom-grid">
-          <article className="dashboard-bottom-card">
+          <article className="dashboard-bottom-card ui-interactive-surface">
             <div className="dashboard-bottom-head">
               <h2 className="dashboard-bottom-title">Top Performing Assets</h2>
               <button type="button" className="dashboard-bottom-menu" aria-label="Asset options">
@@ -677,7 +677,7 @@ export function DashboardView(props: DashboardViewProps) {
             </div>
           </article>
 
-          <article className="dashboard-bottom-card">
+          <article className="dashboard-bottom-card ui-interactive-surface">
             <div className="dashboard-bottom-head">
               <h2 className="dashboard-bottom-title">Recent Activity</h2>
               <button

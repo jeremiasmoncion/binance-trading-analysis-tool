@@ -852,17 +852,33 @@ export function MemoryView(props: MemoryViewProps) {
 
   const shadowModelReadiness = useMemo(() => {
     const rows = Array.isArray(decisionState?.featureModelByScope) ? decisionState.featureModelByScope : [];
-    const ready = rows.filter((item) => Number(item.sampleSize || 0) >= 8 && Number(item.confidence || 0) >= 58);
+    const ready = rows.filter((item) => Number(item.sampleSize || 0) >= 8 && Number(item.confidence || 0) >= 58 && item.preferredModel);
     const strongest = ready
       .slice()
-      .sort((left, right) => Number(right.modelV2Score || right.modelScore || 0) - Number(left.modelV2Score || left.modelScore || 0))[0] || null;
+      .sort((left, right) => {
+        const leftScore = Number(
+          left.preferredModel === "model-v3"
+            ? left.modelV3Score
+            : left.preferredModel === "model-v2"
+              ? left.modelV2Score
+              : left.modelV1Score || left.modelScore || 0,
+        );
+        const rightScore = Number(
+          right.preferredModel === "model-v3"
+            ? right.modelV3Score
+            : right.preferredModel === "model-v2"
+              ? right.modelV2Score
+              : right.modelV1Score || right.modelScore || 0,
+        );
+        return rightScore - leftScore;
+      })[0] || null;
     let reading = "Todavía no hay suficiente muestra por scope para confiar en un modelo candidato versionado.";
     let accentClass = "accent-blue";
     if (ready.length >= 3) {
-      reading = "Ya hay suficientes scopes con muestra y confianza para empezar a observar un modelo candidato versionado en sombra.";
+      reading = `Ya hay suficientes scopes con muestra y confianza para observar ${strongest?.preferredModel || "un modelo candidato"} en sombra con más seriedad.`;
       accentClass = "accent-emerald";
     } else if (ready.length > 0) {
-      reading = "El modelo candidato ya tiene algunos scopes prometedores, pero todavía necesita más cobertura para gobernanza real.";
+      reading = `${strongest?.preferredModel || "El modelo candidato"} ya tiene algunos scopes prometedores, pero todavía necesita más cobertura para gobernanza real.`;
       accentClass = "accent-blue";
     }
     return {
@@ -1917,7 +1933,11 @@ export function MemoryView(props: MemoryViewProps) {
                 value={decisionState?.scorerPolicy?.activeScorer || "hybrid"}
                 sub={decisionState?.scorerPolicy?.promotedAt ? `Promovido ${new Date(decisionState.scorerPolicy.promotedAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : "Sin promoción formal todavía"}
                 accentClass={
-                  decisionState?.scorerPolicy?.activeScorer === "model-v1"
+                  decisionState?.scorerPolicy?.activeScorer === "model-v3"
+                    ? "accent-emerald"
+                    : decisionState?.scorerPolicy?.activeScorer === "model-v2"
+                      ? "accent-blue"
+                      : decisionState?.scorerPolicy?.activeScorer === "model-v1"
                     ? "accent-amber"
                     : decisionState?.scorerPolicy?.activeScorer === "adaptive-v2"
                       ? "accent-emerald"
@@ -1948,7 +1968,7 @@ export function MemoryView(props: MemoryViewProps) {
               />
               <StatCard
                 label="Modelo candidato"
-                value={automationMasterBoard.shadowModelEvaluation?.candidateScorer || (automationMasterBoard.shadowModelReadiness.totalReady ? "model-v2" : "--")}
+                value={automationMasterBoard.shadowModelEvaluation?.candidateScorer || automationMasterBoard.shadowModelReadiness.strongest?.preferredModel || "--"}
                 sub={automationMasterBoard.shadowModelReadiness.strongest ? `${automationMasterBoard.shadowModelReadiness.strongest.strategyId} · ${automationMasterBoard.shadowModelReadiness.strongest.timeframe} · ${automationMasterBoard.shadowModelReadiness.strongest.preferredModelConfidence?.toFixed(0) || automationMasterBoard.shadowModelReadiness.strongest.confidence.toFixed(0)}%` : "Sin suficiente muestra por scope todavía"}
                 accentClass={automationMasterBoard.shadowModelReadiness.accentClass}
               />

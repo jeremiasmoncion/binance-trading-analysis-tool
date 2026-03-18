@@ -200,6 +200,7 @@ export interface StrategyDecisionState {
     modelScore: number;
     modelV1Score?: number;
     modelV2Score?: number;
+    modelV3Score?: number;
     preferredModel?: string;
     preferredModelConfidence?: number;
     confidence: number;

@@ -160,6 +160,24 @@ function normalizeArray(value) {
     .filter(Boolean);
 }
 
+async function parseRequestBody(req) {
+  if (req?.body !== undefined && req?.body !== null) {
+    return parseJsonBody(req);
+  }
+
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
 function parseProfileNoteEnvelope(rawNote) {
   const noteValue = String(rawNote || "");
   if (!noteValue.startsWith(PROFILE_METADATA_PREFIX)) {
@@ -3398,7 +3416,7 @@ export async function runStrategyBacktestForUser(username, options = {}) {
 
 export async function runStrategyBacktest(req) {
   const session = requireSession(req);
-  const body = await parseJsonBody(req);
+  const body = await parseRequestBody(req);
   return runStrategyBacktestForUser(session.username, {
     label: body?.label,
     triggerSource: body?.triggerSource || "manual",

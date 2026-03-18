@@ -19,6 +19,39 @@ type AssetFilter = "all" | "large" | "mid" | "small" | "stablecoins" | "defi";
 
 const STABLE_ASSETS = new Set(["USDT", "USDC", "FDUSD", "DAI", "TUSD", "BUSD"]);
 const DEFI_ASSETS = new Set(["UNI", "AAVE", "LINK", "MKR", "LDO", "CRV", "SNX", "COMP", "SUSHI"]);
+const ASSET_ICON_SLUGS: Record<string, string> = {
+  BTC: "btc",
+  ETH: "eth",
+  BNB: "bnb",
+  SOL: "sol",
+  XRP: "xrp",
+  ADA: "ada",
+  DOGE: "doge",
+  AVAX: "avax",
+  LINK: "link",
+  DOT: "dot",
+  LTC: "ltc",
+  BCH: "bch",
+  UNI: "uni",
+  AAVE: "aave",
+  MKR: "mkr",
+  CRV: "crv",
+  SNX: "snx",
+  COMP: "comp",
+  SUSHI: "sushi",
+  USDT: "usdt",
+  USDC: "usdc",
+  FDUSD: "fdusd",
+  DAI: "dai",
+  TUSD: "tusd",
+  BUSD: "busd",
+  TRX: "trx",
+  TON: "ton",
+  TAO: "tao",
+  SHIB: "shib",
+  PEPE: "pepe",
+  WIF: "wif",
+};
 
 function getVisibleAssets(payload: PortfolioPayload | null, hideSmallAssets: boolean) {
   const assets = payload?.assets || [];
@@ -67,6 +100,41 @@ function buildAllocationGradient(items: ReturnType<typeof buildAllocation>) {
     stops.push(`#1e293b ${current}deg 360deg`);
   }
   return `conic-gradient(${stops.join(", ")})`;
+}
+
+function getAssetIconUrl(asset: string) {
+  const normalized = asset.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const slug = ASSET_ICON_SLUGS[normalized] || normalized.toLowerCase();
+  return `https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${slug}.png`;
+}
+
+function AssetLogo({
+  asset,
+  className = "",
+  fallbackClassName = "",
+}: {
+  asset: string;
+  className?: string;
+  fallbackClassName?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const iconUrl = getAssetIconUrl(asset);
+  const initials = asset.slice(0, 3);
+
+  if (!asset || failed) {
+    return <div className={`${className} ${fallbackClassName}`.trim()}>{initials}</div>;
+  }
+
+  return (
+    <img
+      src={iconUrl}
+      alt={`${asset} logo`}
+      className={className}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export function BalanceView(props: BalanceViewProps) {
@@ -192,7 +260,15 @@ export function BalanceView(props: BalanceViewProps) {
                 <div className="wallet-quick-value ui-summary-card-value">{bestPerformer?.asset || "--"}</div>
                 <div className={`wallet-quick-chip ui-pill ${getPerformanceClass(bestPerformer?.pnlPct || 0)}`}>{bestPerformer ? formatSignedPct(bestPerformer.pnlPct) : "--"}</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-accent ui-summary-card-icon">{bestPerformer?.asset?.slice(0, 3) || "TOP"}</div>
+              {bestPerformer ? (
+                <AssetLogo
+                  asset={bestPerformer.asset}
+                  className="wallet-quick-asset-logo"
+                  fallbackClassName="wallet-quick-icon wallet-quick-icon-accent ui-summary-card-icon wallet-quick-asset-fallback"
+                />
+              ) : (
+                <div className="wallet-quick-icon wallet-quick-icon-accent ui-summary-card-icon">TOP</div>
+              )}
             </div>
           </div>
 
@@ -324,7 +400,11 @@ function WalletAssetRow({ asset }: { asset: PortfolioAsset }) {
     <tr>
       <td>
         <div className="wallet-asset-cell">
-          <div className="wallet-asset-icon">{asset.asset.slice(0, 1)}</div>
+          <AssetLogo
+            asset={asset.asset}
+            className="wallet-asset-logo"
+            fallbackClassName="wallet-asset-icon"
+          />
           <div>
             <div className="wallet-asset-name">{asset.asset}</div>
             <div className="wallet-asset-symbol">{asset.symbol}</div>

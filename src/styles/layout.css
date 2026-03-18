@@ -674,7 +674,9 @@
 }
 
 .wallet-quick-value {
-  font-size: inherit;
+  font-size: clamp(42px, 3vw, 52px);
+  line-height: 0.94;
+  letter-spacing: -0.05em;
 }
 
 .wallet-quick-chip {
@@ -683,6 +685,28 @@
 
 .wallet-quick-icon {
   box-shadow: none;
+}
+
+.wallet-quick-asset-logo,
+.wallet-asset-logo {
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wallet-quick-asset-logo {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+}
+
+.wallet-quick-asset-fallback {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  font-size: 19px;
 }
 
 .wallet-quick-icon-info { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
@@ -788,6 +812,12 @@
   font-size: 16px;
   font-weight: 800;
   flex-shrink: 0;
+}
+
+.wallet-asset-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
 }
 
 .wallet-asset-name {

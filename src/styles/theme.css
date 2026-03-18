@@ -404,6 +404,6 @@ body.dark-theme .plan-signal-pill.buy { background: rgba(34, 197, 94, 0.16); col
 body.dark-theme .plan-signal-pill.sell { background: rgba(239, 68, 68, 0.18); color: #fca5a5; }
 body.dark-theme .plan-signal-pill.wait { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
 body.dark-theme .result-value.positive,
-body.dark-theme .portfolio-positive { color: #22c55e !important; }
+body.dark-theme .portfolio-positive { color: #22c55e; }
 body.dark-theme .result-value.negative,
-body.dark-theme .portfolio-negative { color: #f87171 !important; }
+body.dark-theme .portfolio-negative { color: #f87171; }

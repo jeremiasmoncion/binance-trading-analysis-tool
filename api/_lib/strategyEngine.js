@@ -2975,6 +2975,227 @@ export async function generateAdaptiveRecommendations(req) {
   return generateAdaptiveRecommendationsForUser(session.username);
 }
 
+function buildValidationInvariants({
+  executionProfile,
+  decisionState,
+  signals,
+  featureSnapshots,
+}) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const signalsWithScorer = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label);
+  const signalsWithExecutionLearning = closedSignals.filter((item) => item.signal_payload?.executionLearning);
+  const modelConfigRegistry = Array.isArray(decisionState?.modelConfigRegistry) ? decisionState.modelConfigRegistry : [];
+  const activeConfigs = modelConfigRegistry.filter((item) => item.active);
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "");
+  const matchingActiveConfig = activeConfigs.find((item) => String(item.label || "").toLowerCase() === activeScorer.toLowerCase());
+  const featureCoverage = closedSignals.length ? (featureSnapshots.length / closedSignals.length) * 100 : 0;
+  return [
+    {
+      key: "scorer-coverage",
+      label: "Cobertura de scorer en señales cerradas",
+      status: signalsWithScorer.length >= Math.max(8, Math.floor(closedSignals.length * 0.6)) ? "pass" : "warn",
+      detail: `${signalsWithScorer.length}/${closedSignals.length || 0} señales cerradas guardan scorer explicable.`,
+      severity: signalsWithScorer.length >= Math.max(8, Math.floor(closedSignals.length * 0.6)) ? "low" : "medium",
+    },
+    {
+      key: "execution-learning-coverage",
+      label: "Cobertura de aprendizaje de ejecución",
+      status: signalsWithExecutionLearning.length >= Math.max(6, Math.floor(closedSignals.length * 0.45)) ? "pass" : "warn",
+      detail: `${signalsWithExecutionLearning.length}/${closedSignals.length || 0} señales cerradas ya traen executionLearning persistido.`,
+      severity: signalsWithExecutionLearning.length >= Math.max(6, Math.floor(closedSignals.length * 0.45)) ? "low" : "medium",
+    },
+    {
+      key: "single-active-model-config",
+      label: "Un solo modelo activo en configs",
+      status: activeConfigs.length === 1 ? "pass" : activeConfigs.length === 0 ? "warn" : "fail",
+      detail: activeConfigs.length === 1
+        ? `La configuración persistida apunta a ${activeConfigs[0].label}.`
+        : activeConfigs.length === 0
+          ? "No hay un modelo activo persistido en ai_model_configs."
+          : `Se detectaron ${activeConfigs.length} modelos activos a la vez.`,
+      severity: activeConfigs.length === 1 ? "low" : activeConfigs.length === 0 ? "medium" : "high",
+    },
+    {
+      key: "scorer-policy-aligned",
+      label: "Alineación entre scorerPolicy y model config",
+      status: !activeScorer || matchingActiveConfig ? "pass" : "warn",
+      detail: !activeScorer
+        ? "Todavía no hay scorerPolicy activo formal."
+        : matchingActiveConfig
+          ? `El scorerPolicy activo (${activeScorer}) coincide con ai_model_configs.`
+          : `El scorerPolicy activo (${activeScorer}) todavía no coincide con un config activo persistido.`,
+      severity: !activeScorer || matchingActiveConfig ? "low" : "medium",
+    },
+    {
+      key: "feature-coverage",
+      label: "Cobertura de feature snapshots",
+      status: featureCoverage >= 70 ? "pass" : featureCoverage >= 40 ? "warn" : "fail",
+      detail: `${featureSnapshots.length} filas estructuradas para ${closedSignals.length || 0} señales cerradas (${featureCoverage.toFixed(0)}%).`,
+      severity: featureCoverage >= 70 ? "low" : featureCoverage >= 40 ? "medium" : "high",
+    },
+  ];
+}
+
+function buildValidationScorerTable(signals, executionProfile) {
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const scorerGroups = new Map();
+  for (const item of closedSignals) {
+    const label = String(item.signal_payload?.decision?.scorer?.label || "unscored").toLowerCase();
+    const current = scorerGroups.get(label) || [];
+    current.push(item);
+    scorerGroups.set(label, current);
+  }
+  const rows = Array.from(scorerGroups.entries()).map(([label, items]) => {
+    const stats = summarizeSignals(items);
+    return {
+      label,
+      total: stats.total,
+      avgPnl: Number(stats.avgPnl.toFixed(2)),
+      pnl: Number(stats.pnl.toFixed(2)),
+      winRate: Number(stats.winRate.toFixed(2)),
+      active: String(executionProfile?.scorerPolicy?.activeScorer || "").toLowerCase() === label,
+    };
+  }).sort((left, right) => Number(right.avgPnl || 0) - Number(left.avgPnl || 0));
+  return rows;
+}
+
+function buildReplayWindows(signals, executionProfile, decisionState) {
+  const closedSignals = (signals || [])
+    .filter((item) => item.outcome_status && item.outcome_status !== "pending")
+    .slice()
+    .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime());
+  const windows = [
+    { label: "short", size: 20 },
+    { label: "recent", size: 50 },
+    { label: "global", size: 120 },
+  ];
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").toLowerCase();
+  const bestCandidate = String(
+    decisionState?.modelWindowGovernance?.candidateScorer
+    || decisionState?.shadowModelEvaluation?.candidateScorer
+    || "",
+  ).toLowerCase();
+
+  return windows.map((window) => {
+    const rows = closedSignals.slice(0, window.size);
+    const activeRows = rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer);
+    const challengerRows = bestCandidate
+      ? rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === bestCandidate)
+      : [];
+    const activeStats = summarizeSignals(activeRows);
+    const challengerStats = summarizeSignals(challengerRows);
+    const activeAvg = Number(activeStats.avgPnl.toFixed(2));
+    const challengerAvg = Number(challengerStats.avgPnl.toFixed(2));
+    const verdict = !bestCandidate
+      ? "Sin challenger claro todavía"
+      : challengerStats.total < 5 || activeStats.total < 5
+        ? "Muestra corta"
+        : challengerAvg > activeAvg && challengerStats.winRate >= activeStats.winRate
+          ? `${bestCandidate} habría defendido mejor esta ventana`
+          : `${activeScorer} sigue defendiendo mejor esta ventana`;
+    return {
+      label: window.label,
+      sampleSize: rows.length,
+      activeScorer,
+      challengerScorer: bestCandidate || "--",
+      activeAvgPnl: activeAvg,
+      challengerAvgPnl: challengerAvg,
+      activeWinRate: Number(activeStats.winRate.toFixed(2)),
+      challengerWinRate: Number(challengerStats.winRate.toFixed(2)),
+      verdict,
+    };
+  });
+}
+
+function buildValidationScenarios(decisionState, replayWindows) {
+  const scenarios = [];
+  const modelWindowGovernance = decisionState?.modelWindowGovernance || null;
+  if (modelWindowGovernance) {
+    scenarios.push({
+      title: "Gobernanza multi-ventana",
+      status: modelWindowGovernance.action === "promote" ? "good" : modelWindowGovernance.action === "rollback" ? "warning" : "neutral",
+      summary: modelWindowGovernance.summary,
+    });
+  }
+  const latestGovernance = Array.isArray(decisionState?.modelWindowGovernanceHistory)
+    ? decisionState.modelWindowGovernanceHistory[0]
+    : null;
+  if (latestGovernance) {
+    scenarios.push({
+      title: "Última decisión formal",
+      status: latestGovernance.action === "promote" ? "good" : latestGovernance.action === "rollback" ? "warning" : "neutral",
+      summary: latestGovernance.summary || `${latestGovernance.activeScorer} -> ${latestGovernance.candidateScorer}`,
+    });
+  }
+  replayWindows.forEach((item) => {
+    scenarios.push({
+      title: `Replay ${item.label}`,
+      status: item.verdict.includes("habría defendido mejor") ? "warning" : item.verdict.includes("sigue defendiendo mejor") ? "good" : "neutral",
+      summary: `${item.activeScorer} ${item.activeAvgPnl >= 0 ? "+" : ""}${item.activeAvgPnl} vs ${item.challengerScorer} ${item.challengerAvgPnl >= 0 ? "+" : ""}${item.challengerAvgPnl}. ${item.verdict}`,
+    });
+  });
+  return scenarios.slice(0, 6);
+}
+
+export async function getStrategyValidationReportForUser(username) {
+  const normalizedUsername = String(username || "").trim();
+  const [signals, featureSnapshots, decisionState] = await Promise.all([
+    supabaseRequest(`${SIGNALS_TABLE}?select=id,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_payload,execution_order_id&username=eq.${normalizedUsername}&order=created_at.desc&limit=300`).catch(() => []),
+    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
+    getSystemStrategyDecisionState(normalizedUsername),
+  ]);
+
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const invariants = buildValidationInvariants({
+    executionProfile: { scorerPolicy: decisionState?.scorerPolicy || null },
+    decisionState,
+    signals,
+    featureSnapshots,
+  });
+  const scorerTable = buildValidationScorerTable(signals || [], { scorerPolicy: decisionState?.scorerPolicy || null });
+  const replayWindows = buildReplayWindows(signals || [], { scorerPolicy: decisionState?.scorerPolicy || null }, decisionState);
+  const scenarios = buildValidationScenarios(decisionState, replayWindows);
+  const passed = invariants.filter((item) => item.status === "pass").length;
+  const failed = invariants.filter((item) => item.status === "fail").length;
+  const warned = invariants.filter((item) => item.status === "warn").length;
+  const maturityScore = Math.max(
+    0,
+    Math.min(
+      100,
+      42
+        + passed * 9
+        - failed * 8
+        + (decisionState?.modelWindowGovernance?.action === "promote" ? 10 : decisionState?.modelWindowGovernance?.action === "sandbox" ? 6 : 0)
+        + (decisionState?.scorerPolicy?.activeScorer?.startsWith("model-") ? 10 : 0)
+        + (closedSignals.length >= 40 ? 8 : closedSignals.length >= 20 ? 4 : 0),
+    ),
+  );
+
+  return {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      maturityScore: Number(maturityScore.toFixed(0)),
+      closedSignals: closedSignals.length,
+      featureSnapshots: featureSnapshots.length,
+      passedInvariants: passed,
+      warnedInvariants: warned,
+      failedInvariants: failed,
+      activeScorer: decisionState?.scorerPolicy?.activeScorer || "adaptive-v1",
+    },
+    invariants,
+    scorerTable,
+    replayWindows,
+    scenarios,
+    modelWindowGovernance: decisionState?.modelWindowGovernance || null,
+    modelWindowGovernanceHistory: decisionState?.modelWindowGovernanceHistory || [],
+  };
+}
+
+export async function getStrategyValidationReport(req) {
+  const session = requireSession(req);
+  return getStrategyValidationReportForUser(session.username);
+}
+
 export async function generateAdaptiveRecommendationsForUser(username) {
   const normalizedUsername = String(username || "").trim();
 

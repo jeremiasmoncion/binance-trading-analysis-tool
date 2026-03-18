@@ -14,6 +14,7 @@ import type {
   StrategyDescriptor,
   StrategyExperimentRecord,
   StrategyRegistryEntry,
+  StrategyValidationReport,
   StrategyRecommendationRecord,
   StrategyVersionRecord,
   TimeframeSignal,
@@ -225,6 +226,9 @@ export const strategyEngineService = {
   },
   listRecommendations() {
     return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations");
+  },
+  getValidationReport() {
+    return apiRequest<StrategyValidationReport>("/api/strategy-engine/backtest");
   },
   generateRecommendations() {
     return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations", {

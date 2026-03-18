@@ -365,6 +365,59 @@ export interface StrategyDecisionState {
   }>;
 }
 
+export interface StrategyValidationInvariant {
+  label: string;
+  status: "pass" | "warn" | "fail";
+  detail: string;
+}
+
+export interface StrategyValidationScorerRow {
+  label: string;
+  total: number;
+  avgPnl: number;
+  pnl: number;
+  winRate: number;
+  active: boolean;
+}
+
+export interface StrategyValidationReplayWindow {
+  label: "Short" | "Recent" | "Global";
+  key: "short" | "recent" | "global";
+  total: number;
+  activeScorer: string;
+  challengerScorer: string;
+  activeAvgPnl: number;
+  challengerAvgPnl: number;
+  activeWinRate: number;
+  challengerWinRate: number;
+  verdict: string;
+}
+
+export interface StrategyValidationScenario {
+  title: string;
+  status: "good" | "warning" | "neutral";
+  summary: string;
+}
+
+export interface StrategyValidationReport {
+  generatedAt: string;
+  summary: {
+    maturityScore: number;
+    closedSignals: number;
+    featureSnapshots: number;
+    passedInvariants: number;
+    warnedInvariants: number;
+    failedInvariants: number;
+    activeScorer: string;
+  };
+  invariants: StrategyValidationInvariant[];
+  scorerTable: StrategyValidationScorerRow[];
+  replayWindows: StrategyValidationReplayWindow[];
+  scenarios: StrategyValidationScenario[];
+  modelWindowGovernance: StrategyDecisionState["modelWindowGovernance"];
+  modelWindowGovernanceHistory: NonNullable<StrategyDecisionState["modelWindowGovernanceHistory"]>;
+}
+
 export interface RecommendationActivationResult {
   recommendation: StrategyRecommendationRecord;
   version?: StrategyVersionRecord | null;

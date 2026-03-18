@@ -544,6 +544,34 @@
   gap: 0.8rem;
 }
 
+.profile-validation-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.profile-validation-mini-card {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.profile-validation-mini-card strong {
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.profile-validation-mini-card p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 .profile-validation-row {
   display: flex;
   gap: 0.85rem;

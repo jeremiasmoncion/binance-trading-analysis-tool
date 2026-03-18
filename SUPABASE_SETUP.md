@@ -37,6 +37,8 @@ Agrega estas variables al proyecto en Vercel:
 - `SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE` (opcional, default `adaptive_actions_log`)
 - `SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE` (opcional, default `signal_feature_snapshots`)
 - `SUPABASE_AI_MODEL_CONFIGS_TABLE` (opcional, default `ai_model_configs`)
+- `SUPABASE_BACKTEST_RUNS_TABLE` (opcional, default `backtest_runs`)
+- `SUPABASE_BACKTEST_RUN_WINDOWS_TABLE` (opcional, default `backtest_run_windows`)
 - `CRON_SECRET`
 - `BINANCE_MARKET_DATA_URL` (opcional, recomendado `https://demo-api.binance.com` si el backend no puede consultar `api.binance.com`)
 
@@ -55,6 +57,6 @@ Cuando `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` estén definidos:
 - `/api/strategy-engine` expone el registro, versionado y experimentos del motor de estrategias
 - `/api/strategy-engine/recommendations` genera y lee sugerencias adaptativas de parámetros
 - `/api/binance/execution` prepara trades candidatos, guarda intentos y puede enviar órdenes reales a Binance Demo con guardrails básicos
-- `execution_scope_overrides`, `adaptive_actions_log`, `signal_feature_snapshots` y `ai_model_configs` dejan la base lista para evolucionar desde heurística adaptativa hacia un scorer/modelo real con configs persistidas
+- `execution_scope_overrides`, `adaptive_actions_log`, `signal_feature_snapshots`, `ai_model_configs`, `backtest_runs` y `backtest_run_windows` dejan la base lista para evolucionar desde heurística adaptativa hacia un scorer/modelo real con validación técnica persistida
 
 Mientras esas variables no existan, la app sigue usando el fallback local para no romper la preview.

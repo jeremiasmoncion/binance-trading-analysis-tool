@@ -4,7 +4,7 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { strategyEngineService } from "../services/api";
-import type { BinanceConnection, StrategyValidationReport, UserSession } from "../types";
+import type { BinanceConnection, StrategyBacktestRun, StrategyValidationReport, UserSession } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
@@ -21,7 +21,9 @@ export function ProfileView(props: ProfileViewProps) {
   const [activeTab, setActiveTab] = useState<"account" | "binance" | "users" | "backtesting">("account");
   const [usersPage, setUsersPage] = useState(1);
   const [validationReport, setValidationReport] = useState<StrategyValidationReport | null>(null);
+  const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>([]);
   const [validationLoading, setValidationLoading] = useState(false);
+  const [backtestRunning, setBacktestRunning] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const connection = props.connection;
   const summary = connection?.summary || {};
@@ -39,9 +41,12 @@ export function ProfileView(props: ProfileViewProps) {
     setValidationLoading(true);
     setValidationError(null);
     strategyEngineService
-      .getValidationReport()
+      .getValidationLab()
       .then((payload) => {
-        if (!cancelled) setValidationReport(payload);
+        if (!cancelled) {
+          setValidationReport(payload.report);
+          setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+        }
       })
       .catch((error) => {
         if (!cancelled) {
@@ -241,13 +246,34 @@ export function ProfileView(props: ProfileViewProps) {
                     setValidationLoading(true);
                     setValidationError(null);
                     strategyEngineService
-                      .getValidationReport()
-                      .then((payload) => setValidationReport(payload))
+                      .getValidationLab()
+                      .then((payload) => {
+                        setValidationReport(payload.report);
+                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                      })
                       .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo actualizar el laboratorio"))
                       .finally(() => setValidationLoading(false));
                   }}
                 >
                   {validationLoading ? "Actualizando..." : "Actualizar backtesting"}
+                </button>
+                <button
+                  className="premium-action-button is-primary"
+                  type="button"
+                  onClick={() => {
+                    setBacktestRunning(true);
+                    setValidationError(null);
+                    strategyEngineService
+                      .runValidationBacktest({ triggerSource: "admin-ui" })
+                      .then((payload) => {
+                        setValidationReport(payload.report);
+                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                      })
+                      .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo ejecutar la corrida de backtesting"))
+                      .finally(() => setBacktestRunning(false));
+                  }}
+                >
+                  {backtestRunning ? "Corriendo..." : "Correr backtest"}
                 </button>
               </div>
 
@@ -330,6 +356,35 @@ export function ProfileView(props: ProfileViewProps) {
                       </div>
                     </article>
                   </div>
+
+                  <SectionCard
+                    title="Historial de corridas"
+                    subtitle="Cada corrida queda guardada para comparar madurez, scorer activo y replay por ventanas a lo largo del tiempo."
+                    helpTitle="Qué es una corrida"
+                    helpBody="Una corrida es una foto técnica del módulo Señales en un momento específico. Sirve para que tú y yo podamos comparar si la IA se está volviendo más confiable o no."
+                  >
+                    <div className="profile-validation-list">
+                      {backtestRuns.length ? backtestRuns.map((item, index) => (
+                        <div key={`${item.createdAt || "run"}-${index}`} className="profile-validation-row is-block">
+                          <div className="profile-validation-row-head">
+                            <strong>{item.label}</strong>
+                            <span>{item.createdAt ? new Date(item.createdAt).toLocaleString("es-DO") : item.triggerSource}</span>
+                          </div>
+                          <p>{item.summary}</p>
+                          <p>{item.activeScorer} · {item.closedSignals} cierres · {item.failedInvariants} fallos</p>
+                          <div className="profile-validation-mini-grid">
+                            {item.windows.map((window) => (
+                              <div key={`${item.label}-${window.key}`} className="profile-validation-mini-card">
+                                <strong>{window.label}</strong>
+                                <p>{window.activeScorer} vs {window.challengerScorer}</p>
+                                <p>{window.verdict}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )) : <p className="section-note">Todavía no hay corridas guardadas. Usa “Correr backtest” para empezar a construir historial.</p>}
+                    </div>
+                  </SectionCard>
 
                   <SectionCard
                     title="Historial multi-ventana"

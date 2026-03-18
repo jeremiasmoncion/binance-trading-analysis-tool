@@ -13,6 +13,8 @@ const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVE
 const ADAPTIVE_ACTIONS_LOG_TABLE = process.env.SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE || "adaptive_actions_log";
 const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 const AI_MODEL_CONFIGS_TABLE = process.env.SUPABASE_AI_MODEL_CONFIGS_TABLE || "ai_model_configs";
+const BACKTEST_RUNS_TABLE = process.env.SUPABASE_BACKTEST_RUNS_TABLE || "backtest_runs";
+const BACKTEST_RUN_WINDOWS_TABLE = process.env.SUPABASE_BACKTEST_RUN_WINDOWS_TABLE || "backtest_run_windows";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
@@ -569,6 +571,40 @@ function normalizeModelWindowGovernanceHistory(rows) {
   }).filter((item) => item.activeScorer || item.candidateScorer);
 }
 
+function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
+  return (rows || []).map((row) => {
+    const reportPayload = row?.report_payload && typeof row.report_payload === "object" ? row.report_payload : {};
+    const rawWindows = windowsByRunId.get(Number(row?.id)) || reportPayload.replayWindows || [];
+    const windows = (rawWindows || []).map((item) => ({
+      label: String(item.label || "Recent"),
+      key: String(item.key || "recent"),
+      total: Number(item.total || item.sampleSize || 0),
+      activeScorer: String(item.activeScorer || ""),
+      challengerScorer: String(item.challengerScorer || ""),
+      activeAvgPnl: Number(item.activeAvgPnl || 0),
+      challengerAvgPnl: Number(item.challengerAvgPnl || 0),
+      activeWinRate: Number(item.activeWinRate || 0),
+      challengerWinRate: Number(item.challengerWinRate || 0),
+      verdict: String(item.verdict || ""),
+    }));
+    return {
+      id: row?.id == null ? undefined : Number(row.id),
+      label: String(row?.label || reportPayload?.label || "Run manual"),
+      triggerSource: String(row?.trigger_source || reportPayload?.triggerSource || "manual"),
+      activeScorer: String(row?.active_scorer || reportPayload?.summary?.activeScorer || "adaptive-v1"),
+      maturityScore: Number(row?.maturity_score ?? reportPayload?.summary?.maturityScore ?? 0),
+      closedSignals: Number(row?.closed_signals ?? reportPayload?.summary?.closedSignals ?? 0),
+      featureSnapshots: Number(row?.feature_snapshots ?? reportPayload?.summary?.featureSnapshots ?? 0),
+      passedInvariants: Number(row?.passed_invariants ?? reportPayload?.summary?.passedInvariants ?? 0),
+      warnedInvariants: Number(row?.warned_invariants ?? reportPayload?.summary?.warnedInvariants ?? 0),
+      failedInvariants: Number(row?.failed_invariants ?? reportPayload?.summary?.failedInvariants ?? 0),
+      summary: String(row?.summary || reportPayload?.summaryText || "Sin resumen"),
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+      windows,
+    };
+  });
+}
+
 function normalizeModelConfigRegistry(rows) {
   return (rows || []).map((row) => {
     const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
@@ -642,6 +678,151 @@ async function upsertModelConfigsForUser(username, modelRuns, activeScorer) {
     if (isMissingRelationError(error)) return [];
     throw error;
   }
+}
+
+async function fetchBacktestRunsForUser(username, limit = 12) {
+  try {
+    const params = new URLSearchParams({
+      select: "*",
+      username: `eq.${String(username)}`,
+      order: "created_at.desc",
+      limit: String(limit),
+    });
+    const runs = await supabaseRequest(`${BACKTEST_RUNS_TABLE}?${params.toString()}`);
+    const runIds = (runs || []).map((item) => Number(item.id)).filter(Boolean);
+    const windowsByRunId = new Map();
+    if (runIds.length) {
+      const windowParams = new URLSearchParams({
+        select: "*",
+        run_id: `in.(${runIds.join(",")})`,
+        order: "created_at.desc",
+      });
+      const windows = await supabaseRequest(`${BACKTEST_RUN_WINDOWS_TABLE}?${windowParams.toString()}`).catch(() => []);
+      for (const row of windows || []) {
+        const runId = Number(row?.run_id || 0);
+        if (!runId) continue;
+        if (!windowsByRunId.has(runId)) windowsByRunId.set(runId, []);
+        windowsByRunId.get(runId).push({
+          label: String(row?.window_label || "Recent"),
+          key: String(row?.window_key || "recent"),
+          total: Number(row?.sample_size || 0),
+          activeScorer: String(row?.active_scorer || ""),
+          challengerScorer: String(row?.challenger_scorer || ""),
+          activeAvgPnl: Number(row?.active_avg_pnl || 0),
+          challengerAvgPnl: Number(row?.challenger_avg_pnl || 0),
+          activeWinRate: Number(row?.active_win_rate || 0),
+          challengerWinRate: Number(row?.challenger_win_rate || 0),
+          verdict: String(row?.verdict || ""),
+        });
+      }
+    }
+    return normalizeBacktestRuns(runs, windowsByRunId);
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  const fallbackRows = await fetchRecentAdaptiveActions(username, "backtest-run", limit);
+  return normalizeBacktestRuns((fallbackRows || []).map((row) => ({
+    id: row?.id,
+    label: row?.target_key,
+    trigger_source: row?.source,
+    active_scorer: row?.details?.summary?.activeScorer,
+    maturity_score: row?.details?.summary?.maturityScore,
+    closed_signals: row?.details?.summary?.closedSignals,
+    feature_snapshots: row?.details?.summary?.featureSnapshots,
+    passed_invariants: row?.details?.summary?.passedInvariants,
+    warned_invariants: row?.details?.summary?.warnedInvariants,
+    failed_invariants: row?.details?.summary?.failedInvariants,
+    summary: row?.summary,
+    report_payload: row?.details,
+    created_at: row?.created_at,
+  })));
+}
+
+async function persistBacktestRunForUser(username, report, options = {}) {
+  const runLabel = String(options.label || `Run ${new Date().toLocaleString("es-DO")}`);
+  const summaryText = `${report.summary.activeScorer} · madurez ${report.summary.maturityScore}/100 · ${report.summary.closedSignals} cierres auditados`;
+  const runPayload = {
+    username: String(username),
+    label: runLabel,
+    trigger_source: String(options.triggerSource || "manual"),
+    active_scorer: String(report.summary.activeScorer || "adaptive-v1"),
+    maturity_score: Number(report.summary.maturityScore || 0),
+    closed_signals: Number(report.summary.closedSignals || 0),
+    feature_snapshots: Number(report.summary.featureSnapshots || 0),
+    passed_invariants: Number(report.summary.passedInvariants || 0),
+    warned_invariants: Number(report.summary.warnedInvariants || 0),
+    failed_invariants: Number(report.summary.failedInvariants || 0),
+    summary: summaryText,
+    report_payload: {
+      ...report,
+      label: runLabel,
+      triggerSource: String(options.triggerSource || "manual"),
+      summaryText,
+    },
+  };
+
+  try {
+    const rows = await supabaseRequest(BACKTEST_RUNS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: [runPayload],
+    });
+    const runRow = rows?.[0];
+    const runId = Number(runRow?.id || 0);
+    if (runId && Array.isArray(report.replayWindows) && report.replayWindows.length) {
+      await supabaseRequest(BACKTEST_RUN_WINDOWS_TABLE, {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: report.replayWindows.map((item) => ({
+          run_id: runId,
+          window_key: String(item.key || "recent"),
+          window_label: String(item.label || "Recent"),
+          sample_size: Number(item.total || 0),
+          active_scorer: String(item.activeScorer || ""),
+          challenger_scorer: String(item.challengerScorer || ""),
+          active_avg_pnl: Number(item.activeAvgPnl || 0),
+          challenger_avg_pnl: Number(item.challengerAvgPnl || 0),
+          active_win_rate: Number(item.activeWinRate || 0),
+          challenger_win_rate: Number(item.challengerWinRate || 0),
+          verdict: String(item.verdict || ""),
+        })),
+      }).catch((error) => {
+        if (!isMissingRelationError(error)) throw error;
+      });
+    }
+    return normalizeBacktestRuns(rows || [runPayload])[0] || null;
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  await insertAdaptiveActionLogForUser(username, {
+    actionType: "backtest-run",
+    targetType: "backtest-run",
+    targetKey: runLabel,
+    source: String(options.triggerSource || "manual"),
+    status: "completed",
+    summary: summaryText,
+    details: {
+      ...runPayload.report_payload,
+      replayWindows: report.replayWindows,
+    },
+  }).catch(() => null);
+
+  return {
+    label: runLabel,
+    triggerSource: String(options.triggerSource || "manual"),
+    activeScorer: String(report.summary.activeScorer || "adaptive-v1"),
+    maturityScore: Number(report.summary.maturityScore || 0),
+    closedSignals: Number(report.summary.closedSignals || 0),
+    featureSnapshots: Number(report.summary.featureSnapshots || 0),
+    passedInvariants: Number(report.summary.passedInvariants || 0),
+    warnedInvariants: Number(report.summary.warnedInvariants || 0),
+    failedInvariants: Number(report.summary.failedInvariants || 0),
+    summary: summaryText,
+    createdAt: new Date().toISOString(),
+    windows: Array.isArray(report.replayWindows) ? report.replayWindows : [],
+  };
 }
 
 async function setActiveModelConfigForUser(username, candidateScorer, scorerPolicy, modelRegistry = []) {
@@ -3191,9 +3372,36 @@ export async function getStrategyValidationReportForUser(username) {
   };
 }
 
+export async function getStrategyValidationLabForUser(username) {
+  const report = await getStrategyValidationReportForUser(username);
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  return { report, runs };
+}
+
 export async function getStrategyValidationReport(req) {
   const session = requireSession(req);
   return getStrategyValidationReportForUser(session.username);
+}
+
+export async function getStrategyValidationLab(req) {
+  const session = requireSession(req);
+  return getStrategyValidationLabForUser(session.username);
+}
+
+export async function runStrategyBacktestForUser(username, options = {}) {
+  const report = await getStrategyValidationReportForUser(username);
+  const run = await persistBacktestRunForUser(username, report, options);
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  return { report, run, runs };
+}
+
+export async function runStrategyBacktest(req) {
+  const session = requireSession(req);
+  const body = await parseJsonBody(req);
+  return runStrategyBacktestForUser(session.username, {
+    label: body?.label,
+    triggerSource: body?.triggerSource || "manual",
+  });
 }
 
 export async function generateAdaptiveRecommendationsForUser(username) {

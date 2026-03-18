@@ -14,6 +14,7 @@ import type {
   StrategyDescriptor,
   StrategyExperimentRecord,
   StrategyRegistryEntry,
+  StrategyValidationLabPayload,
   StrategyValidationReport,
   StrategyRecommendationRecord,
   StrategyVersionRecord,
@@ -227,8 +228,20 @@ export const strategyEngineService = {
   listRecommendations() {
     return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations");
   },
+  getValidationLab() {
+    return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest");
+  },
+  runValidationBacktest(payload?: { label?: string; triggerSource?: string }) {
+    return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest", {
+      method: "POST",
+      body: JSON.stringify(payload || {}),
+    });
+  },
   getValidationReport() {
-    return apiRequest<StrategyValidationReport>("/api/strategy-engine/backtest");
+    return apiRequest<StrategyValidationReport>("/api/strategy-engine/backtest").then((payload) => {
+      const maybeLab = payload as unknown as StrategyValidationLabPayload;
+      return maybeLab.report || (payload as StrategyValidationReport);
+    });
   },
   generateRecommendations() {
     return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations", {

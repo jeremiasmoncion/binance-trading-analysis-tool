@@ -418,6 +418,28 @@ export interface StrategyValidationReport {
   modelWindowGovernanceHistory: NonNullable<StrategyDecisionState["modelWindowGovernanceHistory"]>;
 }
 
+export interface StrategyBacktestRun {
+  id?: number;
+  label: string;
+  triggerSource: string;
+  activeScorer: string;
+  maturityScore: number;
+  closedSignals: number;
+  featureSnapshots: number;
+  passedInvariants: number;
+  warnedInvariants: number;
+  failedInvariants: number;
+  summary: string;
+  createdAt?: string;
+  windows: StrategyValidationReplayWindow[];
+}
+
+export interface StrategyValidationLabPayload {
+  report: StrategyValidationReport;
+  runs: StrategyBacktestRun[];
+  run?: StrategyBacktestRun | null;
+}
+
 export interface RecommendationActivationResult {
   recommendation: StrategyRecommendationRecord;
   version?: StrategyVersionRecord | null;

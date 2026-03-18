@@ -614,6 +614,7 @@ function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
     }));
     return {
       id: row?.id == null ? undefined : Number(row.id),
+      username: row?.username ? String(row.username) : undefined,
       label: String(row?.label || reportPayload?.label || "Run manual"),
       triggerSource: String(row?.trigger_source || reportPayload?.triggerSource || "manual"),
       activeScorer: String(row?.active_scorer || reportPayload?.summary?.activeScorer || "adaptive-v1"),
@@ -989,6 +990,63 @@ async function updateBacktestRunForUser(username, runId, report, options = {}) {
 async function fetchQueuedBacktestRunsForUser(username, limit = 4) {
   const runs = await fetchBacktestRunsForUser(username, limit + 8).catch(() => []);
   return (runs || []).filter((item) => item.status === "queued" || item.status === "running").slice(0, limit);
+}
+
+async function markBacktestRunStatusForUser(username, runId, status) {
+  try {
+    const params = new URLSearchParams({
+      id: `eq.${Number(runId)}`,
+      username: `eq.${String(username)}`,
+      select: "report_payload",
+      limit: "1",
+    });
+    const rows = await supabaseRequest(`${BACKTEST_RUNS_TABLE}?${params.toString()}`);
+    const existing = rows?.[0] || null;
+    const payload = existing?.report_payload && typeof existing.report_payload === "object" ? existing.report_payload : {};
+    await supabaseRequest(`${BACKTEST_RUNS_TABLE}?id=eq.${Number(runId)}&username=eq.${String(username)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: {
+        report_payload: {
+          ...payload,
+          runStatus: String(status || "queued"),
+          statusUpdatedAt: new Date().toISOString(),
+        },
+      },
+    });
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+}
+
+async function fetchQueuedBacktestRunsGlobal(limit = 6) {
+  try {
+    const params = new URLSearchParams({
+      select: "id,username,label,trigger_source,active_scorer,created_at,report_payload",
+      order: "created_at.desc",
+      limit: "40",
+    });
+    const rows = await supabaseRequest(`${BACKTEST_RUNS_TABLE}?${params.toString()}`);
+    return normalizeBacktestRuns(rows || [])
+      .filter((item) => item.status === "queued" || item.status === "running")
+      .sort((left, right) => new Date(left.createdAt || 0).getTime() - new Date(right.createdAt || 0).getTime())
+      .slice(0, limit);
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  const fallbackRows = await fetchRecentAdaptiveActions("", "backtest-run", 20).catch(() => []);
+  return normalizeBacktestRuns((fallbackRows || []).map((row) => ({
+    id: row?.id,
+    label: row?.target_key,
+    trigger_source: row?.source,
+    active_scorer: row?.details?.summary?.activeScorer,
+    report_payload: row?.details,
+    created_at: row?.created_at,
+    username: row?.username,
+  })))
+    .filter((item) => item.status === "queued" || item.status === "running")
+    .slice(0, limit);
 }
 
 async function persistBacktestRunForUser(username, report, options = {}) {
@@ -3723,6 +3781,7 @@ export async function processQueuedStrategyBacktestsForUser(username, options = 
   const processed = [];
 
   for (const queuedRun of queuedRuns) {
+    await markBacktestRunStatusForUser(username, queuedRun.id, "running").catch(() => null);
     const report = await getStrategyValidationReportForUser(username);
     const completedRun = await updateBacktestRunForUser(username, queuedRun.id, report, {
       label: queuedRun.label,
@@ -3770,6 +3829,32 @@ export async function processQueuedStrategyBacktests(req) {
     limit: body?.limit,
     triggerSource: body?.triggerSource || "admin-queue-processor",
   });
+}
+
+export async function processQueuedStrategyBacktestsGlobally(options = {}) {
+  const queuedRuns = await fetchQueuedBacktestRunsGlobal(Number(options.limit || 1));
+  const processed = [];
+
+  for (const queuedRun of queuedRuns) {
+    const username = String(queuedRun.username || "").trim();
+    if (!username) continue;
+    await markBacktestRunStatusForUser(username, queuedRun.id, "running").catch(() => null);
+    const report = await getStrategyValidationReportForUser(username);
+    const completedRun = await updateBacktestRunForUser(username, queuedRun.id, report, {
+      label: queuedRun.label,
+      triggerSource: queuedRun.triggerSource || options.triggerSource || "scheduler-runner",
+      runStatus: "completed",
+    });
+    processed.push({
+      username,
+      run: completedRun || queuedRun,
+    });
+  }
+
+  return {
+    processed,
+    queuedChecked: queuedRuns.length,
+  };
 }
 
 export async function backfillStrategyLearningDatasetForUser(username, options = {}) {

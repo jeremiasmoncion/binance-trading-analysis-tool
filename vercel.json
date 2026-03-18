@@ -12,12 +12,20 @@
     "api/watchlist/scan.js": {
       "regions": ["fra1"],
       "maxDuration": 60
+    },
+    "api/strategy-engine/backtest-runner.js": {
+      "regions": ["fra1"],
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/watchlist/scan",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/strategy-engine/backtest-runner",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

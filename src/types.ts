@@ -420,6 +420,7 @@ export interface StrategyValidationReport {
 
 export interface StrategyBacktestRun {
   id?: number;
+  username?: string;
   label: string;
   triggerSource: string;
   activeScorer: string;

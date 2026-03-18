@@ -731,6 +731,7 @@ body.dark-theme .dashboard-kpi-tile,
 body.dark-theme .dashboard-signal-card,
 body.dark-theme .dashboard-context-card,
 body.dark-theme .dashboard-chart-card,
+body.dark-theme .dashboard-trades-card,
 body.dark-theme .dashboard-side-metric,
 body.dark-theme .dashboard-funnel-row,
 body.dark-theme .dashboard-alert-item,
@@ -743,9 +744,26 @@ body.dark-theme .dashboard-activity-item {
 body.dark-theme .dashboard-side-title,
 body.dark-theme .dashboard-allocation-center strong,
 body.dark-theme .dashboard-ranking-head strong,
+body.dark-theme .dashboard-trade-pair,
 body.dark-theme .dashboard-compact-row strong { color: #f8fafc; }
 body.dark-theme .dashboard-compact-row span,
 body.dark-theme .dashboard-allocation-center span { color: #94a3b8; }
+body.dark-theme .dashboard-trade-bot {
+  color: #c7d2fe;
+  background: rgba(67, 56, 202, 0.18);
+  border-color: rgba(99, 102, 241, 0.24);
+}
+body.dark-theme .dashboard-trade-side.buy {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.22);
+}
+body.dark-theme .dashboard-trade-side.sell {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.24);
+}
+body.dark-theme .dashboard-trade-pnl.neutral { color: #94a3b8; }
 body.dark-theme .dashboard-tab-pill { color: #94a3b8; }
 body.dark-theme .dashboard-tab-pill:hover { color: #f8fafc; }
 body.dark-theme .dashboard-tab-pill.active { color: #fff; }

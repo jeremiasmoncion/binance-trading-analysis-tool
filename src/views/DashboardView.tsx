@@ -9,6 +9,7 @@ import {
 } from "../components/Icons";
 import { formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
 import type {
+  BinanceTradeSummary,
   Candle,
   DashboardAnalysis,
   ExecutionCenterPayload,
@@ -42,7 +43,7 @@ interface DashboardViewProps {
   onSaveSignal: () => void;
 }
 
-type DashboardTab = "overview" | "bot-performance" | "capital" | "activity";
+type DashboardTab = "overview" | "bot-performance" | "recent-trades";
 type DashboardRange = "24h" | "7d" | "30d" | "90d" | "all";
 
 export function DashboardView(props: DashboardViewProps) {
@@ -80,6 +81,10 @@ export function DashboardView(props: DashboardViewProps) {
   const eligibleCandidates = (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible");
   const blockedCandidates = (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked");
   const recentOrders = recentExecuteOrders.slice(0, 5);
+  const recentTrades = useMemo(
+    () => buildRecentTradesRows(props.portfolioData?.recentTrades || [], recentExecuteOrders),
+    [props.portfolioData?.recentTrades, recentExecuteOrders],
+  );
   const deployedCapitalValue = portfolio?.positionsValue || 0;
   const deploymentPct = portfolioTotal > 0 ? ((deployedCapitalValue / portfolioTotal) * 100) : 0;
   const cashPct = portfolioTotal > 0 ? (((portfolio?.cashValue || 0) / portfolioTotal) * 100) : 0;
@@ -108,6 +113,7 @@ export function DashboardView(props: DashboardViewProps) {
     [activeRange, props.strategy, props.strategyCandidates, recentExecuteOrders],
   );
   useEffect(() => {
+    if (activeTab === "recent-trades") return;
     if (activeTab === "bot-performance") {
       drawBotComparisonChart(props.chartRef.current, botComparisonBars, props.theme === "dark");
       return;
@@ -239,47 +245,49 @@ export function DashboardView(props: DashboardViewProps) {
             ))}
           </div>
 
-          <div className="dashboard-filter-card">
-            <div className="dashboard-filter-group">
-              <span className="dashboard-filter-label">Range</span>
-              <div className="dashboard-filter-chip-row">
-                {DASHBOARD_RANGES.map((range) => (
-                  <button
-                    key={range.id}
-                    type="button"
-                    className={`dashboard-filter-chip ${activeRange === range.id ? "active" : ""}`}
-                    onClick={() => setActiveRange(range.id)}
-                  >
-                    {range.label}
-                  </button>
-                ))}
+          {activeTab !== "recent-trades" ? (
+            <div className="dashboard-filter-card">
+              <div className="dashboard-filter-group">
+                <span className="dashboard-filter-label">Range</span>
+                <div className="dashboard-filter-chip-row">
+                  {DASHBOARD_RANGES.map((range) => (
+                    <button
+                      key={range.id}
+                      type="button"
+                      className={`dashboard-filter-chip ${activeRange === range.id ? "active" : ""}`}
+                      onClick={() => setActiveRange(range.id)}
+                    >
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="dashboard-filter-actions">
+                <button
+                  type="button"
+                  className="ui-button"
+                  onClick={() => openHelp({
+                    title: "Dashboard filters",
+                    body: "Controla el rango visible del grafico principal.",
+                    bullets: [
+                      "Cada rango cambia la lectura del chart.",
+                      "El chart principal sigue el rendimiento del portfolio.",
+                    ],
+                  })}
+                >
+                  Filtrar
+                </button>
+                <button
+                  type="button"
+                  className="ui-button"
+                  onClick={() => setActiveRange("24h")}
+                >
+                  Reset
+                </button>
               </div>
             </div>
-
-            <div className="dashboard-filter-actions">
-              <button
-                type="button"
-                className="ui-button"
-                onClick={() => openHelp({
-                  title: "Dashboard filters",
-                  body: "Controla el rango visible del grafico principal.",
-                  bullets: [
-                    "Cada rango cambia la lectura del chart.",
-                    "El chart principal sigue el rendimiento del portfolio.",
-                  ],
-                })}
-              >
-                Filtrar
-              </button>
-              <button
-                type="button"
-                className="ui-button"
-                onClick={() => setActiveRange("24h")}
-              >
-                Reset
-              </button>
-            </div>
-          </div>
+          ) : null}
 
           <div className="dashboard-analytics-card">
             <div className="dashboard-panel-head">
@@ -295,138 +303,198 @@ export function DashboardView(props: DashboardViewProps) {
               />
             </div>
 
-            <div className="dashboard-analytics-grid">
-              <div className="dashboard-chart-shell">
-                <div className="chart-container dashboard-chart-card">
-                  <div className="chart-header">
-                    <div>
-                      <div className="dashboard-card-topline">
-                        <div className="chart-title">{tabSummary.chartTitle}</div>
-                      </div>
-                      <div className="card-subtitle">{tabSummary.chartSubtitle} · ventana {getRangeLabel(activeRange)}</div>
+            {activeTab === "recent-trades" ? (
+              <div className="dashboard-trades-shell">
+                <div className="dashboard-trades-card">
+                  <div className="ui-data-header dashboard-trades-header">
+                    <div className="ui-data-title-block">
+                      <h3 className="dashboard-side-title">Recent trades</h3>
+                      <p className="dashboard-panel-subtitle">Last 5 account trades for quick review.</p>
                     </div>
-                    {activeTab === "bot-performance" ? (
-                      <button type="button" className="ui-button" onClick={props.onSaveSignal}>
-                        <DownloadIcon />
-                        Export
-                      </button>
-                    ) : (
-                      <div className="chart-legend">
-                        <div className="legend-item">
-                          <span className="legend-dot portfolio" />
-                          Portfolio
-                        </div>
-                        <div className="legend-item">
-                          <span className="legend-dot benchmark" />
-                          Benchmark
-                        </div>
-                      </div>
-                    )}
+                    <button type="button" className="ui-button" onClick={props.onSaveSignal}>
+                      <DownloadIcon />
+                      Export
+                    </button>
                   </div>
-                  <canvas ref={props.chartRef} />
-                </div>
 
-                <div className="dashboard-kpi-grid">
-                  {tabSummary.metrics.map((item) => (
-                    <article key={item.label} className="dashboard-kpi-tile ui-interactive-surface">
-                      <span className="dashboard-kpi-label">{item.label}</span>
-                      <strong className={`dashboard-kpi-value ${item.tone || ""}`.trim()}>{item.value}</strong>
-                      <span className="dashboard-kpi-note">{item.note}</span>
-                    </article>
-                  ))}
+                  {!recentTrades.length ? (
+                    <div className="dashboard-empty-state">No recent account trades yet.</div>
+                  ) : (
+                    <div className="ui-table-shell dashboard-trades-table-shell">
+                      <table className="ui-table dashboard-trades-table">
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            <th>Pair</th>
+                            <th>Side</th>
+                            <th>Price</th>
+                            <th>Amount</th>
+                            <th>Total</th>
+                            <th>PnL</th>
+                            <th>Bot</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recentTrades.map((trade) => (
+                            <tr key={trade.id}>
+                              <td>{trade.timeLabel}</td>
+                              <td>
+                                <strong className="dashboard-trade-pair">{trade.pair}</strong>
+                              </td>
+                              <td>
+                                <span className={`dashboard-trade-side ${trade.sideTone}`}>{trade.side}</span>
+                              </td>
+                              <td>{formatPrice(trade.price)}</td>
+                              <td>{trade.qtyLabel}</td>
+                              <td>{formatPrice(trade.total)}</td>
+                              <td>
+                                <span className={`dashboard-trade-pnl ${trade.pnlTone}`}>{trade.pnlLabel}</span>
+                              </td>
+                              <td>
+                                <span className="dashboard-trade-bot">{trade.botLabel}</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              <aside className="dashboard-side-card dashboard-tab-side-card">
-                {activeTab === "bot-performance" ? (
-                  <>
-                    <div className="dashboard-panel-head">
+            ) : (
+              <div className="dashboard-analytics-grid">
+                <div className="dashboard-chart-shell">
+                  <div className="chart-container dashboard-chart-card">
+                    <div className="chart-header">
                       <div>
-                        <div className="dashboard-panel-kicker">Ranking</div>
-                        <h3 className="dashboard-side-title">Bot ranking</h3>
-                      </div>
-                    </div>
-                    <div className="dashboard-ranking-list">
-                      {botComparisonBars.map((item) => (
-                        <article key={item.label} className="dashboard-ranking-item">
-                          <div className="dashboard-ranking-head">
-                            <strong>{item.label}</strong>
-                            <span className={item.tone}>{formatSignedPrice(item.value)}</span>
-                          </div>
-                          <div className="dashboard-ranking-track">
-                            <div
-                              className={`dashboard-ranking-fill ${item.tone}`}
-                              style={{ width: `${getComparisonBarWidth(item.value, botComparisonBars)}%` }}
-                            />
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="dashboard-panel-head">
-                      <div>
-                        <div className="dashboard-panel-kicker">Context</div>
-                        <h3 className="dashboard-side-title">Timeframes</h3>
-                      </div>
-                    </div>
-                    <div className="timeframe-map compact dashboard-timeframe-card">
-                      <div className="timeframe-map-header">
-                        <div>
-                          <div className="dashboard-card-topline">
-                            <div className="timeframe-map-title">Timeframe map</div>
-                          </div>
-                          <div className="timeframe-map-subtitle">Quick read of the current setup context.</div>
+                        <div className="dashboard-card-topline">
+                          <div className="chart-title">{tabSummary.chartTitle}</div>
                         </div>
-                        <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
+                        <div className="card-subtitle">{tabSummary.chartSubtitle} · ventana {getRangeLabel(activeRange)}</div>
                       </div>
-                      <div className="timeframe-map-grid">
-                        {props.multiTimeframes.length ? (
-                          props.multiTimeframes.map((item) => {
-                            const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
-                            return (
-                              <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>
-                                <div className="timeframe-chip-head">
-                                  <span className="timeframe-chip-label">{item.timeframe}</span>
-                                  <span className="timeframe-chip-dot" />
-                                </div>
-                                <div className="timeframe-chip-value">{item.label}</div>
-                                <div className="timeframe-chip-note">{item.note}</div>
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="timeframe-chip wait">
-                            <div className="timeframe-chip-head">
-                              <span className="timeframe-chip-label">--</span>
-                              <span className="timeframe-chip-dot" />
-                            </div>
-                            <div className="timeframe-chip-value">Esperar</div>
-                            <div className="timeframe-chip-note">Cargando contexto</div>
+                      {activeTab === "bot-performance" ? (
+                        <button type="button" className="ui-button" onClick={props.onSaveSignal}>
+                          <DownloadIcon />
+                          Export
+                        </button>
+                      ) : (
+                        <div className="chart-legend">
+                          <div className="legend-item">
+                            <span className="legend-dot portfolio" />
+                            Portfolio
                           </div>
-                        )}
-                      </div>
+                          <div className="legend-item">
+                            <span className="legend-dot benchmark" />
+                            Benchmark
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    <canvas ref={props.chartRef} />
+                  </div>
 
-                    <div className="dashboard-funnel-list">
-                      <div className="dashboard-funnel-row">
-                        <span>Capital en ejecución</span>
-                        <strong>{formatPrice(deployedCapitalValue)}</strong>
+                  <div className="dashboard-kpi-grid">
+                    {tabSummary.metrics.map((item) => (
+                      <article key={item.label} className="dashboard-kpi-tile ui-interactive-surface">
+                        <span className="dashboard-kpi-label">{item.label}</span>
+                        <strong className={`dashboard-kpi-value ${item.tone || ""}`.trim()}>{item.value}</strong>
+                        <span className="dashboard-kpi-note">{item.note}</span>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+
+                <aside className="dashboard-side-card dashboard-tab-side-card">
+                  {activeTab === "bot-performance" ? (
+                    <>
+                      <div className="dashboard-panel-head">
+                        <div>
+                          <div className="dashboard-panel-kicker">Ranking</div>
+                          <h3 className="dashboard-side-title">Bot ranking</h3>
+                        </div>
                       </div>
-                      <div className="dashboard-funnel-row">
-                        <span>% desplegado</span>
-                        <strong>{formatPct(deploymentPct)}</strong>
+                      <div className="dashboard-ranking-list">
+                        {botComparisonBars.map((item) => (
+                          <article key={item.label} className="dashboard-ranking-item">
+                            <div className="dashboard-ranking-head">
+                              <strong>{item.label}</strong>
+                              <span className={item.tone}>{formatSignedPrice(item.value)}</span>
+                            </div>
+                            <div className="dashboard-ranking-track">
+                              <div
+                                className={`dashboard-ranking-fill ${item.tone}`}
+                                style={{ width: `${getComparisonBarWidth(item.value, botComparisonBars)}%` }}
+                              />
+                            </div>
+                          </article>
+                        ))}
                       </div>
-                      <div className="dashboard-funnel-row">
-                        <span>Señal actual</span>
-                        <strong>{signal?.label || "Esperar"}</strong>
+                    </>
+                  ) : (
+                    <>
+                      <div className="dashboard-panel-head">
+                        <div>
+                          <div className="dashboard-panel-kicker">Context</div>
+                          <h3 className="dashboard-side-title">Timeframes</h3>
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
-              </aside>
-            </div>
+                      <div className="timeframe-map compact dashboard-timeframe-card">
+                        <div className="timeframe-map-header">
+                          <div>
+                            <div className="dashboard-card-topline">
+                              <div className="timeframe-map-title">Timeframe map</div>
+                            </div>
+                            <div className="timeframe-map-subtitle">Quick read of the current setup context.</div>
+                          </div>
+                          <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
+                        </div>
+                        <div className="timeframe-map-grid">
+                          {props.multiTimeframes.length ? (
+                            props.multiTimeframes.map((item) => {
+                              const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
+                              return (
+                                <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>
+                                  <div className="timeframe-chip-head">
+                                    <span className="timeframe-chip-label">{item.timeframe}</span>
+                                    <span className="timeframe-chip-dot" />
+                                  </div>
+                                  <div className="timeframe-chip-value">{item.label}</div>
+                                  <div className="timeframe-chip-note">{item.note}</div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="timeframe-chip wait">
+                              <div className="timeframe-chip-head">
+                                <span className="timeframe-chip-label">--</span>
+                                <span className="timeframe-chip-dot" />
+                              </div>
+                              <div className="timeframe-chip-value">Esperar</div>
+                              <div className="timeframe-chip-note">Cargando contexto</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="dashboard-funnel-list">
+                        <div className="dashboard-funnel-row">
+                          <span>Capital en ejecución</span>
+                          <strong>{formatPrice(deployedCapitalValue)}</strong>
+                        </div>
+                        <div className="dashboard-funnel-row">
+                          <span>% desplegado</span>
+                          <strong>{formatPct(deploymentPct)}</strong>
+                        </div>
+                        <div className="dashboard-funnel-row">
+                          <span>Señal actual</span>
+                          <strong>{signal?.label || "Esperar"}</strong>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </aside>
+              </div>
+            )}
           </div>
         </section>
       </div>
@@ -475,8 +543,7 @@ function isPositiveClosedOutcome(item: ExecutionOrderRecord) {
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "bot-performance", label: "Bot Performance" },
-  { id: "capital", label: "Capital" },
-  { id: "activity", label: "Recent Activity" },
+  { id: "recent-trades", label: "Recent Trades" },
 ];
 
 const DASHBOARD_RANGES: Array<{ id: DashboardRange; label: string }> = [
@@ -527,44 +594,24 @@ function getDashboardTabSummary(
           { label: "Bloqueados", value: String(input.blockedCount), note: "Setups rechazados por edge guard" },
         ],
       };
-    case "capital":
+    case "recent-trades":
       return {
-        kicker: "Capital",
-        title: "Capital overview",
-        subtitle: "Capital deployed, cash and portfolio balance.",
-        chartTitle: "Portfolio performance",
-        chartSubtitle: "Portfolio curve by selected range",
-        helpBody: "Resume capital allocation and liquidity at a glance.",
+        kicker: "Recent trades",
+        title: "Recent trades",
+        subtitle: "Last account trades for quick review.",
+        chartTitle: "",
+        chartSubtitle: "",
+        helpBody: "Shows the last 5 account trades without pagination.",
         helpBullets: [
-          "Deployed capital.",
-          "Available cash.",
-          "Recent portfolio move.",
+          "Latest account activity.",
+          "Fast pnl read.",
+          "Quick bot attribution.",
         ],
         metrics: [
-          { label: "Capital en ejecución", value: formatPrice(input.deployedCapitalValue), note: `${formatPct(input.deploymentPct)} del portfolio total` },
-          { label: "Portfolio total", value: formatPrice(input.portfolioTotal), note: "Base completa del capital visible" },
-          { label: "Caja", value: formatPct(input.cashPct), note: "Porcentaje líquido disponible" },
-          { label: "24h P&L", value: formatSignedPrice(input.portfolioChangeValue), note: "Movimiento reciente del portfolio", tone: getSignedTone(input.portfolioChangeValue) },
-        ],
-      };
-    case "activity":
-      return {
-        kicker: "Recent activity",
-        title: "Recent activity",
-        subtitle: "Orders, alerts and system activity.",
-        chartTitle: "Recent performance",
-        chartSubtitle: "Recent activity by selected range",
-        helpBody: "Shows the latest operating trace and alerts.",
-        helpBullets: [
-          "Recent orders.",
-          "Active alerts.",
-          "Quick supervision view.",
-        ],
-        metrics: [
-          { label: "Órdenes recientes", value: String(input.recentOrdersCount), note: "Trazas demo recientes" },
-          { label: "Auto restantes", value: String(input.executionAccount?.autoExecutionRemaining ?? 0), note: "Capacidad disponible hoy" },
-          { label: "Loss streak", value: String(input.executionAccount?.recentLossStreak ?? 0), note: "Racha reciente bajo vigilancia" },
-          { label: "Daily loss", value: `${Number(input.executionAccount?.dailyLossPct || 0).toFixed(2)}%`, note: "Consumo del límite diario" },
+          { label: "Recent trades", value: String(input.recentOrdersCount), note: "Quick account view" },
+          { label: "Auto left", value: String(input.executionAccount?.autoExecutionRemaining ?? 0), note: "Available today" },
+          { label: "Loss streak", value: String(input.executionAccount?.recentLossStreak ?? 0), note: "Under watch" },
+          { label: "Daily loss", value: `${Number(input.executionAccount?.dailyLossPct || 0).toFixed(2)}%`, note: "Risk usage" },
         ],
       };
     case "overview":
@@ -690,6 +737,96 @@ function getRangeCutoff(range: DashboardRange) {
 function getComparisonBarWidth(value: number, bars: Array<{ value: number }>) {
   const maxValue = Math.max(...bars.map((item) => Math.abs(item.value)), 1);
   return (Math.abs(value) / maxValue) * 100;
+}
+
+interface DashboardRecentTradeRow {
+  id: string;
+  timeLabel: string;
+  pair: string;
+  side: "BUY" | "SELL";
+  sideTone: "buy" | "sell";
+  price: number;
+  total: number;
+  qtyLabel: string;
+  pnlLabel: string;
+  pnlTone: "positive" | "negative" | "neutral";
+  botLabel: string;
+}
+
+function buildRecentTradesRows(
+  trades: BinanceTradeSummary[],
+  orders: ExecutionOrderRecord[],
+): DashboardRecentTradeRow[] {
+  if (trades.length) {
+    return [...trades]
+      .sort((a, b) => (b.time || 0) - (a.time || 0))
+      .slice(0, 5)
+      .map((trade, index) => {
+        const pnl = Number(trade.realizedPnl || 0);
+        return {
+          id: `${trade.orderId || trade.time || index}-${trade.symbol}-${trade.side}`,
+          timeLabel: formatTradeTime(trade.time),
+          pair: trade.symbol,
+          side: trade.side,
+          sideTone: trade.side === "BUY" ? "buy" : "sell",
+          price: Number(trade.price || 0),
+          total: Number(trade.value || Number(trade.qty || 0) * Number(trade.price || 0)),
+          qtyLabel: formatTradeQty(trade.qty),
+          pnlLabel: formatSignedPrice(pnl),
+          pnlTone: getSignedTone(pnl),
+          botLabel: getTradeOriginLabel(trade.originLabel, trade.sourceType),
+        };
+      });
+  }
+
+  return [...orders]
+    .sort((a, b) => new Date(b.closed_at || b.created_at).getTime() - new Date(a.closed_at || a.created_at).getTime())
+    .slice(0, 5)
+    .map((order) => {
+      const pnl = Number(order.realized_pnl || 0);
+      const qty = Number(order.quantity || 0);
+      const price = Number(order.current_price || 0);
+      const total = Number(order.notional_usd || qty * price);
+      const side = String(order.side).toUpperCase() === "SELL" ? "SELL" : "BUY";
+      return {
+        id: String(order.id),
+        timeLabel: formatTradeTime(order.closed_at || order.created_at),
+        pair: order.coin ? `${order.coin}/USDT` : "--",
+        side,
+        sideTone: side === "SELL" ? "sell" : "buy",
+        price,
+        total,
+        qtyLabel: formatTradeQty(qty),
+        pnlLabel: formatSignedPrice(pnl),
+        pnlTone: getSignedTone(pnl),
+        botLabel: getTradeOriginLabel(order.strategy_name, order.origin),
+      };
+    });
+}
+
+function formatTradeTime(value: number | string | undefined) {
+  if (!value) return "--";
+  const date = typeof value === "number" ? new Date(value) : new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function formatTradeQty(value: number | undefined) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount) || amount <= 0) return "--";
+  return amount >= 1 ? amount.toLocaleString(undefined, { maximumFractionDigits: 3 }) : amount.toFixed(4);
+}
+
+function getTradeOriginLabel(originLabel?: string, sourceType?: string) {
+  const raw = String(originLabel || sourceType || "").trim().toLowerCase();
+  if (!raw) return "Manual";
+  if (raw.includes("signal")) return "Signal Bot";
+  if (raw.includes("dca")) return "DCA Bot";
+  if (raw.includes("grid")) return "Grid Bot";
+  if (raw.includes("manual")) return "Manual";
+  return String(originLabel || sourceType || "Bot")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 function getRangeStartValue(totalValue: number, totalPnl: number, dayChange: number, range: DashboardRange) {

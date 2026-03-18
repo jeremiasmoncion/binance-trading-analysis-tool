@@ -86,16 +86,6 @@ export function TopBar(props: TopBarProps) {
   return (
     <header className="top-bar">
       <div className="top-left">
-        <div className="topbar-brand-shell">
-          <div className="topbar-brand-icon">
-            <span className="logo-icon-core">C</span>
-          </div>
-          <div className="topbar-brand-copy">
-            <div className="topbar-brand-name">CRYPE</div>
-            <div className="topbar-brand-subtitle">IA Trading Platform</div>
-          </div>
-        </div>
-
         <div className="search-coin" ref={wrapperRef}>
           {query ? (
             <button

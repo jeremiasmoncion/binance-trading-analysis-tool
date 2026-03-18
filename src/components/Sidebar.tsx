@@ -99,6 +99,16 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-header">
         <div className="sidebar-header-row">
+          <div className="sidebar-brand-shell">
+            <div className="sidebar-brand-icon">
+              <span className="logo-icon-core">C</span>
+            </div>
+            <div className="sidebar-brand-copy">
+              <h1>CRYPE</h1>
+              <p>IA Trading Platform</p>
+            </div>
+          </div>
+
           <button
             type="button"
             className="sidebar-toggle sidebar-toggle-standalone"

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDownIcon, CoinsIcon, DownloadIcon, SearchIcon, SlidersHorizontalIcon, TrendDownIcon, TrendUpIcon, WalletIcon } from "../components/Icons";
+import { ArrowUpDownIcon, CoinsIcon, DownloadIcon, RepeatIcon, SearchIcon, SendIcon, SlidersHorizontalIcon, TrendDownIcon, TrendUpIcon, UploadIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
 import type { BinanceAccountMovement, PortfolioAsset, PortfolioPayload } from "../types";
@@ -115,6 +115,23 @@ function formatMovementDate(time: number) {
   }).format(new Date(time));
 }
 
+function formatRelativeMovementTime(time: number) {
+  if (!time) return "Sin fecha";
+  const diffMs = Date.now() - time;
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours < 1) {
+    const diffMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
+    return `Hace ${diffMinutes} min`;
+  }
+  if (diffHours < 24) {
+    return `Hace ${diffHours} h`;
+  }
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "Ayer";
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  return formatMovementDate(time);
+}
+
 function getMovementStatusLabel(status: string) {
   const normalized = String(status || "").toLowerCase();
   if (["1", "6", "completed", "success"].includes(normalized)) return "Completado";
@@ -192,6 +209,11 @@ export function BalanceView(props: BalanceViewProps) {
   const filteredMovements = useMemo(() => {
     return accountMovements.filter((movement) => movementFilter === "all" ? true : movement.type === movementFilter);
   }, [accountMovements, movementFilter]);
+  const recentMovements = useMemo(() => {
+    return [...accountMovements]
+      .sort((left, right) => Number(right.time || 0) - Number(left.time || 0))
+      .slice(0, 3);
+  }, [accountMovements]);
   const assetPageSize = 10;
   const totalAssetPages = Math.max(1, Math.ceil(filteredAssets.length / assetPageSize));
   const paginatedAssets = useMemo(() => {
@@ -419,34 +441,79 @@ export function BalanceView(props: BalanceViewProps) {
               ) : null}
             </section>
 
-            <aside className="wallet-allocation-card">
-              <h3 className="wallet-card-title">Portfolio Allocation</h3>
-              <div className="wallet-allocation-donut" style={{ backgroundImage: allocationGradient }}>
-                <div className="wallet-allocation-center">
-                  <div className="wallet-allocation-center-value">{visibleAssets.length}</div>
-                  <div className="wallet-allocation-center-label">Assets</div>
+            <div className="wallet-side-stack">
+              <aside className="wallet-allocation-card">
+                <h3 className="wallet-card-title">Portfolio Allocation</h3>
+                <div className="wallet-allocation-donut" style={{ backgroundImage: allocationGradient }}>
+                  <div className="wallet-allocation-center">
+                    <div className="wallet-allocation-center-value">{visibleAssets.length}</div>
+                    <div className="wallet-allocation-center-label">Assets</div>
+                  </div>
                 </div>
-              </div>
-              <div className="wallet-allocation-legend ui-legend">
-                {allocation.length ? (
-                  allocation.map((asset) => (
-                    <div key={asset.asset} className="wallet-allocation-row ui-legend-row">
-                      <div className="wallet-allocation-asset ui-legend-key">
-                        <span
-                          className="wallet-allocation-dot"
-                          style={{ backgroundColor: asset.color }}
-                          aria-hidden="true"
-                        />
-                        <span>{asset.asset}</span>
+                <div className="wallet-allocation-legend ui-legend">
+                  {allocation.length ? (
+                    allocation.map((asset) => (
+                      <div key={asset.asset} className="wallet-allocation-row ui-legend-row">
+                        <div className="wallet-allocation-asset ui-legend-key">
+                          <span
+                            className="wallet-allocation-dot"
+                            style={{ backgroundColor: asset.color }}
+                            aria-hidden="true"
+                          />
+                          <span>{asset.asset}</span>
+                        </div>
+                        <span>{formatPct(asset.sharePct)}</span>
                       </div>
-                      <span>{formatPct(asset.sharePct)}</span>
+                    ))
+                  ) : (
+                    <div className="wallet-allocation-empty">Todavía no hay asignación visible.</div>
+                  )}
+                </div>
+              </aside>
+
+              <section className="wallet-actions-card">
+                <h3 className="wallet-card-title">Quick Actions</h3>
+                <div className="wallet-actions-grid">
+                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-success"><DownloadIcon /></span>
+                    <span className="wallet-action-label">Deposit</span>
+                  </button>
+                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-info"><UploadIcon /></span>
+                    <span className="wallet-action-label">Withdraw</span>
+                  </button>
+                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-accent"><RepeatIcon /></span>
+                    <span className="wallet-action-label">Swap</span>
+                  </button>
+                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-warning"><SendIcon /></span>
+                    <span className="wallet-action-label">Transfer</span>
+                  </button>
+                </div>
+              </section>
+
+              <section className="wallet-recent-card">
+                <div className="wallet-card-header wallet-recent-header">
+                  <div className="wallet-card-title-block">
+                    <h3 className="wallet-card-title">Recent Activity</h3>
+                  </div>
+                  <button type="button" className="wallet-link-button">View All</button>
+                </div>
+
+                <div className="wallet-recent-stack">
+                  {recentMovements.length ? (
+                    recentMovements.map((movement) => (
+                      <WalletRecentActivityItem key={movement.id} movement={movement} />
+                    ))
+                  ) : (
+                    <div className="wallet-recent-empty">
+                      <EmptyState message="Todavía no encontramos actividad reciente visible en esta cuenta Binance Demo." />
                     </div>
-                  ))
-                ) : (
-                  <div className="wallet-allocation-empty">Todavía no hay asignación visible.</div>
-                )}
-              </div>
-            </aside>
+                  )}
+                </div>
+              </section>
+            </div>
           </div>
         </>
       ) : null}
@@ -561,6 +628,30 @@ function WalletMovementCard({ movement }: { movement: BinanceAccountMovement }) 
           {isDeposit ? "+" : "-"}{formatAmount(movement.amount)} {movement.asset}
         </div>
         <div className="wallet-movement-usd">{movement.estimatedUsdValue ? formatPrice(movement.estimatedUsdValue) : "Valor no disponible"}</div>
+      </div>
+    </article>
+  );
+}
+
+function WalletRecentActivityItem({ movement }: { movement: BinanceAccountMovement }) {
+  const isDeposit = movement.type === "deposit";
+
+  return (
+    <article className="wallet-recent-item">
+      <div className="wallet-recent-main">
+        <div className={`wallet-movement-icon ${isDeposit ? "wallet-movement-icon-deposit" : "wallet-movement-icon-withdrawal"}`}>
+          {isDeposit ? <DownloadIcon /> : <UploadIcon />}
+        </div>
+        <div className="wallet-recent-copy">
+          <div className="wallet-recent-title">{isDeposit ? `Received ${movement.asset}` : `Sent ${movement.asset}`}</div>
+          <div className="wallet-recent-meta">{formatRelativeMovementTime(movement.time)}</div>
+        </div>
+      </div>
+      <div className="wallet-recent-values">
+        <div className={`wallet-recent-amount ${isDeposit ? "wallet-positive" : "wallet-negative"}`}>
+          {isDeposit ? "+" : "-"}{formatAmount(movement.amount)} {movement.asset}
+        </div>
+        <div className="wallet-recent-usd">{movement.estimatedUsdValue ? formatPrice(movement.estimatedUsdValue) : "Valor no disponible"}</div>
       </div>
     </article>
   );

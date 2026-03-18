@@ -344,7 +344,11 @@ export function BalanceView(props: BalanceViewProps) {
                   allocation.map((asset) => (
                     <div key={asset.asset} className="wallet-allocation-row ui-legend-row">
                       <div className="wallet-allocation-asset ui-legend-key">
-                        <span className="wallet-allocation-dot ui-legend-dot" style={{ backgroundColor: asset.color }} />
+                        <AssetLogo
+                          asset={asset.asset}
+                          className="wallet-allocation-logo"
+                          fallbackClassName="wallet-allocation-logo wallet-allocation-logo-fallback"
+                        />
                         <span>{asset.asset}</span>
                       </div>
                       <span>{formatPct(asset.sharePct)}</span>

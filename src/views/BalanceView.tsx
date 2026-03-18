@@ -1,9 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ModuleTabs } from "../components/ModuleTabs";
-import { SearchIcon } from "../components/Icons";
+import { useMemo, useState } from "react";
 import { EmptyState } from "../components/ui/EmptyState";
-import { SectionCard } from "../components/ui/SectionCard";
-import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
 import type { BinanceOrderSummary, BinanceTradeSummary, PortfolioAsset, PortfolioPayload } from "../types";
 
@@ -16,499 +12,442 @@ interface BalanceViewProps {
   onToggleHideSmall: (value: boolean) => void;
 }
 
-const PAGE_SIZE = 10;
+type WalletTab = "holdings" | "nfts" | "staking" | "history";
+type AssetFilter = "all" | "large" | "mid" | "small" | "stablecoins" | "defi";
 
-function getPerformanceClass(value: number) {
-  if (value > 0) return "portfolio-positive";
-  if (value < 0) return "portfolio-negative";
-  return "portfolio-neutral";
-}
+const STABLE_ASSETS = new Set(["USDT", "USDC", "FDUSD", "DAI", "TUSD", "BUSD"]);
+const DEFI_ASSETS = new Set(["UNI", "AAVE", "LINK", "MKR", "LDO", "CRV", "SNX", "COMP", "SUSHI"]);
 
 function getVisibleAssets(payload: PortfolioPayload | null, hideSmallAssets: boolean) {
   const assets = payload?.assets || [];
   return hideSmallAssets ? assets.filter((asset) => Number(asset.marketValue || 0) >= 1) : assets;
 }
 
+function getPerformanceClass(value: number) {
+  if (value > 0) return "wallet-positive";
+  if (value < 0) return "wallet-negative";
+  return "wallet-neutral";
+}
+
+function classifyAsset(asset: PortfolioAsset): AssetFilter {
+  if (STABLE_ASSETS.has(asset.asset)) return "stablecoins";
+  if (DEFI_ASSETS.has(asset.asset)) return "defi";
+  if (asset.marketValue >= 10_000) return "large";
+  if (asset.marketValue >= 1_000) return "mid";
+  return "small";
+}
+
+function buildAllocation(assets: PortfolioAsset[]) {
+  const ranked = assets
+    .filter((asset) => asset.marketValue > 0)
+    .sort((a, b) => b.marketValue - a.marketValue)
+    .slice(0, 5);
+  const total = ranked.reduce((sum, asset) => sum + asset.marketValue, 0);
+  return ranked.map((asset, index) => ({
+    ...asset,
+    sharePct: total > 0 ? (asset.marketValue / total) * 100 : 0,
+    color: ["#f59e0b", "#6366f1", "#8b5cf6", "#ef4444", "#14b8a6"][index] || "#94a3b8",
+  }));
+}
+
+function buildAllocationGradient(items: ReturnType<typeof buildAllocation>) {
+  if (!items.length) {
+    return "conic-gradient(#1e293b 0deg 360deg)";
+  }
+
+  let current = 0;
+  const stops = items.map((item) => {
+    const start = current;
+    current += (item.sharePct / 100) * 360;
+    return `${item.color} ${start}deg ${current}deg`;
+  });
+  if (current < 360) {
+    stops.push(`#1e293b ${current}deg 360deg`);
+  }
+  return `conic-gradient(${stops.join(", ")})`;
+}
+
 export function BalanceView(props: BalanceViewProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "assets" | "history">("overview");
-  const [assetPage, setAssetPage] = useState(1);
-  const [openOrdersPage, setOpenOrdersPage] = useState(1);
-  const [closedOrdersPage, setClosedOrdersPage] = useState(1);
-  const [tradesPage, setTradesPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<WalletTab>("holdings");
+  const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
+  const [assetSearch, setAssetSearch] = useState("");
   const portfolio = props.payload?.portfolio;
   const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
-  const openOrders = props.payload?.openOrders || [];
-  const recentOrders = props.payload?.recentOrders || [];
-  const recentTrades = props.payload?.recentTrades || [];
-  const nonUsdtAssets = visibleAssets.filter((asset) => asset.asset !== "USDT");
-  const winner = nonUsdtAssets.slice().sort((a, b) => b.pnlValue - a.pnlValue)[0];
-  const loser = nonUsdtAssets.slice().sort((a, b) => a.pnlValue - b.pnlValue)[0];
-  const dominant = nonUsdtAssets.slice().sort((a, b) => b.marketValue - a.marketValue)[0];
-  const totalVisibleValue = visibleAssets.reduce((sum, asset) => sum + Number(asset.marketValue || 0), 0);
-  const periodLabel = props.period === "30d" ? "30 días" : props.period === "7d" ? "7 días" : "ayer";
-  const hiddenLockedValue = portfolio?.hiddenLockedValue || 0;
-  const hiddenLockedAssetsCount = portfolio?.hiddenLockedAssetsCount || 0;
-  const pagedAssets = useMemo(() => paginateRows(visibleAssets, assetPage), [visibleAssets, assetPage]);
-  const pagedOpenOrders = useMemo(() => paginateRows(openOrders, openOrdersPage), [openOrders, openOrdersPage]);
-  const pagedClosedOrders = useMemo(() => paginateRows(recentOrders, closedOrdersPage), [recentOrders, closedOrdersPage]);
-  const pagedTrades = useMemo(() => paginateRows(recentTrades, tradesPage), [recentTrades, tradesPage]);
-
-  useEffect(() => {
-    setAssetPage(1);
-  }, [props.hideSmallAssets, props.payload?.assets?.length]);
-
-  useEffect(() => {
-    setOpenOrdersPage(1);
-    setClosedOrdersPage(1);
-    setTradesPage(1);
-  }, [props.payload?.openOrders?.length, props.payload?.recentOrders?.length, props.payload?.recentTrades?.length]);
+  const periodLabel = props.period === "30d" ? "30D" : props.period === "7d" ? "7D" : "Today";
+  const positiveAssets = visibleAssets.filter((asset) => asset.pnlValue > 0);
+  const negativeAssets = visibleAssets.filter((asset) => asset.pnlValue < 0);
+  const bestPerformer = visibleAssets.slice().sort((a, b) => b.pnlPct - a.pnlPct)[0];
+  const allocation = useMemo(() => buildAllocation(visibleAssets), [visibleAssets]);
+  const allocationGradient = useMemo(() => buildAllocationGradient(allocation), [allocation]);
+  const filteredAssets = useMemo(() => {
+    return visibleAssets.filter((asset) => {
+      const matchesFilter = assetFilter === "all" ? true : classifyAsset(asset) === assetFilter;
+      const needle = assetSearch.trim().toUpperCase();
+      const matchesSearch = needle ? asset.asset.includes(needle) || asset.symbol.includes(needle) : true;
+      return matchesFilter && matchesSearch;
+    });
+  }, [assetFilter, assetSearch, visibleAssets]);
 
   return (
-    <div id="balanceView" className="view-panel active">
-      <section id="balance-overview">
-        <SectionCard
-          title="Balance"
-          subtitle="Ve tu dinero total, el cambio frente al período elegido y el rendimiento vivo de tus activos conectados a Binance Demo Spot."
-          helpTitle="Como leer Balance"
-          helpBody="Esta vista resume cuanto capital tienes, como se esta moviendo y que parte de la cuenta esta abierta, liquida o ya cerrada."
-          helpBullets={[
-            "Resumen te da la foto general del capital y del PnL.",
-            "Activos te deja bajar al detalle por moneda.",
-            "Historial muestra ordenes y trades reales de Binance Demo.",
-          ]}
-          actions={
-            <div className="inline-actions">
-              <select className="timeframe-select" value={props.period} onChange={(e) => props.onPeriodChange(e.target.value)}>
-                <option value="1d">Comparar con ayer</option>
-                <option value="7d">Comparar con 7 días</option>
-                <option value="30d">Comparar con 30 días</option>
-              </select>
-              <button className="btn-primary" onClick={props.onRefresh}>Actualizar capital</button>
+    <div id="balanceView" className="view-panel active wallet-template-view">
+      <div className="wallet-hero-card">
+        <div className="wallet-hero-main">
+          <div className="wallet-hero-icon">C</div>
+          <div className="wallet-hero-copy">
+            <div className="wallet-hero-label">Total Portfolio Value</div>
+            <div className="wallet-hero-value">{formatPrice(portfolio?.totalValue || 0)}</div>
+            <div className="wallet-hero-change-row">
+              <span className={`wallet-hero-badge ${getPerformanceClass(portfolio?.periodChangeValue || 0)}`}>
+                {formatSignedPrice(portfolio?.periodChangeValue || 0)} ({formatSignedPct(portfolio?.periodChangePct || 0)})
+              </span>
+              <span className="wallet-hero-change-label">{periodLabel} Change</span>
             </div>
-          }
-        />
-      </section>
+          </div>
+        </div>
 
-      <ModuleTabs
-        items={[
-          { key: "overview", label: "Resumen" },
-          { key: "assets", label: "Activos" },
-          { key: "history", label: "Historial" },
-        ]}
-        activeKey={activeTab}
-        onChange={(key) => setActiveTab(key as "overview" | "assets" | "history")}
-      />
+        <div className="wallet-hero-metrics">
+          <div className="wallet-hero-metric-box">
+            <div className="wallet-hero-metric-label">Today's P&amp;L</div>
+            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.realizedPnl || 0)}`}>{formatSignedPrice(portfolio?.realizedPnl || 0)}</div>
+          </div>
+          <div className="wallet-hero-metric-box">
+            <div className="wallet-hero-metric-label">{periodLabel} P&amp;L</div>
+            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.periodChangeValue || 0)}`}>{formatSignedPrice(portfolio?.periodChangeValue || 0)}</div>
+          </div>
+          <div className="wallet-hero-metric-box">
+            <div className="wallet-hero-metric-label">Open P&amp;L</div>
+            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.unrealizedPnl || 0)}`}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</div>
+          </div>
+          <div className="wallet-hero-metric-box">
+            <div className="wallet-hero-metric-label">All Time</div>
+            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.totalPnl || 0)}`}>{formatSignedPrice(portfolio?.totalPnl || 0)}</div>
+          </div>
+        </div>
+      </div>
 
-      {activeTab === "overview" ? (
+      <div className="wallet-toolbar-row">
+        <div className="wallet-tab-bar">
+          <button className={`wallet-tab-button ${activeTab === "holdings" ? "active" : ""}`} onClick={() => setActiveTab("holdings")}>Holdings</button>
+          <button className={`wallet-tab-button ${activeTab === "nfts" ? "active" : ""}`} onClick={() => setActiveTab("nfts")}>NFTs</button>
+          <button className={`wallet-tab-button ${activeTab === "staking" ? "active" : ""}`} onClick={() => setActiveTab("staking")}>Staking</button>
+          <button className={`wallet-tab-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}>History</button>
+        </div>
+
+        <div className="wallet-toolbar-actions">
+          <button className="wallet-secondary-button" onClick={() => props.onToggleHideSmall(!props.hideSmallAssets)}>
+            {props.hideSmallAssets ? "Show All" : "Filters"}
+          </button>
+          <button className="wallet-secondary-button" onClick={props.onRefresh}>Export</button>
+        </div>
+      </div>
+
+      {activeTab === "holdings" ? (
         <>
-          <div className="premium-overview-grid">
-            <StatCard label="Capital total" value={formatPrice(portfolio?.totalValue || 0)} accentClass="accent-blue" sub={
-              <>
-                Cuenta {props.payload?.summary?.accountType || "SPOT"} · {props.payload?.summary?.uid ? `UID ${props.payload.summary.uid}` : "sin UID visible"}
-                {hiddenLockedAssetsCount ? ` · Excluye ${formatPrice(hiddenLockedValue)} bloqueado` : ""}
-              </>
-            } helpTitle="Capital total" helpBody="Es el valor estimado de la cuenta segun la lectura actual de Binance Demo. Si hay fondos totalmente bloqueados, se aclaran en el detalle." />
-            <StatCard label="Incremento del período" value={formatSignedPrice(portfolio?.periodChangeValue || 0)} toneClass={getPerformanceClass(portfolio?.periodChangeValue || 0)} accentClass="accent-green" sub={`Comparado con ${periodLabel} · ${formatSignedPct(portfolio?.periodChangePct || 0)}`} helpTitle="Incremento del periodo" helpBody="Compara tu cuenta actual contra el punto de referencia del periodo elegido para mostrar si el balance va mejor o peor." />
-            <StatCard label="PnL realizado" value={formatSignedPrice(portfolio?.realizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.realizedPnl || 0)} accentClass="accent-green" sub="Ganancia o pérdida ya cerrada por ventas" helpTitle="PnL realizado" helpBody="Mide lo que ya quedo cerrado en ventas ejecutadas. Es ganancia o perdida que ya no depende de una posicion abierta." />
-            <StatCard label="PnL no realizado" value={formatSignedPrice(portfolio?.unrealizedPnl || 0)} toneClass={getPerformanceClass(portfolio?.unrealizedPnl || 0)} accentClass="accent-emerald" sub={`${formatSignedPct(portfolio?.unrealizedPnlPct || 0)} sobre activos todavía abiertos`} helpTitle="PnL no realizado" helpBody="Es lo que hoy ganarias o perderias si cerraras las posiciones abiertas al precio actual." />
-            <StatCard label="PnL total" value={formatSignedPrice(portfolio?.totalPnl || 0)} toneClass={getPerformanceClass(portfolio?.totalPnl || 0)} accentClass="accent-blue" sub="Realizado + no realizado" helpTitle="PnL total" helpBody="Suma lo ya cerrado y lo que sigue abierto para darte una lectura global del rendimiento." />
-            <StatCard label="Activos en verde" value={String(portfolio?.winnersCount || 0)} accentClass="accent-amber" sub={`${portfolio?.openPositionsCount || 0} activos visibles`} helpTitle="Activos en verde" helpBody="Cuenta cuantas posiciones visibles van positivas en este momento frente a su costo promedio." />
+          <div className="wallet-quick-stats-grid">
+            <div className="wallet-quick-card">
+              <div>
+                <div className="wallet-quick-label">Total Assets</div>
+                <div className="wallet-quick-value">{visibleAssets.length}</div>
+                <div className="wallet-quick-chip">{props.payload?.summary?.accountType || "SPOT"} Account</div>
+              </div>
+              <div className="wallet-quick-icon wallet-quick-icon-info">◎</div>
+            </div>
+
+            <div className="wallet-quick-card">
+              <div>
+                <div className="wallet-quick-label">In Profit</div>
+                <div className="wallet-quick-value wallet-positive">{positiveAssets.length}</div>
+                <div className="wallet-quick-chip wallet-positive">{visibleAssets.length ? formatPct((positiveAssets.length / visibleAssets.length) * 100) : "0%"}</div>
+              </div>
+              <div className="wallet-quick-icon wallet-quick-icon-success">↗</div>
+            </div>
+
+            <div className="wallet-quick-card">
+              <div>
+                <div className="wallet-quick-label">In Loss</div>
+                <div className="wallet-quick-value wallet-negative">{negativeAssets.length}</div>
+                <div className="wallet-quick-chip wallet-negative">{visibleAssets.length ? formatPct((negativeAssets.length / visibleAssets.length) * 100) : "0%"}</div>
+              </div>
+              <div className="wallet-quick-icon wallet-quick-icon-danger">↘</div>
+            </div>
+
+            <div className="wallet-quick-card">
+              <div>
+                <div className="wallet-quick-label">Best Performer</div>
+                <div className="wallet-quick-value">{bestPerformer?.asset || "--"}</div>
+                <div className={`wallet-quick-chip ${getPerformanceClass(bestPerformer?.pnlPct || 0)}`}>{bestPerformer ? formatSignedPct(bestPerformer.pnlPct) : "--"}</div>
+              </div>
+              <div className="wallet-quick-icon wallet-quick-icon-accent">{bestPerformer?.asset?.slice(0, 3) || "TOP"}</div>
+            </div>
           </div>
 
-          <div className="dashboard-main-grid">
-            <div className="dashboard-stack">
-              <SectionCard
-                title="Resumen del dinero"
-                subtitle="Tu liquidez, lo que está invertido y la base estimada de tus activos visibles."
-                helpTitle="Resumen del dinero"
-                helpBody="Este bloque separa el dinero liquido, el valor actual de las monedas y la base estimada con la que fueron construidas tus posiciones."
-              >
-                <div className="balance-money-tile-grid">
-                  <div className="balance-money-tile">
-                    <div className="balance-money-label">Disponible en USDT</div>
-                    <div className="balance-money-value">{formatPrice(portfolio?.cashValue || 0)}</div>
-                    <div className="balance-money-sub">Liquidez lista para operar</div>
-                  </div>
-                  <div className="balance-money-tile">
-                    <div className="balance-money-label">Capital en monedas</div>
-                    <div className="balance-money-value">{formatPrice(portfolio?.positionsValue || 0)}</div>
-                    <div className="balance-money-sub">Valor vivo de tus activos</div>
-                  </div>
-                  <div className="balance-money-tile">
-                    <div className="balance-money-label">Costo promedio abierto</div>
-                    <div className="balance-money-value">{formatPrice(portfolio?.investedValue || 0)}</div>
-                    <div className="balance-money-sub">Base estimada según tus trades</div>
-                  </div>
-                  <div className="balance-money-tile">
-                    <div className="balance-money-label">Última lectura</div>
-                    <div className="balance-money-value">{portfolio?.updatedAt ? new Date(portfolio.updatedAt).toLocaleTimeString("es-ES") : "--:--"}</div>
-                    <div className="balance-money-sub">Dato calculado en backend</div>
-                  </div>
+          <div className="wallet-main-grid">
+            <section className="wallet-holdings-card">
+              <div className="wallet-card-header">
+                <div className="wallet-card-title-block">
+                  <h3 className="wallet-card-title">Asset Holdings</h3>
                 </div>
-              </SectionCard>
-            </div>
-
-            <aside className="dashboard-stack">
-              <div className="card">
-                <div className="card-header">
-                  <div>
-                    <div className="card-title">Lectura rápida</div>
-                    <div className="card-subtitle">Una vista corta para saber qué está empujando tu balance y qué lo está frenando.</div>
+                <div className="wallet-card-tools">
+                  <div className="wallet-search-shell">
+                    <input
+                      value={assetSearch}
+                      onChange={(event) => setAssetSearch(event.target.value)}
+                      placeholder="Search assets..."
+                    />
                   </div>
-                </div>
-                <div>
-                  {winner ? (
-                    <div className="portfolio-highlight-card">
-                      <div className="portfolio-highlight-title">Mejor abierta: {winner.asset}</div>
-                      <div className="portfolio-highlight-note">Ahora mismo va en <span className="portfolio-positive">{formatSignedPrice(winner.pnlValue)}</span> ({formatSignedPct(winner.pnlPct)}) frente a su costo promedio real.</div>
-                    </div>
-                  ) : null}
-                  {loser ? (
-                    <div className="portfolio-highlight-card">
-                      <div className="portfolio-highlight-title">Más presionada: {loser.asset}</div>
-                      <div className="portfolio-highlight-note">Actualmente va en <span className={getPerformanceClass(loser.pnlValue)}>{formatSignedPrice(loser.pnlValue)}</span> ({formatSignedPct(loser.pnlPct)}).</div>
-                    </div>
-                  ) : null}
-                  {dominant && totalVisibleValue > 0 ? (
-                    <div className="portfolio-highlight-card">
-                      <div className="portfolio-highlight-title">Mayor peso: {dominant.asset}</div>
-                      <div className="portfolio-highlight-note">Representa {formatPct((dominant.marketValue / totalVisibleValue) * 100)} de tu cuenta y hoy vale {formatPrice(dominant.marketValue)}.</div>
-                    </div>
-                  ) : null}
-                  {!winner && !loser && !dominant ? (
-                    <div className="portfolio-highlight-card">
-                      <div className="portfolio-highlight-title">Sin activos visibles</div>
-                      <div className="portfolio-highlight-note">La cuenta no tiene monedas con valor distinto de cero fuera de USDT.</div>
-                    </div>
-                  ) : null}
+                  <button className="wallet-secondary-button" onClick={props.onRefresh}>Sort</button>
                 </div>
               </div>
 
-              <div className="card">
-                <div className="card-header">
-                  <div>
-                    <div className="card-title">Nota del cálculo</div>
-                    <div className="card-subtitle">Para que tengas claro cómo estamos leyendo el cambio y el beneficio.</div>
-                  </div>
+              <div className="wallet-filter-chip-row">
+                <button className={`wallet-filter-chip ${assetFilter === "all" ? "active" : ""}`} onClick={() => setAssetFilter("all")}>All Assets</button>
+                <button className={`wallet-filter-chip ${assetFilter === "large" ? "active" : ""}`} onClick={() => setAssetFilter("large")}>Large Cap</button>
+                <button className={`wallet-filter-chip ${assetFilter === "mid" ? "active" : ""}`} onClick={() => setAssetFilter("mid")}>Mid Cap</button>
+                <button className={`wallet-filter-chip ${assetFilter === "small" ? "active" : ""}`} onClick={() => setAssetFilter("small")}>Small Cap</button>
+                <button className={`wallet-filter-chip ${assetFilter === "stablecoins" ? "active" : ""}`} onClick={() => setAssetFilter("stablecoins")}>Stablecoins</button>
+                <button className={`wallet-filter-chip ${assetFilter === "defi" ? "active" : ""}`} onClick={() => setAssetFilter("defi")}>DeFi</button>
+              </div>
+
+              <div className="wallet-table-shell">
+                <table className="wallet-assets-table">
+                  <thead>
+                    <tr>
+                      <th>Asset</th>
+                      <th>Price</th>
+                      <th>24H</th>
+                      <th>Holdings</th>
+                      <th>Value</th>
+                      <th>P&amp;L</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {!filteredAssets.length ? (
+                      <tr>
+                        <td colSpan={7}>
+                          <EmptyState message="No encontramos activos con ese filtro en esta cuenta." />
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAssets.map((asset) => <WalletAssetRow key={asset.asset} asset={asset} />)
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <aside className="wallet-allocation-card">
+              <h3 className="wallet-card-title">Portfolio Allocation</h3>
+              <div className="wallet-allocation-donut" style={{ backgroundImage: allocationGradient }}>
+                <div className="wallet-allocation-center">
+                  <div className="wallet-allocation-center-value">{visibleAssets.length}</div>
+                  <div className="wallet-allocation-center-label">Assets</div>
                 </div>
-                <div className="binance-status-note">
-                  La comparación con {periodLabel} usa tus holdings actuales y el precio de referencia del activo en ese momento. El PnL abierto usa el costo promedio real según tus trades de Binance Demo Spot, y el PnL realizado sale de las ventas ya ejecutadas contra ese costo promedio histórico.
-                  {hiddenLockedAssetsCount
-                    ? ` El total visible excluye ${hiddenLockedAssetsCount} activo${hiddenLockedAssetsCount > 1 ? "s" : ""} 100% bloqueado${hiddenLockedAssetsCount > 1 ? "s" : ""} por ${formatPrice(hiddenLockedValue)} para acercarse a la vista spot de Binance.`
-                    : ""}
-                </div>
+              </div>
+              <div className="wallet-allocation-legend">
+                {allocation.length ? (
+                  allocation.map((asset) => (
+                    <div key={asset.asset} className="wallet-allocation-row">
+                      <div className="wallet-allocation-asset">
+                        <span className="wallet-allocation-dot" style={{ backgroundColor: asset.color }} />
+                        <span>{asset.asset}</span>
+                      </div>
+                      <span>{formatPct(asset.sharePct)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="wallet-allocation-empty">Todavía no hay asignación visible.</div>
+                )}
               </div>
             </aside>
           </div>
         </>
       ) : null}
 
-      {activeTab === "assets" ? (
-        <section id="balance-assets">
-          <SectionCard
-            title="Detalle por moneda"
-            subtitle="Aquí ves cuánto dinero tienes por activo, su costo promedio real y el PnL realizado/no realizado por moneda."
-            helpTitle="Detalle por moneda"
-            helpBody="Usa esta tabla para bajar del resumen general al detalle de cada activo y detectar rapido cuales pesan mas o necesitan atencion."
-            helpBullets={[
-              "Cantidad y valor actual te dicen cuanto pesa hoy cada activo.",
-              "Precio promedio te recuerda la base real aproximada de entrada.",
-              "PnL abierto y realizado separan lo vivo de lo ya cerrado.",
-            ]}
-          >
-            <div className="portfolio-toolbar">
-              <SearchIcon className="portfolio-search-icon" />
-              <label className="portfolio-filter-toggle">
-                <input type="checkbox" checked={props.hideSmallAssets} onChange={(e) => props.onToggleHideSmall(e.target.checked)} />
-                <span>Ocultar activos de menos de 1 USD</span>
-              </label>
-            </div>
-            <div className="table-scroll">
-              <table className="portfolio-table">
-                <thead>
-                  <tr>
-                    <th>Moneda</th>
-                    <th>Cantidad</th>
-                    <th>Precio actual</th>
-                    <th>Precio promedio</th>
-                    <th>Valor actual</th>
-                    <th>PnL abierto</th>
-                    <th>PnL realizado</th>
-                    <th>Cambio del período</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {!visibleAssets.length ? (
-                    <tr>
-                      <td colSpan={8}><EmptyState message={props.hideSmallAssets ? "No hay activos visibles por encima de 1 USD con el filtro actual." : "No hay balances disponibles para esta cuenta."} /></td>
-                    </tr>
-                  ) : (
-                    pagedAssets.rows.map((asset) => <AssetRow asset={asset} key={asset.asset} />)
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <PaginationControls
-              currentPage={assetPage}
-              totalPages={pagedAssets.totalPages}
-              totalItems={visibleAssets.length}
-              label="activos"
-              onPageChange={setAssetPage}
-            />
-          </SectionCard>
-        </section>
+      {activeTab === "nfts" ? (
+        <div className="wallet-placeholder-card">
+          <h3 className="wallet-card-title">NFTs</h3>
+          <p className="wallet-placeholder-copy">Aquí vamos a mostrar colecciones, floor price y distribución NFT cuando esa capa entre al producto.</p>
+        </div>
+      ) : null}
+
+      {activeTab === "staking" ? (
+        <div className="wallet-placeholder-card">
+          <h3 className="wallet-card-title">Staking</h3>
+          <p className="wallet-placeholder-copy">Esta sección quedará preparada para rendimiento, APR, lockups y estrategias de staking más adelante.</p>
+        </div>
       ) : null}
 
       {activeTab === "history" ? (
-        <section id="balance-history">
-          <SectionCard
-            title="Historial real"
-            subtitle="Órdenes y trades recientes de Binance Demo Spot para leer entradas, salidas y ejecuciones."
-            helpTitle="Historial real"
-            helpBody="Este bloque te deja auditar lo que ya salio hacia Binance Demo: ordenes abiertas, ordenes recientes y trades realmente ejecutados."
-          >
-            <div className="history-stack">
-              <div className="history-panel">
-                <div className="history-panel-head">
-                  <div>
-                    <div className="card-title history-title">Órdenes abiertas</div>
-                    <div className="card-subtitle">Lo que todavía está pendiente o parcialmente ejecutado.</div>
-                  </div>
-                  <span className="history-badge">{openOrders.length}</span>
-                </div>
-                <div className="table-scroll">
-                  <table className="portfolio-table">
-                    <thead>
-                      <tr>
-                        <th>Par</th>
-                        <th>Lado</th>
-                        <th>Tipo</th>
-                        <th>Precio</th>
-                        <th>Cantidad</th>
-                        <th>Ejecutado</th>
-                        <th>Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {!openOrders.length ? (
-                        <tr><td colSpan={7}><EmptyState message="No hay órdenes abiertas en esta cuenta." /></td></tr>
-                      ) : (
-                        pagedOpenOrders.rows.map((order, index) => <OrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PaginationControls
-                  currentPage={openOrdersPage}
-                  totalPages={pagedOpenOrders.totalPages}
-                  totalItems={openOrders.length}
-                  label="órdenes abiertas"
-                  onPageChange={setOpenOrdersPage}
-                />
-              </div>
+        <div className="wallet-history-stack">
+          <WalletHistoryPanel title="Open Orders" subtitle="Órdenes aún activas o parciales.">
+            <WalletOrderTable orders={props.payload?.openOrders || []} emptyMessage="No hay órdenes abiertas en esta cuenta." />
+          </WalletHistoryPanel>
 
-              <div className="history-panel">
-                <div className="history-panel-head">
-                  <div>
-                    <div className="card-title history-title">Órdenes cerradas recientes</div>
-                    <div className="card-subtitle">Compras y ventas ya completadas o canceladas.</div>
-                  </div>
-                  <span className="history-badge">{recentOrders.length}</span>
-                </div>
-                <div className="table-scroll">
-                  <table className="portfolio-table">
-                    <thead>
-                      <tr>
-                        <th>Par</th>
-                        <th>Lado</th>
-                        <th>Tipo</th>
-                        <th>Estado</th>
-                        <th>Ejecutado</th>
-                        <th>Valor</th>
-                        <th>Hora</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {!recentOrders.length ? (
-                        <tr><td colSpan={7}><EmptyState message="Todavía no hay órdenes cerradas recientes para los activos visibles." /></td></tr>
-                      ) : (
-                        pagedClosedOrders.rows.map((order, index) => <ClosedOrderRow key={`${order.symbol}-${order.updateTime}-${index}`} order={order} />)
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PaginationControls
-                  currentPage={closedOrdersPage}
-                  totalPages={pagedClosedOrders.totalPages}
-                  totalItems={recentOrders.length}
-                  label="órdenes cerradas"
-                  onPageChange={setClosedOrdersPage}
-                />
-              </div>
+          <WalletHistoryPanel title="Recent Orders" subtitle="Órdenes completadas o canceladas recientemente.">
+            <WalletClosedOrderTable orders={props.payload?.recentOrders || []} emptyMessage="Todavía no hay órdenes recientes visibles." />
+          </WalletHistoryPanel>
 
-              <div className="history-panel">
-                <div className="history-panel-head">
-                  <div>
-                    <div className="card-title history-title">Trades recientes</div>
-                  <div className="card-subtitle">Ejecuciones reales con comisión y PnL realizado por venta.</div>
-                </div>
-                <span className="history-badge">{recentTrades.length}</span>
-              </div>
-              <div className="table-scroll">
-                <table className="portfolio-table">
-                  <thead>
-                    <tr>
-                      <th>Trade</th>
-                      <th>Lado</th>
-                      <th>Precio</th>
-                      <th>Cantidad</th>
-                      <th>Valor</th>
-                      <th>Comisión</th>
-                      <th>PnL realizado</th>
-                      <th>Hora</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {!recentTrades.length ? (
-                      <tr><td colSpan={8}><EmptyState message="Aún no hay trades recientes para construir historial real." /></td></tr>
-                    ) : (
-                      pagedTrades.rows.map((trade, index) => <TradeRow key={`${trade.symbol}-${trade.time}-${index}`} trade={trade} />)
-                    )}
-                  </tbody>
-                </table>
-              </div>
-                <PaginationControls
-                  currentPage={tradesPage}
-                  totalPages={pagedTrades.totalPages}
-                  totalItems={recentTrades.length}
-                  label="trades"
-                  onPageChange={setTradesPage}
-                />
-              </div>
-            </div>
-          </SectionCard>
-        </section>
+          <WalletHistoryPanel title="Trade History" subtitle="Trades ejecutados con comisión y PnL realizado.">
+            <WalletTradeTable trades={props.payload?.recentTrades || []} emptyMessage="Aún no hay trades recientes para construir historial." />
+          </WalletHistoryPanel>
+        </div>
       ) : null}
     </div>
   );
 }
 
-function AssetRow({ asset }: { asset: PortfolioAsset }) {
+function WalletAssetRow({ asset }: { asset: PortfolioAsset }) {
   const pnlClass = getPerformanceClass(asset.pnlValue);
   const periodClass = getPerformanceClass(asset.periodChangeValue);
 
   return (
     <tr>
       <td>
-        <div className="portfolio-asset">
-          <strong>{asset.asset}</strong>
-          <span>{asset.symbol}</span>
+        <div className="wallet-asset-cell">
+          <div className="wallet-asset-icon">{asset.asset.slice(0, 1)}</div>
+          <div>
+            <div className="wallet-asset-name">{asset.asset}</div>
+            <div className="wallet-asset-symbol">{asset.symbol}</div>
+          </div>
         </div>
+      </td>
+      <td>{formatPrice(asset.currentPrice)}</td>
+      <td className={periodClass}>{formatSignedPct(asset.periodChangePct)}</td>
+      <td>
+        <div className="wallet-holdings-cell">
+          <strong>{formatAmount(asset.quantity)}</strong>
+          <span>{asset.asset}</span>
+        </div>
+      </td>
+      <td>{formatPrice(asset.marketValue)}</td>
+      <td>
+        <span className={`wallet-pill ${pnlClass}`}>{formatSignedPrice(asset.pnlValue)}</span>
       </td>
       <td>
-        <div className="portfolio-metric">
-          <strong>{formatAmount(asset.quantity)}</strong>
-          <span>
-            Libre {formatAmount(asset.free)}
-            {asset.locked > 0 ? ` · Bloq. ${formatAmount(asset.locked)}` : ""}
-          </span>
-        </div>
+        <button type="button" className="wallet-row-action">•••</button>
       </td>
-      <td><div className="portfolio-metric"><strong>{formatPrice(asset.currentPrice)}</strong><span>Mercado</span></div></td>
-      <td><div className="portfolio-metric"><strong>{asset.avgEntryPrice > 0 ? formatPrice(asset.avgEntryPrice) : "--"}</strong><span>{asset.tradeCount || 0} trades</span></div></td>
-      <td><div className="portfolio-metric"><strong>{formatPrice(asset.marketValue)}</strong><span>Costo est. {formatPrice(asset.investedValue)}</span></div></td>
-      <td><div className="portfolio-metric"><strong className={pnlClass}>{formatSignedPrice(asset.pnlValue)}</strong><span className={pnlClass}>{formatSignedPct(asset.pnlPct)}</span></div></td>
-      <td><div className="portfolio-metric"><strong className={getPerformanceClass(asset.realizedPnl)}>{formatSignedPrice(asset.realizedPnl)}</strong><span>{asset.tradeCount || 0} ejecuciones</span></div></td>
-      <td><div className="portfolio-metric"><strong className={periodClass}>{formatSignedPrice(asset.periodChangeValue)}</strong><span className={periodClass}>{formatSignedPct(asset.periodChangePct)}</span></div></td>
     </tr>
   );
 }
 
-function OrderRow({ order }: { order: BinanceOrderSummary }) {
+function WalletHistoryPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <tr>
-      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{new Date(order.updateTime).toLocaleString("es-DO")}</span><span>{order.originLabel || "Manual usuario"}</span></div></td>
-      <td><span className={order.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{order.side === "BUY" ? "Compra" : "Venta"}</span></td>
-      <td>{order.type}</td>
-      <td>{order.price > 0 ? formatPrice(order.price) : "Market"}</td>
-      <td>{formatAmount(order.origQty)}</td>
-      <td>{formatAmount(order.executedQty)}</td>
-      <td>{order.status}</td>
-    </tr>
-  );
-}
-
-function ClosedOrderRow({ order }: { order: BinanceOrderSummary }) {
-  return (
-    <tr>
-      <td><div className="portfolio-asset"><strong>{order.symbol}</strong><span>{order.price > 0 ? formatPrice(order.price) : "Market"}</span><span>{order.originLabel || "Manual usuario"}</span></div></td>
-      <td><span className={order.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{order.side === "BUY" ? "Compra" : "Venta"}</span></td>
-      <td>{order.type}</td>
-      <td>{order.status}</td>
-      <td>{formatAmount(order.executedQty)}</td>
-      <td>{formatPrice(order.quoteQty)}</td>
-      <td>{new Date(order.updateTime).toLocaleString("es-DO")}</td>
-    </tr>
-  );
-}
-
-function TradeRow({ trade }: { trade: BinanceTradeSummary }) {
-  return (
-    <tr>
-      <td><div className="portfolio-asset"><strong>{trade.symbol}</strong><span>{trade.orderId ? `Orden ${trade.orderId}` : "Trade"}</span><span>{trade.originLabel || "Manual usuario"}</span></div></td>
-      <td><span className={trade.side === "BUY" ? "portfolio-positive" : "portfolio-negative"}>{trade.side === "BUY" ? "Compra" : "Venta"}</span></td>
-      <td>{formatPrice(trade.price)}</td>
-      <td>{formatAmount(trade.qty)}</td>
-      <td>{formatPrice(trade.value)}</td>
-      <td>{formatAmount(trade.commission)} {trade.commissionAsset}</td>
-      <td><span className={getPerformanceClass(trade.realizedPnl || 0)}>{formatSignedPrice(trade.realizedPnl || 0)}</span></td>
-      <td>{new Date(trade.time).toLocaleString("es-DO")}</td>
-    </tr>
-  );
-}
-
-function paginateRows<T>(rows: T[], currentPage: number) {
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const safePage = Math.min(currentPage, totalPages);
-  const start = (safePage - 1) * PAGE_SIZE;
-  return {
-    rows: rows.slice(start, start + PAGE_SIZE),
-    totalPages,
-    safePage,
-  };
-}
-
-function PaginationControls({
-  currentPage,
-  totalPages,
-  totalItems,
-  label,
-  onPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  label: string;
-  onPageChange: (page: number) => void;
-}) {
-  if (totalItems <= PAGE_SIZE) {
-    return null;
-  }
-
-  return (
-    <div className="pagination-bar">
-      <div className="pagination-note">
-        Mostrando {Math.min((currentPage - 1) * PAGE_SIZE + 1, totalItems)}-{Math.min(currentPage * PAGE_SIZE, totalItems)} de {totalItems} {label}
+    <section className="wallet-history-card">
+      <div className="wallet-card-header">
+        <div className="wallet-card-title-block">
+          <h3 className="wallet-card-title">{title}</h3>
+          <p className="wallet-card-subtitle">{subtitle}</p>
+        </div>
       </div>
-      <div className="pagination-actions">
-        <button className="btn-secondary-soft" type="button" onClick={() => onPageChange(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>
-          Anterior
-        </button>
-        <span className="pagination-page">Página {currentPage} de {totalPages}</span>
-        <button className="btn-secondary-soft" type="button" onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>
-          Siguiente
-        </button>
-      </div>
-    </div>
+      <div className="wallet-table-shell">{children}</div>
+    </section>
+  );
+}
+
+function WalletOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummary[]; emptyMessage: string }) {
+  return (
+    <table className="wallet-assets-table">
+      <thead>
+        <tr>
+          <th>Pair</th>
+          <th>Side</th>
+          <th>Type</th>
+          <th>Price</th>
+          <th>Qty</th>
+          <th>Filled</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {!orders.length ? (
+          <tr><td colSpan={7}><EmptyState message={emptyMessage} /></td></tr>
+        ) : (
+          orders.map((order, index) => (
+            <tr key={`${order.symbol}-${order.updateTime}-${index}`}>
+              <td>{order.symbol}</td>
+              <td className={order.side === "BUY" ? "wallet-positive" : "wallet-negative"}>{order.side}</td>
+              <td>{order.type}</td>
+              <td>{order.price > 0 ? formatPrice(order.price) : "Market"}</td>
+              <td>{formatAmount(order.origQty)}</td>
+              <td>{formatAmount(order.executedQty)}</td>
+              <td>{order.status}</td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function WalletClosedOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummary[]; emptyMessage: string }) {
+  return (
+    <table className="wallet-assets-table">
+      <thead>
+        <tr>
+          <th>Pair</th>
+          <th>Side</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Filled</th>
+          <th>Value</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {!orders.length ? (
+          <tr><td colSpan={7}><EmptyState message={emptyMessage} /></td></tr>
+        ) : (
+          orders.map((order, index) => (
+            <tr key={`${order.symbol}-${order.updateTime}-${index}`}>
+              <td>{order.symbol}</td>
+              <td className={order.side === "BUY" ? "wallet-positive" : "wallet-negative"}>{order.side}</td>
+              <td>{order.type}</td>
+              <td>{order.status}</td>
+              <td>{formatAmount(order.executedQty)}</td>
+              <td>{formatPrice(order.quoteQty)}</td>
+              <td>{new Date(order.updateTime).toLocaleString("es-DO")}</td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function WalletTradeTable({ trades, emptyMessage }: { trades: BinanceTradeSummary[]; emptyMessage: string }) {
+  return (
+    <table className="wallet-assets-table">
+      <thead>
+        <tr>
+          <th>Trade</th>
+          <th>Side</th>
+          <th>Price</th>
+          <th>Qty</th>
+          <th>Value</th>
+          <th>Commission</th>
+          <th>P&amp;L</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {!trades.length ? (
+          <tr><td colSpan={8}><EmptyState message={emptyMessage} /></td></tr>
+        ) : (
+          trades.map((trade, index) => (
+            <tr key={`${trade.symbol}-${trade.time}-${index}`}>
+              <td>{trade.symbol}</td>
+              <td className={trade.side === "BUY" ? "wallet-positive" : "wallet-negative"}>{trade.side}</td>
+              <td>{formatPrice(trade.price)}</td>
+              <td>{formatAmount(trade.qty)}</td>
+              <td>{formatPrice(trade.value)}</td>
+              <td>{formatAmount(trade.commission)} {trade.commissionAsset}</td>
+              <td className={getPerformanceClass(trade.realizedPnl || 0)}>{formatSignedPrice(trade.realizedPnl || 0)}</td>
+              <td>{new Date(trade.time).toLocaleString("es-DO")}</td>
+            </tr>
+          ))
+        )}
+      </tbody>
+    </table>
   );
 }

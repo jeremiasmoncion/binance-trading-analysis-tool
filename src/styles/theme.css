@@ -298,6 +298,12 @@ body.dark-theme .user-pill:hover {
     0 0 22px rgba(245, 158, 11, 0.14);
 }
 
+body.dark-theme .ui-chip:hover:not(.active),
+body.dark-theme .wallet-tab-button:hover:not(.active),
+body.dark-theme .wallet-filter-chip:hover:not(.active) {
+  color: var(--crype-dark-text);
+}
+
 body.dark-theme .ui-input-shell:hover input,
 body.dark-theme .ui-input-shell:hover select,
 body.dark-theme .ui-input-shell:hover textarea {

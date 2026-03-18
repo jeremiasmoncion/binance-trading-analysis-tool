@@ -140,7 +140,7 @@
   transform: translateY(var(--crype-lift-y));
   border-color: var(--crype-hover-border);
   box-shadow: var(--crype-hover-glow);
-  color: #1e293b;
+  color: inherit;
 }
 
 .ui-chip.active {

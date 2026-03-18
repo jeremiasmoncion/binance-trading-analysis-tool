@@ -274,10 +274,26 @@ body.dark-theme .ui-button,
 body.dark-theme .btn-secondary-soft,
 body.dark-theme .ui-chip,
 body.dark-theme .ui-pill,
-body.dark-theme .ui-input-shell input {
+body.dark-theme .ui-input-shell input,
+body.dark-theme .ui-metric-box,
+body.dark-theme .ui-row-action {
   background: var(--crype-dark-panel-soft);
   color: var(--crype-dark-text);
   border-color: var(--crype-dark-border);
+}
+body.dark-theme .ui-summary-card {
+  background: var(--crype-dark-panel);
+  border-color: var(--crype-dark-border);
+  box-shadow: 0 22px 48px rgba(2, 6, 23, 0.28);
+}
+body.dark-theme .ui-summary-card-label,
+body.dark-theme .ui-metric-box-label {
+  color: var(--crype-dark-muted);
+}
+body.dark-theme .ui-summary-card-value,
+body.dark-theme .ui-metric-box-value,
+body.dark-theme .ui-legend-row {
+  color: var(--crype-dark-text);
 }
 body.dark-theme .topbar-icon-btn,
 body.dark-theme .theme-toggle.topbar-icon-btn {

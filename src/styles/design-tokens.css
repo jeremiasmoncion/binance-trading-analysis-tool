@@ -11,7 +11,7 @@ body,
 }
 
 html {
-  font-size: 88.5%;
+  font-size: 84.5%;
 }
 
 :root {
@@ -24,10 +24,10 @@ html {
 
   --crype-space-2: 8px;
   --crype-space-3: 12px;
-  --crype-space-4: 16px;
-  --crype-space-5: 20px;
-  --crype-space-6: 24px;
-  --crype-space-7: 28px;
+  --crype-space-4: 15px;
+  --crype-space-5: 18px;
+  --crype-space-6: 22px;
+  --crype-space-7: 26px;
 
   --crype-radius-sm: 14px;
   --crype-radius-md: 18px;

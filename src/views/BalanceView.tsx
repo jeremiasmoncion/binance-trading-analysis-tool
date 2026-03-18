@@ -109,22 +109,22 @@ export function BalanceView(props: BalanceViewProps) {
           </div>
         </div>
 
-        <div className="wallet-hero-metrics">
-          <div className="wallet-hero-metric-box">
-            <div className="wallet-hero-metric-label">Today's P&amp;L</div>
-            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.realizedPnl || 0)}`}>{formatSignedPrice(portfolio?.realizedPnl || 0)}</div>
+        <div className="wallet-hero-metrics ui-metric-grid">
+          <div className="wallet-hero-metric-box ui-metric-box">
+            <div className="wallet-hero-metric-label ui-metric-box-label">Today's P&amp;L</div>
+            <div className={`wallet-hero-metric-value ui-metric-box-value ${getPerformanceClass(portfolio?.realizedPnl || 0)}`}>{formatSignedPrice(portfolio?.realizedPnl || 0)}</div>
           </div>
-          <div className="wallet-hero-metric-box">
-            <div className="wallet-hero-metric-label">{selectedWindowLabel}</div>
-            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.periodChangeValue || 0)}`}>{formatSignedPrice(portfolio?.periodChangeValue || 0)}</div>
+          <div className="wallet-hero-metric-box ui-metric-box">
+            <div className="wallet-hero-metric-label ui-metric-box-label">{selectedWindowLabel}</div>
+            <div className={`wallet-hero-metric-value ui-metric-box-value ${getPerformanceClass(portfolio?.periodChangeValue || 0)}`}>{formatSignedPrice(portfolio?.periodChangeValue || 0)}</div>
           </div>
-          <div className="wallet-hero-metric-box">
-            <div className="wallet-hero-metric-label">Open P&amp;L</div>
-            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.unrealizedPnl || 0)}`}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</div>
+          <div className="wallet-hero-metric-box ui-metric-box">
+            <div className="wallet-hero-metric-label ui-metric-box-label">Open P&amp;L</div>
+            <div className={`wallet-hero-metric-value ui-metric-box-value ${getPerformanceClass(portfolio?.unrealizedPnl || 0)}`}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</div>
           </div>
-          <div className="wallet-hero-metric-box">
-            <div className="wallet-hero-metric-label">All Time</div>
-            <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.totalPnl || 0)}`}>{formatSignedPrice(portfolio?.totalPnl || 0)}</div>
+          <div className="wallet-hero-metric-box ui-metric-box">
+            <div className="wallet-hero-metric-label ui-metric-box-label">All Time</div>
+            <div className={`wallet-hero-metric-value ui-metric-box-value ${getPerformanceClass(portfolio?.totalPnl || 0)}`}>{formatSignedPrice(portfolio?.totalPnl || 0)}</div>
           </div>
         </div>
       </div>
@@ -151,41 +151,41 @@ export function BalanceView(props: BalanceViewProps) {
 
       {activeTab === "holdings" ? (
         <>
-          <div className="wallet-quick-stats-grid">
-            <div className="wallet-quick-card">
-              <div>
-                <div className="wallet-quick-label">Total Assets</div>
-                <div className="wallet-quick-value">{visibleAssets.length}</div>
+          <div className="wallet-quick-stats-grid ui-summary-grid">
+            <div className="wallet-quick-card ui-summary-card">
+              <div className="wallet-quick-copy ui-summary-card-copy">
+                <div className="wallet-quick-label ui-summary-card-label">Total Assets</div>
+                <div className="wallet-quick-value ui-summary-card-value">{visibleAssets.length}</div>
                 <div className="wallet-quick-chip wallet-quick-chip-info ui-pill">{props.payload?.summary?.accountType || "SPOT"} Account</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-info">◎</div>
+              <div className="wallet-quick-icon wallet-quick-icon-info ui-summary-card-icon">◎</div>
             </div>
 
-            <div className="wallet-quick-card">
-              <div>
-                <div className="wallet-quick-label">In Profit</div>
-                <div className="wallet-quick-value wallet-positive">{positiveAssets.length}</div>
+            <div className="wallet-quick-card ui-summary-card">
+              <div className="wallet-quick-copy ui-summary-card-copy">
+                <div className="wallet-quick-label ui-summary-card-label">In Profit</div>
+                <div className="wallet-quick-value ui-summary-card-value wallet-positive">{positiveAssets.length}</div>
                 <div className="wallet-quick-chip wallet-positive ui-pill">{visibleAssets.length ? formatPct((positiveAssets.length / visibleAssets.length) * 100) : "0%"}</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-success">↗</div>
+              <div className="wallet-quick-icon wallet-quick-icon-success ui-summary-card-icon">↗</div>
             </div>
 
-            <div className="wallet-quick-card">
-              <div>
-                <div className="wallet-quick-label">In Loss</div>
-                <div className="wallet-quick-value wallet-negative">{negativeAssets.length}</div>
+            <div className="wallet-quick-card ui-summary-card">
+              <div className="wallet-quick-copy ui-summary-card-copy">
+                <div className="wallet-quick-label ui-summary-card-label">In Loss</div>
+                <div className="wallet-quick-value ui-summary-card-value wallet-negative">{negativeAssets.length}</div>
                 <div className="wallet-quick-chip wallet-negative ui-pill">{visibleAssets.length ? formatPct((negativeAssets.length / visibleAssets.length) * 100) : "0%"}</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-danger">↘</div>
+              <div className="wallet-quick-icon wallet-quick-icon-danger ui-summary-card-icon">↘</div>
             </div>
 
-            <div className="wallet-quick-card">
-              <div>
-                <div className="wallet-quick-label">Best Performer</div>
-                <div className="wallet-quick-value">{bestPerformer?.asset || "--"}</div>
+            <div className="wallet-quick-card ui-summary-card">
+              <div className="wallet-quick-copy ui-summary-card-copy">
+                <div className="wallet-quick-label ui-summary-card-label">Best Performer</div>
+                <div className="wallet-quick-value ui-summary-card-value">{bestPerformer?.asset || "--"}</div>
                 <div className={`wallet-quick-chip ui-pill ${getPerformanceClass(bestPerformer?.pnlPct || 0)}`}>{bestPerformer ? formatSignedPct(bestPerformer.pnlPct) : "--"}</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-accent">{bestPerformer?.asset?.slice(0, 3) || "TOP"}</div>
+              <div className="wallet-quick-icon wallet-quick-icon-accent ui-summary-card-icon">{bestPerformer?.asset?.slice(0, 3) || "TOP"}</div>
             </div>
           </div>
 
@@ -256,12 +256,12 @@ export function BalanceView(props: BalanceViewProps) {
                   <div className="wallet-allocation-center-label">Assets</div>
                 </div>
               </div>
-              <div className="wallet-allocation-legend">
+              <div className="wallet-allocation-legend ui-legend">
                 {allocation.length ? (
                   allocation.map((asset) => (
-                    <div key={asset.asset} className="wallet-allocation-row">
-                      <div className="wallet-allocation-asset">
-                        <span className="wallet-allocation-dot" style={{ backgroundColor: asset.color }} />
+                    <div key={asset.asset} className="wallet-allocation-row ui-legend-row">
+                      <div className="wallet-allocation-asset ui-legend-key">
+                        <span className="wallet-allocation-dot ui-legend-dot" style={{ backgroundColor: asset.color }} />
                         <span>{asset.asset}</span>
                       </div>
                       <span>{formatPct(asset.sharePct)}</span>
@@ -337,7 +337,7 @@ function WalletAssetRow({ asset }: { asset: PortfolioAsset }) {
         <span className={`wallet-pill ui-pill ${pnlClass}`}>{formatSignedPrice(asset.pnlValue)}</span>
       </td>
       <td>
-        <button type="button" className="wallet-row-action">•••</button>
+        <button type="button" className="wallet-row-action ui-row-action">•••</button>
       </td>
     </tr>
   );

@@ -55,10 +55,10 @@
 .btn-logout { width: 100%; padding: 11px; background: #fff; color: #1a233a; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-logout:hover { background: #f0f4ff; }
 
-.main-content { flex: 1; margin-left: calc(var(--sidebar-width) + var(--sidebar-gap)); min-width: 0; }
-.app-shell.sidebar-collapsed { --sidebar-width: 84px; --sidebar-gap: 14px; }
+.main-content { flex: 1; margin-left: var(--sidebar-width); min-width: 0; }
+.app-shell.sidebar-collapsed { --sidebar-width: 84px; --sidebar-gap: 0px; }
 .app-shell.sidebar-collapsed .sidebar { width: var(--sidebar-width); }
-.app-shell.sidebar-collapsed .main-content { margin-left: calc(var(--sidebar-width) + var(--sidebar-gap)); }
+.app-shell.sidebar-collapsed .main-content { margin-left: var(--sidebar-width); }
 .app-shell.sidebar-collapsed .sidebar-header { padding: 14px 12px; }
 .app-shell.sidebar-collapsed .sidebar-header-row { justify-content: center; }
 .app-shell.sidebar-collapsed .sidebar-brand-copy,
@@ -343,7 +343,7 @@
    ============================================ */
 .app-shell {
   --sidebar-width: 232px;
-  --sidebar-gap: 20px;
+  --sidebar-gap: 0px;
   background:
     radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 24%),
     radial-gradient(circle at top center, rgba(249, 115, 22, 0.08), transparent 20%),
@@ -369,11 +369,11 @@
 }
 
 .sidebar-brand-copy h1 {
-  color: #0f172a;
+  color: #f8fafc;
 }
 
 .sidebar-brand-copy p {
-  color: #64748b;
+  color: #94a3b8;
 }
 
 .sidebar-nav {

@@ -143,12 +143,26 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (activeUsernameRef.current !== username) {
         return { ok: false as const, message: "Sesión cambió durante la carga." };
       }
-      setPortfolioData((previous) => (mode === "live" ? mergePortfolioLivePayload(previous, payload, period) : payload));
+      setPortfolioData((previous) => {
+        const payloadWithIssue = payload as PortfolioPayload & { connectionIssue?: string };
+        if (mode === "live") {
+          return mergePortfolioLivePayload(previous, payload, period);
+        }
+        if (payloadWithIssue.connectionIssue && previous) {
+          return {
+            ...previous,
+            snapshotMode: "full",
+            summary: payload.summary || previous.summary,
+            accountMovements: payload.accountMovements || previous.accountMovements || [],
+          };
+        }
+        return payload;
+      });
       setPortfolioPeriod(period);
       return { ok: true as const, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer el balance.";
-      setPortfolioData({
+      setPortfolioData((previous) => previous || {
         snapshotMode: mode,
         assets: [],
         portfolio: {

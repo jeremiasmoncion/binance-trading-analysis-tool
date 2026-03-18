@@ -1,4 +1,4 @@
-import { HelpCircleIcon } from "../components/Icons";
+import { CoinsIcon, DownloadIcon, HelpCircleIcon, SparklesIcon, TrendUpIcon, WalletIcon } from "../components/Icons";
 import { formatPct, formatPrice, formatSignedPct } from "../lib/format";
 import type { Candle, DashboardAnalysis, OperationPlan, Signal, StrategyCandidate, StrategyDescriptor, TimeframeSignal } from "../types";
 import { openHelp } from "../lib/ui-events";
@@ -24,89 +24,114 @@ export function DashboardView(props: DashboardViewProps) {
   const plan = props.plan;
   const analysis = props.analysis;
   const tone = signal?.label === "Comprar" ? "buy" : signal?.label === "Vender" ? "sell" : "wait";
+  const firstClose = props.candles[0]?.close ?? props.currentPrice ?? 0;
+  const lastClose = props.candles.at(-1)?.close ?? props.currentPrice ?? 0;
+  const marketDriftPct = firstClose > 0 ? ((lastClose - firstClose) / firstClose) * 100 : 0;
+  const activeBotsLabel = "1 / 1";
+  const alignmentCount = analysis?.alignmentCount ?? 0;
+  const alignmentTotal = analysis?.alignmentTotal ?? Math.max(props.multiTimeframes.length, 1);
+  const aiConfidence = signal?.score ?? 0;
+  const overviewSignalTone = aiConfidence >= 70 ? "positive" : aiConfidence >= 45 ? "neutral" : "negative";
+  const marketTone = marketDriftPct >= 0.4 ? "positive" : marketDriftPct <= -0.4 ? "negative" : "neutral";
 
   return (
     <div id="dashboardView" className="view-panel active">
       <div className="dashboard-shell">
-        <section className={`dashboard-hero ${tone}`}>
-          <div className="dashboard-hero-top">
-            <div>
-              <div className="dashboard-active-coin">
-                {props.currentCoin}
-                <DashboardHelpButton
-                  title="Lectura principal del activo"
-                  body="Este bloque resume la lectura actual del par seleccionado. Aquí ves la señal dominante, el estilo operativo de la estrategia activa y el contexto general antes de mirar el plan sugerido."
-                  bullets={[
-                    "La etiqueta Comprar / Vender / Esperar es la decisión dominante actual.",
-                    "Los chips te dicen qué estrategia mandó, qué estilo de trading usa y qué contexto está viendo.",
-                    "El precio a la derecha es la referencia viva del activo que estás siguiendo.",
-                  ]}
-                  footer="La idea es que este bloque te dé la foto general en segundos."
-                />
-              </div>
-              <div className={`dashboard-eyebrow ${tone}`}>{signal?.label || "Esperar"}</div>
-              <h1 className="dashboard-headline">{signal?.title || "Esperar confirmación"}</h1>
-              <p className="dashboard-subcopy">{signal?.reasons[0] || "Análisis en progreso."}</p>
-              <div className="dashboard-chip-row">
-                <span className="dashboard-chip">{props.strategy.label}</span>
-                <span className="dashboard-chip">{getFriendlyTradingStyle(props.strategy.tradingStyle)}</span>
-                <span className="dashboard-chip">{analysis?.alignmentLabel || "Sin contexto"}</span>
-                <span className="dashboard-chip">{analysis?.setupType || "Setup pendiente"}</span>
-                <span className="dashboard-chip">{analysis?.volatilityLabel ? `Volatilidad ${analysis.volatilityLabel.toLowerCase()}` : "Volatilidad pendiente"}</span>
-              </div>
+        <section className="dashboard-overview">
+          <div className="dashboard-overview-head">
+            <div className="dashboard-overview-copy">
+              <h1 className="dashboard-overview-title">Dashboard</h1>
+              <p className="dashboard-overview-subtitle">
+                Centro de mando de CRYPE para vigilar plataforma, bots, IA y lectura operativa en tiempo real.
+              </p>
             </div>
-            <div className="dashboard-pulse">
-              <div className="dashboard-pulse-label">Activo en seguimiento</div>
-              <div className="dashboard-pulse-value">{formatPrice(props.currentPrice || 0)}</div>
-              <div className="dashboard-pulse-note">Precio actual del par seleccionado con la temporalidad que tienes activa.</div>
+            <div className="dashboard-overview-actions">
+              <button type="button" className="ui-button" onClick={props.onSaveSignal}>
+                <DownloadIcon />
+                Exportar
+              </button>
+              <button type="button" className="ui-button ui-button-primary">
+                <SparklesIcon />
+                Signal Bot
+              </button>
             </div>
           </div>
 
-          <div className="dashboard-summary-grid">
-            <div className="dashboard-mini-card">
-              <div className="dashboard-card-topline">
-                <div className="dashboard-mini-label">Señal dominante</div>
-                <DashboardHelpButton
-                  title="Señal dominante"
-                  body="Es la lectura principal que el motor considera más fuerte ahora mismo. No es una orden automática por sí sola: es la mejor lectura técnica disponible en este instante."
-                />
+          <div className="dashboard-overview-grid">
+            <article className="dashboard-overview-card ui-summary-card ui-interactive-surface">
+              <div className="dashboard-overview-card-top">
+                <span className="dashboard-overview-icon dashboard-overview-icon-wallet">
+                  <WalletIcon />
+                </span>
+                <span className={`dashboard-overview-badge ${marketTone}`}>
+                  {formatSignedPct(marketDriftPct)}
+                </span>
               </div>
-              <div className="dashboard-mini-value">{signal?.title || "Esperar, pero con sesgo neutral"}</div>
-              <div className="dashboard-mini-note">Lectura principal del mercado ahora mismo.</div>
-            </div>
-            <div className="dashboard-mini-card">
-              <div className="dashboard-card-topline">
-                <div className="dashboard-mini-label">Convicción</div>
-                <DashboardHelpButton
-                  title="Convicción"
-                  body="La convicción mide qué tan fuerte se siente la lectura actual según alineación, volumen, contexto y estructura. Más alta no significa garantía; significa que la señal tiene más respaldo técnico."
-                />
+              <div className="dashboard-overview-label">Mercado activo</div>
+              <div className="dashboard-overview-value">{formatPrice(props.currentPrice || 0)}</div>
+              <div className="dashboard-overview-divider" />
+              <div className="dashboard-overview-foot">
+                <span>{props.currentCoin}</span>
+                <strong>{props.timeframe.toUpperCase()}</strong>
               </div>
-              <div className="dashboard-mini-value">{signal ? `${signal.score}%` : "0%"}</div>
-              <div className="dashboard-mini-note">{analysis ? `${analysis.setupQuality} · Riesgo ${analysis.riskLabel.toLowerCase()}` : "Convicción de la lectura actual."}</div>
-            </div>
-            <div className="dashboard-mini-card">
-              <div className="dashboard-card-topline">
-                <div className="dashboard-mini-label">Marco mayor</div>
-                <DashboardHelpButton
-                  title="Marco mayor"
-                  body="Aquí ves el sesgo dominante en temporalidades más altas. Sirve para saber si la señal actual va a favor del contexto grande o si está intentando ir contra corriente."
-                />
+            </article>
+
+            <article className="dashboard-overview-card ui-summary-card ui-interactive-surface">
+              <div className="dashboard-overview-card-top">
+                <span className="dashboard-overview-icon dashboard-overview-icon-bots">
+                  <CoinsIcon />
+                </span>
+                <span className="dashboard-overview-status">
+                  <span className="dashboard-overview-status-dot" />
+                  Running
+                </span>
               </div>
-              <div className="dashboard-mini-value">{analysis?.higherTimeframeBias || signal?.trend || "Neutral"}</div>
-              <div className="dashboard-mini-note">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal} temporalidades alineadas` : "Sesgo técnico dominante."}</div>
-            </div>
-            <div className="dashboard-mini-card">
-              <div className="dashboard-card-topline">
-                <div className="dashboard-mini-label">Niveles</div>
-                <DashboardHelpButton
-                  title="Distancia a niveles"
-                  body="Te muestra qué tan cerca está el precio actual del soporte y de la resistencia. Sirve para saber si la entrada está relativamente cómoda o si ya está muy cerca de una zona peligrosa."
-                />
+              <div className="dashboard-overview-label">Bots activos</div>
+              <div className="dashboard-overview-value">{activeBotsLabel}</div>
+              <div className="dashboard-overview-divider" />
+              <div className="dashboard-overview-foot">
+                <span>Ritmo del motor</span>
+                <strong>{formatSchedulerInterval(props.strategyRefreshIntervalMs)}</strong>
               </div>
-              <div className="dashboard-mini-value">{analysis ? `${formatPct(analysis.supportDistancePct)} / ${formatPct(analysis.resistanceDistancePct)}` : "--"}</div>
-              <div className="dashboard-mini-note">Distancia a soporte y resistencia.</div>
-            </div>
+            </article>
+
+            <article className="dashboard-overview-card ui-summary-card ui-interactive-surface">
+              <div className="dashboard-overview-card-top">
+                <span className="dashboard-overview-icon dashboard-overview-icon-intelligence">
+                  <TrendUpIcon />
+                </span>
+                <span className={`dashboard-overview-badge ${overviewSignalTone}`}>
+                  {analysis?.setupQuality || "Operativa"}
+                </span>
+              </div>
+              <div className="dashboard-overview-label">IA / Intelligence</div>
+              <div className={`dashboard-overview-value ${overviewSignalTone}`}>{aiConfidence}%</div>
+              <div className="dashboard-overview-divider" />
+              <div className="dashboard-overview-foot">
+                <span>{props.strategy.label}</span>
+                <strong>{analysis?.riskLabel || "Riesgo medio"}</strong>
+              </div>
+            </article>
+
+            <article className="dashboard-overview-card ui-summary-card ui-interactive-surface">
+              <div className="dashboard-overview-card-top">
+                <span className="dashboard-overview-icon dashboard-overview-icon-context">
+                  <SparklesIcon />
+                </span>
+                <span className="dashboard-overview-badge neutral">
+                  {analysis?.alignmentLabel || "Mixto"}
+                </span>
+              </div>
+              <div className="dashboard-overview-label">Mercado / Contexto</div>
+              <div className="dashboard-overview-value">
+                {alignmentCount} / {alignmentTotal}
+              </div>
+              <div className="dashboard-overview-divider" />
+              <div className="dashboard-overview-foot">
+                <span>Marco mayor</span>
+                <strong>{analysis?.higherTimeframeBias || signal?.trend || "Neutral"}</strong>
+              </div>
+            </article>
           </div>
         </section>
 

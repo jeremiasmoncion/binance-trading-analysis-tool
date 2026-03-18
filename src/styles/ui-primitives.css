@@ -124,6 +124,17 @@
   height: 16px;
 }
 
+.ui-button-primary {
+  background: linear-gradient(135deg, #6a68f8 0%, #5b5eea 100%);
+  border-color: rgba(106, 104, 248, 0.42);
+  color: #f8fafc;
+  box-shadow: 0 14px 30px rgba(91, 94, 234, 0.24);
+}
+
+.ui-button-primary:hover {
+  color: #f8fafc;
+}
+
 .ui-pill,
 .ui-chip {
   display: inline-flex;

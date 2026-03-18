@@ -857,6 +857,9 @@ export function MemoryView(props: MemoryViewProps) {
       .slice()
       .sort((left, right) => {
         const leftScore = Number(
+          left.preferredModel === "model-v4"
+            ? left.modelV4Score
+            : 
           left.preferredModel === "model-v3"
             ? left.modelV3Score
             : left.preferredModel === "model-v2"
@@ -864,6 +867,9 @@ export function MemoryView(props: MemoryViewProps) {
               : left.modelV1Score || left.modelScore || 0,
         );
         const rightScore = Number(
+          right.preferredModel === "model-v4"
+            ? right.modelV4Score
+            : 
           right.preferredModel === "model-v3"
             ? right.modelV3Score
             : right.preferredModel === "model-v2"
@@ -2219,7 +2225,7 @@ export function MemoryView(props: MemoryViewProps) {
                       return (
                         <div key={`scorer-history-${item.id || `${item.windowType}-${item.createdAt || item.summary}`}`} className="signal-analytics-item is-experiment">
                           <div className="signal-analytics-copy">
-                            <strong>{item.windowType === "recent" ? "Ventana reciente" : "Ventana global"} · {item.scorer} vs {item.challenger}</strong>
+                            <strong>{item.windowType === "recent" ? "Ventana reciente" : item.windowType === "short" ? "Ventana corta" : "Ventana global"} · {item.scorer} vs {item.challenger}</strong>
                             <span>{item.summary} · {timeLabel}</span>
                           </div>
                           <div className={`signal-analytics-pill ${pillClass}`}>
@@ -2244,7 +2250,7 @@ export function MemoryView(props: MemoryViewProps) {
                     {automationMasterBoard.modelTrainingRunHistory.map((item) => (
                       <div key={`model-run-${item.id || `${item.label}-${item.windowType}-${item.createdAt || item.summary}`}`} className="signal-analytics-item is-experiment">
                         <div className="signal-analytics-copy">
-                          <strong>{item.label} · ventana {item.windowType}</strong>
+                          <strong>{item.label} · ventana {item.windowType === "recent" ? "reciente" : item.windowType === "short" ? "corta" : "global"}</strong>
                           <span>{item.sampleSize} muestras · {formatSignedPrice(item.avgPnl)} · {item.winRate.toFixed(0)}% · RR w {Number(item.rrWeight || 0).toFixed(2)} · score w {Number(item.adaptiveScoreWeight || 0).toFixed(4)}</span>
                         </div>
                         <div className={`signal-analytics-pill ${item.status === "ready" ? "status-running" : "status-sandbox"}`}>

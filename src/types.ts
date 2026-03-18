@@ -201,6 +201,7 @@ export interface StrategyDecisionState {
     modelV1Score?: number;
     modelV2Score?: number;
     modelV3Score?: number;
+    modelV4Score?: number;
     preferredModel?: string;
     preferredModelConfidence?: number;
     confidence: number;
@@ -222,7 +223,7 @@ export interface StrategyDecisionState {
   modelTrainingRunHistory?: Array<{
     id?: number;
     label: string;
-    windowType: "recent" | "global";
+    windowType: "recent" | "global" | "short";
     mode: "static" | "learned";
     sampleSize: number;
     confidence: number;
@@ -248,7 +249,7 @@ export interface StrategyDecisionState {
     scorer: string;
     challenger: string;
     active: boolean;
-    windowType: "recent" | "global";
+    windowType: "recent" | "global" | "short";
     sampleSize: number;
     challengerSampleSize: number;
     avgPnl: number;
@@ -282,7 +283,7 @@ export interface StrategyDecisionState {
     id?: number;
     scorer: string;
     challenger: string;
-    windowType: "recent" | "global";
+    windowType: "recent" | "global" | "short";
     action: "keep" | "promote" | "rollback" | "observe";
     readiness: "low" | "medium" | "high";
     confidence: number;

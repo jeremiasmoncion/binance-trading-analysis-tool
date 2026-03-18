@@ -12,6 +12,7 @@ const EXECUTION_PROFILES_TABLE = process.env.SUPABASE_EXECUTION_PROFILES_TABLE |
 const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVERRIDES_TABLE || "execution_scope_overrides";
 const ADAPTIVE_ACTIONS_LOG_TABLE = process.env.SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE || "adaptive_actions_log";
 const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
+const AI_MODEL_CONFIGS_TABLE = process.env.SUPABASE_AI_MODEL_CONFIGS_TABLE || "ai_model_configs";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
@@ -253,7 +254,7 @@ function normalizeExecutionProfile(row, username) {
   };
 }
 
-async function getExecutionProfileForUser(username) {
+async function getExecutionProfileForUser(username, modelConfigs = null) {
   const params = new URLSearchParams({
     select: "*",
     username: `eq.${String(username)}`,
@@ -284,6 +285,16 @@ async function getExecutionProfileForUser(username) {
     }
   } catch (error) {
     if (!isMissingRelationError(error)) throw error;
+  }
+  const configRows = Array.isArray(modelConfigs) ? modelConfigs : await fetchModelConfigsForUser(username).catch(() => []);
+  const activeModelConfig = normalizeModelConfigRegistry(configRows).find((item) => item.active) || null;
+  if (activeModelConfig?.label) {
+    normalized.scorerPolicy = {
+      activeScorer: activeModelConfig.label,
+      promotedAt: activeModelConfig.updatedAt || activeModelConfig.createdAt,
+      source: activeModelConfig.source || normalized.scorerPolicy?.source,
+      confidence: activeModelConfig.confidence ?? normalized.scorerPolicy?.confidence,
+    };
   }
   return normalized;
 }
@@ -465,6 +476,17 @@ function normalizeModelTrainingRunHistory(rows) {
 
 function normalizeModelConfigHistory(rows) {
   return (rows || []).map((row) => {
+    if (row?.active_scorer || row?.label) {
+      return {
+        id: row?.id,
+        activeScorer: String(row?.active_scorer || row?.label || ""),
+        source: row?.source ? String(row.source) : undefined,
+        confidence: row?.confidence == null ? undefined : Number(row.confidence),
+        summary: row?.summary ? String(row.summary) : undefined,
+        createdAt: row?.created_at ? String(row.created_at) : undefined,
+        status: row?.status ? String(row.status) : undefined,
+      };
+    }
     const details = row?.details && typeof row.details === "object" ? row.details : {};
     const scorerPolicy = details.scorerPolicy && typeof details.scorerPolicy === "object" ? details.scorerPolicy : {};
     return {
@@ -477,6 +499,126 @@ function normalizeModelConfigHistory(rows) {
       status: row?.status ? String(row.status) : undefined,
     };
   });
+}
+
+function normalizeModelConfigRegistry(rows) {
+  return (rows || []).map((row) => {
+    const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
+    return {
+      id: row?.id,
+      label: String(row?.label || row?.active_scorer || ""),
+      mode: String(row?.mode || "learned"),
+      windowType: String(row?.window_type || metadata.windowType || "global"),
+      active: row?.active === true,
+      ready: row?.ready !== false,
+      sampleSize: Number(row?.sample_size || 0),
+      confidence: Number(row?.confidence || 0),
+      avgPnl: Number(row?.avg_pnl || 0),
+      winRate: Number(row?.win_rate || 0),
+      rrWeight: row?.rr_weight == null ? undefined : Number(row.rr_weight),
+      adaptiveScoreWeight: row?.adaptive_score_weight == null ? undefined : Number(row.adaptive_score_weight),
+      durationPenaltyWeight: row?.duration_penalty_weight == null ? undefined : Number(row.duration_penalty_weight),
+      reading: row?.summary ? String(row.summary) : undefined,
+      status: row?.status ? String(row.status) : undefined,
+      source: row?.source ? String(row.source) : undefined,
+      updatedAt: row?.updated_at ? String(row.updated_at) : undefined,
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+    };
+  }).filter((item) => item.label);
+}
+
+async function fetchModelConfigsForUser(username) {
+  try {
+    return await supabaseRequest(
+      `${AI_MODEL_CONFIGS_TABLE}?select=*&username=eq.${encodeURIComponent(String(username))}&order=updated_at.desc.nullslast,created_at.desc`,
+    );
+  } catch (error) {
+    if (isMissingRelationError(error)) return [];
+    throw error;
+  }
+}
+
+async function upsertModelConfigsForUser(username, modelRuns, activeScorer) {
+  const rows = Array.isArray(modelRuns) ? modelRuns : [];
+  if (!rows.length) return [];
+  try {
+    return await supabaseRequest(AI_MODEL_CONFIGS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: rows.map((run) => ({
+        username,
+        label: String(run.label || ""),
+        active_scorer: String(run.label || ""),
+        mode: String(run.mode || "learned"),
+        window_type: String(run.windowType || "global"),
+        active: String(activeScorer || "").toLowerCase() === String(run.label || "").toLowerCase(),
+        ready: Boolean(run.ready),
+        sample_size: Number(run.sampleSize || 0),
+        confidence: Number(run.confidence || 0),
+        avg_pnl: Number(run.avgPnl || 0),
+        win_rate: Number(run.winRate || 0),
+        rr_weight: run.rrWeight == null ? null : Number(run.rrWeight),
+        adaptive_score_weight: run.adaptiveScoreWeight == null ? null : Number(run.adaptiveScoreWeight),
+        duration_penalty_weight: run.durationPenaltyWeight == null ? null : Number(run.durationPenaltyWeight),
+        source: "training-run",
+        status: run.ready ? "ready" : "observe",
+        summary: String(run.reading || ""),
+        metadata: {
+          windowType: run.windowType,
+          sampleSize: run.sampleSize,
+          confidence: run.confidence,
+        },
+      })),
+    });
+  } catch (error) {
+    if (isMissingRelationError(error)) return [];
+    throw error;
+  }
+}
+
+async function setActiveModelConfigForUser(username, candidateScorer, scorerPolicy, modelRegistry = []) {
+  const configs = Array.isArray(modelRegistry) && modelRegistry.length
+    ? modelRegistry
+    : await fetchModelConfigsForUser(username).catch(() => []);
+  const rows = (configs || []).filter((item) => item && (item.label || item.active_scorer));
+  if (!rows.length) return [];
+  try {
+    return await supabaseRequest(AI_MODEL_CONFIGS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: rows.map((row) => {
+        const label = String(row.label || row.active_scorer || "");
+        return {
+          username,
+          label,
+          active_scorer: label,
+          mode: String(row.mode || "learned"),
+          window_type: String(row.windowType || row.window_type || "global"),
+          active: label.toLowerCase() === String(candidateScorer || "").toLowerCase(),
+          ready: row.ready !== false,
+          sample_size: Number(row.sampleSize || row.sample_size || 0),
+          confidence: Number(row.confidence || 0),
+          avg_pnl: Number(row.avgPnl || row.avg_pnl || 0),
+          win_rate: Number(row.winRate || row.win_rate || 0),
+          rr_weight: row.rrWeight == null && row.rr_weight == null ? null : Number(row.rrWeight ?? row.rr_weight),
+          adaptive_score_weight: row.adaptiveScoreWeight == null && row.adaptive_score_weight == null ? null : Number(row.adaptiveScoreWeight ?? row.adaptive_score_weight),
+          duration_penalty_weight: row.durationPenaltyWeight == null && row.duration_penalty_weight == null ? null : Number(row.durationPenaltyWeight ?? row.duration_penalty_weight),
+          source: scorerPolicy?.source ? String(scorerPolicy.source) : "governance",
+          status: label.toLowerCase() === String(candidateScorer || "").toLowerCase() ? "active" : (row.ready !== false ? "ready" : "observe"),
+          summary: label.toLowerCase() === String(candidateScorer || "").toLowerCase()
+            ? `Configuración activa del modelo ahora apunta a ${label}`
+            : String(row.reading || row.summary || ""),
+          metadata: {
+            scorerPolicy,
+            windowType: row.windowType || row.window_type || "global",
+          },
+        };
+      }),
+    });
+  } catch (error) {
+    if (isMissingRelationError(error)) return [];
+    throw error;
+  }
 }
 
 function buildLearnedModelRun(label, rows, windowType, scorerPolicy) {
@@ -580,6 +722,12 @@ async function recordModelTrainingRunHistory(username, modelTrainingRuns) {
       },
     }).catch(() => null);
   }
+}
+
+async function persistModelConfigRegistry(username, modelTrainingRuns, scorerPolicy) {
+  const rows = Array.isArray(modelTrainingRuns) ? modelTrainingRuns : [];
+  if (!rows.length) return [];
+  return upsertModelConfigsForUser(username, rows, scorerPolicy?.activeScorer || "");
 }
 
 function normalizeScorerEvaluationHistory(rows) {
@@ -707,6 +855,7 @@ export async function getSystemStrategyDecisionState(username) {
   let scorerEvaluationHistory = [];
   let modelTrainingRunHistory = [];
   let modelConfigHistory = [];
+  let modelConfigRegistry = [];
 
   try {
     const versionsParams = new URLSearchParams({
@@ -719,15 +868,16 @@ export async function getSystemStrategyDecisionState(username) {
       limit: "100",
     });
 
-    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory] = await Promise.all([
+    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory, modelConfigRegistry] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
       supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
       fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []),
       fetchRecentAdaptiveActions(username, "model-training-run", 12).catch(() => []),
       fetchRecentAdaptiveActions(username, "model-config", 8).catch(() => []),
+      fetchModelConfigsForUser(username).catch(() => []),
     ]);
-    executionProfile = await getExecutionProfileForUser(username).catch(() => null);
+    executionProfile = await getExecutionProfileForUser(username, modelConfigRegistry).catch(() => null);
     signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
   } catch {
     versions = [];
@@ -738,6 +888,7 @@ export async function getSystemStrategyDecisionState(username) {
     scorerEvaluationHistory = [];
     modelTrainingRunHistory = [];
     modelConfigHistory = [];
+    modelConfigRegistry = [];
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -763,7 +914,8 @@ export async function getSystemStrategyDecisionState(username) {
     seenTrainingKeys.add(key);
     latestTrainingRuns.push(row);
   }
-  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, latestTrainingRuns);
+  const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
+  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, latestTrainingRuns, normalizedModelConfigRegistry);
 
   return {
     username,
@@ -806,7 +958,8 @@ export async function getSystemStrategyDecisionState(username) {
     shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
     scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
     modelTrainingRunHistory: normalizedTrainingRunHistory,
-    modelConfigHistory: normalizeModelConfigHistory(modelConfigHistory || []),
+    modelConfigHistory: normalizedModelConfigRegistry.length ? normalizeModelConfigHistory(modelConfigRegistry || []) : normalizeModelConfigHistory(modelConfigHistory || []),
+    modelConfigRegistry: normalizedModelConfigRegistry,
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
@@ -1384,7 +1537,7 @@ function buildContextBiasByScope(signals) {
   return rows.sort((left, right) => Math.abs(right.biasScore) - Math.abs(left.biasScore)).slice(0, 60);
 }
 
-function buildModelRegistry(rows, scorerPolicy, modelTrainingRuns = []) {
+function buildModelRegistry(rows, scorerPolicy, modelTrainingRuns = [], modelConfigs = []) {
   const cleanRows = (rows || []).filter((row) => row && row.realized_pnl != null);
   const total = cleanRows.length;
   const positiveRows = cleanRows.filter((row) => Number(row.realized_pnl || 0) > 0);
@@ -1398,9 +1551,12 @@ function buildModelRegistry(rows, scorerPolicy, modelTrainingRuns = []) {
   const negAvgAdaptive = avg(negativeRows, "adaptive_score");
   const posAvgDuration = avg(positiveRows, "duration_minutes");
   const negAvgDuration = avg(negativeRows, "duration_minutes");
-  const activeScorer = String(scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
+  const normalizedConfigs = Array.isArray(modelConfigs) ? modelConfigs : [];
+  const activeConfig = normalizedConfigs.find((item) => item.active) || null;
+  const activeScorer = String(activeConfig?.label || scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
 
   const runByLabel = new Map((modelTrainingRuns || []).map((item) => [String(item.label || ""), item]));
+  const configByLabel = new Map(normalizedConfigs.map((item) => [String(item.label || ""), item]));
   const learnedGlobal = runByLabel.get("model-v2");
   const learnedRecent = runByLabel.get("model-v3");
   const learnedShort = runByLabel.get("model-v4");
@@ -1414,57 +1570,57 @@ function buildModelRegistry(rows, scorerPolicy, modelTrainingRuns = []) {
       label: "model-v1",
       mode: "static",
       active: activeScorer === "model-v1",
-      ready: total >= 12,
-      sampleSize: total,
-      confidence: Number(clampScore(total * 2 + Math.max(0, winRate - 48) * 0.9, 0, 100).toFixed(1)),
-      avgPnl: Number(avgPnl.toFixed(2)),
-      winRate: Number(winRate.toFixed(2)),
-      rrWeight: 3.5,
-      adaptiveScoreWeight: 0.03,
-      durationPenaltyWeight: 0.25,
-      reading: "Modelo base estático sobre features agregados.",
+      ready: configByLabel.get("model-v1") ? Boolean(configByLabel.get("model-v1").ready) : total >= 12,
+      sampleSize: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").sampleSize || total) : total,
+      confidence: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").confidence || 0) : Number(clampScore(total * 2 + Math.max(0, winRate - 48) * 0.9, 0, 100).toFixed(1)),
+      avgPnl: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").avgPnl || avgPnl) : Number(avgPnl.toFixed(2)),
+      winRate: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").winRate || winRate) : Number(winRate.toFixed(2)),
+      rrWeight: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").rrWeight || 3.5) : 3.5,
+      adaptiveScoreWeight: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").adaptiveScoreWeight || 0.03) : 0.03,
+      durationPenaltyWeight: configByLabel.get("model-v1") ? Number(configByLabel.get("model-v1").durationPenaltyWeight || 0.25) : 0.25,
+      reading: configByLabel.get("model-v1")?.reading || "Modelo base estático sobre features agregados.",
     },
     {
       label: "model-v2",
       mode: "learned",
       active: activeScorer === "model-v2",
-      ready: learnedGlobal ? Boolean(learnedGlobal.ready) : total >= 18 && learnedConfidence >= 62,
-      sampleSize: learnedGlobal ? Number(learnedGlobal.sampleSize || total) : total,
-      confidence: learnedGlobal ? Number(learnedGlobal.confidence || learnedConfidence) : learnedConfidence,
-      avgPnl: learnedGlobal ? Number(learnedGlobal.avgPnl || avgPnl) : Number(avgPnl.toFixed(2)),
-      winRate: learnedGlobal ? Number(learnedGlobal.winRate || winRate) : Number(winRate.toFixed(2)),
-      rrWeight: learnedGlobal ? Number(learnedGlobal.rrWeight || learnedRrWeight) : learnedRrWeight,
-      adaptiveScoreWeight: learnedGlobal ? Number(learnedGlobal.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
-      durationPenaltyWeight: learnedGlobal ? Number(learnedGlobal.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
-      reading: learnedGlobal?.reading || "Modelo aprendido desde el dataset real de ejecución y features.",
+      ready: configByLabel.get("model-v2") ? Boolean(configByLabel.get("model-v2").ready) : learnedGlobal ? Boolean(learnedGlobal.ready) : total >= 18 && learnedConfidence >= 62,
+      sampleSize: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").sampleSize || total) : learnedGlobal ? Number(learnedGlobal.sampleSize || total) : total,
+      confidence: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").confidence || learnedConfidence) : learnedGlobal ? Number(learnedGlobal.confidence || learnedConfidence) : learnedConfidence,
+      avgPnl: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").avgPnl || avgPnl) : learnedGlobal ? Number(learnedGlobal.avgPnl || avgPnl) : Number(avgPnl.toFixed(2)),
+      winRate: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").winRate || winRate) : learnedGlobal ? Number(learnedGlobal.winRate || winRate) : Number(winRate.toFixed(2)),
+      rrWeight: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").rrWeight || learnedRrWeight) : learnedGlobal ? Number(learnedGlobal.rrWeight || learnedRrWeight) : learnedRrWeight,
+      adaptiveScoreWeight: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").adaptiveScoreWeight || learnedAdaptiveWeight) : learnedGlobal ? Number(learnedGlobal.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
+      durationPenaltyWeight: configByLabel.get("model-v2") ? Number(configByLabel.get("model-v2").durationPenaltyWeight || learnedDurationPenalty) : learnedGlobal ? Number(learnedGlobal.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
+      reading: configByLabel.get("model-v2")?.reading || learnedGlobal?.reading || "Modelo aprendido desde el dataset real de ejecución y features.",
     },
     {
       label: "model-v3",
       mode: "learned",
       active: activeScorer === "model-v3",
-      ready: learnedRecent ? Boolean(learnedRecent.ready) : false,
-      sampleSize: learnedRecent ? Number(learnedRecent.sampleSize || 0) : 0,
-      confidence: learnedRecent ? Number(learnedRecent.confidence || 0) : 0,
-      avgPnl: learnedRecent ? Number(learnedRecent.avgPnl || 0) : Number(avgPnl.toFixed(2)),
-      winRate: learnedRecent ? Number(learnedRecent.winRate || 0) : Number(winRate.toFixed(2)),
-      rrWeight: learnedRecent ? Number(learnedRecent.rrWeight || learnedRrWeight) : learnedRrWeight,
-      adaptiveScoreWeight: learnedRecent ? Number(learnedRecent.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
-      durationPenaltyWeight: learnedRecent ? Number(learnedRecent.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
-      reading: learnedRecent?.reading || "Modelo learned reciente preparado para desafiar al modelo global cuando ya haya muestra suficiente.",
+      ready: configByLabel.get("model-v3") ? Boolean(configByLabel.get("model-v3").ready) : learnedRecent ? Boolean(learnedRecent.ready) : false,
+      sampleSize: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").sampleSize || 0) : learnedRecent ? Number(learnedRecent.sampleSize || 0) : 0,
+      confidence: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").confidence || 0) : learnedRecent ? Number(learnedRecent.confidence || 0) : 0,
+      avgPnl: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").avgPnl || avgPnl) : learnedRecent ? Number(learnedRecent.avgPnl || 0) : Number(avgPnl.toFixed(2)),
+      winRate: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").winRate || winRate) : learnedRecent ? Number(learnedRecent.winRate || 0) : Number(winRate.toFixed(2)),
+      rrWeight: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").rrWeight || learnedRrWeight) : learnedRecent ? Number(learnedRecent.rrWeight || learnedRrWeight) : learnedRrWeight,
+      adaptiveScoreWeight: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").adaptiveScoreWeight || learnedAdaptiveWeight) : learnedRecent ? Number(learnedRecent.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
+      durationPenaltyWeight: configByLabel.get("model-v3") ? Number(configByLabel.get("model-v3").durationPenaltyWeight || learnedDurationPenalty) : learnedRecent ? Number(learnedRecent.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
+      reading: configByLabel.get("model-v3")?.reading || learnedRecent?.reading || "Modelo learned reciente preparado para desafiar al modelo global cuando ya haya muestra suficiente.",
     },
     {
       label: "model-v4",
       mode: "learned",
       active: activeScorer === "model-v4",
-      ready: learnedShort ? Boolean(learnedShort.ready) : false,
-      sampleSize: learnedShort ? Number(learnedShort.sampleSize || 0) : 0,
-      confidence: learnedShort ? Number(learnedShort.confidence || 0) : 0,
-      avgPnl: learnedShort ? Number(learnedShort.avgPnl || 0) : Number(avgPnl.toFixed(2)),
-      winRate: learnedShort ? Number(learnedShort.winRate || 0) : Number(winRate.toFixed(2)),
-      rrWeight: learnedShort ? Number(learnedShort.rrWeight || learnedRrWeight) : learnedRrWeight,
-      adaptiveScoreWeight: learnedShort ? Number(learnedShort.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
-      durationPenaltyWeight: learnedShort ? Number(learnedShort.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
-      reading: learnedShort?.reading || "Modelo learned corto preparado para reaccionar a cambios rápidos del edge reciente.",
+      ready: configByLabel.get("model-v4") ? Boolean(configByLabel.get("model-v4").ready) : learnedShort ? Boolean(learnedShort.ready) : false,
+      sampleSize: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").sampleSize || 0) : learnedShort ? Number(learnedShort.sampleSize || 0) : 0,
+      confidence: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").confidence || 0) : learnedShort ? Number(learnedShort.confidence || 0) : 0,
+      avgPnl: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").avgPnl || avgPnl) : learnedShort ? Number(learnedShort.avgPnl || 0) : Number(avgPnl.toFixed(2)),
+      winRate: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").winRate || winRate) : learnedShort ? Number(learnedShort.winRate || 0) : Number(winRate.toFixed(2)),
+      rrWeight: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").rrWeight || learnedRrWeight) : learnedShort ? Number(learnedShort.rrWeight || learnedRrWeight) : learnedRrWeight,
+      adaptiveScoreWeight: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").adaptiveScoreWeight || learnedAdaptiveWeight) : learnedShort ? Number(learnedShort.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
+      durationPenaltyWeight: configByLabel.get("model-v4") ? Number(configByLabel.get("model-v4").durationPenaltyWeight || learnedDurationPenalty) : learnedShort ? Number(learnedShort.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
+      reading: configByLabel.get("model-v4")?.reading || learnedShort?.reading || "Modelo learned corto preparado para reaccionar a cambios rápidos del edge reciente.",
     },
   ];
 }
@@ -2572,6 +2728,7 @@ export async function generateAdaptiveRecommendationsForUser(username) {
   await recordScorerEvaluationHistory(normalizedUsername, scorerEvaluations).catch(() => null);
   const modelTrainingRuns = buildModelTrainingRuns(featureSnapshots || [], executionProfile);
   await recordModelTrainingRunHistory(normalizedUsername, modelTrainingRuns).catch(() => null);
+  await persistModelConfigRegistry(normalizedUsername, modelTrainingRuns, executionProfile?.scorerPolicy || null).catch(() => null);
 
   const existingByKey = new Map((existingRecommendations || []).map((item) => [item.recommendation_key, item]));
   const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile)
@@ -2819,6 +2976,8 @@ async function applyAdaptiveScorerPromotionRecommendation(username, recommendati
       evidence: updatedEvidence,
     },
   }).catch(() => null);
+
+  await setActiveModelConfigForUser(username, candidateScorer, scorerPolicy).catch(() => null);
 
   return {
     recommendation: recommendationRows?.[0] || recommendation,

@@ -92,6 +92,34 @@ create index if not exists signal_feature_snapshots_signal_idx
 create index if not exists signal_feature_snapshots_execution_idx
   on public.signal_feature_snapshots (execution_order_id);
 
+create table if not exists public.ai_model_configs (
+  id bigint generated always as identity primary key,
+  username text not null,
+  label text not null,
+  active_scorer text not null,
+  mode text not null default 'learned',
+  window_type text not null default 'global',
+  active boolean not null default false,
+  ready boolean not null default false,
+  sample_size integer not null default 0,
+  confidence numeric not null default 0,
+  avg_pnl numeric not null default 0,
+  win_rate numeric not null default 0,
+  rr_weight numeric,
+  adaptive_score_weight numeric,
+  duration_penalty_weight numeric,
+  source text not null default 'system',
+  status text not null default 'observe',
+  summary text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (username, label)
+);
+
+create index if not exists ai_model_configs_user_idx
+  on public.ai_model_configs (username, updated_at desc);
+
 create or replace function public.set_ai_data_layer_updated_at()
 returns trigger
 language plpgsql
@@ -105,5 +133,11 @@ $$;
 drop trigger if exists trg_execution_scope_overrides_updated_at on public.execution_scope_overrides;
 create trigger trg_execution_scope_overrides_updated_at
 before update on public.execution_scope_overrides
+for each row
+execute function public.set_ai_data_layer_updated_at();
+
+drop trigger if exists trg_ai_model_configs_updated_at on public.ai_model_configs;
+create trigger trg_ai_model_configs_updated_at
+before update on public.ai_model_configs
 for each row
 execute function public.set_ai_data_layer_updated_at();

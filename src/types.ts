@@ -209,6 +209,7 @@ export interface StrategyDecisionState {
   modelRegistry?: Array<{
     label: string;
     mode: "static" | "learned";
+    windowType?: "recent" | "global" | "short";
     active?: boolean;
     ready?: boolean;
     sampleSize: number;
@@ -219,6 +220,30 @@ export interface StrategyDecisionState {
     adaptiveScoreWeight?: number;
     durationPenaltyWeight?: number;
     reading?: string;
+    status?: string;
+    source?: string;
+    updatedAt?: string;
+    createdAt?: string;
+  }>;
+  modelConfigRegistry?: Array<{
+    id?: number;
+    label: string;
+    mode: "static" | "learned";
+    windowType?: "recent" | "global" | "short";
+    active?: boolean;
+    ready?: boolean;
+    sampleSize: number;
+    confidence: number;
+    avgPnl: number;
+    winRate: number;
+    rrWeight?: number;
+    adaptiveScoreWeight?: number;
+    durationPenaltyWeight?: number;
+    reading?: string;
+    status?: string;
+    source?: string;
+    updatedAt?: string;
+    createdAt?: string;
   }>;
   modelTrainingRunHistory?: Array<{
     id?: number;

@@ -392,16 +392,6 @@ export function DashboardView(props: DashboardViewProps) {
                     </div>
                     <canvas ref={props.chartRef} />
                   </div>
-
-                  <div className="dashboard-kpi-grid">
-                    {tabSummary.metrics.map((item) => (
-                      <article key={item.label} className="dashboard-kpi-tile ui-interactive-surface">
-                        <span className="dashboard-kpi-label">{item.label}</span>
-                        <strong className={`dashboard-kpi-value ${item.tone || ""}`.trim()}>{item.value}</strong>
-                        <span className="dashboard-kpi-note">{item.note}</span>
-                      </article>
-                    ))}
-                  </div>
                 </div>
 
                 <aside className="dashboard-side-card dashboard-tab-side-card">

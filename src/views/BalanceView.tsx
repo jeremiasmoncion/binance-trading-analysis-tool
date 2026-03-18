@@ -354,7 +354,7 @@ export function BalanceView(props: BalanceViewProps) {
             </div>
           </div>
 
-          <div className="wallet-main-grid">
+          <div className="wallet-main-grid ui-insight-layout">
             <section className="wallet-holdings-card ui-data-card">
               <div className="wallet-card-header ui-data-header">
                 <div className="wallet-card-title-block ui-data-title-block">
@@ -441,7 +441,7 @@ export function BalanceView(props: BalanceViewProps) {
               ) : null}
             </section>
 
-            <div className="wallet-side-stack">
+            <div className="wallet-side-stack ui-side-stack">
               <aside className="wallet-allocation-card">
                 <h3 className="wallet-card-title">Portfolio Allocation</h3>
                 <div className="wallet-allocation-donut" style={{ backgroundImage: allocationGradient }}>

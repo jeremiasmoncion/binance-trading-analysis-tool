@@ -830,19 +830,6 @@
 .wallet-quick-icon-danger { background: linear-gradient(135deg, #fb7185, #ef4444); }
 .wallet-quick-icon-accent { background: linear-gradient(135deg, #a855f7, #22d3ee); }
 
-.wallet-main-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2.05fr) minmax(360px, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-.wallet-side-stack {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
 .wallet-holdings-card,
 .wallet-allocation-card,
 .wallet-actions-card,
@@ -1339,10 +1326,6 @@ body.dark-theme .wallet-assets-table tbody td {
   .wallet-quick-stats-grid,
   .wallet-hero-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .wallet-main-grid {
-    grid-template-columns: 1fr;
   }
 }
 

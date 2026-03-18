@@ -73,6 +73,19 @@
   flex-wrap: wrap;
 }
 
+.ui-insight-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.05fr) minmax(360px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.ui-side-stack {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+}
+
 .ui-button,
 .btn-secondary-soft {
   display: inline-flex;
@@ -796,6 +809,10 @@
   .ui-summary-grid,
   .ui-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ui-insight-layout {
+    grid-template-columns: 1fr;
   }
 }
 

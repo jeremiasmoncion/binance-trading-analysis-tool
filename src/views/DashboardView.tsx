@@ -68,7 +68,7 @@ export function DashboardView(props: DashboardViewProps) {
     return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
   }, [props.dashboardSummary]);
   const summary = hasUsefulDashboardSummary ? props.dashboardSummary : null;
-  const portfolio = summary?.portfolio || props.portfolioData?.portfolio;
+  const portfolio = props.portfolioData?.portfolio || summary?.portfolio;
   const executionAccount = summary
     ? {
         connected: summary.connection.connected,
@@ -175,8 +175,8 @@ export function DashboardView(props: DashboardViewProps) {
     ],
   );
   const topAssets = useMemo(
-    () => buildTopAssets(summary?.topAssets || props.portfolioData?.assets || []),
-    [summary?.topAssets, props.portfolioData?.assets],
+    () => buildTopAssets(props.portfolioData?.assets || summary?.topAssets || []),
+    [props.portfolioData?.assets, summary?.topAssets],
   );
   const recentActivity = useMemo(
     () => buildRecentActivity(props.portfolioData, recentExecuteOrders),

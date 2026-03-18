@@ -385,7 +385,11 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
     if (currentView === "dashboard") {
-      void refreshDashboardSummary(true);
+      void Promise.all([
+        refreshPortfolio(portfolioPeriod, "full"),
+        refreshExecutionCenter(),
+        refreshDashboardSummary(true),
+      ]);
     }
     lastViewRef.current = currentView;
   }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio]);
@@ -396,29 +400,29 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     const portfolioRefreshInterval =
       currentView === "balance"
         ? 20_000
-        : 120_000;
+        : currentView === "dashboard"
+          ? 60_000
+          : 120_000;
 
     const executionRefreshInterval =
       currentView === "memory"
         ? 35_000
-        : 90_000;
+        : currentView === "dashboard"
+          ? 30_000
+          : 90_000;
 
     const dashboardRefreshInterval = currentView === "dashboard" ? 20_000 : 0;
 
-    const portfolioIntervalId = currentView === "dashboard"
-      ? null
-      : window.setInterval(() => {
-        if (document.visibilityState === "hidden") return;
-        const mode = currentView === "balance" ? "live" : "full";
-        void refreshPortfolio(portfolioPeriod, mode);
-      }, portfolioRefreshInterval);
+    const portfolioIntervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      const mode = currentView === "balance" ? "live" : "full";
+      void refreshPortfolio(portfolioPeriod, mode);
+    }, portfolioRefreshInterval);
 
-    const executionIntervalId = currentView === "dashboard"
-      ? null
-      : window.setInterval(() => {
-        if (document.visibilityState === "hidden") return;
-        void refreshExecutionCenter();
-      }, executionRefreshInterval);
+    const executionIntervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshExecutionCenter();
+    }, executionRefreshInterval);
 
     const dashboardIntervalId = dashboardRefreshInterval
       ? window.setInterval(() => {

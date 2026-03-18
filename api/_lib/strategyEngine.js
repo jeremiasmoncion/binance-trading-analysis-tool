@@ -592,6 +592,7 @@ export async function getSystemStrategyDecisionState(username) {
           || (item.metadata && typeof item.metadata === "object" && item.metadata.allowExecution === true),
       ),
     }));
+  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile);
 
   return {
     username,
@@ -628,7 +629,8 @@ export async function getSystemStrategyDecisionState(username) {
       })),
     adaptivePrimaryByScope: buildAdaptivePrimaryByScope(signals || []),
     contextBiasByScope: buildContextBiasByScope(signals || []),
-    featureModelByScope: buildFeatureModelByScope(featureSnapshots || []),
+    modelRegistry,
+    featureModelByScope: buildFeatureModelByScope(featureSnapshots || [], modelRegistry),
     scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
     shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
     scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
@@ -801,7 +803,7 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
   );
   const recommendations = [];
 
-  if (activeScorer !== "adaptive-v2") {
+  if (activeScorer !== "adaptive-v2" && (!activeScorer || activeScorer === "adaptive-v1")) {
     if (!(edgeDelta <= 0 && winRateDelta < 0) && !(edgeDelta < 0.15 && winRateDelta < 4)) {
       recommendations.push({
         recommendation_key: "adaptive-scorer:adaptive-v1->adaptive-v2",
@@ -877,7 +879,7 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
         promotionMode: "adaptive-scorer-rollback",
       },
     });
-  } else if (activeScorer && activeScorer === "model-v1") {
+  } else if (activeScorer && activeScorer.startsWith("model-")) {
     const recentActiveSignals = scoredSignals
       .filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer)
       .slice()
@@ -949,14 +951,15 @@ function chooseRollbackBaseline(activeScorer, scorerStats) {
 
 function buildShadowModelEvaluation(signals, executionProfile) {
   const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
+  const candidateScorer = activeScorer === "model-v2" ? "model-v1" : "model-v2";
   const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
   const candidateRows = closedSignals.filter((item) =>
-    String(item.signal_payload?.decision?.scorer?.candidateLabel || "").toLowerCase() === "model-v1",
+    String(item.signal_payload?.decision?.scorer?.candidateLabel || "").toLowerCase() === candidateScorer,
   );
   const readyRows = candidateRows.filter((item) => item.signal_payload?.decision?.scorer?.candidateReady);
   if (readyRows.length < 6) {
     return {
-      candidateScorer: "model-v1",
+      candidateScorer,
       activeScorer,
       readySampleSize: readyRows.length,
       favorableSampleSize: 0,
@@ -967,7 +970,7 @@ function buildShadowModelEvaluation(signals, executionProfile) {
       nonFavorableWinRate: 0,
       confidence: 0,
       action: "observe",
-      summary: "Todavía no hay suficiente muestra lista para evaluar model-v1 como challenger real.",
+      summary: `Todavía no hay suficiente muestra lista para evaluar ${candidateScorer} como challenger real.`,
     };
   }
 
@@ -993,7 +996,7 @@ function buildShadowModelEvaluation(signals, executionProfile) {
     && confidence >= 68;
 
   return {
-    candidateScorer: "model-v1",
+    candidateScorer,
     activeScorer,
     readySampleSize: readyRows.length,
     favorableSampleSize: favorableStats.total,
@@ -1005,22 +1008,22 @@ function buildShadowModelEvaluation(signals, executionProfile) {
     confidence,
     action: promotable ? "promote" : "observe",
     summary: promotable
-      ? "Model-v1 ya está mostrando mejor edge cuando su score sombra favorece la lectura. Puede pasar a desafiar formalmente al scorer activo."
-      : "Model-v1 ya está acumulando muestra útil, pero todavía no deja una ventaja suficientemente clara para promoción.",
+      ? `${candidateScorer} ya está mostrando mejor edge cuando su score sombra favorece la lectura. Puede pasar a desafiar formalmente al scorer activo.`
+      : `${candidateScorer} ya está acumulando muestra útil, pero todavía no deja una ventaja suficientemente clara para promoción.`,
   };
 }
 
 function buildModelV1PromotionRecommendations(signals, executionProfile) {
   const evaluation = buildShadowModelEvaluation(signals, executionProfile);
   if (!evaluation || evaluation.action !== "promote") return [];
-  if (evaluation.activeScorer === "model-v1") return [];
+  if (evaluation.activeScorer === evaluation.candidateScorer) return [];
   return [{
-    recommendation_key: `adaptive-scorer:${evaluation.activeScorer}->model-v1`,
+    recommendation_key: `adaptive-scorer:${evaluation.activeScorer}->${evaluation.candidateScorer}`,
     strategy_id: "adaptive-scorer",
     strategy_version: evaluation.activeScorer,
     parameter_key: "scorerPolicy",
-    title: "Promover model-v1 como challenger formal",
-    summary: "El modelo versionado ya está mostrando ventaja suficiente en modo sombra. Conviene pasarlo a desafío formal frente al scorer activo.",
+    title: `Promover ${evaluation.candidateScorer} como challenger formal`,
+    summary: `El modelo versionado ${evaluation.candidateScorer} ya está mostrando ventaja suficiente en modo sombra. Conviene pasarlo a desafío formal frente al scorer activo.`,
     current_value: Number(evaluation.nonFavorableAvgPnl.toFixed(2)),
     suggested_value: Number(evaluation.favorableAvgPnl.toFixed(2)),
     confidence: Number((evaluation.confidence / 100).toFixed(2)),
@@ -1029,7 +1032,7 @@ function buildModelV1PromotionRecommendations(signals, executionProfile) {
       recommendationType: "adaptive-scorer-promotion",
       action: "promote",
       baseScorer: evaluation.activeScorer,
-      candidateScorer: "model-v1",
+      candidateScorer: evaluation.candidateScorer,
       sampleSizeReady: evaluation.readySampleSize,
       sampleSizeFavorable: evaluation.favorableSampleSize,
       sampleSizeOther: evaluation.nonFavorableSampleSize,
@@ -1219,7 +1222,82 @@ function buildContextBiasByScope(signals) {
   return rows.sort((left, right) => Math.abs(right.biasScore) - Math.abs(left.biasScore)).slice(0, 60);
 }
 
-function buildFeatureModelByScope(rows) {
+function buildModelRegistry(rows, scorerPolicy) {
+  const cleanRows = (rows || []).filter((row) => row && row.realized_pnl != null);
+  const total = cleanRows.length;
+  const positiveRows = cleanRows.filter((row) => Number(row.realized_pnl || 0) > 0);
+  const negativeRows = cleanRows.filter((row) => Number(row.realized_pnl || 0) <= 0);
+  const avg = (list, field) => list.length ? list.reduce((sum, row) => sum + Number(row[field] || 0), 0) / list.length : 0;
+  const winRate = total ? (positiveRows.length / total) * 100 : 0;
+  const avgPnl = avg(cleanRows, "realized_pnl");
+  const posAvgRr = avg(positiveRows, "rr_ratio");
+  const negAvgRr = avg(negativeRows, "rr_ratio");
+  const posAvgAdaptive = avg(positiveRows, "adaptive_score");
+  const negAvgAdaptive = avg(negativeRows, "adaptive_score");
+  const posAvgDuration = avg(positiveRows, "duration_minutes");
+  const negAvgDuration = avg(negativeRows, "duration_minutes");
+  const activeScorer = String(scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
+
+  const learnedRrWeight = Number((3.2 + Math.max(0, posAvgRr - negAvgRr) * 4.2).toFixed(2));
+  const learnedAdaptiveWeight = Number((0.035 + Math.max(0, posAvgAdaptive - negAvgAdaptive) * 0.0035).toFixed(4));
+  const learnedDurationPenalty = Number((0.18 + Math.max(0, posAvgDuration - negAvgDuration) / 240).toFixed(3));
+  const learnedConfidence = Number(clampScore(total * 2.8 + Math.max(0, winRate - 48) * 1.1 + Math.max(0, posAvgRr - 1) * 16, 0, 100).toFixed(1));
+
+  return [
+    {
+      label: "model-v1",
+      mode: "static",
+      active: activeScorer === "model-v1",
+      ready: total >= 12,
+      sampleSize: total,
+      confidence: Number(clampScore(total * 2 + Math.max(0, winRate - 48) * 0.9, 0, 100).toFixed(1)),
+      avgPnl: Number(avgPnl.toFixed(2)),
+      winRate: Number(winRate.toFixed(2)),
+      rrWeight: 3.5,
+      adaptiveScoreWeight: 0.03,
+      durationPenaltyWeight: 0.25,
+      reading: "Modelo base estático sobre features agregados.",
+    },
+    {
+      label: "model-v2",
+      mode: "learned",
+      active: activeScorer === "model-v2",
+      ready: total >= 18 && learnedConfidence >= 62,
+      sampleSize: total,
+      confidence: learnedConfidence,
+      avgPnl: Number(avgPnl.toFixed(2)),
+      winRate: Number(winRate.toFixed(2)),
+      rrWeight: learnedRrWeight,
+      adaptiveScoreWeight: learnedAdaptiveWeight,
+      durationPenaltyWeight: learnedDurationPenalty,
+      reading: "Modelo aprendido desde el dataset real de ejecución y features.",
+    },
+  ];
+}
+
+function computeFeatureModelScore(group, modelSpec) {
+  const sampleSize = Number(group.sampleSize || 0);
+  const pnl = Number(group.pnl || 0);
+  const avgPnl = Number(group.avgPnl || 0);
+  const winRate = Number(group.winRate || 0);
+  const avgAdaptiveScore = Number(group.avgAdaptiveScore || 0);
+  const avgRr = Number(group.avgRr || 0);
+  const avgDurationMinutes = Number(group.avgDurationMinutes || 0);
+  const rrWeight = Number(modelSpec?.rrWeight || 3.5);
+  const adaptiveScoreWeight = Number(modelSpec?.adaptiveScoreWeight || 0.03);
+  const durationPenaltyWeight = Number(modelSpec?.durationPenaltyWeight || 0.25);
+  return Number((
+    pnl * 2.5
+    + avgPnl * 10
+    + (winRate - 50) * 1.1
+    + Math.min(sampleSize, 30) * 0.45
+    + avgAdaptiveScore * adaptiveScoreWeight
+    + avgRr * rrWeight
+    - Math.min(avgDurationMinutes / 60, 10) * durationPenaltyWeight
+  ).toFixed(2));
+}
+
+function buildFeatureModelByScope(rows, modelRegistry = []) {
   const groups = new Map();
   for (const row of (rows || [])) {
     if (!row) continue;
@@ -1261,15 +1339,20 @@ function buildFeatureModelByScope(rows) {
       ? group.rows.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0) / sampleSize
       : 0;
     const winRate = sampleSize ? (wins / sampleSize) * 100 : 0;
-    const modelScore = Number((
-      pnl * 2.5
-      + avgPnl * 10
-      + (winRate - 50) * 1.1
-      + Math.min(sampleSize, 30) * 0.45
-      + avgAdaptiveScore * 0.03
-      + avgRr * 3.5
-      - Math.min(avgDuration / 60, 10) * 0.25
-    ).toFixed(2));
+    const groupMetrics = {
+      sampleSize,
+      pnl,
+      avgPnl,
+      winRate,
+      avgAdaptiveScore,
+      avgRr,
+      avgDurationMinutes: avgDuration,
+    };
+    const modelV1 = modelRegistry.find((item) => item.label === "model-v1") || null;
+    const modelV2 = modelRegistry.find((item) => item.label === "model-v2") || null;
+    const modelV1Score = computeFeatureModelScore(groupMetrics, modelV1);
+    const modelV2Score = computeFeatureModelScore(groupMetrics, modelV2);
+    const modelScore = modelV1Score;
     if (Math.abs(modelScore) < 2 && sampleSize < 8) continue;
     const confidence = Number(
       clampScore(
@@ -1293,6 +1376,16 @@ function buildFeatureModelByScope(rows) {
       avgRr: Number(avgRr.toFixed(2)),
       avgDurationMinutes: Number(avgDuration.toFixed(1)),
       modelScore,
+      modelV1Score: Number(modelV1Score.toFixed(2)),
+      modelV2Score: Number(modelV2Score.toFixed(2)),
+      preferredModel: modelV2Score > modelV1Score ? "model-v2" : "model-v1",
+      preferredModelConfidence: Number(
+        clampScore(
+          confidence + Math.max(0, Math.abs(modelV2Score - modelV1Score)) * 0.8,
+          0,
+          100,
+        ).toFixed(1),
+      ),
       confidence,
     });
   }
@@ -1312,7 +1405,8 @@ function buildModelV1ShadowScorer({
   scopeAction,
 }) {
   if (!featureModel) return null;
-  const modelBias = Math.max(-34, Math.min(34, Number(featureModel.modelScore || 0) * 0.82));
+  const baseModelScore = Number((featureModel.modelV1Score ?? featureModel.modelScore ?? 0));
+  const modelBias = Math.max(-34, Math.min(34, baseModelScore * 0.82));
   const scopeAdjustment = scopeAction === "relax" ? 5 : scopeAction === "tighten" ? -8 : 0;
   const finalScore = scopeAction === "cut"
     ? 0
@@ -1332,6 +1426,41 @@ function buildModelV1ShadowScorer({
     confidence: Number(confidence.toFixed(1)),
     modelBias: Number(modelBias.toFixed(1)),
     candidateReady,
+    mode: "static",
+  };
+}
+
+function buildModelV2ShadowScorer({
+  baseSignalScore,
+  adaptiveBias,
+  contextualBias,
+  featureModel,
+  scopeAction,
+}) {
+  if (!featureModel) return null;
+  const modelBias = Math.max(-36, Math.min(36, Number(featureModel.modelV2Score || 0) * 0.86));
+  const scopeAdjustment = scopeAction === "relax" ? 6 : scopeAction === "tighten" ? -10 : 0;
+  const finalScore = scopeAction === "cut"
+    ? 0
+    : clampScore(baseSignalScore + adaptiveBias * 0.28 + contextualBias * 0.52 + modelBias + scopeAdjustment + 4);
+  const confidence = clampScore(
+    Number(featureModel.preferredModelConfidence || featureModel.confidence || 0) * 0.82
+    + Math.min(32, Number(featureModel.sampleSize || 0) * 1.9)
+    + Math.max(0, Number(featureModel.avgRr || 0) - 1) * 11
+    + Math.max(0, Number(featureModel.winRate || 0) - 50) * 0.42,
+    0,
+    100,
+  );
+  const candidateReady = Number(featureModel.sampleSize || 0) >= 12
+    && Number(featureModel.preferredModelConfidence || featureModel.confidence || 0) >= 64
+    && Number(featureModel.modelV2Score || 0) > Number(featureModel.modelV1Score || 0);
+  return {
+    label: "model-v2",
+    finalScore: Number(finalScore.toFixed(1)),
+    confidence: Number(confidence.toFixed(1)),
+    modelBias: Number(modelBias.toFixed(1)),
+    candidateReady,
+    mode: "learned",
   };
 }
 
@@ -1348,10 +1477,16 @@ function buildAdaptiveScorer({
   const activeScorer = String(scorerPolicy?.activeScorer || "").trim().toLowerCase();
   const promotedAdaptiveV2 = activeScorer === "adaptive-v2";
   const promotedModelV1 = activeScorer === "model-v1";
-  const promotedModel = promotedAdaptiveV2 || promotedModelV1;
-  const modelMultiplier = promotedModelV1 ? 0.82 : promotedAdaptiveV2 ? 0.7 : 0.45;
-  const promotionBias = promotedModel && featureModel ? (promotedModelV1 ? 8 : 6) : 0;
-  const modelBias = featureModel ? Math.max(-34, Math.min(34, Number(featureModel.modelScore || 0) * modelMultiplier)) : 0;
+  const promotedModelV2 = activeScorer === "model-v2";
+  const promotedModel = promotedAdaptiveV2 || promotedModelV1 || promotedModelV2;
+  const activeModelScore = promotedModelV2
+    ? Number(featureModel?.modelV2Score || featureModel?.modelScore || 0)
+    : promotedModelV1
+      ? Number((featureModel?.modelV1Score ?? featureModel?.modelScore ?? 0))
+      : Number(featureModel?.modelScore || 0);
+  const modelMultiplier = promotedModelV2 ? 0.9 : promotedModelV1 ? 0.82 : promotedAdaptiveV2 ? 0.7 : 0.45;
+  const promotionBias = promotedModel && featureModel ? (promotedModelV2 ? 10 : promotedModelV1 ? 8 : 6) : 0;
+  const modelBias = featureModel ? Math.max(-34, Math.min(34, activeModelScore * modelMultiplier)) : 0;
   const scopeBias = scopeAction === "cut"
     ? -1000
     : scopeAction === "tighten"
@@ -1378,7 +1513,17 @@ function buildAdaptiveScorer({
     featureModel,
     scopeAction,
   });
-  const scorerLabel = promotedModelV1 ? "model-v1" : featureModel ? "adaptive-v2" : "adaptive-v1";
+  const modelV2Candidate = buildModelV2ShadowScorer({
+    baseSignalScore,
+    adaptiveBias,
+    contextualBias,
+    featureModel,
+    scopeAction,
+  });
+  const preferredCandidate = promotedModelV2
+    ? modelCandidate
+    : (modelV2Candidate?.candidateReady ? modelV2Candidate : modelCandidate);
+  const scorerLabel = promotedModelV2 ? "model-v2" : promotedModelV1 ? "model-v1" : featureModel ? "adaptive-v2" : "adaptive-v1";
 
   return {
     label: scorerLabel,
@@ -1394,13 +1539,15 @@ function buildAdaptiveScorer({
     usedContextBias: Boolean(contextBias),
     usedFeatureModel: Boolean(featureModel),
     promotedModel,
+    activeModelVersion: promotedModelV2 ? "model-v2" : promotedModelV1 ? "model-v1" : promotedAdaptiveV2 ? "adaptive-v2" : "adaptive-v1",
     scopeAction: String(scopeAction || ""),
-    candidateLabel: modelCandidate?.label,
-    candidateFinalScore: modelCandidate?.finalScore,
-    candidateConfidence: modelCandidate?.confidence,
-    candidateModelBias: modelCandidate?.modelBias,
-    candidateDelta: modelCandidate ? Number((modelCandidate.finalScore - finalScore).toFixed(1)) : undefined,
-    candidateReady: modelCandidate?.candidateReady,
+    candidateLabel: preferredCandidate?.label,
+    candidateFinalScore: preferredCandidate?.finalScore,
+    candidateConfidence: preferredCandidate?.confidence,
+    candidateModelBias: preferredCandidate?.modelBias,
+    candidateDelta: preferredCandidate ? Number((preferredCandidate.finalScore - finalScore).toFixed(1)) : undefined,
+    candidateReady: preferredCandidate?.candidateReady,
+    candidateMode: preferredCandidate?.mode,
   };
 }
 

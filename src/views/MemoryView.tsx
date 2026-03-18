@@ -855,11 +855,11 @@ export function MemoryView(props: MemoryViewProps) {
     const ready = rows.filter((item) => Number(item.sampleSize || 0) >= 8 && Number(item.confidence || 0) >= 58);
     const strongest = ready
       .slice()
-      .sort((left, right) => Number(right.modelScore || 0) - Number(left.modelScore || 0))[0] || null;
+      .sort((left, right) => Number(right.modelV2Score || right.modelScore || 0) - Number(left.modelV2Score || left.modelScore || 0))[0] || null;
     let reading = "Todavía no hay suficiente muestra por scope para confiar en un modelo candidato versionado.";
     let accentClass = "accent-blue";
     if (ready.length >= 3) {
-      reading = "Ya hay suficientes scopes con muestra y confianza para empezar a observar un model-v1 en sombra.";
+      reading = "Ya hay suficientes scopes con muestra y confianza para empezar a observar un modelo candidato versionado en sombra.";
       accentClass = "accent-emerald";
     } else if (ready.length > 0) {
       reading = "El modelo candidato ya tiene algunos scopes prometedores, pero todavía necesita más cobertura para gobernanza real.";
@@ -924,6 +924,11 @@ export function MemoryView(props: MemoryViewProps) {
   const shadowModelEvaluation = useMemo(() => {
     return decisionState?.shadowModelEvaluation || null;
   }, [decisionState?.shadowModelEvaluation]);
+
+  const modelRegistry = useMemo(() => {
+    const rows = Array.isArray(decisionState?.modelRegistry) ? decisionState.modelRegistry : [];
+    return rows;
+  }, [decisionState?.modelRegistry]);
 
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
@@ -1221,6 +1226,7 @@ export function MemoryView(props: MemoryViewProps) {
       strongestContextBias,
       adaptiveScoreImpact,
       scorerModelImpact,
+      modelRegistry,
       shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
@@ -1229,7 +1235,7 @@ export function MemoryView(props: MemoryViewProps) {
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.shadowModelEvaluation, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelRegistry, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelRegistry, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1930,15 +1936,23 @@ export function MemoryView(props: MemoryViewProps) {
               />
               <StatCard
                 label="Modelo candidato"
-                value={automationMasterBoard.shadowModelReadiness.totalReady ? "model-v1" : "--"}
-                sub={automationMasterBoard.shadowModelReadiness.strongest ? `${automationMasterBoard.shadowModelReadiness.strongest.strategyId} · ${automationMasterBoard.shadowModelReadiness.strongest.timeframe} · ${automationMasterBoard.shadowModelReadiness.strongest.confidence.toFixed(0)}%` : "Sin suficiente muestra por scope todavía"}
+                value={automationMasterBoard.shadowModelEvaluation?.candidateScorer || (automationMasterBoard.shadowModelReadiness.totalReady ? "model-v2" : "--")}
+                sub={automationMasterBoard.shadowModelReadiness.strongest ? `${automationMasterBoard.shadowModelReadiness.strongest.strategyId} · ${automationMasterBoard.shadowModelReadiness.strongest.timeframe} · ${automationMasterBoard.shadowModelReadiness.strongest.preferredModelConfidence?.toFixed(0) || automationMasterBoard.shadowModelReadiness.strongest.confidence.toFixed(0)}%` : "Sin suficiente muestra por scope todavía"}
                 accentClass={automationMasterBoard.shadowModelReadiness.accentClass}
               />
               <StatCard
-                label="Reto model-v1"
+                label="Reto del modelo"
                 value={automationMasterBoard.shadowModelEvaluation?.action || "--"}
-                sub={automationMasterBoard.shadowModelEvaluation ? `${automationMasterBoard.shadowModelEvaluation.favorableSampleSize} favorables · ${automationMasterBoard.shadowModelEvaluation.confidence.toFixed(0)}%` : "Esperando muestra sombra"}
+                sub={automationMasterBoard.shadowModelEvaluation ? `${automationMasterBoard.shadowModelEvaluation.candidateScorer} · ${automationMasterBoard.shadowModelEvaluation.favorableSampleSize} favorables · ${automationMasterBoard.shadowModelEvaluation.confidence.toFixed(0)}%` : "Esperando muestra sombra"}
                 accentClass={automationMasterBoard.shadowModelEvaluation?.action === "promote" ? "accent-emerald" : "accent-blue"}
+              />
+              <StatCard
+                label="Registro de modelos"
+                value={String(automationMasterBoard.modelRegistry?.length || 0)}
+                sub={(automationMasterBoard.modelRegistry || []).length
+                  ? (automationMasterBoard.modelRegistry || []).map((item) => `${item.label}${item.active ? " activo" : ""}`).join(" · ")
+                  : "Sin modelos versionados todavía"}
+                accentClass="accent-blue"
               />
             </div>
 
@@ -2098,7 +2112,7 @@ export function MemoryView(props: MemoryViewProps) {
             ) : null}
             {automationMasterBoard.shadowModelEvaluation ? (
               <p className="section-note">
-                Evaluación sombra model-v1: {automationMasterBoard.shadowModelEvaluation.summary}
+                Evaluación sombra {automationMasterBoard.shadowModelEvaluation.candidateScorer}: {automationMasterBoard.shadowModelEvaluation.summary}
               </p>
             ) : null}
 
@@ -3796,7 +3810,7 @@ function ExecutionCandidateCard({
         ) : null}
         {item.scorer?.candidateLabel ? (
           <span className="signal-status-note">
-            Modelo sombra {item.scorer.candidateLabel} · score {Number(item.scorer.candidateFinalScore || 0).toFixed(1)} · confianza {Number(item.scorer.candidateConfidence || 0).toFixed(0)}% · delta {Number(item.scorer.candidateDelta || 0) >= 0 ? "+" : ""}{Number(item.scorer.candidateDelta || 0).toFixed(1)}{item.scorer.candidateReady ? " · listo para observar" : ""}
+            Modelo challenger {item.scorer.candidateLabel}{item.scorer.candidateMode === "learned" ? " (learned)" : item.scorer.candidateMode === "static" ? " (static)" : ""} · score {Number(item.scorer.candidateFinalScore || 0).toFixed(1)} · confianza {Number(item.scorer.candidateConfidence || 0).toFixed(0)}% · delta {Number(item.scorer.candidateDelta || 0) >= 0 ? "+" : ""}{Number(item.scorer.candidateDelta || 0).toFixed(1)}{item.scorer.candidateReady ? " · listo para observar" : ""}
           </span>
         ) : null}
         {item.profileOverride ? (

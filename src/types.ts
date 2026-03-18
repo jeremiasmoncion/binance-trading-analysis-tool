@@ -198,7 +198,25 @@ export interface StrategyDecisionState {
     avgRr: number;
     avgDurationMinutes: number;
     modelScore: number;
+    modelV1Score?: number;
+    modelV2Score?: number;
+    preferredModel?: string;
+    preferredModelConfidence?: number;
     confidence: number;
+  }>;
+  modelRegistry?: Array<{
+    label: string;
+    mode: "static" | "learned";
+    active?: boolean;
+    ready?: boolean;
+    sampleSize: number;
+    confidence: number;
+    avgPnl: number;
+    winRate: number;
+    rrWeight?: number;
+    adaptiveScoreWeight?: number;
+    durationPenaltyWeight?: number;
+    reading?: string;
   }>;
   scorerEvaluations?: Array<{
     scorer: string;
@@ -342,6 +360,7 @@ export interface AdaptiveScorerBreakdown {
   candidateModelBias?: number;
   candidateDelta?: number;
   candidateReady?: boolean;
+  candidateMode?: "static" | "learned";
 }
 
 export type SignalOutcomeStatus = "pending" | "win" | "loss" | "invalidated";

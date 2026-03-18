@@ -12,6 +12,7 @@ const WATCHLIST_SCAN_RUNS_TABLE = process.env.SUPABASE_WATCHLIST_SCAN_RUNS_TABLE
 const SCANNER_SYSTEM_COIN = "__scanner__";
 const SCANNER_SYSTEM_TIMEFRAME = "system";
 const DEFAULT_AUTO_EXECUTION_COOLDOWN_MS = 15 * 60 * 1000;
+const MAX_AUTO_EXECUTION_ATTEMPTS_PER_SCAN = 2;
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -185,6 +186,7 @@ async function scanUserWatchlist(target, scanSource) {
   let autoOrdersPlaced = 0;
   let autoOrdersBlocked = 0;
   let autoOrdersSkipped = 0;
+  let autoExecutionAttempts = 0;
   let scannedFrames = 0;
 
   const coinResults = await runWithConcurrency(coins, 4, async (coin) => {
@@ -272,11 +274,15 @@ async function scanUserWatchlist(target, scanSource) {
             nextSignalRows.push(createdSignal);
             createdSignalAt = new Date().toISOString();
             if (executionProfile?.enabled && executionProfile?.autoExecuteEnabled) {
-              if (autoExecutionCooldownUntil > Date.now()) {
+              if (autoExecutionAttempts >= MAX_AUTO_EXECUTION_ATTEMPTS_PER_SCAN) {
+                nextAutoOrdersBlocked += 1;
+                autoOrdersSkipped += 1;
+              } else if (autoExecutionCooldownUntil > Date.now()) {
                 nextAutoOrdersBlocked += 1;
                 autoOrdersSkipped += 1;
               } else {
                 try {
+                  autoExecutionAttempts += 1;
                   const autoExecution = await executeSignalTradeForUser(target.username, createdSignal.id, "execute", {
                     origin: "watcher",
                   });
@@ -356,6 +362,7 @@ async function scanUserWatchlist(target, scanSource) {
     lastRunAutoOrdersPlaced: autoOrdersPlaced,
     lastRunAutoOrdersBlocked: autoOrdersBlocked,
     lastRunAutoOrdersSkipped: autoOrdersSkipped,
+    lastRunAutoExecutionAttempts: autoExecutionAttempts,
     lastRunHadErrors: errors.length > 0,
   }));
 

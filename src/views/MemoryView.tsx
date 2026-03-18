@@ -1183,13 +1183,26 @@ export function MemoryView(props: MemoryViewProps) {
         toneClass: "accent-amber",
       };
     } else if (scorerPromotionRecommendation && scorerPromotionRecommendation.status !== "active") {
+      const evidence = scorerPromotionRecommendation.evidence || {};
+      const candidateScorer = String(evidence.candidateScorer || scorerPromotionRecommendation.suggested_value || "scorer").trim();
+      const scorerAction = String(evidence.action || "promote");
       nextAction = {
-        title: scorerPromotionRecommendation.status === "sandbox" ? "Promover adaptive-v2" : "Mandar adaptive-v2 a prueba",
+        title: scorerPromotionRecommendation.status === "sandbox"
+          ? scorerAction === "rollback"
+            ? `Aplicar rollback a ${candidateScorer}`
+            : `Promover ${candidateScorer}`
+          : scorerAction === "rollback"
+            ? `Mandar rollback de ${candidateScorer} a prueba`
+            : `Mandar ${candidateScorer} a prueba`,
         summary: scorerPromotionRecommendation.status === "sandbox"
-          ? "La comparación entre scorers ya dejó a adaptive-v2 listo para pesar más en el motor."
-          : "El scorer basado en features ya empieza a cerrar mejor y conviene validarlo como capa promovible.",
+          ? scorerAction === "rollback"
+            ? "La gobernanza reciente ya dejó listo el retorno al scorer base más estable."
+            : "La comparación entre scorers ya dejó al candidato listo para pesar más en el motor."
+          : scorerAction === "rollback"
+            ? "El scorer activo se está degradando y conviene validar el retorno al baseline antes de seguir dándole el mismo peso."
+            : "El scorer candidato ya empieza a cerrar mejor y conviene validarlo como capa promovible.",
         actionLabel: scorerPromotionRecommendation.status === "sandbox" ? "Promover scorer" : "Mandar a prueba",
-        toneClass: "accent-emerald",
+        toneClass: scorerAction === "rollback" ? "accent-amber" : "accent-emerald",
       };
     }
 
@@ -1885,7 +1898,13 @@ export function MemoryView(props: MemoryViewProps) {
                 label="Scorer activo"
                 value={decisionState?.scorerPolicy?.activeScorer || "hybrid"}
                 sub={decisionState?.scorerPolicy?.promotedAt ? `Promovido ${new Date(decisionState.scorerPolicy.promotedAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : "Sin promoción formal todavía"}
-                accentClass={decisionState?.scorerPolicy?.activeScorer === "adaptive-v2" ? "accent-emerald" : "accent-blue"}
+                accentClass={
+                  decisionState?.scorerPolicy?.activeScorer === "model-v1"
+                    ? "accent-amber"
+                    : decisionState?.scorerPolicy?.activeScorer === "adaptive-v2"
+                      ? "accent-emerald"
+                      : "accent-blue"
+                }
               />
               <StatCard
                 label="Gobernanza reciente"

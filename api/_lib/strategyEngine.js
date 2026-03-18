@@ -777,6 +777,13 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
   const v1Stats = summarizeSignals(v1Signals);
   const v2Stats = summarizeSignals(v2Signals);
   const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "").trim().toLowerCase();
+  const scoredSignals = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label);
+  const scorerLabels = new Set(scoredSignals.map((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase()).filter(Boolean));
+  const scorerStats = {};
+  scorerLabels.forEach((label) => {
+    const rows = scoredSignals.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === label);
+    scorerStats[label] = summarizeSignals(rows);
+  });
   const recentV2Signals = v2Signals
     .slice()
     .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime())
@@ -827,7 +834,8 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
       });
     }
   } else if (
-    recentV2Stats.total >= 5
+    activeScorer === "adaptive-v2"
+    && recentV2Stats.total >= 5
     && (
       recentV2Stats.pnl < 0
       || recentV2Stats.winRate < 45
@@ -869,9 +877,74 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
         promotionMode: "adaptive-scorer-rollback",
       },
     });
+  } else if (activeScorer && activeScorer === "model-v1") {
+    const recentActiveSignals = scoredSignals
+      .filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer)
+      .slice()
+      .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime())
+      .slice(0, 20);
+    const recentActiveStats = summarizeSignals(recentActiveSignals);
+    const baseline = chooseRollbackBaseline(activeScorer, scorerStats);
+    const baselineAvgPnl = baseline?.stats?.total ? Number(baseline.stats.pnl || 0) / Number(baseline.stats.total || 1) : 0;
+    const baselineWinRate = Number(baseline?.stats?.winRate || 0);
+    if (
+      baseline
+      && recentActiveStats.total >= 5
+      && (
+        recentActiveStats.pnl < 0
+        || recentActiveStats.winRate < 45
+        || (recentActiveStats.avgPnl < baselineAvgPnl && recentActiveStats.winRate <= baselineWinRate)
+      )
+    ) {
+      const rollbackConfidence = Math.min(
+        0.96,
+        0.58 + Math.min(recentActiveStats.total, 12) * 0.024 + Math.max(0, Math.abs(recentActiveStats.avgPnl - baselineAvgPnl)) * 0.08,
+      );
+      recommendations.push({
+        recommendation_key: `adaptive-scorer:${activeScorer}->${baseline.scorer}`,
+        strategy_id: "adaptive-scorer",
+        strategy_version: activeScorer,
+        parameter_key: "scorerPolicy",
+        title: `Replegar ${activeScorer} y volver a ${baseline.scorer}`,
+        summary: "El modelo activo ya no está defendiendo el edge reciente. Conviene devolver el control al scorer base que mejor está resistiendo con evidencia real.",
+        current_value: Number(recentActiveStats.avgPnl.toFixed(2)),
+        suggested_value: Number(baselineAvgPnl.toFixed(2)),
+        confidence: Number(rollbackConfidence.toFixed(2)),
+        status: recentActiveStats.total >= 8 && recentActiveStats.avgPnl < baselineAvgPnl ? "sandbox" : "draft",
+        evidence: {
+          recommendationType: "adaptive-scorer-promotion",
+          action: "rollback",
+          baseScorer: activeScorer,
+          candidateScorer: baseline.scorer,
+          sampleSizeCurrent: Number(scorerStats[activeScorer]?.total || 0),
+          sampleSizeRecent: recentActiveStats.total,
+          sampleSizeBaseline: Number(baseline.stats?.total || 0),
+          avgPnlCurrent: Number((Number(scorerStats[activeScorer]?.total || 0) ? Number(scorerStats[activeScorer]?.pnl || 0) / Number(scorerStats[activeScorer]?.total || 1) : 0).toFixed(2)),
+          avgPnlRecent: Number(recentActiveStats.avgPnl.toFixed(2)),
+          avgPnlBaseline: Number(baselineAvgPnl.toFixed(2)),
+          winRateCurrent: Number(Number(scorerStats[activeScorer]?.winRate || 0).toFixed(2)),
+          winRateRecent: Number(recentActiveStats.winRate.toFixed(2)),
+          winRateBaseline: Number(baselineWinRate.toFixed(2)),
+          edgeDelta: Number((recentActiveStats.avgPnl - baselineAvgPnl).toFixed(2)),
+          winRateDelta: Number((recentActiveStats.winRate - baselineWinRate).toFixed(2)),
+          promotionMode: "model-scorer-rollback",
+        },
+      });
+    }
   }
 
   return recommendations;
+}
+
+function chooseRollbackBaseline(activeScorer, scorerStats) {
+  const options = Object.entries(scorerStats || {})
+    .filter(([label, stats]) => label !== activeScorer && Number(stats?.total || 0) >= 5)
+    .sort((left, right) => {
+      const leftAvg = Number(left[1]?.total || 0) ? Number(left[1].pnl || 0) / Number(left[1].total || 1) : 0;
+      const rightAvg = Number(right[1]?.total || 0) ? Number(right[1].pnl || 0) / Number(right[1].total || 1) : 0;
+      return rightAvg - leftAvg || Number(right[1]?.winRate || 0) - Number(left[1]?.winRate || 0);
+    });
+  return options[0] ? { scorer: options[0][0], stats: options[0][1] } : null;
 }
 
 function buildShadowModelEvaluation(signals, executionProfile) {
@@ -977,13 +1050,21 @@ function buildScorerEvaluations(signals, executionProfile) {
     .slice()
     .sort((left, right) => new Date(right.updated_at || right.created_at || 0).getTime() - new Date(left.updated_at || left.created_at || 0).getTime());
   const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
-  const challenger = activeScorer === "adaptive-v2" ? "adaptive-v1" : "adaptive-v2";
   const windows = [
     { key: "recent", rows: scoredSignals.slice(0, 20) },
     { key: "global", rows: scoredSignals },
   ];
 
   return windows.map((window) => {
+    const labels = new Set(window.rows.map((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase()).filter(Boolean));
+    const scorerStats = {};
+    labels.forEach((label) => {
+      const rows = window.rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === label);
+      scorerStats[label] = summarizeSignals(rows);
+    });
+    const fallbackChallenger = activeScorer === "adaptive-v2" ? "adaptive-v1" : "adaptive-v2";
+    const chosen = chooseRollbackBaseline(activeScorer, scorerStats);
+    const challenger = chosen?.scorer || fallbackChallenger;
     const activeRows = window.rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === activeScorer);
     const challengerRows = window.rows.filter((item) => String(item.signal_payload?.decision?.scorer?.label || "").toLowerCase() === challenger);
     const activeStats = summarizeSignals(activeRows);
@@ -1009,16 +1090,16 @@ function buildScorerEvaluations(signals, executionProfile) {
     if (enoughSample) {
       readiness = confidence >= 78 ? "high" : confidence >= 60 ? "medium" : "low";
       if (challengerAvgPnl > activeAvgPnl && challengerStats.winRate >= activeStats.winRate) {
-        action = activeScorer === "adaptive-v2" ? "keep" : "promote";
-        summary = activeScorer === "adaptive-v2"
-          ? "El scorer promovido sigue defendiendo el edge frente a la alternativa."
-          : "El scorer challenger ya supera al scorer activo y merece avanzar hacia promoción.";
-      } else if (activeScorer === "adaptive-v2" && activeAvgPnl < challengerAvgPnl && activeStats.winRate <= challengerStats.winRate) {
-        action = "rollback";
-        summary = "El scorer activo se está degradando frente a la alternativa y conviene preparar rollback.";
+        action = activeScorer === "adaptive-v1" ? "promote" : "rollback";
+        summary = activeScorer === "adaptive-v1"
+          ? "El scorer challenger ya supera al scorer activo y merece avanzar hacia promoción."
+          : "El scorer activo ya no está defendiendo mejor el edge y conviene preparar rollback hacia el challenger.";
       } else if (activeAvgPnl >= challengerAvgPnl) {
         action = "keep";
         summary = "El scorer activo sigue defendiendo mejor el edge en esta ventana.";
+      } else if (activeScorer !== "adaptive-v1" && activeAvgPnl < challengerAvgPnl && activeStats.winRate <= challengerStats.winRate) {
+        action = "rollback";
+        summary = "El scorer activo se está degradando frente a la alternativa y conviene preparar rollback.";
       } else {
         action = "observe";
         summary = "Los scorers están mezclados; conviene seguir observando antes de promover o revertir.";
@@ -2205,6 +2286,7 @@ async function applyExecutionScopeRecommendation(username, recommendation) {
 async function applyAdaptiveScorerPromotionRecommendation(username, recommendation) {
   const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
   const candidateScorer = String(evidence.candidateScorer || "adaptive-v2").trim() || "adaptive-v2";
+  const scorerAction = String(evidence.action || "promote");
   const currentProfile = await getExecutionProfileForUser(username);
   const scorerPolicy = {
     activeScorer: candidateScorer,
@@ -2247,14 +2329,17 @@ async function applyAdaptiveScorerPromotionRecommendation(username, recommendati
     },
   );
 
-  await logAdaptiveAction({
+  await insertAdaptiveActionLogForUser(username, {
     username,
-    actionType: "promote",
+    actionType: scorerAction === "rollback" ? "rollback" : "promote",
     targetType: "scorer-policy",
     targetKey: candidateScorer,
     recommendationId: recommendation.id,
     source: "adaptive-recommendation",
-    summary: `Scorer ${candidateScorer} promovido como capa principal del motor adaptativo`,
+    status: "applied",
+    summary: scorerAction === "rollback"
+      ? `Scorer ${candidateScorer} retomó el control del motor tras rollback`
+      : `Scorer ${candidateScorer} promovido como capa principal del motor adaptativo`,
     details: {
       recommendationKey: recommendation.recommendation_key,
       scorerPolicy,

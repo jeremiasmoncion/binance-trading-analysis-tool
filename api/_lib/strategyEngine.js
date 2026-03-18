@@ -2653,7 +2653,8 @@ function summarizeSignals(signals) {
   const losses = signals.filter((item) => item.outcome_status === "loss").length;
   const pnl = signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
   const winRate = total ? (wins / total) * 100 : 0;
-  return { total, wins, losses, pnl, winRate };
+  const avgPnl = total ? pnl / total : 0;
+  return { total, wins, losses, pnl, winRate, avgPnl };
 }
 
 function getSignalDirection(item) {

@@ -1126,6 +1126,37 @@ function clampScore(value, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Number(value || 0)));
 }
 
+function buildModelV1ShadowScorer({
+  baseSignalScore,
+  adaptiveBias,
+  contextualBias,
+  featureModel,
+  scopeAction,
+}) {
+  if (!featureModel) return null;
+  const modelBias = Math.max(-34, Math.min(34, Number(featureModel.modelScore || 0) * 0.82));
+  const scopeAdjustment = scopeAction === "relax" ? 5 : scopeAction === "tighten" ? -8 : 0;
+  const finalScore = scopeAction === "cut"
+    ? 0
+    : clampScore(baseSignalScore + adaptiveBias * 0.35 + contextualBias * 0.55 + modelBias + scopeAdjustment);
+  const confidence = clampScore(
+    Number(featureModel.confidence || 0) * 0.75
+    + Math.min(28, Number(featureModel.sampleSize || 0) * 1.7)
+    + Math.max(0, Number(featureModel.avgRr || 0) - 1) * 10
+    + Math.max(0, Number(featureModel.winRate || 0) - 50) * 0.35,
+    0,
+    100,
+  );
+  const candidateReady = Number(featureModel.sampleSize || 0) >= 8 && Number(featureModel.confidence || 0) >= 58;
+  return {
+    label: "model-v1",
+    finalScore: Number(finalScore.toFixed(1)),
+    confidence: Number(confidence.toFixed(1)),
+    modelBias: Number(modelBias.toFixed(1)),
+    candidateReady,
+  };
+}
+
 function buildAdaptiveScorer({
   baseSignalScore,
   adaptivePrimary,
@@ -1137,10 +1168,12 @@ function buildAdaptiveScorer({
   const adaptiveBias = adaptivePrimary ? Math.min(28, 10 + Number(adaptivePrimary.confidence || 0) * 15) : 0;
   const contextualBias = contextBias ? Math.max(-18, Math.min(18, Number(contextBias.biasScore || 0) * 0.6)) : 0;
   const activeScorer = String(scorerPolicy?.activeScorer || "").trim().toLowerCase();
-  const promotedModel = activeScorer === "adaptive-v2";
-  const modelMultiplier = promotedModel ? 0.7 : 0.45;
-  const promotionBias = promotedModel && featureModel ? 6 : 0;
-  const modelBias = featureModel ? Math.max(-28, Math.min(28, Number(featureModel.modelScore || 0) * modelMultiplier)) : 0;
+  const promotedAdaptiveV2 = activeScorer === "adaptive-v2";
+  const promotedModelV1 = activeScorer === "model-v1";
+  const promotedModel = promotedAdaptiveV2 || promotedModelV1;
+  const modelMultiplier = promotedModelV1 ? 0.82 : promotedAdaptiveV2 ? 0.7 : 0.45;
+  const promotionBias = promotedModel && featureModel ? (promotedModelV1 ? 8 : 6) : 0;
+  const modelBias = featureModel ? Math.max(-34, Math.min(34, Number(featureModel.modelScore || 0) * modelMultiplier)) : 0;
   const scopeBias = scopeAction === "cut"
     ? -1000
     : scopeAction === "tighten"
@@ -1160,9 +1193,17 @@ function buildAdaptiveScorer({
     0,
     100,
   );
+  const modelCandidate = buildModelV1ShadowScorer({
+    baseSignalScore,
+    adaptiveBias,
+    contextualBias,
+    featureModel,
+    scopeAction,
+  });
+  const scorerLabel = promotedModelV1 ? "model-v1" : featureModel ? "adaptive-v2" : "adaptive-v1";
 
   return {
-    label: featureModel ? "adaptive-v2" : "adaptive-v1",
+    label: scorerLabel,
     baseScore: Number(baseSignalScore.toFixed(1)),
     adaptivePrimaryBias: Number(adaptiveBias.toFixed(1)),
     contextualBias: Number(contextualBias.toFixed(1)),
@@ -1176,6 +1217,12 @@ function buildAdaptiveScorer({
     usedFeatureModel: Boolean(featureModel),
     promotedModel,
     scopeAction: String(scopeAction || ""),
+    candidateLabel: modelCandidate?.label,
+    candidateFinalScore: modelCandidate?.finalScore,
+    candidateConfidence: modelCandidate?.confidence,
+    candidateModelBias: modelCandidate?.modelBias,
+    candidateDelta: modelCandidate ? Number((modelCandidate.finalScore - finalScore).toFixed(1)) : undefined,
+    candidateReady: modelCandidate?.candidateReady,
   };
 }
 

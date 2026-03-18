@@ -322,6 +322,12 @@ export interface AdaptiveScorerBreakdown {
   usedFeatureModel?: boolean;
   promotedModel?: boolean;
   scopeAction?: string;
+  candidateLabel?: string;
+  candidateFinalScore?: number;
+  candidateConfidence?: number;
+  candidateModelBias?: number;
+  candidateDelta?: number;
+  candidateReady?: boolean;
 }
 
 export type SignalOutcomeStatus = "pending" | "win" | "loss" | "invalidated";

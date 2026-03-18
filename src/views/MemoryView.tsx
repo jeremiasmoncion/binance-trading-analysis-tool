@@ -850,6 +850,29 @@ export function MemoryView(props: MemoryViewProps) {
     };
   }, [closedSignals]);
 
+  const shadowModelReadiness = useMemo(() => {
+    const rows = Array.isArray(decisionState?.featureModelByScope) ? decisionState.featureModelByScope : [];
+    const ready = rows.filter((item) => Number(item.sampleSize || 0) >= 8 && Number(item.confidence || 0) >= 58);
+    const strongest = ready
+      .slice()
+      .sort((left, right) => Number(right.modelScore || 0) - Number(left.modelScore || 0))[0] || null;
+    let reading = "Todavía no hay suficiente muestra por scope para confiar en un modelo candidato versionado.";
+    let accentClass = "accent-blue";
+    if (ready.length >= 3) {
+      reading = "Ya hay suficientes scopes con muestra y confianza para empezar a observar un model-v1 en sombra.";
+      accentClass = "accent-emerald";
+    } else if (ready.length > 0) {
+      reading = "El modelo candidato ya tiene algunos scopes prometedores, pero todavía necesita más cobertura para gobernanza real.";
+      accentClass = "accent-blue";
+    }
+    return {
+      totalReady: ready.length,
+      strongest,
+      reading,
+      accentClass,
+    };
+  }, [decisionState?.featureModelByScope]);
+
   const scorerGovernance = useMemo(() => {
     const activeScorer = String(decisionState?.scorerPolicy?.activeScorer || "").trim().toLowerCase() || "adaptive-v1";
     const recentScored = closedSignals
@@ -1181,13 +1204,14 @@ export function MemoryView(props: MemoryViewProps) {
       strongestContextBias,
       adaptiveScoreImpact,
       scorerModelImpact,
+      shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
       scorerEvaluationHistory,
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, scorerEvaluationHistory, scorerGovernance, scorerModelImpact]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1880,6 +1904,12 @@ export function MemoryView(props: MemoryViewProps) {
                       : "accent-blue"
                 }
               />
+              <StatCard
+                label="Modelo candidato"
+                value={automationMasterBoard.shadowModelReadiness.totalReady ? "model-v1" : "--"}
+                sub={automationMasterBoard.shadowModelReadiness.strongest ? `${automationMasterBoard.shadowModelReadiness.strongest.strategyId} · ${automationMasterBoard.shadowModelReadiness.strongest.timeframe} · ${automationMasterBoard.shadowModelReadiness.strongest.confidence.toFixed(0)}%` : "Sin suficiente muestra por scope todavía"}
+                accentClass={automationMasterBoard.shadowModelReadiness.accentClass}
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -2029,6 +2059,11 @@ export function MemoryView(props: MemoryViewProps) {
             {automationMasterBoard.scorerEvaluations.recent ? (
               <p className="section-note">
                 Evaluación de modelo: {automationMasterBoard.scorerEvaluations.recent.summary} Ventana reciente {formatSignedPrice(automationMasterBoard.scorerEvaluations.recent.avgPnl)} vs {formatSignedPrice(automationMasterBoard.scorerEvaluations.recent.challengerAvgPnl)}.
+              </p>
+            ) : null}
+            {automationMasterBoard.shadowModelReadiness.totalReady > 0 ? (
+              <p className="section-note">
+                Modelo candidato: {automationMasterBoard.shadowModelReadiness.reading}
               </p>
             ) : null}
 
@@ -3722,6 +3757,11 @@ function ExecutionCandidateCard({
         {item.scorer ? (
           <span className="signal-status-note">
             Scorer {item.scorer.label || "adaptive"} · confianza {Number(item.scorer.confidence || 0).toFixed(0)}% · primaria {Number(item.scorer.adaptivePrimaryBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.adaptivePrimaryBias || 0).toFixed(1)} · contexto {Number(item.scorer.contextualBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.contextualBias || 0).toFixed(1)} · modelo {Number(item.scorer.modelBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.modelBias || 0).toFixed(1)} · promoción {Number(item.scorer.promotionBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.promotionBias || 0).toFixed(1)} · scope {Number(item.scorer.scopeBias || 0) >= 0 ? "+" : ""}{Number(item.scorer.scopeBias || 0).toFixed(1)}{item.scorer.promotedModel ? " · scorer promovido" : ""}
+          </span>
+        ) : null}
+        {item.scorer?.candidateLabel ? (
+          <span className="signal-status-note">
+            Modelo sombra {item.scorer.candidateLabel} · score {Number(item.scorer.candidateFinalScore || 0).toFixed(1)} · confianza {Number(item.scorer.candidateConfidence || 0).toFixed(0)}% · delta {Number(item.scorer.candidateDelta || 0) >= 0 ? "+" : ""}{Number(item.scorer.candidateDelta || 0).toFixed(1)}{item.scorer.candidateReady ? " · listo para observar" : ""}
           </span>
         ) : null}
         {item.profileOverride ? (

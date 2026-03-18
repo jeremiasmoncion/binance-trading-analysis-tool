@@ -202,26 +202,26 @@
 .dashboard-overview-title { margin: 0; font-size: clamp(34px, 3.8vw, 44px); line-height: 1.02; font-weight: 800; letter-spacing: -0.04em; color: #0f172a; }
 .dashboard-overview-subtitle { margin: 0; max-width: 720px; color: #64748b; font-size: 15px; line-height: 1.55; }
 .dashboard-overview-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
-.dashboard-overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.dashboard-overview-card { display: grid; align-content: start; min-height: 206px; padding: 22px 22px 18px; border-radius: 22px; }
-.dashboard-overview-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 14px; }
-.dashboard-overview-icon { width: 46px; height: 46px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 16px 22px rgba(15, 23, 42, 0.14); }
-.dashboard-overview-icon svg { width: 20px; height: 20px; }
+.dashboard-overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.dashboard-overview-card { display: grid; align-content: start; min-height: 0; padding: 24px; border-radius: 24px; }
+.dashboard-overview-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.dashboard-overview-icon { width: 48px; height: 48px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 18px 24px rgba(15, 23, 42, 0.15); }
+.dashboard-overview-icon svg { width: 24px; height: 24px; }
 .dashboard-overview-icon-wallet { background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 52%, #ec4899 100%); }
 .dashboard-overview-icon-bots { background: linear-gradient(135deg, #3ec8ff 0%, #3b82f6 100%); }
 .dashboard-overview-icon-intelligence { background: linear-gradient(135deg, #3dd598 0%, #34d399 100%); }
 .dashboard-overview-icon-context { background: linear-gradient(135deg, #7c6df6 0%, #8b5cf6 100%); }
-.dashboard-overview-label { color: #94a3b8; font-size: 12px; line-height: 1.35; margin-bottom: 8px; }
-.dashboard-overview-value { color: #0f172a; font-size: clamp(26px, 2.2vw, 36px); line-height: 1; font-weight: 800; letter-spacing: -0.04em; min-width: 0; overflow-wrap: anywhere; }
+.dashboard-overview-label { color: #94a3b8; font-size: 14px; line-height: 1.35; margin-bottom: 8px; }
+.dashboard-overview-value { color: #0f172a; font-size: clamp(24px, 2vw, 40px); line-height: 1.05; font-weight: 800; letter-spacing: -0.04em; min-width: 0; overflow-wrap: anywhere; }
 .dashboard-overview-value.positive { color: #16a34a; }
 .dashboard-overview-value.negative { color: #ef4444; }
 .dashboard-overview-value.neutral { color: #0f172a; }
-.dashboard-overview-divider { width: 100%; height: 1px; margin: 18px 0 14px; background: rgba(148, 163, 184, 0.18); }
-.dashboard-overview-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; color: #64748b; font-size: 12px; }
+.dashboard-overview-divider { width: 100%; height: 1px; margin: 16px 0 0; background: rgba(148, 163, 184, 0.18); }
+.dashboard-overview-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; color: #64748b; font-size: 14px; padding-top: 16px; }
 .dashboard-overview-foot span { min-width: 0; line-height: 1.45; }
-.dashboard-overview-foot strong { color: #0f172a; font-size: 14px; font-weight: 700; text-align: right; white-space: nowrap; }
+.dashboard-overview-foot strong { color: #0f172a; font-size: 14px; font-weight: 600; text-align: right; white-space: nowrap; }
 .dashboard-overview-badge,
-.dashboard-overview-status { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 11px; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(255, 255, 255, 0.62); color: #1f2937; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.dashboard-overview-status { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 0 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.18); background: rgba(255, 255, 255, 0.62); color: #1f2937; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .dashboard-overview-badge.positive { border-color: rgba(34, 197, 94, 0.28); background: rgba(34, 197, 94, 0.1); color: #16a34a; }
 .dashboard-overview-badge.negative { border-color: rgba(239, 68, 68, 0.28); background: rgba(239, 68, 68, 0.1); color: #dc2626; }
 .dashboard-overview-badge.neutral { border-color: rgba(59, 130, 246, 0.22); background: rgba(59, 130, 246, 0.08); color: #2563eb; }

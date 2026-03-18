@@ -705,12 +705,17 @@
 }
 
 .wallet-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   margin-bottom: 22px;
 }
 
 .wallet-card-title-block {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .wallet-card-title {
@@ -726,6 +731,11 @@
 }
 
 .wallet-search-shell input { width: 290px; }
+
+.wallet-card-tools {
+  justify-content: flex-end;
+  flex: 1 1 auto;
+}
 
 .wallet-filter-chip-row {
   padding-bottom: 22px;

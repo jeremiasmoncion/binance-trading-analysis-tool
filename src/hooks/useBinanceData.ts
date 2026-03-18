@@ -60,6 +60,7 @@ function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: Port
     ...live,
     snapshotMode: "live",
     assets: mergedAssets,
+    accountMovements: previous.accountMovements || live.accountMovements || [],
     recentOrders: previous.recentOrders || live.recentOrders || [],
     recentTrades: previous.recentTrades || live.recentTrades || [],
     openOrders: live.openOrders || previous.openOrders || [],

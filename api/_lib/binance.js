@@ -456,6 +456,55 @@ function formatMoneyNumber(value) {
   return Number((value || 0).toFixed(8));
 }
 
+function estimateUsdValueForAsset(asset, amount, assetPriceByCode = new Map()) {
+  const normalizedAsset = String(asset || "").toUpperCase();
+  const normalizedAmount = Number(amount || 0);
+  if (!normalizedAmount) return 0;
+  if (normalizedAsset === "USDT" || normalizedAsset === "USDC" || normalizedAsset === "FDUSD" || normalizedAsset === "BUSD" || normalizedAsset === "TUSD" || normalizedAsset === "DAI") {
+    return formatMoneyNumber(normalizedAmount);
+  }
+  const price = Number(assetPriceByCode.get(normalizedAsset) || 0);
+  return formatMoneyNumber(normalizedAmount * price);
+}
+
+function normalizeAccountMovement(raw, type, assetPriceByCode = new Map()) {
+  const asset = String(raw.coin || raw.asset || "").toUpperCase();
+  const amount = Number(raw.amount || 0);
+  const time = Number(raw.insertTime || raw.completeTime || raw.applyTime || raw.successTime || 0);
+  const idSeed = String(raw.id || raw.txId || raw.tranId || `${type}-${asset}-${time}-${amount}`);
+  return {
+    id: idSeed,
+    type,
+    asset,
+    amount: formatMoneyNumber(amount),
+    estimatedUsdValue: estimateUsdValueForAsset(asset, amount, assetPriceByCode),
+    status: String(raw.status || raw.transferStatus || raw.completeStatus || "unknown"),
+    time,
+    network: String(raw.network || raw.transferType || ""),
+    address: String(raw.address || raw.addressTag || ""),
+    txId: String(raw.txId || raw.id || ""),
+  };
+}
+
+async function fetchAccountMovements(apiKey, apiSecret, assetPriceByCode = new Map()) {
+  const [depositsPayload, withdrawalsPayload] = await Promise.all([
+    fetchBinanceSigned("/sapi/v1/capital/deposit/hisrec", apiKey, apiSecret, { limit: 20 }).catch(() => []),
+    fetchBinanceSigned("/sapi/v1/capital/withdraw/history", apiKey, apiSecret, { limit: 20 }).catch(() => []),
+  ]);
+
+  const deposits = Array.isArray(depositsPayload)
+    ? depositsPayload.map((item) => normalizeAccountMovement(item, "deposit", assetPriceByCode))
+    : [];
+  const withdrawals = Array.isArray(withdrawalsPayload)
+    ? withdrawalsPayload.map((item) => normalizeAccountMovement(item, "withdrawal", assetPriceByCode))
+    : [];
+
+  return [...deposits, ...withdrawals]
+    .filter((item) => item.asset && item.time)
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 30);
+}
+
 async function getPortfolioLiveSnapshotFromCredentials({ session, row, apiKey, apiSecret }, period = "1d") {
   const account = await fetchBinanceSigned("/api/v3/account", apiKey, apiSecret, { omitZeroBalances: true });
   const openOrdersPayload = await fetchBinanceSigned("/api/v3/openOrders", apiKey, apiSecret).catch(() => []);
@@ -591,6 +640,7 @@ async function getPortfolioLiveSnapshotFromCredentials({ session, row, apiKey, a
     },
     assets: visibleAssets,
     hiddenLockedAssets,
+    accountMovements: [],
     openOrders: normalizedOpenOrders,
     recentOrders: [],
     recentTrades: [],
@@ -673,6 +723,7 @@ function buildFallbackPortfolioSnapshot({ username, period, connected, accountAl
     },
     assets: [],
     hiddenLockedAssets: [],
+    accountMovements: [],
     openOrders: [],
     recentOrders: [],
     recentTrades: [],
@@ -791,6 +842,7 @@ async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSe
   const cleanAssets = assets.filter(Boolean).sort((a, b) => b.marketValue - a.marketValue);
   const hiddenLockedAssets = cleanAssets.filter((asset) => asset.free <= 0 && asset.locked > 0);
   const visibleAssets = cleanAssets.filter((asset) => !(asset.free <= 0 && asset.locked > 0));
+  const assetPriceByCode = new Map(visibleAssets.map((asset) => [asset.asset, Number(asset.currentPrice || 0)]));
   const totalValue = visibleAssets.reduce((sum, asset) => sum + asset.marketValue, 0);
   const investedValue = visibleAssets.reduce((sum, asset) => sum + asset.investedValue, 0);
   const realizedPnl = visibleAssets.reduce((sum, asset) => sum + asset.realizedPnl, 0);
@@ -830,6 +882,7 @@ async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSe
     }))
     .sort((a, b) => b.updateTime - a.updateTime)
     .slice(0, 20);
+  const accountMovements = await fetchAccountMovements(apiKey, apiSecret, assetPriceByCode);
 
   return {
     connected: true,
@@ -864,6 +917,7 @@ async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSe
     },
     assets: visibleAssets,
     hiddenLockedAssets,
+    accountMovements,
     openOrders: normalizedOpenOrders,
     recentOrders,
     recentTrades,

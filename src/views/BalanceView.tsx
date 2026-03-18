@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDownIcon, CoinsIcon, DownloadIcon, SearchIcon, SlidersHorizontalIcon, TrendDownIcon, TrendUpIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
-import type { BinanceOrderSummary, BinanceTradeSummary, PortfolioAsset, PortfolioPayload } from "../types";
+import type { BinanceAccountMovement, PortfolioAsset, PortfolioPayload } from "../types";
 
 interface BalanceViewProps {
   payload: PortfolioPayload | null;
@@ -16,6 +16,7 @@ interface BalanceViewProps {
 
 type WalletTab = "holdings" | "nfts" | "staking" | "history";
 type AssetFilter = "all" | "large" | "mid" | "small" | "stablecoins" | "defi";
+type MovementFilter = "all" | "deposit" | "withdrawal";
 
 const STABLE_ASSETS = new Set(["USDT", "USDC", "FDUSD", "DAI", "TUSD", "BUSD"]);
 const DEFI_ASSETS = new Set(["UNI", "AAVE", "LINK", "MKR", "LDO", "CRV", "SNX", "COMP", "SUSHI"]);
@@ -102,6 +103,25 @@ function buildAllocationGradient(items: ReturnType<typeof buildAllocation>) {
   return `conic-gradient(${stops.join(", ")})`;
 }
 
+function formatMovementDate(time: number) {
+  if (!time) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-DO", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(time));
+}
+
+function getMovementStatusLabel(status: string) {
+  const normalized = String(status || "").toLowerCase();
+  if (["1", "6", "completed", "success"].includes(normalized)) return "Completado";
+  if (["0", "pending", "processing"].includes(normalized)) return "Pendiente";
+  if (["cancelled", "rejected", "failed"].includes(normalized)) return "Fallido";
+  return status || "Desconocido";
+}
+
 function getAssetIconUrl(asset: string) {
   const normalized = asset.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const slug = ASSET_ICON_SLUGS[normalized] || normalized.toLowerCase();
@@ -140,6 +160,7 @@ function AssetLogo({
 export function BalanceView(props: BalanceViewProps) {
   const [activeTab, setActiveTab] = useState<WalletTab>("holdings");
   const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
+  const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
   const [assetSearch, setAssetSearch] = useState("");
   const portfolio = props.payload?.portfolio;
   const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
@@ -150,6 +171,7 @@ export function BalanceView(props: BalanceViewProps) {
   const selectedWindowLabel = props.period === "30d" ? "30D P&L" : props.period === "7d" ? "7D P&L" : "24H P&L";
   const allocation = useMemo(() => buildAllocation(visibleAssets), [visibleAssets]);
   const allocationGradient = useMemo(() => buildAllocationGradient(allocation), [allocation]);
+  const accountMovements = props.payload?.accountMovements || [];
   const filteredAssets = useMemo(() => {
     return visibleAssets.filter((asset) => {
       const matchesFilter = assetFilter === "all" ? true : classifyAsset(asset) === assetFilter;
@@ -158,6 +180,9 @@ export function BalanceView(props: BalanceViewProps) {
       return matchesFilter && matchesSearch;
     });
   }, [assetFilter, assetSearch, visibleAssets]);
+  const filteredMovements = useMemo(() => {
+    return accountMovements.filter((movement) => movementFilter === "all" ? true : movement.type === movementFilter);
+  }, [accountMovements, movementFilter]);
 
   useEffect(() => {
     if (activeTab === "history") {
@@ -384,19 +409,31 @@ export function BalanceView(props: BalanceViewProps) {
       ) : null}
 
       {activeTab === "history" ? (
-        <div className="wallet-history-stack">
-          <WalletHistoryPanel title="Open Orders" subtitle="Órdenes aún activas o parciales.">
-            <WalletOrderTable orders={props.payload?.openOrders || []} emptyMessage="No hay órdenes abiertas en esta cuenta." />
-          </WalletHistoryPanel>
+        <section className="wallet-history-card wallet-funding-history-card">
+          <div className="wallet-card-header">
+            <div className="wallet-card-title-block">
+              <h3 className="wallet-card-title">Transaction History</h3>
+              <p className="wallet-card-subtitle">Movimientos de fondos de la cuenta, como depósitos y retiros, sin incluir operaciones de trading.</p>
+            </div>
+            <div className="wallet-card-tools">
+              <div className="wallet-history-filter-row">
+                <button className={`wallet-filter-chip ui-chip ${movementFilter === "all" ? "active" : ""}`} onClick={() => setMovementFilter("all")}>All Types</button>
+                <button className={`wallet-filter-chip ui-chip ${movementFilter === "deposit" ? "active" : ""}`} onClick={() => setMovementFilter("deposit")}>Deposits</button>
+                <button className={`wallet-filter-chip ui-chip ${movementFilter === "withdrawal" ? "active" : ""}`} onClick={() => setMovementFilter("withdrawal")}>Withdrawals</button>
+              </div>
+            </div>
+          </div>
 
-          <WalletHistoryPanel title="Recent Orders" subtitle="Órdenes completadas o canceladas recientemente.">
-            <WalletClosedOrderTable orders={props.payload?.recentOrders || []} emptyMessage="Todavía no hay órdenes recientes visibles." />
-          </WalletHistoryPanel>
-
-          <WalletHistoryPanel title="Trade History" subtitle="Trades ejecutados con comisión y PnL realizado.">
-            <WalletTradeTable trades={props.payload?.recentTrades || []} emptyMessage="Aún no hay trades recientes para construir historial." />
-          </WalletHistoryPanel>
-        </div>
+          <div className="wallet-history-movement-stack">
+            {filteredMovements.length ? (
+              filteredMovements.map((movement) => <WalletMovementCard key={movement.id} movement={movement} />)
+            ) : (
+              <div className="wallet-history-empty">
+                <EmptyState message="Todavía no encontramos depósitos o retiros visibles en esta cuenta Binance Demo." />
+              </div>
+            )}
+          </div>
+        </section>
       ) : null}
     </div>
   );
@@ -440,123 +477,34 @@ function WalletAssetRow({ asset }: { asset: PortfolioAsset }) {
   );
 }
 
-function WalletHistoryPanel({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function WalletMovementCard({ movement }: { movement: BinanceAccountMovement }) {
+  const isDeposit = movement.type === "deposit";
+  const statusLabel = getMovementStatusLabel(movement.status);
+
   return (
-    <section className="wallet-history-card">
-      <div className="wallet-card-header">
-        <div className="wallet-card-title-block">
-          <h3 className="wallet-card-title">{title}</h3>
-          <p className="wallet-card-subtitle">{subtitle}</p>
+    <article className="wallet-movement-card">
+      <div className="wallet-movement-main">
+        <div className={`wallet-movement-icon ${isDeposit ? "wallet-movement-icon-deposit" : "wallet-movement-icon-withdrawal"}`}>
+          {isDeposit ? <TrendUpIcon /> : <TrendDownIcon />}
+        </div>
+        <div className="wallet-movement-copy">
+          <div className="wallet-movement-title-row">
+            <h4 className="wallet-movement-title">{isDeposit ? "Deposit" : "Withdrawal"}</h4>
+            <span className={`wallet-movement-status ${statusLabel === "Completado" ? "wallet-positive" : statusLabel === "Pendiente" ? "wallet-neutral" : "wallet-negative"}`}>{statusLabel}</span>
+          </div>
+          <div className="wallet-movement-meta">{formatMovementDate(movement.time)}</div>
+          <div className="wallet-movement-submeta">
+            <span>{movement.asset}</span>
+            {movement.network ? <span>{movement.network}</span> : null}
+          </div>
         </div>
       </div>
-      <div className="wallet-table-shell">{children}</div>
-    </section>
-  );
-}
-
-function WalletOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummary[]; emptyMessage: string }) {
-  return (
-    <table className="wallet-assets-table ui-table">
-      <thead>
-        <tr>
-          <th>Pair</th>
-          <th>Side</th>
-          <th>Type</th>
-          <th>Price</th>
-          <th>Qty</th>
-          <th>Filled</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {!orders.length ? (
-          <tr><td colSpan={7}><EmptyState message={emptyMessage} /></td></tr>
-        ) : (
-          orders.map((order, index) => (
-            <tr key={`${order.symbol}-${order.updateTime}-${index}`}>
-              <td>{order.symbol}</td>
-              <td className={order.side === "BUY" ? "wallet-positive" : "wallet-negative"}>{order.side}</td>
-              <td>{order.type}</td>
-              <td>{order.price > 0 ? formatPrice(order.price) : "Market"}</td>
-              <td>{formatAmount(order.origQty)}</td>
-              <td>{formatAmount(order.executedQty)}</td>
-              <td>{order.status}</td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  );
-}
-
-function WalletClosedOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummary[]; emptyMessage: string }) {
-  return (
-    <table className="wallet-assets-table ui-table">
-      <thead>
-        <tr>
-          <th>Pair</th>
-          <th>Side</th>
-          <th>Type</th>
-          <th>Status</th>
-          <th>Filled</th>
-          <th>Value</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {!orders.length ? (
-          <tr><td colSpan={7}><EmptyState message={emptyMessage} /></td></tr>
-        ) : (
-          orders.map((order, index) => (
-            <tr key={`${order.symbol}-${order.updateTime}-${index}`}>
-              <td>{order.symbol}</td>
-              <td className={order.side === "BUY" ? "wallet-positive" : "wallet-negative"}>{order.side}</td>
-              <td>{order.type}</td>
-              <td>{order.status}</td>
-              <td>{formatAmount(order.executedQty)}</td>
-              <td>{formatPrice(order.quoteQty)}</td>
-              <td>{new Date(order.updateTime).toLocaleString("es-DO")}</td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  );
-}
-
-function WalletTradeTable({ trades, emptyMessage }: { trades: BinanceTradeSummary[]; emptyMessage: string }) {
-  return (
-    <table className="wallet-assets-table ui-table">
-      <thead>
-        <tr>
-          <th>Trade</th>
-          <th>Side</th>
-          <th>Price</th>
-          <th>Qty</th>
-          <th>Value</th>
-          <th>Commission</th>
-          <th>P&amp;L</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {!trades.length ? (
-          <tr><td colSpan={8}><EmptyState message={emptyMessage} /></td></tr>
-        ) : (
-          trades.map((trade, index) => (
-            <tr key={`${trade.symbol}-${trade.time}-${index}`}>
-              <td>{trade.symbol}</td>
-              <td className={trade.side === "BUY" ? "wallet-positive" : "wallet-negative"}>{trade.side}</td>
-              <td>{formatPrice(trade.price)}</td>
-              <td>{formatAmount(trade.qty)}</td>
-              <td>{formatPrice(trade.value)}</td>
-              <td>{formatAmount(trade.commission)} {trade.commissionAsset}</td>
-              <td className={getPerformanceClass(trade.realizedPnl || 0)}>{formatSignedPrice(trade.realizedPnl || 0)}</td>
-              <td>{new Date(trade.time).toLocaleString("es-DO")}</td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+      <div className="wallet-movement-values">
+        <div className={`wallet-movement-amount ${isDeposit ? "wallet-positive" : "wallet-negative"}`}>
+          {isDeposit ? "+" : "-"}{formatAmount(movement.amount)} {movement.asset}
+        </div>
+        <div className="wallet-movement-usd">{movement.estimatedUsdValue ? formatPrice(movement.estimatedUsdValue) : "Valor no disponible"}</div>
+      </div>
+    </article>
   );
 }

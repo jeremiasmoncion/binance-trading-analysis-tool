@@ -810,6 +810,7 @@ export interface PortfolioPayload {
   portfolio?: PortfolioTotals;
   assets: PortfolioAsset[];
   hiddenLockedAssets?: PortfolioAsset[];
+  accountMovements?: BinanceAccountMovement[];
   openOrders?: BinanceOrderSummary[];
   recentOrders?: BinanceOrderSummary[];
   recentTrades?: BinanceTradeSummary[];
@@ -846,6 +847,19 @@ export interface BinanceTradeSummary {
   realizedPnl?: number;
   originLabel?: string;
   sourceType?: "signals-auto" | "signals-manual" | "manual-user";
+}
+
+export interface BinanceAccountMovement {
+  id: string;
+  type: "deposit" | "withdrawal";
+  asset: string;
+  amount: number;
+  estimatedUsdValue?: number;
+  status: string;
+  time: number;
+  network?: string;
+  address?: string;
+  txId?: string;
 }
 
 export interface ExecutionProfile {

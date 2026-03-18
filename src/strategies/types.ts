@@ -3,6 +3,7 @@ import type { Candle, DashboardAnalysis, Indicators, Signal, StrategyDescriptor,
 export interface StrategyExecutionInput {
   candles: Candle[];
   indicators: Indicators;
+  timeframe: string;
   multiTimeframes: TimeframeSignal[];
 }
 

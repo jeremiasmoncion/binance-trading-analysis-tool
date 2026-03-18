@@ -9,10 +9,12 @@ export function useTheme(chartRef: RefObject<HTMLCanvasElement | null>, candles:
     const savedTheme = (localStorage.getItem("crype_theme") as "light" | "dark" | null) || "dark";
     setTheme(savedTheme);
     document.body.classList.toggle("dark-theme", savedTheme === "dark");
+    document.body.classList.toggle("light-theme", savedTheme === "light");
   }, []);
 
   useEffect(() => {
     document.body.classList.toggle("dark-theme", theme === "dark");
+    document.body.classList.toggle("light-theme", theme === "light");
     localStorage.setItem("crype_theme", theme);
     drawChart(chartRef.current, candles, theme === "dark");
   }, [theme, candles, chartRef]);

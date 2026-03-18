@@ -142,6 +142,52 @@ async function loadWatchlists(session) {
   }
 }
 
+async function listWatchlistScanTargets(username = null) {
+  const listParams = new URLSearchParams({
+    select: "username,list_name,is_active,created_at",
+    order: "username.asc,created_at.asc",
+  });
+  const itemParams = new URLSearchParams({
+    select: "username,coin,list_name,created_at",
+    order: "username.asc,created_at.asc",
+  });
+
+  if (username) {
+    listParams.set("username", `eq.${username}`);
+    itemParams.set("username", `eq.${username}`);
+  }
+
+  const [metaRows, itemRows] = await Promise.all([
+    supabaseRequest(`${WATCHLIST_LISTS_TABLE}?${listParams.toString()}`),
+    supabaseRequest(`${WATCHLIST_TABLE}?${itemParams.toString()}`),
+  ]);
+
+  const grouped = new Map();
+  (metaRows || []).forEach((row) => {
+    const key = String(row.username || "");
+    if (!key) return;
+    if (!grouped.has(key)) grouped.set(key, { username: key, meta: [], items: [] });
+    grouped.get(key).meta.push(row);
+  });
+  (itemRows || []).forEach((row) => {
+    const key = String(row.username || "");
+    if (!key) return;
+    if (!grouped.has(key)) grouped.set(key, { username: key, meta: [], items: [] });
+    grouped.get(key).items.push(row);
+  });
+
+  return Array.from(grouped.values()).map((entry) => {
+    const built = buildGroups(entry.meta, entry.items);
+    const active = built.lists.find((item) => item.isActive) || built.lists[0] || { name: "Principal", coins: [] };
+    return {
+      username: entry.username,
+      activeListName: active.name,
+      coins: active.coins,
+      lists: built.lists,
+    };
+  }).filter((entry) => entry.coins.length);
+}
+
 async function listWatchlists(req) {
   const session = requireSession(req);
   return loadWatchlists(session);
@@ -264,6 +310,7 @@ export {
   createWatchlist,
   deleteWatchlist,
   listWatchlists,
+  listWatchlistScanTargets,
   replaceWatchlist,
   sendJson,
   updateWatchlist,

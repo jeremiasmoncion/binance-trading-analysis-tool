@@ -24,14 +24,15 @@ export function getStrategy(id?: string) {
   return byId || defaultStrategy;
 }
 
-function getRankScore(result: StrategyExecutionResult) {
+function getRankScore(result: StrategyExecutionResult, timeframe: string) {
   const conviction = Math.abs(result.signal.score - 50);
   const actionableBonus = result.signal.label === "Esperar" ? 0 : 25;
   const setupBonus = result.analysis.setupQuality === "Alta" ? 12 : result.analysis.setupQuality === "Media" ? 6 : 0;
   const alignmentBonus = Math.round(result.analysis.alignmentCount * 1.5);
   const riskPenalty = result.analysis.riskLabel === "Agresivo" ? 12 : result.analysis.riskLabel === "Elevado" ? 6 : 0;
   const warningPenalty = Math.max(0, result.analysis.warnings.length - result.analysis.confirmations.length) * 2;
-  return actionableBonus + conviction + setupBonus + alignmentBonus - riskPenalty - warningPenalty;
+  const timeframeBonus = result.strategy.preferredTimeframes.includes(timeframe) ? 8 : -10;
+  return actionableBonus + conviction + setupBonus + alignmentBonus + timeframeBonus - riskPenalty - warningPenalty;
 }
 
 export function runStrategyEngine(input: StrategyExecutionInput): {
@@ -42,7 +43,7 @@ export function runStrategyEngine(input: StrategyExecutionInput): {
     .map((strategy) => strategy.execute(input))
     .map((result) => ({
       ...result,
-      rankScore: getRankScore(result),
+      rankScore: getRankScore(result, input.timeframe),
     }))
     .sort((a, b) => b.rankScore - a.rankScore || b.signal.score - a.signal.score)
     .map((result, index) => ({

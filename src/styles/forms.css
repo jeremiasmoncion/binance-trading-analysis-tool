@@ -52,7 +52,29 @@
 .binance-status-title { font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px; }
 .binance-status-title::selection { background: rgba(59, 130, 246, 0.35); color: inherit; }
 .binance-status-note { font-size:12px; color:#64748b; }
-.btn-secondary-soft { width:100%; padding:12px; background:#e2e8f0; color:#0f172a; border:none; border-radius:10px; font-weight:700; cursor:pointer; margin-top:10px; }
+.btn-secondary-soft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  min-height: 44px;
+  padding: 11px 16px;
+  background: #e2e8f0;
+  color: #0f172a;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.section-fill-button.btn-secondary-soft,
+.profile-section .btn-secondary-soft,
+.calc-input-group .btn-secondary-soft {
+  width: 100%;
+}
 
 @media (max-width: 1024px) {
   .calculator-grid, .profile-grid { grid-template-columns: 1fr; }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TIMEFRAME_OPTIONS } from "../config/constants";
-import { MoonIcon, StarIcon, SunIcon } from "./Icons";
+import { BellIcon, BoltIcon, MoonIcon, SparklesIcon, StarIcon, SunIcon } from "./Icons";
 import type { UserSession } from "../types";
 
 interface TopBarProps {
@@ -170,6 +170,7 @@ export function TopBar(props: TopBarProps) {
         </select>
 
         <button className="btn-primary" onClick={props.onRefresh}>
+          <SparklesIcon className="topbar-inline-icon" />
           Actualizar análisis
         </button>
       </div>
@@ -181,7 +182,15 @@ export function TopBar(props: TopBarProps) {
           </div>
         ) : null}
 
-        <button className="btn-primary theme-toggle" type="button" onClick={props.onToggleTheme} aria-label="Cambiar tema">
+        <button className="topbar-icon-btn utility-highlight" type="button" aria-label="Automatización activa">
+          <BoltIcon />
+        </button>
+
+        <button className="topbar-icon-btn" type="button" aria-label="Centro de alertas">
+          <BellIcon />
+        </button>
+
+        <button className="btn-primary theme-toggle topbar-icon-btn" type="button" onClick={props.onToggleTheme} aria-label="Cambiar tema">
           <SunIcon className="sun-icon" />
           <MoonIcon className="moon-icon" />
         </button>

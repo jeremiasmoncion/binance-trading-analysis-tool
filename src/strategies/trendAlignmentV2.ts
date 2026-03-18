@@ -8,6 +8,11 @@ const descriptor: StrategyDescriptor = {
   label: "Trend Alignment v2",
   description: "Variante más estricta que prioriza alineación de marcos altos y penaliza entradas débiles o contradictorias.",
   category: "trend",
+  preferredTimeframes: ["1h", "4h", "1d"],
+  tradingStyle: "swing corto",
+  holdingProfile: "medio",
+  idealMarketConditions: ["tendencia limpia", "alta alineación", "volumen fuerte"],
+  schedulerLabel: "revisión pausada",
   parameters: {
     trendWeight: 24,
     oversoldBoost: 10,

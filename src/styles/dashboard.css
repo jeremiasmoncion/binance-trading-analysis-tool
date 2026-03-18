@@ -1,4 +1,4 @@
-.dashboard-shell { display: grid; gap: 16px; }
+.dashboard-shell { display: grid; gap: 18px; }
 .dashboard-hero { position: relative; overflow: hidden; background:
   radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 32%),
   radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 28%),
@@ -32,13 +32,13 @@
 .dashboard-pulse-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 10px; }
 .dashboard-pulse-value { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
 .dashboard-pulse-note { font-size: 12px; color: #475569; line-height: 1.5; }
-.dashboard-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.dashboard-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .dashboard-mini-card { background: rgba(255, 255, 255, 0.72); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 16px; padding: 14px 16px; }
 .dashboard-mini-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; }
 .dashboard-mini-value { font-size: 22px; font-weight: 800; color: #0f172a; }
 .dashboard-mini-note { margin-top: 6px; font-size: 12px; color: #64748b; }
-.dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr); gap: 16px; align-items: start; }
-.dashboard-stack { display: grid; gap: 16px; }
+.dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr); gap: 20px; align-items: start; }
+.dashboard-stack { display: grid; gap: 20px; }
 .plan-chip { font-size: 11px; background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:20px; }
 .dashboard-hero.buy {
   background:
@@ -84,14 +84,22 @@
 .timeframe-chip.sell { border-color: rgba(239, 68, 68, 0.30); background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); }
 .timeframe-chip.sell .timeframe-chip-dot { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16); }
 .timeframe-chip.sell .timeframe-chip-value { color: #dc2626; }
-.watchlist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
-.watchlist-toolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+.watchlist-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.watchlist-active-pill { display:grid; gap:4px; text-align:right; }
+.watchlist-active-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#64748b; }
+.watchlist-active-pill strong { font-size:14px; font-weight:800; color:#0f172a; }
+.watchlist-status-banner { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; padding:14px 16px; border:1px solid rgba(37,99,235,0.14); border-radius:16px; background:linear-gradient(180deg, rgba(239,246,255,0.9) 0%, rgba(255,255,255,0.92) 100%); }
+.watchlist-status-title { font-size:15px; font-weight:800; color:#0f172a; margin-bottom:6px; }
+.watchlist-status-chip { display:inline-flex; align-items:center; justify-content:center; min-width:142px; padding:10px 14px; border-radius:999px; border:1px solid rgba(34,197,94,0.28); background:rgba(34,197,94,0.12); color:#15803d; font-size:12px; font-weight:800; }
+.watchlist-toolbar { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
 .watchlist-list-tabs { display:flex; gap:10px; flex-wrap:wrap; }
 .watchlist-list-tab { display:inline-flex; align-items:center; gap:10px; border:1px solid rgba(148,163,184,0.22); background:#fff; color:#334155; border-radius:999px; padding:8px 12px; cursor:pointer; font-size:12px; font-weight:700; }
 .watchlist-list-tab strong { display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 6px; border-radius:999px; background:#eff6ff; color:#2563eb; font-size:11px; }
+.watchlist-list-tab em { font-style:normal; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#16a34a; }
 .watchlist-list-tab.active { background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); border-color:#2563eb; color:#fff; box-shadow:0 8px 20px rgba(37,99,235,0.2); }
 .watchlist-list-tab.active strong { background:rgba(255,255,255,0.18); color:#fff; }
-.watchlist-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.watchlist-list-tab.active em { color:#d1fae5; }
+.watchlist-actions { display:flex; gap:12px; flex-wrap:wrap; }
 .watchlist-actions .btn-primary,
 .watchlist-actions .btn-secondary-soft { width:auto; margin-top:0; padding:10px 14px; border-radius:10px; }
 .watchlist-actions .danger { background:#fee2e2; color:#b91c1c; }
@@ -102,7 +110,7 @@
 .watchlist-chip-note { font-size: 11px; color: #64748b; }
 .watchlist-chip-remove { width: 40px; border: none; border-left: 1px solid rgba(148,163,184,0.16); background: transparent; color: #94a3b8; font-size: 20px; cursor: pointer; }
 .watchlist-chip-remove:hover { background: #eff6ff; color: #1d4ed8; }
-.analysis-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; }
+.analysis-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:16px; }
 .analysis-card { background:rgba(255,255,255,0.72); border:1px solid rgba(148,163,184,0.16); border-radius:16px; padding:14px 16px; }
 .analysis-card-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; margin-bottom:8px; }
 .analysis-card-value { font-size:20px; font-weight:800; color:#0f172a; }
@@ -115,12 +123,12 @@
 .strategy-candidate-badge { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; background:#2563eb; color:#fff; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
 .strategy-candidate-meta { margin-top:4px; font-size:11px; color:#64748b; line-height:1.4; }
 .levels-card { background:rgba(255,255,255,0.72); border:1px solid rgba(148,163,184,0.16); border-radius:18px; padding:16px; }
-.levels-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+.levels-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; margin-bottom:16px; }
 .level-pill { background:#fff; border:1px solid #dbe7ff; border-radius:16px; padding:12px 14px; display:grid; gap:6px; }
 .level-pill-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; }
 .level-pill strong { font-size:18px; color:#0f172a; }
 .level-pill span { font-size:12px; color:#64748b; line-height:1.5; }
-.checklist-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+.checklist-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; }
 .checklist-card { background:#fff; border:1px solid #dbe7ff; border-radius:16px; padding:14px; }
 .checklist-card.warnings { border-color:#fecaca; background:linear-gradient(180deg, #fff7f7 0%, #fff 100%); }
 .checklist-title { font-size:13px; font-weight:800; color:#0f172a; margin-bottom:10px; }
@@ -130,7 +138,7 @@
 .quick-plan-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
 .quick-plan-title { font-size: 17px; font-weight: 800; color: #0f172a; }
 .quick-plan .card-subtitle { color: #64748b; }
-.quick-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.quick-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .plan-item { background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%); padding: 14px; border-radius: 16px; border: 1px solid #d9e4f5; min-height: 108px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.9); }
 .plan-item.wide { grid-column: 1 / -1; }
 .plan-item.entry { border-color: rgba(148, 163, 184, 0.28); }
@@ -179,6 +187,8 @@ canvas { width: 100%; height: 340px; }
   .strategy-engine-card { grid-column: span 2; }
   .watchlist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .watchlist-toolbar { flex-direction: column; align-items: stretch; }
+  .watchlist-status-banner { flex-direction:column; align-items:flex-start; }
+  .watchlist-active-pill { text-align:left; }
 }
 
 @media (max-width: 768px) {

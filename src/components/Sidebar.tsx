@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 import type { UserSession, ViewName } from "../types";
 import { PanelLeftIcon } from "./Icons";
 
-const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: ReactNode }> = [
+type NavItem = { view: ViewName; label: string; icon: ReactNode };
+
+const NAV_ITEMS: NavItem[] = [
   {
     view: "dashboard",
     label: "Inicio",
@@ -77,6 +79,12 @@ const NAV_ITEMS: Array<{ view: ViewName; label: string; icon: ReactNode }> = [
   },
 ];
 
+const NAV_GROUPS: Array<{ title: string; views: ViewName[] }> = [
+  { title: "Principal", views: ["dashboard", "memory", "market"] },
+  { title: "Herramientas", views: ["balance", "calculator", "compare"] },
+  { title: "Soporte", views: ["learn", "profile"] },
+];
+
 interface SidebarProps {
   user: UserSession;
   currentView: ViewName;
@@ -111,16 +119,27 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
       </div>
 
       <nav className="sidebar-nav">
-        {NAV_ITEMS.map((item) => (
-          <div
-            key={item.view}
-            className={`nav-item ${currentView === item.view ? "active" : ""}`}
-            data-view={item.view}
-            onClick={() => onViewChange(item.view)}
-            title={collapsed ? item.label : undefined}
-          >
-            {item.icon}
-            <span>{item.label}</span>
+        {NAV_GROUPS.map((group) => (
+          <div key={group.title} className="sidebar-group">
+            <div className="sidebar-group-title">{group.title}</div>
+            <div className="sidebar-group-items">
+              {group.views.map((view) => {
+                const item = NAV_ITEMS.find((entry) => entry.view === view);
+                if (!item) return null;
+                return (
+                  <div
+                    key={item.view}
+                    className={`nav-item ${currentView === item.view ? "active" : ""}`}
+                    data-view={item.view}
+                    onClick={() => onViewChange(item.view)}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ))}
       </nav>

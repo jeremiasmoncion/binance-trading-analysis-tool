@@ -5,6 +5,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || "crype-dev-session-secret";
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const BINANCE_CONNECTIONS_TABLE = process.env.SUPABASE_BINANCE_TABLE || "binance_testnet_connections";
+const EXECUTION_ORDERS_TABLE = process.env.SUPABASE_EXECUTION_ORDERS_TABLE || "execution_orders";
 const BINANCE_TESTNET_API_URL = "https://demo-api.binance.com";
 
 function getEncryptionKey() {
@@ -67,7 +68,7 @@ function signQuery(secret, params) {
   return createHmac("sha256", secret).update(params).digest("hex");
 }
 
-async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}) {
+async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}, requestOptions = {}) {
   const search = new URLSearchParams({
     ...Object.fromEntries(Object.entries(params).map(([key, value]) => [key, String(value)])),
     timestamp: String(Date.now()),
@@ -75,6 +76,7 @@ async function fetchBinanceSigned(path, apiKey, apiSecret, params = {}) {
   search.set("signature", signQuery(apiSecret, search.toString()));
 
   const response = await fetch(`${BINANCE_TESTNET_API_URL}${path}?${search.toString()}`, {
+    method: requestOptions.method || "GET",
     headers: { "X-MBX-APIKEY": apiKey },
   });
 
@@ -101,10 +103,15 @@ async function getAuthenticatedSession(req) {
 
 async function getCredentialsForSession(req) {
   const session = await getAuthenticatedSession(req);
-  const row = await getStoredConnection(session.username);
+  return getCredentialsForUsername(session.username, session);
+}
+
+async function getCredentialsForUsername(username, sessionOverride = null) {
+  const normalizedUsername = String(username || "").trim();
+  const row = await getStoredConnection(normalizedUsername);
   if (!row) throw new Error("Primero conecta Binance Demo Spot desde Perfil");
   return {
-    session,
+    session: sessionOverride || { username: normalizedUsername },
     row,
     apiKey: decryptValue(row.api_key_encrypted),
     apiSecret: decryptValue(row.api_secret_encrypted),
@@ -116,6 +123,7 @@ async function getStoredConnection(username) {
     const params = new URLSearchParams({
       select: "username,api_key_encrypted,api_secret_encrypted,account_alias,updated_at",
       username: `eq.${username}`,
+      order: "updated_at.desc.nullslast",
       limit: "1",
     });
     const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${params.toString()}`);
@@ -125,6 +133,7 @@ async function getStoredConnection(username) {
     const fallbackParams = new URLSearchParams({
       select: "username,api_key_encrypted,api_secret_encrypted,updated_at",
       username: `eq.${username}`,
+      order: "updated_at.desc.nullslast",
       limit: "1",
     });
     const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${fallbackParams.toString()}`);
@@ -133,6 +142,35 @@ async function getStoredConnection(username) {
 }
 
 async function saveConnectionForUser(username, apiKey, apiSecret, accountAlias = "") {
+  const existingRow = await getStoredConnection(username).catch(() => null);
+
+  if (existingRow) {
+    const params = new URLSearchParams({ username: `eq.${username}` });
+    try {
+      const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${params.toString()}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: {
+          api_key_encrypted: encryptValue(apiKey),
+          api_secret_encrypted: encryptValue(apiSecret),
+          account_alias: accountAlias || null,
+        },
+      });
+      return rows?.[0] || null;
+    } catch (error) {
+      if (!isMissingAliasColumnError(error)) throw error;
+      const rows = await supabaseRequest(`${BINANCE_CONNECTIONS_TABLE}?${params.toString()}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: {
+          api_key_encrypted: encryptValue(apiKey),
+          api_secret_encrypted: encryptValue(apiSecret),
+        },
+      });
+      return rows?.[0] || null;
+    }
+  }
+
   try {
     const rows = await supabaseRequest(BINANCE_CONNECTIONS_TABLE, {
       method: "POST",
@@ -204,14 +242,31 @@ async function getBinanceConnectionState(req) {
 
   const apiKey = decryptValue(row.api_key_encrypted);
   const apiSecret = decryptValue(row.api_secret_encrypted);
-  const summary = await readOnlyAccountSummary(apiKey, apiSecret);
+  let summary = null;
+  let connectionIssue = "";
+  try {
+    summary = await readOnlyAccountSummary(apiKey, apiSecret);
+  } catch (error) {
+    connectionIssue = error instanceof Error ? error.message : "No se pudo validar Binance Demo Spot";
+  }
   return {
     connected: true,
     username: session.username,
     accountAlias: row.account_alias || "",
     maskedApiKey: maskApiKey(apiKey),
-    updatedAt: row.updated_at || summary.updatedAt,
-    summary,
+    updatedAt: row.updated_at || summary?.updatedAt || new Date().toISOString(),
+    summary: summary || {
+      uid: null,
+      accountType: "SPOT",
+      permissions: [],
+      canTrade: false,
+      canWithdraw: false,
+      canDeposit: false,
+      balances: [],
+      openOrdersCount: 0,
+      updatedAt: row.updated_at || new Date().toISOString(),
+    },
+    connectionIssue: connectionIssue || undefined,
   };
 }
 
@@ -272,6 +327,8 @@ function normalizeTrade(trade) {
     commissionAsset,
     time: Number(trade.time || 0),
     orderId: Number(trade.orderId || 0),
+    originLabel: "Manual usuario",
+    sourceType: "manual-user",
   };
 }
 
@@ -282,6 +339,8 @@ function normalizeOrder(order) {
   const stopPrice = Number(order.stopPrice || 0);
   const quoteQty = Number(order.cummulativeQuoteQty || 0);
   return {
+    orderId: Number(order.orderId || 0),
+    clientOrderId: String(order.clientOrderId || ""),
     symbol: String(order.symbol || ""),
     side: String(order.side || "BUY"),
     type: String(order.type || "MARKET"),
@@ -293,7 +352,42 @@ function normalizeOrder(order) {
     quoteQty,
     time: Number(order.time || 0),
     updateTime: Number(order.updateTime || order.time || 0),
+    originLabel: "Manual usuario",
+    sourceType: "manual-user",
   };
+}
+
+async function listExecutionOrderLinks(username) {
+  const params = new URLSearchParams({
+    select: "signal_id,order_id,origin,linked_order_ids,response_payload",
+    username: `eq.${String(username)}`,
+    limit: "200",
+    order: "created_at.desc",
+  });
+  return supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`).catch(() => []);
+}
+
+function buildExecutionOriginIndex(rows) {
+  const byOrderId = new Map();
+  (rows || []).forEach((row) => {
+    const origin = row.origin === "watcher" ? "Desde señales" : row.signal_id ? "Desde señales" : "Manual usuario";
+    const sourceType = row.origin === "watcher" ? "signals-auto" : row.signal_id ? "signals-manual" : "manual-user";
+    const linkIds = [];
+    const primaryId = Number(row.order_id || row.response_payload?.order?.orderId || 0);
+    if (primaryId) linkIds.push(primaryId);
+    const linked = row.linked_order_ids && typeof row.linked_order_ids === "object" ? row.linked_order_ids : {};
+    const protectionIds = Array.isArray(linked.protectionOrderIds) ? linked.protectionOrderIds : [];
+    protectionIds.forEach((item) => {
+      const id = Number(item || 0);
+      if (id) linkIds.push(id);
+    });
+    linkIds.forEach((id) => {
+      if (!byOrderId.has(id)) {
+        byOrderId.set(id, { originLabel: origin, sourceType });
+      }
+    });
+  });
+  return byOrderId;
 }
 
 function calculatePositionFromTrades(trades, asset) {
@@ -362,7 +456,85 @@ function formatMoneyNumber(value) {
 }
 
 async function getPortfolioSnapshot(req, period = "1d") {
-  const { session, row, apiKey, apiSecret } = await getCredentialsForSession(req);
+  const session = await getAuthenticatedSession(req);
+  return getPortfolioSnapshotForUsername(session.username, period);
+}
+
+async function getPortfolioSnapshotForUsername(username, period = "1d") {
+  const normalizedUsername = String(username || "").trim();
+  const row = await getStoredConnection(normalizedUsername).catch(() => null);
+  if (!row) {
+    return buildFallbackPortfolioSnapshot({
+      username: normalizedUsername,
+      period,
+      connected: false,
+      accountAlias: "",
+      reason: "Conecta Binance Demo Spot desde Perfil.",
+    });
+  }
+
+  try {
+    const credentials = {
+      session: { username: normalizedUsername },
+      row,
+      apiKey: decryptValue(row.api_key_encrypted),
+      apiSecret: decryptValue(row.api_secret_encrypted),
+    };
+    return await getPortfolioSnapshotFromCredentials(credentials, period);
+  } catch (error) {
+    return buildFallbackPortfolioSnapshot({
+      username: normalizedUsername,
+      period,
+      connected: true,
+      accountAlias: row.account_alias || "",
+      maskedApiKey: maskApiKey(decryptValue(row.api_key_encrypted)),
+      reason: error instanceof Error ? error.message : "No se pudo leer Binance Demo Spot ahora mismo.",
+    });
+  }
+}
+
+function buildFallbackPortfolioSnapshot({ username, period, connected, accountAlias, maskedApiKey = "", reason = "" }) {
+  return {
+    connected,
+    username,
+    accountAlias,
+    maskedApiKey,
+    summary: {
+      uid: null,
+      accountType: connected ? "SPOT" : reason || "Sin conexión",
+      permissions: [],
+      canTrade: false,
+      canWithdraw: false,
+      canDeposit: false,
+    },
+    portfolio: {
+      period,
+      totalValue: 0,
+      investedValue: 0,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      unrealizedPnlPct: 0,
+      totalPnl: 0,
+      periodChangeValue: 0,
+      periodChangePct: 0,
+      cashValue: 0,
+      positionsValue: 0,
+      openPositionsCount: 0,
+      winnersCount: 0,
+      hiddenLockedValue: 0,
+      hiddenLockedAssetsCount: 0,
+      updatedAt: new Date().toISOString(),
+    },
+    assets: [],
+    hiddenLockedAssets: [],
+    openOrders: [],
+    recentOrders: [],
+    recentTrades: [],
+    connectionIssue: reason || undefined,
+  };
+}
+
+async function getPortfolioSnapshotFromCredentials({ session, row, apiKey, apiSecret }, period = "1d") {
   const account = await fetchBinanceSigned("/api/v3/account", apiKey, apiSecret, { omitZeroBalances: true });
   const openOrdersPayload = await fetchBinanceSigned("/api/v3/openOrders", apiKey, apiSecret).catch(() => []);
   const openOrders = Array.isArray(openOrdersPayload) ? openOrdersPayload.map(normalizeOrder) : [];
@@ -382,6 +554,8 @@ async function getPortfolioSnapshot(req, period = "1d") {
       ].filter(Boolean)
     )
   );
+  const executionOrderLinks = await listExecutionOrderLinks(session.username);
+  const executionOriginByOrderId = buildExecutionOriginIndex(executionOrderLinks);
 
   const symbolHistory = await Promise.all(
     trackedSymbols.map(async (symbol) => {
@@ -486,14 +660,28 @@ async function getPortfolioSnapshot(req, period = "1d") {
       const position = symbolPositions.get(item.symbol);
       return position?.tradeSummaries || [];
     })
+    .map((trade) => ({
+      ...trade,
+      ...(executionOriginByOrderId.get(Number(trade.orderId || 0)) || {}),
+    }))
     .sort((a, b) => b.time - a.time)
     .slice(0, 20);
   const recentOrders = symbolHistory
-    .flatMap((item) => item.orders.map((order) => normalizeOrder(order)))
+    .flatMap((item) => item.orders.map((order) => {
+      const normalized = normalizeOrder(order);
+      return {
+        ...normalized,
+        ...(executionOriginByOrderId.get(Number(normalized.orderId || 0)) || {}),
+      };
+    }))
     .filter((order) => order.status !== "NEW" && order.status !== "PARTIALLY_FILLED")
     .sort((a, b) => b.updateTime - a.updateTime)
     .slice(0, 20);
   const normalizedOpenOrders = openOrders
+    .map((order) => ({
+      ...order,
+      ...(executionOriginByOrderId.get(Number(order.orderId || 0)) || {}),
+    }))
     .sort((a, b) => b.updateTime - a.updateTime)
     .slice(0, 20);
 
@@ -540,7 +728,12 @@ export {
   BINANCE_TESTNET_API_URL,
   connectBinanceTestnet,
   disconnectBinanceTestnet,
+  fetchBinancePublic,
+  fetchBinanceSigned,
+  getCredentialsForSession,
+  getCredentialsForUsername,
   getPortfolioSnapshot,
+  getPortfolioSnapshotForUsername,
   getBinanceConnectionState,
   sendJson,
 };

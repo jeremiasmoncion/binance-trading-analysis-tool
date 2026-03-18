@@ -8,6 +8,11 @@ const descriptor: StrategyDescriptor = {
   label: "Breakout v1",
   description: "Busca rupturas limpias con confirmación de volumen y sesgo del marco mayor.",
   category: "breakout",
+  preferredTimeframes: ["5m", "15m", "1h"],
+  tradingStyle: "scalping / intradía",
+  holdingProfile: "rápido",
+  idealMarketConditions: ["ruptura", "expansión", "volumen fuerte"],
+  schedulerLabel: "revisión rápida",
   parameters: {
     lookbackCandles: 20,
     breakoutBufferPct: 0.1,

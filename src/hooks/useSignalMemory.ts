@@ -212,9 +212,19 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       return;
     }
 
-    if (currentView === "memory" || currentView === "dashboard") {
+    void refreshSignals();
+  }, [currentUser, currentView, refreshSignals]);
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+
+    const refreshInterval = currentView === "memory" ? 20_000 : 45_000;
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
       void refreshSignals();
-    }
+    }, refreshInterval);
+
+    return () => window.clearInterval(intervalId);
   }, [currentUser, currentView, refreshSignals]);
 
   return {

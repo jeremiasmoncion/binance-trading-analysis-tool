@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { AppView } from "./components/AppView";
 import { LoginOverlay } from "./components/LoginOverlay";
 import { Sidebar } from "./components/Sidebar";
@@ -39,6 +39,16 @@ export function App() {
       : null,
   );
   const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
+  const handlePortfolioPeriodChange = useCallback((period: string) => {
+    void binance.refreshPortfolioWithFeedback(period);
+  }, [binance.refreshPortfolioWithFeedback]);
+  const handleRefreshPortfolio = useCallback(() => {
+    void binance.refreshPortfolioWithFeedback();
+  }, [binance.refreshPortfolioWithFeedback]);
+  const handleRefreshPortfolioFull = useCallback(() => {
+    void binance.refreshPortfolio(binance.portfolioPeriod, "full");
+  }, [binance.portfolioPeriod, binance.refreshPortfolio]);
+  const handleRefreshExecutionCenter = useCallback(() => binance.refreshExecutionCenter(), [binance.refreshExecutionCenter]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {
@@ -466,10 +476,10 @@ export function App() {
           executionCenter={binance.executionCenter}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}
-          onPortfolioPeriodChange={(period) => void binance.refreshPortfolioWithFeedback(period)}
-          onRefreshPortfolio={() => void binance.refreshPortfolioWithFeedback()}
-          onRefreshPortfolioFull={() => void binance.refreshPortfolio(binance.portfolioPeriod, "full")}
-          onRefreshExecutionCenter={() => binance.refreshExecutionCenter()}
+          onPortfolioPeriodChange={handlePortfolioPeriodChange}
+          onRefreshPortfolio={handleRefreshPortfolio}
+          onRefreshPortfolioFull={handleRefreshPortfolioFull}
+          onRefreshExecutionCenter={handleRefreshExecutionCenter}
           onToggleHideSmallAssets={binance.setHideSmallAssets}
           signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}

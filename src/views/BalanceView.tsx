@@ -162,6 +162,7 @@ export function BalanceView(props: BalanceViewProps) {
   const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
   const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
   const [assetSearch, setAssetSearch] = useState("");
+  const [historyBootstrapped, setHistoryBootstrapped] = useState(false);
   const portfolio = props.payload?.portfolio;
   const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
   const periodLabel = props.period === "30d" ? "30D" : props.period === "7d" ? "7D" : "24H";
@@ -185,10 +186,14 @@ export function BalanceView(props: BalanceViewProps) {
   }, [accountMovements, movementFilter]);
 
   useEffect(() => {
-    if (activeTab === "history") {
+    if (activeTab === "history" && !historyBootstrapped) {
       props.onRefreshFull();
+      setHistoryBootstrapped(true);
     }
-  }, [activeTab, props.onRefreshFull]);
+    if (activeTab !== "history" && historyBootstrapped) {
+      setHistoryBootstrapped(false);
+    }
+  }, [activeTab, historyBootstrapped, props.onRefreshFull]);
 
   return (
     <div id="balanceView" className="view-panel active wallet-template-view">

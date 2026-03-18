@@ -146,6 +146,9 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setPortfolioData((previous) => {
         const payloadWithIssue = payload as PortfolioPayload & { connectionIssue?: string };
         if (mode === "live") {
+          if (payloadWithIssue.connectionIssue && previous) {
+            return previous;
+          }
           return mergePortfolioLivePayload(previous, payload, period);
         }
         if (payloadWithIssue.connectionIssue && previous) {

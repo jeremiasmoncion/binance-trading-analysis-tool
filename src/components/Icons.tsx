@@ -194,3 +194,32 @@ export function ArrowUpDownIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function CoinsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <ellipse cx="9" cy="7" rx="4.5" ry="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4.5 7v4c0 1.38 2.01 2.5 4.5 2.5s4.5-1.12 4.5-2.5V7" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M15 11.5c2.49 0 4.5-1.12 4.5-2.5S17.49 6.5 15 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19.5 9v4c0 1.38-2.01 2.5-4.5 2.5-.73 0-1.42-.1-2.03-.28" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TrendUpIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="m4 15 5-5 4 4 7-7" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 7h5v5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TrendDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path d="m4 9 5 5 4-4 7 7" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 17h5v-5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

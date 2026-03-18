@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDownIcon, DownloadIcon, SearchIcon, SlidersHorizontalIcon, WalletIcon } from "../components/Icons";
+import { ArrowUpDownIcon, CoinsIcon, DownloadIcon, SearchIcon, SlidersHorizontalIcon, TrendDownIcon, TrendUpIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
 import type { BinanceOrderSummary, BinanceTradeSummary, PortfolioAsset, PortfolioPayload } from "../types";
@@ -233,7 +233,9 @@ export function BalanceView(props: BalanceViewProps) {
                 <div className="wallet-quick-value ui-summary-card-value">{visibleAssets.length}</div>
                 <div className="wallet-quick-chip wallet-quick-chip-info ui-pill">{props.payload?.summary?.accountType || "SPOT"} Account</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-info ui-summary-card-icon">◎</div>
+              <div className="wallet-quick-icon wallet-quick-icon-info ui-summary-card-icon">
+                <CoinsIcon />
+              </div>
             </div>
 
             <div className="wallet-quick-card ui-summary-card">
@@ -242,7 +244,9 @@ export function BalanceView(props: BalanceViewProps) {
                 <div className="wallet-quick-value ui-summary-card-value wallet-positive">{positiveAssets.length}</div>
                 <div className="wallet-quick-chip wallet-positive ui-pill">{visibleAssets.length ? formatPct((positiveAssets.length / visibleAssets.length) * 100) : "0%"}</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-success ui-summary-card-icon">↗</div>
+              <div className="wallet-quick-icon wallet-quick-icon-success ui-summary-card-icon">
+                <TrendUpIcon />
+              </div>
             </div>
 
             <div className="wallet-quick-card ui-summary-card">
@@ -251,7 +255,9 @@ export function BalanceView(props: BalanceViewProps) {
                 <div className="wallet-quick-value ui-summary-card-value wallet-negative">{negativeAssets.length}</div>
                 <div className="wallet-quick-chip wallet-negative ui-pill">{visibleAssets.length ? formatPct((negativeAssets.length / visibleAssets.length) * 100) : "0%"}</div>
               </div>
-              <div className="wallet-quick-icon wallet-quick-icon-danger ui-summary-card-icon">↘</div>
+              <div className="wallet-quick-icon wallet-quick-icon-danger ui-summary-card-icon">
+                <TrendDownIcon />
+              </div>
             </div>
 
             <div className="wallet-quick-card ui-summary-card">

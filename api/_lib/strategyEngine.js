@@ -916,6 +916,7 @@ export async function getSystemStrategyDecisionState(username) {
   }
   const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
   const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, latestTrainingRuns, normalizedModelConfigRegistry);
+  const modelWindowGovernance = buildModelWindowGovernance(latestTrainingRuns, modelRegistry, executionProfile);
 
   return {
     username,
@@ -953,6 +954,7 @@ export async function getSystemStrategyDecisionState(username) {
     adaptivePrimaryByScope: buildAdaptivePrimaryByScope(signals || []),
     contextBiasByScope: buildContextBiasByScope(signals || []),
     modelRegistry,
+    modelWindowGovernance,
     featureModelByScope: buildFeatureModelByScope(featureSnapshots || [], modelRegistry),
     scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
     shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
@@ -1445,6 +1447,199 @@ function buildScorerEvaluations(signals, executionProfile) {
       summary,
     };
   });
+}
+
+function chooseBestModelChallenger(activeScorer, modelRegistry = [], modelTrainingRuns = []) {
+  const active = String(activeScorer || "").trim().toLowerCase();
+  const runGroups = new Map();
+  for (const run of (modelTrainingRuns || [])) {
+    const label = String(run?.label || "").trim().toLowerCase();
+    if (!label.startsWith("model-")) continue;
+    const current = runGroups.get(label) || [];
+    current.push(run);
+    runGroups.set(label, current);
+  }
+
+  const candidates = (modelRegistry || [])
+    .filter((item) => item && item.label && String(item.label).toLowerCase().startsWith("model-"))
+    .filter((item) => String(item.label).toLowerCase() !== active)
+    .map((item) => {
+      const label = String(item.label || "").toLowerCase();
+      const runs = runGroups.get(label) || [];
+      const avgPnl = runs.length
+        ? runs.reduce((sum, run) => sum + Number(run.avgPnl || 0), 0) / runs.length
+        : Number(item.avgPnl || 0);
+      const avgWinRate = runs.length
+        ? runs.reduce((sum, run) => sum + Number(run.winRate || 0), 0) / runs.length
+        : Number(item.winRate || 0);
+      const avgConfidence = runs.length
+        ? runs.reduce((sum, run) => sum + Number(run.confidence || 0), 0) / runs.length
+        : Number(item.confidence || 0);
+      const readyWindows = runs.filter((run) => Boolean(run.ready)).length;
+      const rank = Number((
+        avgPnl * 8
+        + (avgWinRate - 50) * 0.55
+        + avgConfidence * 0.18
+        + readyWindows * 4
+        + Math.min(Number(item.sampleSize || 0), 30) * 0.18
+      ).toFixed(2));
+      return {
+        label,
+        rank,
+        readyWindows,
+        runs,
+        spec: item,
+      };
+    })
+    .sort((left, right) => {
+      if (Boolean(right.spec?.ready) !== Boolean(left.spec?.ready)) return Number(Boolean(right.spec?.ready)) - Number(Boolean(left.spec?.ready));
+      if (right.readyWindows !== left.readyWindows) return right.readyWindows - left.readyWindows;
+      return Number(right.rank || 0) - Number(left.rank || 0) || Number(right.spec?.confidence || 0) - Number(left.spec?.confidence || 0);
+    });
+
+  return candidates[0] || null;
+}
+
+function buildModelWindowGovernance(modelTrainingRuns, modelRegistry, executionProfile) {
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
+  const challenger = chooseBestModelChallenger(activeScorer, modelRegistry, modelTrainingRuns);
+  if (!challenger) {
+    return {
+      activeScorer,
+      candidateScorer: "",
+      windowVotes: [],
+      alignedWindows: 0,
+      conflictingWindows: 0,
+      action: "observe",
+      confidence: 0,
+      summary: "Todavia no hay un modelo challenger con suficiente estructura para gobernanza multi-ventana.",
+    };
+  }
+
+  const runsByLabelWindow = new Map();
+  for (const run of (modelTrainingRuns || [])) {
+    const label = String(run?.label || "").trim().toLowerCase();
+    const windowType = String(run?.windowType || "global").trim().toLowerCase();
+    if (!label) continue;
+    runsByLabelWindow.set(`${label}:${windowType}`, run);
+  }
+
+  const windowOrder = ["short", "recent", "global"];
+  const windowVotes = windowOrder.map((windowType) => {
+    const activeRun = runsByLabelWindow.get(`${activeScorer}:${windowType}`) || null;
+    const candidateRun = runsByLabelWindow.get(`${challenger.label}:${windowType}`) || null;
+    const activeAvgPnl = Number(activeRun?.avgPnl || 0);
+    const candidateAvgPnl = Number(candidateRun?.avgPnl || 0);
+    const activeWinRate = Number(activeRun?.winRate || 0);
+    const candidateWinRate = Number(candidateRun?.winRate || 0);
+    const sampleSize = Math.max(Number(activeRun?.sampleSize || 0), Number(candidateRun?.sampleSize || 0));
+    const edgeDelta = Number((candidateAvgPnl - activeAvgPnl).toFixed(2));
+    const winRateDelta = Number((candidateWinRate - activeWinRate).toFixed(2));
+    const enoughSample = Number(activeRun?.sampleSize || 0) >= 5 && Number(candidateRun?.sampleSize || 0) >= 5;
+    let vote = "observe";
+    if (enoughSample && edgeDelta >= 0.12 && winRateDelta >= -1) vote = "promote";
+    else if (enoughSample && edgeDelta <= -0.12 && winRateDelta <= 1) vote = "keep";
+    const confidence = Number(Math.min(
+      98,
+      28
+        + Math.min(sampleSize, 20) * 2.1
+        + Math.max(0, Math.abs(edgeDelta)) * 14
+        + Math.max(0, Math.abs(winRateDelta)) * 0.7,
+    ).toFixed(1));
+    return {
+      windowType,
+      activeAvgPnl: Number(activeAvgPnl.toFixed(2)),
+      candidateAvgPnl: Number(candidateAvgPnl.toFixed(2)),
+      activeWinRate: Number(activeWinRate.toFixed(2)),
+      candidateWinRate: Number(candidateWinRate.toFixed(2)),
+      edgeDelta,
+      winRateDelta,
+      sampleSize,
+      confidence,
+      vote,
+      candidateReady: Boolean(candidateRun?.ready || challenger.spec?.ready),
+    };
+  });
+
+  const promoteVotes = windowVotes.filter((item) => item.vote === "promote");
+  const keepVotes = windowVotes.filter((item) => item.vote === "keep");
+  const alignedWindows = promoteVotes.length;
+  const conflictingWindows = keepVotes.length;
+  const meanConfidence = windowVotes.length
+    ? windowVotes.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / windowVotes.length
+    : 0;
+
+  let action = "observe";
+  let summary = `${challenger.label} todavia necesita una alineacion mas clara entre ventanas para retar al modelo activo.`;
+  if (alignedWindows >= 2 && conflictingWindows === 0 && meanConfidence >= 68) {
+    action = activeScorer.startsWith("model-") ? "promote" : "promote";
+    summary = `${challenger.label} ya alinea ${alignedWindows} ventanas con mejor edge que ${activeScorer}. Puede pasar a una gobernanza mas automatica.`;
+  } else if (activeScorer.startsWith("model-") && conflictingWindows >= 2 && meanConfidence >= 64) {
+    action = "rollback";
+    summary = `${activeScorer} ya no defiende bien varias ventanas frente a ${challenger.label}. Conviene preparar rollback conservador.`;
+  } else if (alignedWindows >= 1 && meanConfidence >= 58) {
+    action = "sandbox";
+    summary = `${challenger.label} ya tiene al menos una ventana favorable y merece seguir retando en sandbox multi-ventana.`;
+  }
+
+  return {
+    activeScorer,
+    candidateScorer: challenger.label,
+    challengerMode: challenger.spec?.mode || "learned",
+    windowVotes,
+    alignedWindows,
+    conflictingWindows,
+    action,
+    confidence: Number(meanConfidence.toFixed(1)),
+    summary,
+  };
+}
+
+function buildModelWindowGovernanceRecommendations(governance) {
+  if (!governance?.candidateScorer || !["promote", "rollback", "sandbox"].includes(String(governance.action || ""))) {
+    return [];
+  }
+  const promoteWindows = (governance.windowVotes || []).filter((item) => item.vote === "promote");
+  const keepWindows = (governance.windowVotes || []).filter((item) => item.vote === "keep");
+  const avgPromoteEdge = promoteWindows.length
+    ? promoteWindows.reduce((sum, item) => sum + Number(item.edgeDelta || 0), 0) / promoteWindows.length
+    : 0;
+  const avgKeepEdge = keepWindows.length
+    ? keepWindows.reduce((sum, item) => sum + Number(item.edgeDelta || 0), 0) / keepWindows.length
+    : 0;
+  const status = governance.action === "sandbox"
+    ? "sandbox"
+    : governance.alignedWindows >= 2 && Number(governance.confidence || 0) >= 74
+      ? "sandbox"
+      : "draft";
+  return [{
+    recommendation_key: `adaptive-scorer:multi-window:${governance.activeScorer}->${governance.candidateScorer}`,
+    strategy_id: "adaptive-scorer",
+    strategy_version: governance.activeScorer,
+    parameter_key: "scorerPolicy",
+    title: governance.action === "rollback"
+      ? `Rollback multi-ventana hacia ${governance.candidateScorer}`
+      : governance.action === "sandbox"
+        ? `Seguir probando ${governance.candidateScorer} por ventanas`
+        : `Promover ${governance.candidateScorer} por evidencia multi-ventana`,
+    summary: governance.summary,
+    current_value: Number(avgKeepEdge.toFixed(2)),
+    suggested_value: Number(avgPromoteEdge.toFixed(2)),
+    confidence: Number((Number(governance.confidence || 0) / 100).toFixed(2)),
+    status,
+    evidence: {
+      recommendationType: "adaptive-scorer-promotion",
+      action: governance.action === "rollback" ? "rollback" : "promote",
+      baseScorer: governance.activeScorer,
+      candidateScorer: governance.candidateScorer,
+      alignedWindows: governance.alignedWindows,
+      conflictingWindows: governance.conflictingWindows,
+      windowVotes: governance.windowVotes,
+      sampleSizeReady: Math.max(...(governance.windowVotes || []).map((item) => Number(item.sampleSize || 0)), 0),
+      promotionMode: "multi-window-model-governance",
+      governanceConfidence: governance.confidence,
+    },
+  }];
 }
 
 function normalizeContextMarketRegime(signal) {
@@ -2487,13 +2682,19 @@ function getAdaptiveScorerRecommendationPolicyAction(recommendation) {
       || evidence.sampleSizeCurrent
       || 0,
   );
+  const alignedWindows = Number(evidence.alignedWindows || 0);
+  const multiWindowGovernance = String(evidence.promotionMode || "") === "multi-window-model-governance";
 
   if (recommendation.status === "draft") {
+    if (multiWindowGovernance && action === "promote" && alignedWindows >= 2 && sampleReady >= 8 && confidence >= 0.74) return "auto-sandbox";
+    if (multiWindowGovernance && action === "rollback" && alignedWindows >= 1 && sampleReady >= 8 && confidence >= 0.72) return "auto-sandbox";
     if (action === "rollback" && sampleReady >= 6 && confidence >= 0.7) return "auto-sandbox";
     if (candidateScorer.startsWith("model-") && sampleReady >= 8 && confidence >= 0.78) return "auto-sandbox";
   }
 
   if (recommendation.status === "sandbox") {
+    if (multiWindowGovernance && action === "promote" && alignedWindows >= 2 && sampleReady >= 10 && confidence >= 0.82) return "auto-apply";
+    if (multiWindowGovernance && action === "rollback" && alignedWindows >= 2 && sampleReady >= 10 && confidence >= 0.8) return "auto-apply";
     if (action === "rollback" && sampleReady >= 8 && confidence >= 0.78) return "auto-apply";
     if (candidateScorer.startsWith("model-") && sampleReady >= 12 && confidence >= 0.86) return "auto-apply";
   }
@@ -2716,12 +2917,13 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     limit: "300",
   });
 
-  const [versions, signals, executionProfile, existingRecommendations, featureSnapshots] = await Promise.all([
+  const [versions, signals, executionProfile, existingRecommendations, featureSnapshots, modelConfigRegistry] = await Promise.all([
     supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionParams.toString()}`),
     supabaseRequest(`${SIGNALS_TABLE}?${signalsParams.toString()}`),
     getExecutionProfileForUser(normalizedUsername),
     supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?select=*`).catch(() => []),
     supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
+    fetchModelConfigsForUser(normalizedUsername).catch(() => []),
   ]);
 
   const scorerEvaluations = buildScorerEvaluations(signals || [], executionProfile);
@@ -2729,9 +2931,15 @@ export async function generateAdaptiveRecommendationsForUser(username) {
   const modelTrainingRuns = buildModelTrainingRuns(featureSnapshots || [], executionProfile);
   await recordModelTrainingRunHistory(normalizedUsername, modelTrainingRuns).catch(() => null);
   await persistModelConfigRegistry(normalizedUsername, modelTrainingRuns, executionProfile?.scorerPolicy || null).catch(() => null);
+  const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
+  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, modelTrainingRuns, normalizedModelConfigRegistry);
+  const modelWindowGovernance = buildModelWindowGovernance(modelTrainingRuns, modelRegistry, executionProfile);
 
   const existingByKey = new Map((existingRecommendations || []).map((item) => [item.recommendation_key, item]));
-  const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile)
+  const rowsToUpsert = [
+    ...buildRecommendationRows(signals || [], versions || [], executionProfile),
+    ...buildModelWindowGovernanceRecommendations(modelWindowGovernance),
+  ]
     .map((item) => mergeRecommendationRow(existingByKey.get(item.recommendation_key), item));
   if (!rowsToUpsert.length) return [];
 

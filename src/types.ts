@@ -304,6 +304,29 @@ export interface StrategyDecisionState {
     action: "observe" | "promote";
     summary: string;
   } | null;
+  modelWindowGovernance?: {
+    activeScorer: string;
+    candidateScorer: string;
+    challengerMode?: "static" | "learned";
+    alignedWindows: number;
+    conflictingWindows: number;
+    confidence: number;
+    action: "observe" | "sandbox" | "promote" | "rollback";
+    summary: string;
+    windowVotes: Array<{
+      windowType: "recent" | "global" | "short";
+      activeAvgPnl: number;
+      candidateAvgPnl: number;
+      activeWinRate: number;
+      candidateWinRate: number;
+      edgeDelta: number;
+      winRateDelta: number;
+      sampleSize: number;
+      confidence: number;
+      vote: "observe" | "promote" | "keep";
+      candidateReady?: boolean;
+    }>;
+  } | null;
   scorerEvaluationHistory?: Array<{
     id?: number;
     scorer: string;

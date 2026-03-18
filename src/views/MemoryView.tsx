@@ -947,6 +947,10 @@ export function MemoryView(props: MemoryViewProps) {
     return decisionState?.shadowModelEvaluation || null;
   }, [decisionState?.shadowModelEvaluation]);
 
+  const modelWindowGovernance = useMemo(() => {
+    return decisionState?.modelWindowGovernance || null;
+  }, [decisionState?.modelWindowGovernance]);
+
   const modelRegistry = useMemo(() => {
     const rows = Array.isArray(decisionState?.modelRegistry) ? decisionState.modelRegistry : [];
     return rows;
@@ -1241,6 +1245,17 @@ export function MemoryView(props: MemoryViewProps) {
         actionLabel: scorerPromotionRecommendation.status === "sandbox" ? "Promover scorer" : "Mandar a prueba",
         toneClass: scorerAction === "rollback" ? "accent-amber" : "accent-emerald",
       };
+    } else if (modelWindowGovernance && ["promote", "rollback", "sandbox"].includes(modelWindowGovernance.action)) {
+      nextAction = {
+        title: modelWindowGovernance.action === "rollback"
+          ? `Preparar rollback hacia ${modelWindowGovernance.candidateScorer}`
+          : modelWindowGovernance.action === "sandbox"
+            ? `Seguir reto multi-ventana de ${modelWindowGovernance.candidateScorer}`
+            : `Promover ${modelWindowGovernance.candidateScorer} por ventanas`,
+        summary: modelWindowGovernance.summary,
+        actionLabel: modelWindowGovernance.action === "sandbox" ? "Observar ventanas" : modelWindowGovernance.action === "rollback" ? "Replegar modelo" : "Promover modelo",
+        toneClass: modelWindowGovernance.action === "rollback" ? "accent-amber" : "accent-emerald",
+      };
     }
 
     return {
@@ -1261,6 +1276,7 @@ export function MemoryView(props: MemoryViewProps) {
       modelRegistry,
       modelTrainingRunHistory,
       modelConfigHistory,
+      modelWindowGovernance,
       shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
@@ -1269,7 +1285,7 @@ export function MemoryView(props: MemoryViewProps) {
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelConfigHistory, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelConfigHistory, modelRegistry, modelTrainingRunHistory, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelConfigHistory, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.modelWindowGovernance, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelConfigHistory, modelRegistry, modelTrainingRunHistory, modelWindowGovernance, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -2006,6 +2022,20 @@ export function MemoryView(props: MemoryViewProps) {
                 sub={automationMasterBoard.modelConfigHistory?.[0]?.createdAt ? `Actualizada ${new Date(automationMasterBoard.modelConfigHistory[0].createdAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : "Sin historial de activación todavía"}
                 accentClass="accent-amber"
               />
+              <StatCard
+                label="Gobernanza multi-ventana"
+                value={automationMasterBoard.modelWindowGovernance?.action || "--"}
+                sub={automationMasterBoard.modelWindowGovernance
+                  ? `${automationMasterBoard.modelWindowGovernance.candidateScorer || "--"} · ${automationMasterBoard.modelWindowGovernance.alignedWindows} alineadas · ${automationMasterBoard.modelWindowGovernance.confidence.toFixed(0)}%`
+                  : "Sin consenso multi-ventana todavía"}
+                accentClass={
+                  automationMasterBoard.modelWindowGovernance?.action === "promote"
+                    ? "accent-emerald"
+                    : automationMasterBoard.modelWindowGovernance?.action === "rollback"
+                      ? "accent-amber"
+                      : "accent-blue"
+                }
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -2175,6 +2205,11 @@ export function MemoryView(props: MemoryViewProps) {
             {automationMasterBoard.modelConfigHistory?.length ? (
               <p className="section-note">
                 Configuración activa de modelo: {automationMasterBoard.modelConfigHistory[0].activeScorer} · {automationMasterBoard.modelConfigHistory[0].summary}
+              </p>
+            ) : null}
+            {automationMasterBoard.modelWindowGovernance ? (
+              <p className="section-note">
+                Gobernanza multi-ventana: {automationMasterBoard.modelWindowGovernance.summary}
               </p>
             ) : null}
 

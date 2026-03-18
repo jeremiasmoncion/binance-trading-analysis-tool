@@ -170,10 +170,28 @@
 .btn-primary { padding: 9px 16px; background: #1a233a; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
 .btn-primary:hover { background: #0f1525; }
 .user-pill { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: rgba(15, 23, 42, 0.82); border: 1px solid rgba(71, 85, 105, 0.44); border-radius: 16px; font-size: 11px; color: #e2e8f0; }
-.topbar-status-pill,
-.topbar-user-pill { min-height: 44px; }
-.theme-toggle { width: 42px; height: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.topbar-status-shell { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border-radius: 14px; border: 1px solid rgba(71, 85, 105, 0.44); background: rgba(15, 23, 42, 0.82); color: #cbd5e1; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.topbar-icon-shell,
+.theme-toggle { position: relative; width: 42px; height: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(71, 85, 105, 0.44); border-radius: 14px; background: rgba(15, 23, 42, 0.82); color: #e2e8f0; transition: all 0.2s ease; }
+.topbar-icon-shell:hover,
+.theme-toggle:hover { border-color: rgba(99, 102, 241, 0.54); background: rgba(30, 41, 59, 0.94); transform: translateY(-1px); }
+.topbar-icon-shell svg,
 .theme-toggle svg { width: 18px; height: 18px; }
+.topbar-alert-shell { overflow: visible; }
+.topbar-alert-badge { position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: #ef4444; color: #fff; font-size: 10px; font-weight: 800; box-shadow: 0 6px 14px rgba(239, 68, 68, 0.28); }
+.topbar-user-menu { position: relative; }
+.topbar-user-shell { min-width: 62px; height: 42px; padding: 0 10px 0 6px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(71, 85, 105, 0.44); border-radius: 999px; background: rgba(15, 23, 42, 0.82); color: #e2e8f0; transition: all 0.2s ease; }
+.topbar-user-shell:hover { border-color: rgba(99, 102, 241, 0.54); background: rgba(30, 41, 59, 0.94); }
+.topbar-avatar { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); color: #fff; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; }
+.topbar-user-chevron { width: 16px; height: 16px; color: #94a3b8; transition: transform 0.2s ease; }
+.topbar-user-chevron.open { transform: rotate(180deg); }
+.topbar-user-dropdown { position: absolute; top: calc(100% + 10px); right: 0; min-width: 220px; padding: 10px; border-radius: 16px; border: 1px solid rgba(71, 85, 105, 0.42); background: #0f172a; box-shadow: 0 22px 48px rgba(2, 6, 23, 0.36); z-index: 90; }
+.topbar-user-dropdown-head { padding: 6px 6px 10px; border-bottom: 1px solid rgba(71, 85, 105, 0.28); margin-bottom: 8px; }
+.topbar-user-dropdown-name { color: #f8fafc; font-size: 13px; font-weight: 700; }
+.topbar-user-dropdown-role { margin-top: 4px; color: #94a3b8; font-size: 11px; }
+.topbar-user-dropdown-action { width: 100%; min-height: 40px; padding: 0 12px; display: flex; align-items: center; border: none; border-radius: 12px; background: transparent; color: #e2e8f0; font-size: 13px; font-weight: 600; cursor: pointer; }
+.topbar-user-dropdown-action:hover { background: rgba(99, 102, 241, 0.14); color: #c7d2fe; }
+.topbar-user-dropdown-action-danger:hover { background: rgba(239, 68, 68, 0.14); color: #fca5a5; }
 .theme-toggle .moon-icon { display: none; }
 .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
 .status-indicator.loading {
@@ -287,7 +305,7 @@
   .search-coin { width: 100%; }
   .search-coin input { width: 100%; }
   .coin-combobox-menu { min-width: 200px; width: 100%; }
-  .topbar-user-pill { display: none; }
+  .topbar-status-shell { padding-inline: 10px; }
   .view-panel { padding: 14px; }
   .module-tabs { gap: 8px; margin: 0 14px 16px; }
   .module-tab { padding: 7px 12px; font-size: 11px; }

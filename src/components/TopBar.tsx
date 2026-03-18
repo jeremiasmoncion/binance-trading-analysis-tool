@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellIcon, BoltIcon, MoonIcon, SunIcon } from "./Icons";
+import { BellIcon, BoltIcon, ChevronDownIcon, MoonIcon, SunIcon } from "./Icons";
 import type { UserSession } from "../types";
 
 interface TopBarProps {
@@ -26,9 +26,11 @@ interface TopBarProps {
 export function TopBar(props: TopBarProps) {
   const [query, setQuery] = useState(props.currentCoin);
   const [isOpen, setIsOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
   const statusText =
     props.status === "loading" ? "Cargando..." : props.status === "error" ? "Error de conexión" : "Datos correctos";
   const filteredCoins = useMemo(() => {
@@ -50,6 +52,17 @@ export function TopBar(props: TopBarProps) {
     function handleOutsideClick(event: MouseEvent) {
       if (!wrapperRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  useEffect(() => {
+    function handleOutsideClick(event: MouseEvent) {
+      if (!userMenuRef.current?.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
       }
     }
 
@@ -151,39 +164,67 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div className="top-right">
-        <button className="topbar-icon-btn utility-highlight" type="button" aria-label="Automatización activa">
+        <div className="topbar-status-shell" title={statusText}>
+          <span className={`status-indicator ${props.status === "loading" ? "loading" : props.status === "error" ? "error" : ""}`} />
+          <span>{props.status === "loading" ? "Sync" : props.status === "error" ? "Issue" : "Live"}</span>
+        </div>
+
+        <button className="topbar-icon-shell utility-highlight" type="button" aria-label="Automatización activa">
           <BoltIcon />
         </button>
 
-        <button className="topbar-icon-btn" type="button" aria-label="Centro de alertas">
+        <button className="topbar-icon-shell topbar-alert-shell" type="button" aria-label="Centro de alertas">
           <BellIcon />
+          {props.status !== "ok" ? <span className="topbar-alert-badge">{props.status === "error" ? "!" : "1"}</span> : null}
         </button>
 
-        <button className="btn-primary theme-toggle topbar-icon-btn" type="button" onClick={props.onToggleTheme} aria-label="Cambiar tema">
+        <button className="topbar-icon-shell theme-toggle" type="button" onClick={props.onToggleTheme} aria-label="Cambiar tema">
           <SunIcon className="sun-icon" />
           <MoonIcon className="moon-icon" />
         </button>
 
-        <div className="user-pill topbar-status-pill">
-          <span className={`status-indicator ${props.status === "loading" ? "loading" : props.status === "error" ? "error" : ""}`} />
-          <span>{statusText}</span>
-        </div>
-
-        <div className="user-pill topbar-user-pill">
-          <span>
-            Usuario: <strong>{props.user.displayName || props.user.username}</strong>
-          </span>
-        </div>
-
-        {props.showAdmin ? (
-          <button className="btn-primary" onClick={props.onOpenAdmin}>
-            Admin
+        <div className="topbar-user-menu" ref={userMenuRef}>
+          <button
+            className="topbar-user-shell"
+            type="button"
+            aria-label="Abrir menú de usuario"
+            onClick={() => setIsUserMenuOpen((current) => !current)}
+          >
+            <span className="topbar-avatar">{(props.user.displayName || props.user.username || "CR").slice(0, 2).toUpperCase()}</span>
+            <ChevronDownIcon className={`topbar-user-chevron${isUserMenuOpen ? " open" : ""}`} />
           </button>
-        ) : null}
 
-        <button className="btn-primary" onClick={props.onLogout}>
-          Salir
-        </button>
+          {isUserMenuOpen ? (
+            <div className="topbar-user-dropdown">
+              <div className="topbar-user-dropdown-head">
+                <div className="topbar-user-dropdown-name">{props.user.displayName || props.user.username}</div>
+                <div className="topbar-user-dropdown-role">{props.showAdmin ? "Administrador" : "Usuario"} · Main</div>
+              </div>
+              {props.showAdmin ? (
+                <button
+                  className="topbar-user-dropdown-action"
+                  type="button"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    props.onOpenAdmin();
+                  }}
+                >
+                  Admin
+                </button>
+              ) : null}
+              <button
+                className="topbar-user-dropdown-action topbar-user-dropdown-action-danger"
+                type="button"
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  props.onLogout();
+                }}
+              >
+                Cerrar sesión
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </header>
   );

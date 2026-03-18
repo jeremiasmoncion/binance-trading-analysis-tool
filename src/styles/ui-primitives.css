@@ -789,6 +789,8 @@
   .view-panel {
     padding: 18px 16px 22px;
     gap: 18px;
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   .card,
@@ -867,6 +869,8 @@
 
   .ui-table-shell {
     margin-inline: -2px;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .ui-pagination-row {

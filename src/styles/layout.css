@@ -1,7 +1,7 @@
 /* ============================================
    LAYOUT PRINCIPAL
    ============================================ */
-.app-shell { display: flex; min-height: 100vh; }
+.app-shell { display: flex; min-height: 100vh; max-width: 100vw; overflow-x: clip; }
 
 .sidebar { width: 224px; background: linear-gradient(180deg, #1a233a 0%, #0f1525 100%); color: #fff; position: fixed; left: 0; top: 0; bottom: 0; z-index: 100; display: flex; flex-direction: column; }
 .sidebar-header { min-height: 82px; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; }
@@ -55,7 +55,7 @@
 .btn-logout { width: 100%; padding: 11px; background: #fff; color: #1a233a; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-logout:hover { background: #f0f4ff; }
 
-.main-content { flex: 1; margin-left: var(--sidebar-width); min-width: 0; }
+.main-content { flex: 1; margin-left: var(--sidebar-width); min-width: 0; max-width: 100vw; overflow-x: clip; }
 .app-mobile-backdrop {
   position: fixed;
   inset: 0;
@@ -569,7 +569,7 @@
 
 @media (max-width: 1024px) {
   .app-shell {
-    --sidebar-width: min(320px, calc(100vw - 44px));
+    --sidebar-width: 100vw;
     --sidebar-gap: 0px;
   }
 
@@ -583,6 +583,7 @@
     transform: translateX(0);
     transition: transform 0.24s ease, box-shadow 0.24s ease;
     z-index: 96;
+    max-width: 100vw;
   }
 
   .app-shell.sidebar-collapsed .sidebar {
@@ -603,7 +604,7 @@
   .app-shell.sidebar-collapsed .nav-item span,
   .app-shell.sidebar-collapsed .sidebar-user-pills,
   .app-shell.sidebar-collapsed .nav-arrow {
-    display: initial;
+    display: inherit;
   }
 
   .app-shell.sidebar-collapsed .sidebar-brand-copy {
@@ -620,6 +621,11 @@
 
   .app-shell.sidebar-collapsed .nav-arrow {
     display: block;
+  }
+
+  .app-shell.sidebar-collapsed .nav-text,
+  .app-shell.sidebar-collapsed .submenu-item span {
+    display: inline;
   }
 
   .app-shell.sidebar-collapsed .sidebar-brand-shell {
@@ -704,11 +710,16 @@
   }
 
   .top-left {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
     gap: 10px;
+    align-items: center;
   }
 
   .top-right {
     gap: 8px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .topbar-status-shell {
@@ -1545,16 +1556,15 @@ body.dark-theme .wallet-assets-table tbody td {
     padding-inline: 14px;
   }
 
-  .top-left {
-    flex-wrap: wrap;
-  }
-
   .topbar-sidebar-toggle {
     flex-shrink: 0;
   }
 
   .top-right {
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(40px, auto));
+    justify-content: start;
+    width: auto;
   }
 
   .topbar-status-shell span:last-child {
@@ -1600,8 +1610,24 @@ body.dark-theme .wallet-assets-table tbody td {
 
   .wallet-tab-bar {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    justify-content: stretch;
+  }
+
+  .wallet-tab-button {
+    min-width: 0;
+    width: 100%;
+    min-height: 52px;
+    padding-inline: 16px;
+  }
+
+  .wallet-filter-chip-row {
     overflow-x: auto;
-    justify-content: flex-start;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    margin-inline: -2px;
   }
 
   .wallet-card-tools,
@@ -1618,5 +1644,19 @@ body.dark-theme .wallet-assets-table tbody td {
   .wallet-actions-card,
   .wallet-recent-card {
     width: 100%;
+  }
+
+  .wallet-assets-table {
+    min-width: 720px;
+  }
+
+  .wallet-hero-card,
+  .wallet-holdings-card,
+  .wallet-allocation-card,
+  .wallet-actions-card,
+  .wallet-recent-card,
+  .wallet-history-card,
+  .wallet-placeholder-card {
+    overflow: hidden;
   }
 }

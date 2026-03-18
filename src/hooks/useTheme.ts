@@ -1,5 +1,4 @@
 import { useEffect, useState, type RefObject } from "react";
-import { drawChart } from "../lib/chart";
 import type { Candle } from "../types";
 
 export function useTheme(chartRef: RefObject<HTMLCanvasElement | null>, candles: Candle[]) {
@@ -16,7 +15,6 @@ export function useTheme(chartRef: RefObject<HTMLCanvasElement | null>, candles:
     document.body.classList.toggle("dark-theme", theme === "dark");
     document.body.classList.toggle("light-theme", theme === "light");
     localStorage.setItem("crype_theme", theme);
-    drawChart(chartRef.current, candles, theme === "dark");
   }, [theme, candles, chartRef]);
 
   return {

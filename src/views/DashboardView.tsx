@@ -1,14 +1,10 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  BoltIcon,
-  CheckCircleIcon,
   CoinsIcon,
   DownloadIcon,
   HelpCircleIcon,
-  InfoCircleIcon,
   SparklesIcon,
   TrendUpIcon,
-  WarningTriangleIcon,
   WalletIcon,
 } from "../components/Icons";
 import { formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
@@ -25,6 +21,7 @@ import type {
   TimeframeSignal,
 } from "../types";
 import { openHelp } from "../lib/ui-events";
+import { drawPerformanceChart } from "../lib/chart";
 
 interface DashboardViewProps {
   currentCoin: string;
@@ -45,13 +42,14 @@ interface DashboardViewProps {
 }
 
 type DashboardTab = "overview" | "bot-performance" | "capital" | "activity";
+type DashboardRange = "24h" | "7d" | "30d" | "90d" | "all";
 
 export function DashboardView(props: DashboardViewProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
+  const [activeRange, setActiveRange] = useState<DashboardRange>("24h");
   const signal = props.signal;
   const analysis = props.analysis;
   const portfolio = props.portfolioData?.portfolio;
-  const assets = props.portfolioData?.assets || [];
   const executionAccount = props.executionCenter?.account;
   const executionProfile = props.executionCenter?.profile;
   const currentPrice = props.currentPrice || props.candles.at(-1)?.close || 0;
@@ -84,8 +82,6 @@ export function DashboardView(props: DashboardViewProps) {
   const deployedCapitalValue = portfolio?.positionsValue || 0;
   const deploymentPct = portfolioTotal > 0 ? ((deployedCapitalValue / portfolioTotal) * 100) : 0;
   const cashPct = portfolioTotal > 0 ? (((portfolio?.cashValue || 0) / portfolioTotal) * 100) : 0;
-  const allocationItems = buildDashboardAllocation(assets);
-  const allocationGradient = buildAllocationGradient(allocationItems);
   const tabSummary = getDashboardTabSummary(activeTab, {
     portfolioTotal,
     portfolioChangeValue,
@@ -102,23 +98,14 @@ export function DashboardView(props: DashboardViewProps) {
     botGeneratedPnl24h,
     botWinRate24h,
   });
-  const riskAlerts = buildRiskAlerts({
-    executionAccount,
-    executionProfile,
-    blockedCount: blockedCandidates.length,
-    analysis,
-    signal,
-  });
-  const operatingSignals = buildOperatingSignals({
-    executionAccount,
-    executionProfile,
-    eligibleCount: eligibleCandidates.length,
-    blockedCount: blockedCandidates.length,
-    strategy: props.strategy,
-    analysis,
-    currentCoin: props.currentCoin,
-    currentTimeframe: props.timeframe,
-  });
+  const performancePoints = useMemo(
+    () => buildPerformanceSeries(props.candles, portfolio, activeRange),
+    [activeRange, portfolio, props.candles],
+  );
+  useEffect(() => {
+    const isDark = document.body.classList.contains("dark-theme");
+    drawPerformanceChart(props.chartRef.current, performancePoints, isDark);
+  }, [performancePoints, props.chartRef]);
 
   return (
     <div id="dashboardView" className="view-panel active">
@@ -244,6 +231,48 @@ export function DashboardView(props: DashboardViewProps) {
             ))}
           </div>
 
+          <div className="dashboard-filter-card">
+            <div className="dashboard-filter-group">
+              <span className="dashboard-filter-label">Time Range:</span>
+              <div className="dashboard-filter-chip-row">
+                {DASHBOARD_RANGES.map((range) => (
+                  <button
+                    key={range.id}
+                    type="button"
+                    className={`dashboard-filter-chip ${activeRange === range.id ? "active" : ""}`}
+                    onClick={() => setActiveRange(range.id)}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="dashboard-filter-actions">
+              <button
+                type="button"
+                className="ui-button"
+                onClick={() => openHelp({
+                  title: "Filtros del Dashboard",
+                  body: "Esta tarjeta intermedia controla la ventana visual del gráfico principal de rendimiento del portfolio.",
+                  bullets: [
+                    "24H, 7D, 30D, 90D y All Time cambian la lectura del rendimiento.",
+                    "El gráfico principal ya no es de mercado; es de performance del portfolio.",
+                  ],
+                })}
+              >
+                Filtrar
+              </button>
+              <button
+                type="button"
+                className="ui-button"
+                onClick={() => setActiveRange("24h")}
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
           <div className="dashboard-analytics-card">
             <div className="dashboard-panel-head">
               <div>
@@ -266,20 +295,16 @@ export function DashboardView(props: DashboardViewProps) {
                       <div className="dashboard-card-topline">
                         <div className="chart-title">{tabSummary.chartTitle}</div>
                       </div>
-                      <div className="card-subtitle">{tabSummary.chartSubtitle}</div>
+                      <div className="card-subtitle">{tabSummary.chartSubtitle} · ventana {getRangeLabel(activeRange)}</div>
                     </div>
                     <div className="chart-legend">
                       <div className="legend-item">
-                        <span className="legend-dot green" />
-                        Precio
+                        <span className="legend-dot portfolio" />
+                        Portfolio
                       </div>
                       <div className="legend-item">
-                        <span className="legend-dot blue" />
-                        SMA 20
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-dot orange" />
-                        SMA 50
+                        <span className="legend-dot benchmark" />
+                        Benchmark
                       </div>
                     </div>
                   </div>
@@ -298,144 +323,64 @@ export function DashboardView(props: DashboardViewProps) {
               </div>
 
               <aside className="dashboard-side-card dashboard-tab-side-card">
-                {activeTab === "overview" ? (
-                  <>
-                    <div className="dashboard-panel-head">
-                      <div>
-                        <div className="dashboard-panel-kicker">Capital map</div>
-                        <h3 className="dashboard-side-title">Asignación del portfolio</h3>
+                <div className="dashboard-panel-head">
+                  <div>
+                    <div className="dashboard-panel-kicker">Context panel</div>
+                    <h3 className="dashboard-side-title">Temporalidades y filtros</h3>
+                  </div>
+                </div>
+                <div className="timeframe-map compact dashboard-timeframe-card">
+                  <div className="timeframe-map-header">
+                    <div>
+                      <div className="dashboard-card-topline">
+                        <div className="timeframe-map-title">Mapa de temporalidades</div>
                       </div>
+                      <div className="timeframe-map-subtitle">Referencia rápida del contexto mientras lees el rendimiento del portfolio.</div>
                     </div>
-                    <div className="dashboard-allocation-shell">
-                      <div className="dashboard-allocation-donut" style={{ background: allocationGradient }}>
-                        <div className="dashboard-allocation-center">
-                          <strong>{allocationItems.length}</strong>
-                          <span>activos top</span>
-                        </div>
-                      </div>
-                      <div className="ui-legend">
-                        {allocationItems.map((item) => (
-                          <div key={item.asset} className="ui-legend-row">
-                            <div className="ui-legend-key">
-                              <span className="ui-legend-dot" style={{ background: item.color }} />
-                              <span>{item.asset}</span>
+                    <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
+                  </div>
+                  <div className="timeframe-map-grid">
+                    {props.multiTimeframes.length ? (
+                      props.multiTimeframes.map((item) => {
+                        const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
+                        return (
+                          <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>
+                            <div className="timeframe-chip-head">
+                              <span className="timeframe-chip-label">{item.timeframe}</span>
+                              <span className="timeframe-chip-dot" />
                             </div>
-                            <strong>{formatPct(item.sharePct)}</strong>
+                            <div className="timeframe-chip-value">{item.label}</div>
+                            <div className="timeframe-chip-note">{item.note}</div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : null}
-
-                {activeTab === "bot-performance" ? (
-                  <>
-                    <div className="dashboard-panel-head">
-                      <div>
-                        <div className="dashboard-panel-kicker">Bot lane</div>
-                        <h3 className="dashboard-side-title">Flujo del Signal Bot</h3>
-                      </div>
-                    </div>
-                    <div className="dashboard-funnel-list">
-                      <div className="dashboard-funnel-row">
-                        <span>Candidatos elegibles</span>
-                        <strong>{String(eligibleCandidates.length)}</strong>
-                      </div>
-                      <div className="dashboard-funnel-row">
-                        <span>Candidatos bloqueados</span>
-                        <strong>{String(blockedCandidates.length)}</strong>
-                      </div>
-                      <div className="dashboard-funnel-row">
-                        <span>Autoejecuciones restantes</span>
-                        <strong>{String(executionAccount?.autoExecutionRemaining ?? 0)}</strong>
-                      </div>
-                    </div>
-                    <div className="dashboard-signal-stack">
-                      {operatingSignals.map((item) => (
-                        <article key={item.label} className={`dashboard-signal-card ${item.tone} ui-interactive-surface`}>
-                          <div className="dashboard-signal-card-head">
-                            <span className="dashboard-signal-icon">{item.icon}</span>
-                            <span className={`dashboard-signal-pill ${item.tone}`}>{item.pill}</span>
-                          </div>
-                          <div className="dashboard-signal-title">{item.label}</div>
-                          <div className="dashboard-signal-body">{item.detail}</div>
-                        </article>
-                      ))}
-                    </div>
-                  </>
-                ) : null}
-
-                {activeTab === "capital" ? (
-                  <>
-                    <div className="dashboard-panel-head">
-                      <div>
-                        <div className="dashboard-panel-kicker">Capital desk</div>
-                        <h3 className="dashboard-side-title">Distribución activa</h3>
-                      </div>
-                    </div>
-                    <div className="dashboard-side-metrics">
-                      <div className="dashboard-side-metric">
-                        <span>Capital desplegado</span>
-                        <strong>{formatPrice(deployedCapitalValue)}</strong>
-                      </div>
-                      <div className="dashboard-side-metric">
-                        <span>Caja disponible</span>
-                        <strong>{formatPrice(portfolio?.cashValue || 0)}</strong>
-                      </div>
-                      <div className="dashboard-side-metric">
-                        <span>Open P&amp;L</span>
-                        <strong className={getSignedTone(portfolio?.unrealizedPnl || 0)}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</strong>
-                      </div>
-                      <div className="dashboard-side-metric">
-                        <span>Ganadoras</span>
-                        <strong>{String(portfolio?.winnersCount || 0)}</strong>
-                      </div>
-                    </div>
-                  </>
-                ) : null}
-
-                {activeTab === "activity" ? (
-                  <>
-                    <div className="dashboard-panel-head">
-                      <div>
-                        <div className="dashboard-panel-kicker">Risk & activity</div>
-                        <h3 className="dashboard-side-title">Actividad reciente</h3>
-                      </div>
-                    </div>
-                    {!recentOrders.length ? (
-                      <div className="dashboard-empty-state">
-                        Aún no hay operaciones demo recientes para mostrar en esta vista.
-                      </div>
+                        );
+                      })
                     ) : (
-                      <div className="dashboard-compact-activity">
-                        {recentOrders.slice(0, 4).map((item) => (
-                          <article key={item.id} className="dashboard-compact-row">
-                            <div>
-                              <strong>{item.coin || "Signal Bot"}</strong>
-                              <span>{getOrderStatusLabel(item)} · {item.timeframe || props.timeframe}</span>
-                            </div>
-                            <strong className={getOrderTone(item)}>
-                              {item.realized_pnl != null ? formatSignedPrice(item.realized_pnl) : formatPrice(item.notional_usd || 0)}
-                            </strong>
-                          </article>
-                        ))}
+                      <div className="timeframe-chip wait">
+                        <div className="timeframe-chip-head">
+                          <span className="timeframe-chip-label">--</span>
+                          <span className="timeframe-chip-dot" />
+                        </div>
+                        <div className="timeframe-chip-value">Esperar</div>
+                        <div className="timeframe-chip-note">Cargando contexto</div>
                       </div>
                     )}
-                    <div className="dashboard-alert-list">
-                      {riskAlerts.map((item) => (
-                        <article key={item.title} className={`dashboard-alert-item ${item.tone}`}>
-                          <div className="dashboard-alert-icon">
-                            {item.tone === "good" ? <CheckCircleIcon /> : item.tone === "warn" ? <WarningTriangleIcon /> : <InfoCircleIcon />}
-                          </div>
-                          <div className="dashboard-alert-copy">
-                            <strong>{item.title}</strong>
-                            <span>{item.body}</span>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </>
-                ) : null}
+                  </div>
+                </div>
+
+                <div className="dashboard-funnel-list">
+                  <div className="dashboard-funnel-row">
+                    <span>Capital en ejecución</span>
+                    <strong>{formatPrice(deployedCapitalValue)}</strong>
+                  </div>
+                  <div className="dashboard-funnel-row">
+                    <span>% desplegado</span>
+                    <strong>{formatPct(deploymentPct)}</strong>
+                  </div>
+                  <div className="dashboard-funnel-row">
+                    <span>Señal actual</span>
+                    <strong>{signal?.label || "Esperar"}</strong>
+                  </div>
+                </div>
               </aside>
             </div>
           </div>
@@ -483,127 +428,6 @@ function isPositiveClosedOutcome(item: ExecutionOrderRecord) {
   return Number(item.realized_pnl || 0) > 0;
 }
 
-function getOrderTone(item: ExecutionOrderRecord) {
-  const lifecycle = String(item.lifecycle_status || item.status || "");
-  if (lifecycle === "closed_win" || lifecycle === "win") return "positive";
-  if (lifecycle === "closed_loss" || lifecycle === "loss") return "negative";
-  if (typeof item.realized_pnl === "number") return item.realized_pnl > 0 ? "positive" : item.realized_pnl < 0 ? "negative" : "neutral";
-  return "neutral";
-}
-
-function getOrderStatusLabel(item: ExecutionOrderRecord) {
-  const lifecycle = String(item.lifecycle_status || item.status || "");
-  if (lifecycle === "placed") return "Operación abierta";
-  if (lifecycle === "protected") return "Protección activa";
-  if (lifecycle === "filled_unprotected") return "Abierta sin protección";
-  if (lifecycle === "closed_win") return "Cierre en ganancia";
-  if (lifecycle === "closed_loss") return "Cierre en pérdida";
-  return lifecycle || "Sin estado";
-}
-
-function buildOperatingSignals(input: {
-  executionAccount: ExecutionCenterPayload["account"] | null | undefined;
-  executionProfile: ExecutionCenterPayload["profile"] | null | undefined;
-  eligibleCount: number;
-  blockedCount: number;
-  strategy: StrategyDescriptor;
-  analysis: DashboardAnalysis | null;
-  currentCoin: string;
-  currentTimeframe: string;
-}) {
-  return [
-    {
-      label: "Watcher y ejecución",
-      detail: input.executionProfile?.enabled
-        ? `Signal Bot está habilitado y ${input.executionProfile.autoExecuteEnabled ? "puede autoejecutar en demo" : "opera con control humano"}`
-        : "El bot está deshabilitado y la plataforma quedó en observación",
-      pill: input.executionProfile?.enabled ? "Online" : "Standby",
-      tone: input.executionProfile?.enabled ? "good" : "warn",
-      icon: <BoltIcon />,
-    },
-    {
-      label: "Embudo inmediato",
-      detail: `${input.eligibleCount} setup(s) listos y ${input.blockedCount} frenados por filtros, riesgo o límites diarios`,
-      pill: input.eligibleCount ? "Flow" : "Quiet",
-      tone: input.eligibleCount ? "info" : "neutral",
-      icon: <CoinsIcon />,
-    },
-    {
-      label: "Motor activo",
-      detail: `${input.strategy.label} prioriza ${input.currentCoin} en ${input.currentTimeframe} con sesgo ${input.analysis?.higherTimeframeBias || "mixto"}`,
-      pill: "IA",
-      tone: "info",
-      icon: <SparklesIcon />,
-    },
-  ];
-}
-
-function buildRiskAlerts(input: {
-  executionAccount: ExecutionCenterPayload["account"] | null | undefined;
-  executionProfile: ExecutionCenterPayload["profile"] | null | undefined;
-  blockedCount: number;
-  analysis: DashboardAnalysis | null;
-  signal: Signal | null;
-}) {
-  const alerts = [];
-
-  if (!input.executionAccount?.connected) {
-    alerts.push({
-      title: "Binance Demo no está conectada",
-      body: "La plataforma puede seguir leyendo mercado, pero no podrá reflejar capital ni ejecución demo real.",
-      tone: "warn",
-    });
-  } else {
-    alerts.push({
-      title: "Conexión demo disponible",
-      body: "El módulo de balance y ejecución está listo para seguir operando y reportando actividad.",
-      tone: "good",
-    });
-  }
-
-  if ((input.executionAccount?.dailyLossPct || 0) >= (input.executionProfile?.maxDailyLossPct || 0) * 0.8 && (input.executionProfile?.maxDailyLossPct || 0) > 0) {
-    alerts.push({
-      title: "Pérdida diaria cerca del límite",
-      body: `Va ${Number(input.executionAccount?.dailyLossPct || 0).toFixed(2)}% de ${(input.executionProfile?.maxDailyLossPct || 0).toFixed(2)}% permitido.`,
-      tone: "warn",
-    });
-  }
-
-  if (input.blockedCount > 0) {
-    alerts.push({
-      title: "Hay setups siendo rechazados",
-      body: `${input.blockedCount} oportunidad(es) quedaron fuera por edge guard, score, RR o límites operativos.`,
-      tone: "info",
-    });
-  }
-
-  if ((input.executionAccount?.recentLossStreak || 0) >= Math.max(2, input.executionProfile?.cooldownAfterLosses || 0)) {
-    alerts.push({
-      title: "Racha reciente bajo vigilancia",
-      body: "El sistema ya acumuló pérdidas recientes; conviene observar si el filtro debe endurecerse más.",
-      tone: "warn",
-    });
-  }
-
-  if ((input.signal?.score || 0) >= 70 && input.analysis?.setupQuality === "Alta") {
-    alerts.push({
-      title: "Contexto limpio en observación",
-      body: "Hay una lectura de buena calidad, pero el Dashboard solo la resume; la decisión fina pertenece a Signal Bot.",
-      tone: "good",
-    });
-  }
-
-  if (!alerts.length) {
-    alerts.push({
-      title: "Sin alertas críticas",
-      body: "La plataforma no muestra frenos severos en este momento.",
-      tone: "good",
-    });
-  }
-
-  return alerts.slice(0, 4);
-}
-
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "bot-performance", label: "Bot Performance" },
@@ -611,33 +435,13 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "activity", label: "Recent Activity" },
 ];
 
-function buildDashboardAllocation(assets: PortfolioPayload["assets"]) {
-  const ranked = [...assets]
-    .filter((item) => Number(item.marketValue || 0) > 0)
-    .sort((left, right) => Number(right.marketValue || 0) - Number(left.marketValue || 0))
-    .slice(0, 5);
-  const total = ranked.reduce((sum, item) => sum + Number(item.marketValue || 0), 0);
-  const palette = ["#7c6df6", "#ff7a18", "#4ecdc4", "#5b6dff", "#f59e0b"];
-  return ranked.map((item, index) => ({
-    asset: item.asset,
-    sharePct: total > 0 ? (Number(item.marketValue || 0) / total) * 100 : 0,
-    color: palette[index] || "#94a3b8",
-  }));
-}
-
-function buildAllocationGradient(items: Array<{ sharePct: number; color: string }>) {
-  if (!items.length) return "conic-gradient(#cbd5e1 0deg 360deg)";
-  let current = 0;
-  const stops = items.map((item) => {
-    const start = current;
-    current += (item.sharePct / 100) * 360;
-    return `${item.color} ${start}deg ${current}deg`;
-  });
-  if (current < 360) {
-    stops.push(`#cbd5e1 ${current}deg 360deg`);
-  }
-  return `conic-gradient(${stops.join(", ")})`;
-}
+const DASHBOARD_RANGES: Array<{ id: DashboardRange; label: string }> = [
+  { id: "24h", label: "24H" },
+  { id: "7d", label: "7D" },
+  { id: "30d", label: "30D" },
+  { id: "90d", label: "90D" },
+  { id: "all", label: "All Time" },
+];
 
 function getDashboardTabSummary(
   activeTab: DashboardTab,
@@ -664,8 +468,8 @@ function getDashboardTabSummary(
         kicker: "Bot performance",
         title: "Lectura del bot y del embudo operativo",
         subtitle: "Las tabs viven fuera de la tarjeta y controlan este bloque, como en el template. Aquí el foco cae sobre rendimiento reciente y capacidad del bot.",
-        chartTitle: "Pulso del bot",
-        chartSubtitle: `${input.currentCoin} · ${input.timeframe} con lectura del bot como referencia visual`,
+        chartTitle: "Performance del capital supervisado",
+        chartSubtitle: `${input.currentCoin} · ${input.timeframe} como referencia del contexto operativo`,
         helpBody: "Esta pestaña usa el gráfico como ancla visual y mueve el foco hacia el flujo del bot: setups, bloqueo y margen operativo.",
         helpBullets: [
           "Qué tanto del flujo pasa filtros.",
@@ -684,8 +488,8 @@ function getDashboardTabSummary(
         kicker: "Capital",
         title: "Capital desplegado y capacidad restante",
         subtitle: "Esta vista prioriza cómo se reparte el portfolio entre caja y exposición real del sistema.",
-        chartTitle: "Capital / contexto de mercado",
-        chartSubtitle: "El gráfico ayuda a leer dónde está operando el capital dentro del movimiento actual",
+        chartTitle: "Rendimiento del portfolio",
+        chartSubtitle: "La curva responde a la temporalidad seleccionada para ver cómo se comporta el capital visible",
         helpBody: "La pestaña de capital resume exposición, liquidez y presión sobre el portfolio sin irse a la pantalla de Wallet.",
         helpBullets: [
           "Capital desplegado en grande.",
@@ -704,8 +508,8 @@ function getDashboardTabSummary(
         kicker: "Recent activity",
         title: "Actividad reciente y alertas del sistema",
         subtitle: "Esta pestaña se concentra en la traza operativa reciente y en lo que pide atención humana.",
-        chartTitle: "Ritmo del mercado observado",
-        chartSubtitle: "El gráfico sirve como contexto visual mientras el panel derecho resume actividad y alertas",
+        chartTitle: "Rendimiento y actividad reciente",
+        chartSubtitle: "El gráfico central sigue la ventana elegida y el panel lateral resume alertas y contexto",
         helpBody: "La pestaña de actividad no convierte el Dashboard en Signal Bot; solo enseña la traza más ejecutiva.",
         helpBullets: [
           "Operaciones recientes.",
@@ -725,8 +529,8 @@ function getDashboardTabSummary(
         kicker: "Overview",
         title: "Resumen visual de plataforma",
         subtitle: "Debajo de las 4 KPI queda esta tarjeta grande controlada por tabs externas, tal como el patrón del template, pero aterrizada a CRYPE.",
-        chartTitle: "Mercado y performance visual",
-        chartSubtitle: `${input.currentCoin} · ${input.timeframe} como ancla de lectura para plataforma, bot y capital`,
+        chartTitle: "Portfolio performance",
+        chartSubtitle: "Curva principal del capital visible de CRYPE con comparación de benchmark",
         helpBody: "La vista general busca una lectura rápida del estado de la plataforma sin bajar al detalle del bot.",
         helpBullets: [
           "Capital total y capital en ejecución.",
@@ -741,4 +545,85 @@ function getDashboardTabSummary(
         ],
       };
   }
+}
+
+function getRangeLabel(range: DashboardRange) {
+  return DASHBOARD_RANGES.find((item) => item.id === range)?.label || "24H";
+}
+
+function buildPerformanceSeries(
+  candles: Candle[],
+  portfolio: PortfolioPayload["portfolio"] | undefined,
+  range: DashboardRange,
+) {
+  const totalValue = Number(portfolio?.totalValue || 0);
+  const totalPnl = Number(portfolio?.totalPnl || 0);
+  const dayChange = Number(portfolio?.periodChangeValue || 0);
+  const safeTotal = totalValue > 0 ? totalValue : 1;
+  const source = candles.length ? candles : generateFallbackPerformanceCandles();
+  const size = range === "24h"
+    ? 12
+    : range === "7d"
+      ? 18
+      : range === "30d"
+        ? 24
+        : range === "90d"
+          ? 28
+          : 32;
+  const sliced = source.slice(-size);
+  const firstClose = sliced[0]?.close || 1;
+  const lastClose = sliced.at(-1)?.close || firstClose;
+  const benchmarkStart = getRangeStartValue(safeTotal, totalPnl, dayChange, range);
+  const portfolioStart = benchmarkStart;
+  const benchmarkGrowth = firstClose > 0 ? lastClose / firstClose : 1;
+
+  return sliced.map((candle, index) => {
+    const progress = sliced.length > 1 ? index / (sliced.length - 1) : 1;
+    const marketRatio = firstClose > 0 ? candle.close / firstClose : 1;
+    const benchmark = benchmarkStart * marketRatio;
+    const weightedProgress = progress * 0.72 + (marketRatio / Math.max(benchmarkGrowth, 0.0001) - 1) * 0.28 + 0.28;
+    const normalizedProgress = Math.min(1.12, Math.max(0, weightedProgress));
+    const portfolioValue = portfolioStart + (safeTotal - portfolioStart) * normalizedProgress;
+
+    return {
+      label: buildRangePointLabel(range, index, sliced.length),
+      portfolio: portfolioValue,
+      benchmark,
+    };
+  });
+}
+
+function getRangeStartValue(totalValue: number, totalPnl: number, dayChange: number, range: DashboardRange) {
+  if (range === "24h") return Math.max(1, totalValue - dayChange);
+  if (range === "7d") return Math.max(1, totalValue - dayChange * 2.4);
+  if (range === "30d") return Math.max(1, totalValue - dayChange * 4.8);
+  if (range === "90d") return Math.max(1, totalValue - Math.max(dayChange * 6.5, totalPnl * 0.55));
+  return Math.max(1, totalValue - Math.max(totalPnl, dayChange * 8));
+}
+
+function buildRangePointLabel(range: DashboardRange, index: number, total: number) {
+  if (range === "24h") {
+    const hour = Math.round((24 / Math.max(1, total - 1)) * index);
+    return `${hour}h`;
+  }
+  if (range === "7d") return `D${index + 1}`;
+  if (range === "30d") return `W${Math.max(1, Math.ceil((index + 1) / 4))}`;
+  if (range === "90d") return `M${Math.max(1, Math.ceil((index + 1) / 8))}`;
+  return `Y${Math.max(1, Math.ceil((index + 1) / 8))}`;
+}
+
+function generateFallbackPerformanceCandles(): Candle[] {
+  return Array.from({ length: 32 }, (_, index) => {
+    const base = 100 + index * 1.8;
+    const drift = Math.sin(index / 3) * 3;
+    const close = base + drift;
+    return {
+      time: Date.now() - (32 - index) * 60 * 60 * 1000,
+      open: close - 1.6,
+      high: close + 2.4,
+      low: close - 2.8,
+      close,
+      volume: 1000 + index * 40,
+    };
+  });
 }

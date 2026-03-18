@@ -95,3 +95,104 @@ export function drawChart(
     ctx.fillText(formatPrice(price), canvas.width - padding.right + 5, y);
   }
 }
+
+interface PerformancePoint {
+  label: string;
+  portfolio: number;
+  benchmark: number;
+}
+
+export function drawPerformanceChart(
+  canvas: HTMLCanvasElement | null,
+  points: PerformancePoint[],
+  isDark: boolean,
+) {
+  if (!canvas || points.length < 2) return;
+  const ctx = canvas.getContext("2d");
+  const container = canvas.parentElement;
+  if (!ctx || !container) return;
+
+  canvas.width = Math.max(320, container.clientWidth - 40);
+  canvas.height = 420;
+
+  const chartBg = isDark ? "#0b1018" : "#ffffff";
+  const gridColor = isDark ? "rgba(71, 85, 105, 0.28)" : "rgba(148, 163, 184, 0.22)";
+  const labelColor = isDark ? "#94a3b8" : "#64748b";
+  const portfolioLine = "#6f6bff";
+  const benchmarkLine = isDark ? "#94a3b8" : "#94a3b8";
+  const padding = { top: 24, right: 72, bottom: 38, left: 18 };
+  const width = canvas.width - padding.left - padding.right;
+  const height = canvas.height - padding.top - padding.bottom;
+  const allValues = points.flatMap((point) => [point.portfolio, point.benchmark]);
+  const minValue = Math.min(...allValues);
+  const maxValue = Math.max(...allValues);
+  const range = maxValue - minValue || 1;
+  const stepX = width / Math.max(1, points.length - 1);
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = chartBg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i += 1) {
+    const y = padding.top + (height / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(canvas.width - padding.right, y);
+    ctx.stroke();
+  }
+
+  const toX = (index: number) => padding.left + index * stepX;
+  const toY = (value: number) => padding.top + height - ((value - minValue) / range) * height;
+
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const x = toX(index);
+    const y = toY(point.portfolio);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = portfolioLine;
+  ctx.stroke();
+
+  ctx.lineTo(toX(points.length - 1), padding.top + height);
+  ctx.lineTo(toX(0), padding.top + height);
+  ctx.closePath();
+  const fill = ctx.createLinearGradient(0, padding.top, 0, padding.top + height);
+  fill.addColorStop(0, isDark ? "rgba(111, 107, 255, 0.28)" : "rgba(111, 107, 255, 0.18)");
+  fill.addColorStop(1, isDark ? "rgba(111, 107, 255, 0.04)" : "rgba(111, 107, 255, 0.02)");
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    const x = toX(index);
+    const y = toY(point.benchmark);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.setLineDash([6, 6]);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = benchmarkLine;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = labelColor;
+  ctx.font = "12px Inter, sans-serif";
+  ctx.textAlign = "left";
+  for (let i = 0; i <= 4; i += 1) {
+    const value = maxValue - (range / 4) * i;
+    const y = padding.top + (height / 4) * i + 4;
+    ctx.fillText(formatPrice(value), canvas.width - padding.right + 8, y);
+  }
+
+  const xTickIndexes = [0, Math.floor((points.length - 1) / 2), points.length - 1];
+  ctx.textAlign = "center";
+  xTickIndexes.forEach((index) => {
+    const point = points[index];
+    if (!point) return;
+    ctx.fillText(point.label, toX(index), canvas.height - 10);
+  });
+}

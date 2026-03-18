@@ -294,8 +294,8 @@ export function BalanceView(props: BalanceViewProps) {
             Filters
           </button>
           <button className="wallet-secondary-button ui-button" onClick={props.onRefresh}>
-            <DownloadIcon />
-            Export
+            <RepeatIcon />
+            Actualizar saldo
           </button>
         </div>
       </div>

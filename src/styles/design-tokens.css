@@ -1,0 +1,144 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  font-size: 88.5%;
+}
+
+:root {
+  --crype-font-body: "Inter", sans-serif;
+  --crype-font-display: "Rajdhani", sans-serif;
+
+  --crype-text-main: #0f172a;
+  --crype-text-soft: #64748b;
+  --crype-text-muted: #94a3b8;
+
+  --crype-space-2: 8px;
+  --crype-space-3: 12px;
+  --crype-space-4: 16px;
+  --crype-space-5: 20px;
+  --crype-space-6: 24px;
+  --crype-space-7: 28px;
+
+  --crype-radius-sm: 14px;
+  --crype-radius-md: 18px;
+  --crype-radius-lg: 22px;
+  --crype-radius-xl: 24px;
+  --crype-radius-pill: 999px;
+
+  --crype-border-soft: rgba(148, 163, 184, 0.14);
+  --crype-border-mid: rgba(148, 163, 184, 0.16);
+  --crype-border-strong: rgba(148, 163, 184, 0.18);
+
+  --crype-shadow-panel:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 18px 36px rgba(148, 163, 184, 0.14);
+  --crype-shadow-soft: 0 10px 22px rgba(148, 163, 184, 0.12);
+  --crype-shadow-dark: 0 10px 30px rgba(2, 6, 23, 0.35);
+}
+
+body {
+  font-family: var(--crype-font-body);
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+  min-height: 100vh;
+  transition: background 0.25s ease, color 0.25s ease;
+  color: var(--crype-text-main);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.sidebar-brand-copy h1,
+.card-title,
+.wallet-card-title,
+.dashboard-headline,
+.portfolio-highlight-title,
+.history-title,
+.learn-card h3,
+.profile-section h3,
+.login-logo h2 {
+  font-family: var(--crype-font-display);
+  color: var(--crype-text-main);
+  letter-spacing: -0.03em;
+}
+
+.wallet-hero-value,
+.wallet-hero-metric-value,
+.wallet-quick-value,
+.stat-card .value,
+.coin-price,
+.result-value,
+.wallet-allocation-center-value,
+.dashboard-pulse-value,
+.dashboard-mini-value,
+.analysis-card-value,
+.timeframe-chip-value,
+.plan-value {
+  font-family: var(--crype-font-display);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.card-subtitle,
+.wallet-card-subtitle,
+.wallet-hero-label,
+.wallet-hero-metric-label,
+.wallet-quick-label,
+.wallet-hero-change-label,
+.portfolio-highlight-note,
+.result-label,
+.coin-impulse,
+.learn-card p,
+.profile-section p,
+.stat-card .sub,
+.sidebar-brand-copy p {
+  color: var(--crype-text-soft);
+}
+
+.decision-label,
+.sidebar-group-title,
+.wallet-assets-table thead th,
+.portfolio-table th,
+.stat-card .label,
+.dashboard-eyebrow,
+.wallet-asset-symbol,
+.wallet-holdings-cell span {
+  font-family: var(--crype-font-body);
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
+
+body.dark-theme {
+  --crype-text-main: #f1f5f9;
+  --crype-text-soft: #94a3b8;
+  --crype-text-muted: #64748b;
+  --crype-dark-bg: #06080c;
+  --crype-dark-panel: #0c0f16;
+  --crype-dark-panel-soft: #11151f;
+  --crype-dark-border: #1e293b;
+  --crype-dark-text: #f1f5f9;
+  --crype-dark-muted: #94a3b8;
+  --crype-dark-accent: #575beb;
+  --crype-dark-success: #10b981;
+  --crype-dark-warning: #f59e0b;
+  --crype-dark-danger: #ef4444;
+}

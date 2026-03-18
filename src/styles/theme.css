@@ -112,17 +112,7 @@ body:not(.dark-theme) .pagination-page {
 }
 
 body.dark-theme {
-  --crype-dark-bg: #06080c;
-  --crype-dark-panel: #0c0f16;
-  --crype-dark-panel-soft: #11151f;
-  --crype-dark-border: #1e293b;
-  --crype-dark-text: #f1f5f9;
-  --crype-dark-muted: #94a3b8;
-  --crype-dark-accent: #575beb;
-  --crype-dark-success: #10b981;
-  --crype-dark-warning: #f59e0b;
-  --crype-dark-danger: #ef4444;
-  background: #06080c;
+  background: var(--crype-dark-bg);
   color: var(--crype-dark-text);
 }
 body.dark-theme .app-shell {

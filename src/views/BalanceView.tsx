@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ArrowUpDownIcon, DownloadIcon, SearchIcon, SlidersHorizontalIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
 import type { BinanceOrderSummary, BinanceTradeSummary, PortfolioAsset, PortfolioPayload } from "../types";
@@ -73,7 +74,7 @@ export function BalanceView(props: BalanceViewProps) {
   const [assetSearch, setAssetSearch] = useState("");
   const portfolio = props.payload?.portfolio;
   const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
-  const periodLabel = props.period === "30d" ? "30D" : props.period === "7d" ? "7D" : "Today";
+  const periodLabel = props.period === "30d" ? "30D" : props.period === "7d" ? "7D" : "24H";
   const positiveAssets = visibleAssets.filter((asset) => asset.pnlValue > 0);
   const negativeAssets = visibleAssets.filter((asset) => asset.pnlValue < 0);
   const bestPerformer = visibleAssets.slice().sort((a, b) => b.pnlPct - a.pnlPct)[0];
@@ -93,7 +94,9 @@ export function BalanceView(props: BalanceViewProps) {
     <div id="balanceView" className="view-panel active wallet-template-view">
       <div className="wallet-hero-card">
         <div className="wallet-hero-main">
-          <div className="wallet-hero-icon">C</div>
+          <div className="wallet-hero-icon">
+            <WalletIcon />
+          </div>
           <div className="wallet-hero-copy">
             <div className="wallet-hero-label">Total Portfolio Value</div>
             <div className="wallet-hero-value">{formatPrice(portfolio?.totalValue || 0)}</div>
@@ -136,9 +139,13 @@ export function BalanceView(props: BalanceViewProps) {
 
         <div className="wallet-toolbar-actions">
           <button className="wallet-secondary-button" onClick={() => props.onToggleHideSmall(!props.hideSmallAssets)}>
+            <SlidersHorizontalIcon />
             Filters
           </button>
-          <button className="wallet-secondary-button" onClick={props.onRefresh}>Export</button>
+          <button className="wallet-secondary-button" onClick={props.onRefresh}>
+            <DownloadIcon />
+            Export
+          </button>
         </div>
       </div>
 
@@ -190,13 +197,17 @@ export function BalanceView(props: BalanceViewProps) {
                 </div>
                 <div className="wallet-card-tools">
                   <div className="wallet-search-shell">
+                    <SearchIcon />
                     <input
                       value={assetSearch}
                       onChange={(event) => setAssetSearch(event.target.value)}
                       placeholder="Search assets..."
                     />
                   </div>
-                  <button className="wallet-secondary-button" onClick={props.onRefresh}>Sort</button>
+                  <button className="wallet-secondary-button" onClick={props.onRefresh}>
+                    <ArrowUpDownIcon />
+                    Sort
+                  </button>
                 </div>
               </div>
 

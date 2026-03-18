@@ -738,9 +738,7 @@
   justify-content: space-between;
   gap: 24px;
   padding: 24px 28px;
-  background:
-    radial-gradient(circle at top center, rgba(99, 102, 241, 0.08), transparent 36%),
-    rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .wallet-hero-main {
@@ -762,6 +760,11 @@
   font-size: 28px;
   font-weight: 800;
   box-shadow: 0 18px 36px rgba(99, 102, 241, 0.28);
+}
+
+.wallet-hero-icon svg {
+  width: 32px;
+  height: 32px;
 }
 
 .wallet-hero-copy {
@@ -919,11 +922,20 @@
   min-height: 50px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .wallet-secondary-button:hover {
   border-color: rgba(99, 102, 241, 0.26);
   transform: translateY(-1px);
+}
+
+.wallet-secondary-button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .wallet-quick-stats-grid {
@@ -1018,10 +1030,21 @@
   position: relative;
 }
 
+.wallet-search-shell svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  pointer-events: none;
+}
+
 .wallet-search-shell input {
   width: 270px;
   min-height: 46px;
-  padding: 0 16px;
+  padding: 0 16px 0 40px;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   background: rgba(255, 255, 255, 0.88);
@@ -1166,6 +1189,7 @@
   display: grid;
   gap: 18px;
   min-height: 100%;
+  align-content: start;
 }
 
 .wallet-allocation-donut {
@@ -1257,9 +1281,7 @@ body.dark-theme .wallet-quick-card {
 }
 
 body.dark-theme .wallet-hero-card {
-  background:
-    radial-gradient(circle at top center, rgba(87, 91, 235, 0.16), transparent 38%),
-    var(--crype-dark-panel);
+  background: var(--crype-dark-panel);
 }
 
 body.dark-theme .wallet-hero-value,

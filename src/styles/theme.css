@@ -134,6 +134,116 @@ body:not(.dark-theme) .topbar-user-dropdown-action-danger:hover {
   color: #dc2626;
 }
 
+body.light-theme .system-toast-card,
+body:not(.dark-theme) .system-toast-card {
+  border-color: rgba(96, 165, 250, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 248, 255, 0.96)),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 46%);
+  box-shadow: 0 24px 48px rgba(148, 163, 184, 0.22);
+}
+
+body.light-theme .system-toast-card.tone-success,
+body:not(.dark-theme) .system-toast-card.tone-success {
+  border-color: rgba(34, 197, 94, 0.2);
+  background:
+    linear-gradient(180deg, rgba(245, 255, 250, 0.98), rgba(239, 250, 245, 0.98)),
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.1), transparent 46%);
+}
+
+body.light-theme .system-toast-card.tone-warning,
+body:not(.dark-theme) .system-toast-card.tone-warning {
+  border-color: rgba(245, 158, 11, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 235, 0.98), rgba(255, 247, 237, 0.98)),
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.12), transparent 46%);
+}
+
+body.light-theme .system-toast-card.tone-error,
+body:not(.dark-theme) .system-toast-card.tone-error {
+  border-color: rgba(248, 113, 113, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 245, 245, 0.98), rgba(254, 242, 242, 0.98)),
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.12), transparent 46%);
+}
+
+body.light-theme .system-toast-icon,
+body:not(.dark-theme) .system-toast-icon {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(148, 163, 184, 0.14);
+  color: #2563eb;
+}
+
+body.light-theme .system-toast-card.tone-success .system-toast-icon,
+body:not(.dark-theme) .system-toast-card.tone-success .system-toast-icon {
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+body.light-theme .system-toast-card.tone-warning .system-toast-icon,
+body:not(.dark-theme) .system-toast-card.tone-warning .system-toast-icon {
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.14);
+}
+
+body.light-theme .system-toast-card.tone-error .system-toast-icon,
+body:not(.dark-theme) .system-toast-card.tone-error .system-toast-icon {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+body.light-theme .system-toast-copy strong,
+body:not(.dark-theme) .system-toast-copy strong {
+  color: #0f172a;
+}
+
+body.light-theme .system-toast-copy span,
+body:not(.dark-theme) .system-toast-copy span {
+  color: #475569;
+}
+
+body.light-theme .system-toast-dismiss,
+body:not(.dark-theme) .system-toast-dismiss {
+  color: #64748b;
+}
+
+body.light-theme .system-toast-dismiss:hover,
+body:not(.dark-theme) .system-toast-dismiss:hover {
+  background: rgba(148, 163, 184, 0.14);
+  color: #0f172a;
+}
+
+body.light-theme .system-loading-dock,
+body:not(.dark-theme) .system-loading-dock {
+  border-color: rgba(96, 165, 250, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(244, 248, 255, 0.97)),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 44%);
+  box-shadow: 0 20px 44px rgba(148, 163, 184, 0.2);
+}
+
+body.light-theme .system-loading-icon,
+body:not(.dark-theme) .system-loading-icon {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+body.light-theme .system-loading-copy strong,
+body:not(.dark-theme) .system-loading-copy strong {
+  color: #0f172a;
+}
+
+body.light-theme .system-loading-copy span,
+body:not(.dark-theme) .system-loading-copy span {
+  color: #475569;
+}
+
+body.light-theme .system-loading-count,
+body:not(.dark-theme) .system-loading-count {
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
 body.light-theme .module-tabs,
 body.light-theme .ui-table-shell,
 body:not(.dark-theme) .module-tabs {

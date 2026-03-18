@@ -47,6 +47,9 @@ body:not(.dark-theme) .top-bar {
 body.light-theme .search-coin input,
 body.light-theme .timeframe-select,
 body.light-theme .topbar-icon-btn,
+body.light-theme .topbar-icon-shell,
+body.light-theme .topbar-status-shell,
+body.light-theme .topbar-user-shell,
 body.light-theme .user-pill,
 body.light-theme .module-tab,
 body.light-theme .ui-button,
@@ -55,9 +58,13 @@ body.light-theme .ui-pill,
 body.light-theme .card-help-button,
 body.light-theme .ui-input-shell input,
 body.light-theme .btn-secondary-soft,
+body.light-theme .coin-clear-btn,
 body:not(.dark-theme) .search-coin input,
 body:not(.dark-theme) .timeframe-select,
 body:not(.dark-theme) .topbar-icon-btn,
+body:not(.dark-theme) .topbar-icon-shell,
+body:not(.dark-theme) .topbar-status-shell,
+body:not(.dark-theme) .topbar-user-shell,
 body:not(.dark-theme) .user-pill,
 body:not(.dark-theme) .module-tab,
 body:not(.dark-theme) .ui-button,
@@ -65,10 +72,66 @@ body:not(.dark-theme) .ui-chip,
 body:not(.dark-theme) .ui-pill,
 body:not(.dark-theme) .card-help-button,
 body:not(.dark-theme) .ui-input-shell input,
-body:not(.dark-theme) .btn-secondary-soft {
+body:not(.dark-theme) .btn-secondary-soft,
+body:not(.dark-theme) .coin-clear-btn {
   background: rgba(255, 255, 255, 0.9);
   color: #334155;
   border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.light-theme .topbar-status-shell,
+body.light-theme .topbar-icon-shell,
+body.light-theme .topbar-user-shell,
+body.light-theme .coin-clear-btn,
+body:not(.dark-theme) .topbar-status-shell,
+body:not(.dark-theme) .topbar-icon-shell,
+body:not(.dark-theme) .topbar-user-shell,
+body:not(.dark-theme) .coin-clear-btn {
+  box-shadow: 0 10px 20px rgba(148, 163, 184, 0.12);
+}
+
+body.light-theme .topbar-user-chevron,
+body:not(.dark-theme) .topbar-user-chevron {
+  color: #64748b;
+}
+
+body.light-theme .topbar-user-dropdown,
+body:not(.dark-theme) .topbar-user-dropdown {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 36px rgba(148, 163, 184, 0.18);
+}
+
+body.light-theme .topbar-user-dropdown-head,
+body:not(.dark-theme) .topbar-user-dropdown-head {
+  border-bottom-color: rgba(148, 163, 184, 0.16);
+}
+
+body.light-theme .topbar-user-dropdown-name,
+body:not(.dark-theme) .topbar-user-dropdown-name {
+  color: #0f172a;
+}
+
+body.light-theme .topbar-user-dropdown-role,
+body:not(.dark-theme) .topbar-user-dropdown-role {
+  color: #64748b;
+}
+
+body.light-theme .topbar-user-dropdown-action,
+body:not(.dark-theme) .topbar-user-dropdown-action {
+  color: #334155;
+}
+
+body.light-theme .topbar-user-dropdown-action:hover,
+body:not(.dark-theme) .topbar-user-dropdown-action:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+}
+
+body.light-theme .topbar-user-dropdown-action-danger:hover,
+body:not(.dark-theme) .topbar-user-dropdown-action-danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
 }
 
 body.light-theme .module-tabs,

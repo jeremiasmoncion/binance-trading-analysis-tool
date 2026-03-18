@@ -824,7 +824,6 @@
   margin-bottom: 14px;
 }
 
-#balanceView .module-tabs,
 #memoryView .module-tabs {
   position: sticky;
   top: 76px;
@@ -2071,88 +2070,9 @@
 }
 
 #signals-strategies .stats-grid,
-#signals-experiments .stats-grid,
-#balanceView .stats-grid {
+#signals-experiments .stats-grid {
   grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
   gap: 20px;
-}
-
-#balanceView .premium-overview-grid {
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 26px;
-  margin-bottom: 24px;
-}
-
-#balanceView .stats-grid {
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 26px;
-}
-
-#balanceView .stat-card {
-  padding: 20px;
-}
-
-#balanceView .balance-money-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
-  margin-top: 12px;
-}
-
-#balanceView .balance-money-tile {
-  min-height: 0;
-  padding: 20px 22px;
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background:
-    linear-gradient(180deg, rgba(19, 27, 49, 0.92), rgba(13, 20, 39, 0.88)),
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 28%);
-  box-shadow: 0 12px 24px rgba(7, 12, 24, 0.18);
-}
-
-#balanceView .balance-money-label {
-  margin: 0;
-  color: #7f8daa;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-#balanceView .balance-money-value {
-  margin-top: 22px;
-  color: #f8fafc;
-  font-size: 1.18rem;
-  font-weight: 800;
-  line-height: 1.12;
-}
-
-#balanceView .balance-money-sub {
-  margin-top: 14px;
-  color: #9aa8c0;
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-#balanceView #balance-overview .card,
-#balanceView .dashboard-main-grid > .dashboard-stack > .card {
-  padding-bottom: 18px;
-  margin-bottom: 0;
-}
-
-@media (max-width: 1560px) {
-  #balanceView .balance-money-tile-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-#balanceView .dashboard-main-grid {
-  gap: 28px;
-  margin-top: 0;
-}
-
-#balanceView .dashboard-stack {
-  gap: 28px;
 }
 
 #signals-strategies .signal-analytics-grid,
@@ -2164,7 +2084,6 @@
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 }
 
-#balanceView .history-panel,
 #signals-experiments .signal-analytics-card,
 #signals-strategies .signal-analytics-card {
   padding: 16px;
@@ -2363,7 +2282,6 @@ body.dark-theme .market-score-track {
     justify-content: flex-start;
   }
 
-  #balanceView .module-tabs,
   #memoryView .module-tabs {
     top: 72px;
   }
@@ -2427,7 +2345,6 @@ body.dark-theme .market-score-track {
     border-radius: 14px;
   }
 
-  #balanceView .module-tabs,
   #memoryView .module-tabs {
     position: static;
     margin-inline: 0;
@@ -2435,7 +2352,6 @@ body.dark-theme .market-score-track {
     border-radius: 12px;
   }
 
-  #balanceView .module-tab,
   #memoryView .module-tab {
     padding: 7px 12px;
     font-size: 11px;
@@ -2449,13 +2365,8 @@ body.dark-theme .market-score-track {
     grid-template-columns: 1fr;
   }
 
-  #balanceView .stats-grid,
   #memoryView .stats-grid,
   .compact-stats-grid {
-    grid-template-columns: 1fr;
-  }
-
-  #balanceView .balance-money-tile-grid {
     grid-template-columns: 1fr;
   }
 

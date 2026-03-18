@@ -9,6 +9,10 @@ export function useViewState(initialView: ViewName = "dashboard") {
 
   useEffect(() => {
     try {
+      if (window.innerWidth <= 1024) {
+        setSidebarCollapsed(true);
+        return;
+      }
       setSidebarCollapsed(window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1");
     } catch {
       setSidebarCollapsed(false);

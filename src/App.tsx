@@ -17,6 +17,10 @@ import { getOperationPlan } from "./lib/trading";
 import { strategyEngineService } from "./services/api";
 import type { StrategyRecommendationRecord } from "./types";
 
+function isMobileViewport() {
+  return typeof window !== "undefined" && window.innerWidth <= 1024;
+}
+
 export function App() {
   const view = useViewState("dashboard");
   const chartRef = useRef<HTMLCanvasElement | null>(null);
@@ -49,6 +53,12 @@ export function App() {
     void binance.refreshPortfolio(binance.portfolioPeriod, "full");
   }, [binance.portfolioPeriod, binance.refreshPortfolio]);
   const handleRefreshExecutionCenter = useCallback(() => binance.refreshExecutionCenter(), [binance.refreshExecutionCenter]);
+  const handleNavigateView = useCallback((nextView: typeof view.currentView) => {
+    view.setCurrentView(nextView);
+    if (isMobileViewport() && !view.sidebarCollapsed) {
+      view.toggleSidebar();
+    }
+  }, [view]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {
@@ -361,11 +371,17 @@ export function App() {
   return (
     <div className={`app-shell${view.sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <SystemUiHost />
+      <button
+        type="button"
+        className="app-mobile-backdrop"
+        aria-label="Cerrar navegación"
+        onClick={view.toggleSidebar}
+      />
       <Sidebar
         user={auth.currentUser}
         currentView={view.currentView}
         collapsed={view.sidebarCollapsed}
-        onViewChange={view.setCurrentView}
+        onViewChange={handleNavigateView}
         onLogout={handleLogout}
       />
 
@@ -395,7 +411,7 @@ export function App() {
 
         <AppView
           currentView={view.currentView}
-          onNavigateView={view.setCurrentView}
+          onNavigateView={handleNavigateView}
           currentCoin={market.currentCoin}
           watchlists={watchlist.lists}
           watchlist={watchlist.watchlist}

@@ -806,6 +806,23 @@
     align-items: stretch;
   }
 
+  .ui-data-tools,
+  .ui-toolbar-actions {
+    width: 100%;
+  }
+
+  .ui-input-shell,
+  .ui-input-shell input,
+  .ui-input-shell select,
+  .ui-input-shell textarea {
+    width: 100%;
+  }
+
+  .ui-button,
+  .btn-secondary-soft {
+    width: 100%;
+  }
+
   .ui-summary-grid,
   .ui-metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -838,6 +855,18 @@
   .ui-summary-grid,
   .ui-metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ui-toolbar {
+    gap: 12px;
+  }
+
+  .ui-data-header {
+    margin-bottom: 16px;
+  }
+
+  .ui-table-shell {
+    margin-inline: -2px;
   }
 
   .ui-pagination-row {

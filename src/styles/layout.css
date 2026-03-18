@@ -733,6 +733,10 @@
 .wallet-search-shell input { width: 290px; }
 
 .wallet-card-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   flex: 1 1 auto;
 }

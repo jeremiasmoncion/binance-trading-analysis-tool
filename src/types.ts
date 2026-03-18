@@ -220,6 +220,22 @@ export interface StrategyDecisionState {
     readiness: "low" | "medium" | "high";
     summary: string;
   }>;
+  scorerEvaluationHistory?: Array<{
+    id?: number;
+    scorer: string;
+    challenger: string;
+    windowType: "recent" | "global";
+    action: "keep" | "promote" | "rollback" | "observe";
+    readiness: "low" | "medium" | "high";
+    confidence: number;
+    avgPnl: number;
+    challengerAvgPnl: number;
+    edgeDelta: number;
+    summary: string;
+    source?: string;
+    status?: string;
+    createdAt?: string;
+  }>;
 }
 
 export interface RecommendationActivationResult {

@@ -893,6 +893,11 @@ export function MemoryView(props: MemoryViewProps) {
     return { recent, global };
   }, [decisionState?.scorerEvaluations]);
 
+  const scorerEvaluationHistory = useMemo(() => {
+    const rows = Array.isArray(decisionState?.scorerEvaluationHistory) ? decisionState.scorerEvaluationHistory : [];
+    return rows.slice(0, 6);
+  }, [decisionState?.scorerEvaluationHistory]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1178,10 +1183,11 @@ export function MemoryView(props: MemoryViewProps) {
       scorerModelImpact,
       scorerGovernance,
       scorerEvaluations,
+      scorerEvaluationHistory,
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, scorerGovernance, scorerModelImpact]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, scorerEvaluationHistory, scorerGovernance, scorerModelImpact]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -2047,6 +2053,41 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Historial de evaluaciones de modelo</h4>
+                  <p>Así ves cómo ha ido cambiando la lectura del scorer entre keep, promote, rollback u observe.</p>
+                </div>
+                {!automationMasterBoard.scorerEvaluationHistory.length ? (
+                  <EmptyState message="Todavía no hay evaluaciones históricas del scorer registradas." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {automationMasterBoard.scorerEvaluationHistory.map((item) => {
+                      const timeLabel = item.createdAt
+                        ? new Date(item.createdAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })
+                        : "--";
+                      const pillClass =
+                        item.action === "promote"
+                          ? "status-running"
+                          : item.action === "rollback"
+                            ? "status-draft"
+                            : "status-sandbox";
+                      return (
+                        <div key={`scorer-history-${item.id || `${item.windowType}-${item.createdAt || item.summary}`}`} className="signal-analytics-item is-experiment">
+                          <div className="signal-analytics-copy">
+                            <strong>{item.windowType === "recent" ? "Ventana reciente" : "Ventana global"} · {item.scorer} vs {item.challenger}</strong>
+                            <span>{item.summary} · {timeLabel}</span>
+                          </div>
+                          <div className={`signal-analytics-pill ${pillClass}`}>
+                            {item.action}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

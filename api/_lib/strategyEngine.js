@@ -341,6 +341,113 @@ async function insertAdaptiveActionLogForUser(username, payload) {
   }
 }
 
+async function fetchRecentAdaptiveActions(username, targetType, limit = 12) {
+  try {
+    const params = new URLSearchParams({
+      select: "id,action_type,target_type,target_key,source,status,summary,details,created_at",
+      username: `eq.${String(username)}`,
+      target_type: `eq.${String(targetType)}`,
+      order: "created_at.desc",
+      limit: String(limit),
+    });
+    return await supabaseRequest(`${ADAPTIVE_ACTIONS_LOG_TABLE}?${params.toString()}`);
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+    return [];
+  }
+}
+
+function buildScorerEvaluationSignature(evaluation) {
+  return JSON.stringify({
+    scorer: String(evaluation?.scorer || ""),
+    challenger: String(evaluation?.challenger || ""),
+    windowType: String(evaluation?.windowType || "recent"),
+    action: String(evaluation?.action || "observe"),
+    readiness: String(evaluation?.readiness || "low"),
+    sampleSize: Number(evaluation?.sampleSize || 0),
+    challengerSampleSize: Number(evaluation?.challengerSampleSize || 0),
+    avgPnl: Number(Number(evaluation?.avgPnl || 0).toFixed(2)),
+    challengerAvgPnl: Number(Number(evaluation?.challengerAvgPnl || 0).toFixed(2)),
+    winRate: Number(Number(evaluation?.winRate || 0).toFixed(2)),
+    challengerWinRate: Number(Number(evaluation?.challengerWinRate || 0).toFixed(2)),
+    edgeDelta: Number(Number(evaluation?.edgeDelta || 0).toFixed(2)),
+    winRateDelta: Number(Number(evaluation?.winRateDelta || 0).toFixed(2)),
+    confidence: Number(Number(evaluation?.confidence || 0).toFixed(1)),
+  });
+}
+
+async function recordScorerEvaluationHistory(username, scorerEvaluations) {
+  const rows = Array.isArray(scorerEvaluations) ? scorerEvaluations : [];
+  if (!rows.length) return;
+
+  const recentLogs = await fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 8);
+  const latestByWindow = new Map();
+  for (const row of recentLogs || []) {
+    const details = row?.details && typeof row.details === "object" ? row.details : {};
+    const windowType = String(details.windowType || "");
+    if (windowType && !latestByWindow.has(windowType)) {
+      latestByWindow.set(windowType, row);
+    }
+  }
+
+  for (const evaluation of rows) {
+    const windowType = String(evaluation?.windowType || "recent");
+    const signature = buildScorerEvaluationSignature(evaluation);
+    const latest = latestByWindow.get(windowType);
+    const latestDetails = latest?.details && typeof latest.details === "object" ? latest.details : {};
+    if (String(latestDetails.signature || "") === signature) continue;
+
+    await insertAdaptiveActionLogForUser(username, {
+      actionType: "model-evaluation",
+      targetType: "scorer-model-evaluation",
+      targetKey: `${windowType}:${evaluation.scorer}->${evaluation.challenger}`,
+      source: "adaptive-governance",
+      status: evaluation.action,
+      summary: evaluation.summary,
+      details: {
+        signature,
+        windowType,
+        scorer: evaluation.scorer,
+        challenger: evaluation.challenger,
+        sampleSize: Number(evaluation.sampleSize || 0),
+        challengerSampleSize: Number(evaluation.challengerSampleSize || 0),
+        avgPnl: Number(evaluation.avgPnl || 0),
+        challengerAvgPnl: Number(evaluation.challengerAvgPnl || 0),
+        pnl: Number(evaluation.pnl || 0),
+        challengerPnl: Number(evaluation.challengerPnl || 0),
+        winRate: Number(evaluation.winRate || 0),
+        challengerWinRate: Number(evaluation.challengerWinRate || 0),
+        edgeDelta: Number(evaluation.edgeDelta || 0),
+        winRateDelta: Number(evaluation.winRateDelta || 0),
+        confidence: Number(evaluation.confidence || 0),
+        readiness: String(evaluation.readiness || "low"),
+      },
+    }).catch(() => null);
+  }
+}
+
+function normalizeScorerEvaluationHistory(rows) {
+  return (rows || []).map((row) => {
+    const details = row?.details && typeof row.details === "object" ? row.details : {};
+    return {
+      id: row?.id == null ? undefined : Number(row.id),
+      scorer: String(details.scorer || ""),
+      challenger: String(details.challenger || ""),
+      windowType: String(details.windowType || "recent"),
+      action: String(row?.status || details.action || "observe"),
+      readiness: String(details.readiness || "low"),
+      confidence: Number(details.confidence || 0),
+      avgPnl: Number(details.avgPnl || 0),
+      challengerAvgPnl: Number(details.challengerAvgPnl || 0),
+      edgeDelta: Number(details.edgeDelta || 0),
+      summary: String(row?.summary || ""),
+      source: row?.source ? String(row.source) : undefined,
+      status: row?.status ? String(row.status) : undefined,
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+    };
+  }).filter((item) => item.scorer && item.challenger);
+}
+
 function getExecutionScopeThresholds(profile, strategyId, timeframe) {
   const override = (profile.scopeOverrides || []).find((item) => item.strategyId === strategyId && item.timeframe === timeframe);
   return {
@@ -441,6 +548,7 @@ export async function getSystemStrategyDecisionState(username) {
   let executionProfile = null;
   let signals = [];
   let featureSnapshots = [];
+  let scorerEvaluationHistory = [];
 
   try {
     const versionsParams = new URLSearchParams({
@@ -453,10 +561,11 @@ export async function getSystemStrategyDecisionState(username) {
       limit: "100",
     });
 
-    [versions, experiments, featureSnapshots] = await Promise.all([
+    [versions, experiments, featureSnapshots, scorerEvaluationHistory] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
       supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
+      fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username).catch(() => null);
     signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
@@ -466,6 +575,7 @@ export async function getSystemStrategyDecisionState(username) {
     executionProfile = null;
     signals = [];
     featureSnapshots = [];
+    scorerEvaluationHistory = [];
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -520,6 +630,7 @@ export async function getSystemStrategyDecisionState(username) {
     contextBiasByScope: buildContextBiasByScope(signals || []),
     featureModelByScope: buildFeatureModelByScope(featureSnapshots || []),
     scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
+    scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
@@ -1784,6 +1895,9 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     getExecutionProfileForUser(normalizedUsername),
     supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?select=*`).catch(() => []),
   ]);
+
+  const scorerEvaluations = buildScorerEvaluations(signals || [], executionProfile);
+  await recordScorerEvaluationHistory(normalizedUsername, scorerEvaluations).catch(() => null);
 
   const existingByKey = new Map((existingRecommendations || []).map((item) => [item.recommendation_key, item]));
   const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile)

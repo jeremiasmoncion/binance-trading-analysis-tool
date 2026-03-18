@@ -263,7 +263,7 @@ export function ProfileView(props: ProfileViewProps) {
                     setScannerLoading(true);
                     setScannerError(null);
                     watchlistService
-                      .scanStatus()
+                      .scanStatus({ forceFresh: true })
                       .then((payload) => setScannerStatus(payload))
                       .catch((error) => setScannerError(error instanceof Error ? error.message : "No se pudo actualizar el vigilante"))
                       .finally(() => setScannerLoading(false));
@@ -281,7 +281,7 @@ export function ProfileView(props: ProfileViewProps) {
                       .runScan()
                       .then((payload) => {
                         setScannerExecution(payload);
-                        return watchlistService.scanStatus();
+                        return watchlistService.scanStatus({ forceFresh: true });
                       })
                       .then((payload) => setScannerStatus(payload))
                       .catch((error) => setScannerError(error instanceof Error ? error.message : "No se pudo ejecutar el vigilante"))
@@ -458,7 +458,7 @@ export function ProfileView(props: ProfileViewProps) {
                     setValidationLoading(true);
                     setValidationError(null);
                     strategyEngineService
-                      .getValidationLab()
+                      .getValidationLab({ forceFresh: true })
                       .then((payload) => {
                         setValidationReport(payload.report);
                         setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);

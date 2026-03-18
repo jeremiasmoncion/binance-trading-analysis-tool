@@ -29,6 +29,15 @@ interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
 }
 
+interface CachedApiRequestOptions extends ApiRequestOptions {
+  cacheKey: string;
+  ttlMs: number;
+  forceFresh?: boolean;
+}
+
+const hotApiCache = new Map<string, { expiresAt: number; value: unknown }>();
+const hotApiInFlight = new Map<string, Promise<unknown>>();
+
 async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { timeoutMs, ...requestOptions } = options;
   const headers = new Headers(requestOptions.headers || {});
@@ -65,6 +74,44 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
       window.clearTimeout(timeoutId);
     }
   }
+}
+
+async function cachedApiRequest<T>(path: string, options: CachedApiRequestOptions): Promise<T> {
+  const { cacheKey, ttlMs, forceFresh = false, ...requestOptions } = options;
+  const now = Date.now();
+
+  if (!forceFresh) {
+    const cached = hotApiCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.value as T;
+    }
+
+    const inFlight = hotApiInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight as Promise<T>;
+    }
+  }
+
+  const request = apiRequest<T>(path, requestOptions)
+    .then((value) => {
+      hotApiCache.set(cacheKey, { expiresAt: Date.now() + ttlMs, value });
+      hotApiInFlight.delete(cacheKey);
+      return value;
+    })
+    .catch((error) => {
+      hotApiInFlight.delete(cacheKey);
+      throw error;
+    });
+
+  hotApiInFlight.set(cacheKey, request);
+  return request;
+}
+
+function invalidateHotApiCache(...keys: string[]) {
+  keys.forEach((key) => {
+    hotApiCache.delete(key);
+    hotApiInFlight.delete(key);
+  });
 }
 
 const marketCache = {
@@ -216,28 +263,42 @@ export const signalService = {
 };
 
 export const strategyEngineService = {
-  list() {
-    return apiRequest<{
+  list(options: { forceFresh?: boolean } = {}) {
+    return cachedApiRequest<{
       registry: StrategyRegistryEntry[];
       versions: StrategyVersionRecord[];
       experiments: StrategyExperimentRecord[];
       recommendations: StrategyRecommendationRecord[];
       decision: StrategyDecisionState;
-    }>("/api/strategy-engine");
+    }>("/api/strategy-engine", {
+      cacheKey: "strategy-engine:list",
+      ttlMs: 15_000,
+      forceFresh: options.forceFresh,
+    });
   },
-  listRecommendations() {
-    return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations");
+  listRecommendations(options: { forceFresh?: boolean } = {}) {
+    return cachedApiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations", {
+      cacheKey: "strategy-engine:recommendations",
+      ttlMs: 20_000,
+      forceFresh: options.forceFresh,
+    });
   },
-  getValidationLab() {
-    return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest");
+  getValidationLab(options: { forceFresh?: boolean } = {}) {
+    return cachedApiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest", {
+      cacheKey: "strategy-engine:validation-lab",
+      ttlMs: 20_000,
+      forceFresh: options.forceFresh,
+    });
   },
   runValidationBacktest(payload?: { label?: string; triggerSource?: string }) {
+    invalidateHotApiCache("strategy-engine:validation-lab");
     return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest", {
       method: "POST",
       body: JSON.stringify(payload || {}),
     });
   },
   processValidationBacktestQueue(payload?: { limit?: number; triggerSource?: string }) {
+    invalidateHotApiCache("strategy-engine:validation-lab");
     return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest", {
       method: "POST",
       body: JSON.stringify({
@@ -247,6 +308,7 @@ export const strategyEngineService = {
     });
   },
   backfillValidationDataset(payload?: { label?: string; triggerSource?: string; limit?: number }) {
+    invalidateHotApiCache("strategy-engine:validation-lab");
     return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest", {
       method: "POST",
       body: JSON.stringify({
@@ -262,11 +324,13 @@ export const strategyEngineService = {
     });
   },
   generateRecommendations() {
+    invalidateHotApiCache("strategy-engine:list", "strategy-engine:recommendations");
     return apiRequest<{ recommendations: StrategyRecommendationRecord[] }>("/api/strategy-engine/recommendations", {
       method: "POST",
     });
   },
   activateRecommendation(recommendationId: number) {
+    invalidateHotApiCache("strategy-engine:list", "strategy-engine:recommendations");
     return apiRequest<RecommendationActivationResult>("/api/strategy-engine/recommendations", {
       method: "PATCH",
       body: JSON.stringify({ recommendationId }),
@@ -288,12 +352,14 @@ export const strategyEngineService = {
     });
   },
   updateExperiment(id: number, payload: { status?: string; summary?: string; metadata?: Record<string, unknown> }) {
+    invalidateHotApiCache("strategy-engine:list", "strategy-engine:recommendations");
     return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
       method: "PATCH",
       body: JSON.stringify({ id, ...payload }),
     });
   },
   promoteExperiment(id: number) {
+    invalidateHotApiCache("strategy-engine:list", "strategy-engine:recommendations");
     return apiRequest<{ experiment: StrategyExperimentRecord }>("/api/strategy-engine", {
       method: "PATCH",
       body: JSON.stringify({ id, action: "promote" }),
@@ -329,10 +395,15 @@ export const watchlistService = {
       body: JSON.stringify({ name }),
     });
   },
-  scanStatus() {
-    return apiRequest<WatchlistScannerStatus>("/api/watchlist/scan");
+  scanStatus(options: { forceFresh?: boolean } = {}) {
+    return cachedApiRequest<WatchlistScannerStatus>("/api/watchlist/scan", {
+      cacheKey: "watchlist:scan-status",
+      ttlMs: 12_000,
+      forceFresh: options.forceFresh,
+    });
   },
   runScan() {
+    invalidateHotApiCache("watchlist:scan-status");
     return apiRequest<WatchlistScanExecution>("/api/watchlist/scan", {
       method: "POST",
       timeoutMs: 55_000,

@@ -324,7 +324,7 @@ export function MemoryView(props: MemoryViewProps) {
         .catch(() => {
           // keep last known state to avoid flicker
         });
-    }, 30_000);
+    }, 60_000);
 
     return () => window.clearInterval(intervalId);
   }, []);
@@ -339,7 +339,7 @@ export function MemoryView(props: MemoryViewProps) {
         .catch(() => {
           // keep last known state to avoid flicker
         });
-    }, 8_000);
+    }, 20_000);
 
     return () => window.clearInterval(intervalId);
   }, []);
@@ -1529,7 +1529,7 @@ export function MemoryView(props: MemoryViewProps) {
     try {
       const payload = await strategyEngineService.promoteExperiment(item.experiment.id);
       setExperiments((current) => current.map((entry) => (entry.id === payload.experiment.id ? payload.experiment : entry)));
-      const refreshed = await strategyEngineService.list();
+      const refreshed = await strategyEngineService.list({ forceFresh: true });
       setRegistry(refreshed.registry || []);
       setVersions(refreshed.versions || []);
       setExperiments(refreshed.experiments || []);
@@ -1564,7 +1564,7 @@ export function MemoryView(props: MemoryViewProps) {
     });
     try {
       const execution = await watchlistService.runScan();
-      const refreshed = await watchlistService.scanStatus().catch(() => null);
+      const refreshed = await watchlistService.scanStatus({ forceFresh: true }).catch(() => null);
       setScannerStatus(refreshed || buildScannerStatusFromExecution(execution, scannerStatus));
       const errorMessage = execution.summary.runPersistErrors?.[0]
         || execution.targets.find((item) => item.runPersistError)?.runPersistError

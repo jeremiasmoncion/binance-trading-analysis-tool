@@ -268,17 +268,17 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
 
     const portfolioRefreshInterval =
       currentView === "balance"
-        ? 30_000
+        ? 45_000
         : currentView === "dashboard"
-          ? 60_000
-          : 90_000;
+          ? 90_000
+          : 120_000;
 
     const executionRefreshInterval =
       currentView === "memory"
-        ? 20_000
+        ? 35_000
         : currentView === "dashboard"
-          ? 35_000
-          : 50_000;
+          ? 60_000
+          : 90_000;
 
     const portfolioIntervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;

@@ -19,6 +19,89 @@ const BACKTEST_RUN_WINDOWS_TABLE = process.env.SUPABASE_BACKTEST_RUN_WINDOWS_TAB
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
 const SANDBOX_EXPERIMENT_STATUSES = new Set(["sandbox", "active", "running"]);
 const PROFILE_METADATA_PREFIX = "__CRYPE_EXECUTION_PROFILE__:";
+const MODEL_CONFIG_SELECT = [
+  "id",
+  "label",
+  "active_scorer",
+  "mode",
+  "window_type",
+  "active",
+  "ready",
+  "sample_size",
+  "confidence",
+  "avg_pnl",
+  "win_rate",
+  "rr_weight",
+  "adaptive_score_weight",
+  "duration_penalty_weight",
+  "summary",
+  "status",
+  "source",
+  "metadata",
+  "updated_at",
+  "created_at",
+].join(",");
+const FEATURE_SNAPSHOT_MODEL_SELECT = [
+  "strategy_id",
+  "strategy_version",
+  "timeframe",
+  "direction",
+  "market_regime",
+  "volume_condition",
+  "signal_score",
+  "adaptive_score",
+  "scorer_confidence",
+  "rr_ratio",
+  "realized_pnl",
+  "duration_minutes",
+  "created_at",
+].join(",");
+const RECOMMENDATION_MERGE_SELECT = [
+  "id",
+  "username",
+  "recommendation_key",
+  "status",
+  "evidence",
+].join(",");
+const VERSION_PROFILE_SELECT = [
+  "strategy_id",
+  "version",
+  "parameters",
+  "preferred_timeframes",
+  "trading_style",
+  "holding_profile",
+  "ideal_market_conditions",
+].join(",");
+const BACKTEST_RUN_SELECT = [
+  "id",
+  "username",
+  "label",
+  "trigger_source",
+  "active_scorer",
+  "maturity_score",
+  "closed_signals",
+  "feature_snapshots",
+  "passed_invariants",
+  "warned_invariants",
+  "failed_invariants",
+  "summary",
+  "report_payload",
+  "created_at",
+].join(",");
+const BACKTEST_RUN_WINDOW_SELECT = [
+  "run_id",
+  "window_key",
+  "window_label",
+  "sample_size",
+  "active_scorer",
+  "challenger_scorer",
+  "active_avg_pnl",
+  "challenger_avg_pnl",
+  "active_win_rate",
+  "challenger_win_rate",
+  "verdict",
+  "created_at",
+].join(",");
 
 const DEFAULT_EXECUTION_PROFILE = {
   enabled: true,
@@ -716,7 +799,7 @@ function normalizeModelConfigRegistry(rows) {
 async function fetchModelConfigsForUser(username) {
   try {
     return await supabaseRequest(
-      `${AI_MODEL_CONFIGS_TABLE}?select=*&username=eq.${encodeURIComponent(String(username))}&order=updated_at.desc.nullslast,created_at.desc`,
+      `${AI_MODEL_CONFIGS_TABLE}?select=${MODEL_CONFIG_SELECT}&username=eq.${encodeURIComponent(String(username))}&order=updated_at.desc.nullslast,created_at.desc`,
     );
   } catch (error) {
     if (isMissingRelationError(error)) return [];
@@ -765,7 +848,7 @@ async function upsertModelConfigsForUser(username, modelRuns, activeScorer) {
 async function fetchBacktestRunsForUser(username, limit = 12) {
   try {
     const params = new URLSearchParams({
-      select: "*",
+      select: BACKTEST_RUN_SELECT,
       username: `eq.${String(username)}`,
       order: "created_at.desc",
       limit: String(limit),
@@ -775,7 +858,7 @@ async function fetchBacktestRunsForUser(username, limit = 12) {
     const windowsByRunId = new Map();
     if (runIds.length) {
       const windowParams = new URLSearchParams({
-        select: "*",
+        select: BACKTEST_RUN_WINDOW_SELECT,
         run_id: `in.(${runIds.join(",")})`,
         order: "created_at.desc",
       });
@@ -824,7 +907,7 @@ async function fetchBacktestRunsForUser(username, limit = 12) {
 async function fetchLatestBacktestRunRowForUser(username) {
   try {
     const params = new URLSearchParams({
-      select: "*",
+      select: BACKTEST_RUN_SELECT,
       username: `eq.${String(username)}`,
       order: "created_at.desc",
       limit: "1",
@@ -1022,7 +1105,7 @@ async function markBacktestRunStatusForUser(username, runId, status) {
 async function fetchQueuedBacktestRunsGlobal(limit = 6) {
   try {
     const params = new URLSearchParams({
-      select: "id,username,label,trigger_source,active_scorer,created_at,report_payload",
+      select: BACKTEST_RUN_SELECT,
       order: "created_at.desc",
       limit: "40",
     });
@@ -3636,7 +3719,7 @@ export async function getStrategyValidationReportForUser(username) {
   const normalizedUsername = String(username || "").trim();
   const [signals, featureSnapshots, executionProfile, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory, modelWindowGovernanceHistory, modelConfigRegistry] = await Promise.all([
     supabaseRequest(`${SIGNALS_TABLE}?select=id,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_payload,execution_order_id,strategy_name,strategy_version,timeframe,signal_label&username=eq.${normalizedUsername}&order=created_at.desc&limit=220`).catch(() => []),
-    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=320`).catch(() => []),
+    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=${FEATURE_SNAPSHOT_MODEL_SELECT}&username=eq.${normalizedUsername}&order=created_at.desc&limit=320`).catch(() => []),
     getExecutionProfileForUser(normalizedUsername).catch(() => null),
     fetchRecentAdaptiveActions(normalizedUsername, "scorer-model-evaluation", 8).catch(() => []),
     fetchRecentAdaptiveActions(normalizedUsername, "model-training-run", 10).catch(() => []),
@@ -3882,7 +3965,7 @@ export async function generateAdaptiveRecommendationsForUser(username) {
   const normalizedUsername = String(username || "").trim();
 
   const versionParams = new URLSearchParams({
-    select: "*",
+    select: VERSION_PROFILE_SELECT,
     order: "strategy_id.asc,version.asc",
   });
   const signalsParams = new URLSearchParams({
@@ -3896,8 +3979,8 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionParams.toString()}`),
     supabaseRequest(`${SIGNALS_TABLE}?${signalsParams.toString()}`),
     getExecutionProfileForUser(normalizedUsername),
-    supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?select=*`).catch(() => []),
-    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
+    supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?select=${RECOMMENDATION_MERGE_SELECT}&username=eq.${normalizedUsername}`).catch(() => []),
+    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=${FEATURE_SNAPSHOT_MODEL_SELECT}&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
     fetchModelConfigsForUser(normalizedUsername).catch(() => []),
   ]);
 

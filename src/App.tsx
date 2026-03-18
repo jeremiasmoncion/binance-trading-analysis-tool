@@ -291,7 +291,7 @@ export function App() {
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void refreshAutomationNotifications();
-    }, 25_000);
+    }, 60_000);
 
     return () => {
       cancelled = true;

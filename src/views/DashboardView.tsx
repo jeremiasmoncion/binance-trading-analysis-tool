@@ -100,6 +100,46 @@ export function DashboardView(props: DashboardViewProps) {
   const deployedCapitalValue = portfolio?.positionsValue || 0;
   const deploymentPct = portfolioTotal > 0 ? ((deployedCapitalValue / portfolioTotal) * 100) : 0;
   const cashPct = portfolioTotal > 0 ? (((portfolio?.cashValue || 0) / portfolioTotal) * 100) : 0;
+  const botSystemCards = useMemo(
+    () => buildBotSystemCards({
+      currentCoin: props.currentCoin,
+      timeframe: props.timeframe,
+      activeBotsLabel,
+      botGeneratedPnl24h,
+      botWinRate24h,
+      closedTrades24h: botClosedOrders24h.length,
+      openOrdersCount: executionAccount?.openOrdersCount ?? 0,
+      autoExecutionRemaining: executionAccount?.autoExecutionRemaining ?? 0,
+      dailyAutoExecutions: executionAccount?.dailyAutoExecutions ?? 0,
+      eligibleCount: eligibleCandidates.length,
+      blockedCount: blockedCandidates.length,
+      alignmentCount: analysis?.alignmentCount ?? 0,
+      alignmentTotal: analysis?.alignmentTotal ?? props.multiTimeframes.length,
+      dailyLossPct: Number(executionAccount?.dailyLossPct || 0),
+      recentLossStreak: executionAccount?.recentLossStreak ?? 0,
+      deploymentPct,
+      recentPnlValues: botClosedOrders24h.slice(-8).map((item) => Number(item.realized_pnl || 0)),
+    }),
+    [
+      activeBotsLabel,
+      analysis?.alignmentCount,
+      analysis?.alignmentTotal,
+      botClosedOrders24h,
+      botGeneratedPnl24h,
+      botWinRate24h,
+      deploymentPct,
+      eligibleCandidates.length,
+      blockedCandidates.length,
+      executionAccount?.openOrdersCount,
+      executionAccount?.autoExecutionRemaining,
+      executionAccount?.dailyAutoExecutions,
+      executionAccount?.dailyLossPct,
+      executionAccount?.recentLossStreak,
+      props.currentCoin,
+      props.timeframe,
+      props.multiTimeframes.length,
+    ],
+  );
   const tabSummary = getDashboardTabSummary(activeTab, {
     portfolioTotal,
     portfolioChangeValue,
@@ -516,6 +556,69 @@ export function DashboardView(props: DashboardViewProps) {
             )}
           </div>
         </section>
+
+        <section className="dashboard-bot-network-section">
+          <div className="dashboard-bot-network-head">
+            <div>
+              <h2 className="dashboard-bot-network-title">Bot System</h2>
+            </div>
+            <button
+              type="button"
+              className="dashboard-bot-network-link"
+              onClick={() => openHelp({
+                title: "Bot system",
+                body: "CRYPE se presenta como plataforma de bots. Hoy Signal Bot es el bot real fuerte, pero el Dashboard ya organiza el sistema como una familia operativa.",
+                bullets: [
+                  "Signal Bot como bot principal.",
+                  "Execution, watcher y risk guard como capas operativas.",
+                  "Preparado para más bots reales después.",
+                ],
+              })}
+            >
+              View All
+            </button>
+          </div>
+
+          <div className="dashboard-bot-network-grid">
+            {botSystemCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <article key={card.title} className="dashboard-bot-card">
+                  <div className="dashboard-bot-card-head">
+                    <div className={`dashboard-bot-card-icon ${card.iconTone}`}>
+                      <Icon />
+                    </div>
+                    <span className={`dashboard-bot-card-status ${card.statusTone}`} />
+                  </div>
+
+                  <div className="dashboard-bot-card-copy">
+                    <h3>{card.title}</h3>
+                    <p>{card.subtitle}</p>
+                  </div>
+
+                  <div className="dashboard-bot-card-metrics">
+                    {card.metrics.map((metric) => (
+                      <div key={metric.label} className="dashboard-bot-card-row">
+                        <span>{metric.label}</span>
+                        <strong className={metric.tone || ""}>{metric.value}</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="dashboard-bot-card-spark">
+                    {card.spark.map((bar, index) => (
+                      <span
+                        key={`${card.title}-${index}`}
+                        className={`dashboard-bot-card-bar ${bar.tone}`}
+                        style={{ height: `${bar.height}%` }}
+                      />
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -756,6 +859,95 @@ function getRangeCutoff(range: DashboardRange) {
 function getComparisonBarWidth(value: number, bars: Array<{ value: number }>) {
   const maxValue = Math.max(...bars.map((item) => Math.abs(item.value)), 1);
   return (Math.abs(value) / maxValue) * 100;
+}
+
+function buildBotSystemCards(input: {
+  currentCoin: string;
+  timeframe: string;
+  activeBotsLabel: string;
+  botGeneratedPnl24h: number;
+  botWinRate24h: number;
+  closedTrades24h: number;
+  openOrdersCount: number;
+  autoExecutionRemaining: number;
+  dailyAutoExecutions: number;
+  eligibleCount: number;
+  blockedCount: number;
+  alignmentCount: number;
+  alignmentTotal: number;
+  dailyLossPct: number;
+  recentLossStreak: number;
+  deploymentPct: number;
+  recentPnlValues: number[];
+}) {
+  const watcherCoverage = input.alignmentTotal > 0 ? `${input.alignmentCount}/${input.alignmentTotal}` : "--/--";
+
+  return [
+    {
+      title: "Signal Bot",
+      subtitle: `${input.currentCoin}/${input.timeframe}`,
+      icon: SparklesIcon,
+      iconTone: "signal",
+      statusTone: input.botGeneratedPnl24h >= 0 ? "online" : "warning",
+      metrics: [
+        { label: "Today's PnL", value: formatSignedPrice(input.botGeneratedPnl24h), tone: getSignedTone(input.botGeneratedPnl24h) },
+        { label: "Win Rate", value: formatPct(input.botWinRate24h) },
+        { label: "Trades", value: String(input.closedTrades24h) },
+      ],
+      spark: buildSparkBars(input.recentPnlValues),
+    },
+    {
+      title: "Execution Lane",
+      subtitle: "Demo execution",
+      icon: CoinsIcon,
+      iconTone: "execution",
+      statusTone: input.autoExecutionRemaining > 0 ? "online" : "warning",
+      metrics: [
+        { label: "Active Bots", value: input.activeBotsLabel },
+        { label: "Open Orders", value: String(input.openOrdersCount) },
+        { label: "Auto Left", value: String(input.autoExecutionRemaining) },
+      ],
+      spark: buildSparkBars([input.dailyAutoExecutions, input.openOrdersCount, input.autoExecutionRemaining, 2, 3, 4]),
+    },
+    {
+      title: "Watcher 24/7",
+      subtitle: "Scanner backend",
+      icon: TrendUpIcon,
+      iconTone: "watcher",
+      statusTone: input.eligibleCount > 0 ? "online" : "warning",
+      metrics: [
+        { label: "Eligible", value: String(input.eligibleCount) },
+        { label: "Blocked", value: String(input.blockedCount) },
+        { label: "Alignment", value: watcherCoverage },
+      ],
+      spark: buildSparkBars([input.eligibleCount, input.blockedCount, input.alignmentCount, input.alignmentTotal, 3, 2]),
+    },
+    {
+      title: "Risk Guard",
+      subtitle: "Capital protection",
+      icon: WalletIcon,
+      iconTone: "risk",
+      statusTone: input.dailyLossPct > 1 || input.recentLossStreak >= 3 ? "danger" : "online",
+      metrics: [
+        { label: "Daily Loss", value: `${input.dailyLossPct.toFixed(2)}%`, tone: input.dailyLossPct > 0.6 ? "negative" : undefined },
+        { label: "Loss Streak", value: String(input.recentLossStreak) },
+        { label: "Deployed", value: formatPct(input.deploymentPct) },
+      ],
+      spark: buildSparkBars([input.dailyLossPct * 10, input.recentLossStreak, input.deploymentPct / 10, 4, 3, 2]),
+    },
+  ];
+}
+
+function buildSparkBars(values: number[]) {
+  const source = values.length ? values : [2, 3, 4, 3, 5, 4];
+  const maxValue = Math.max(...source.map((item) => Math.abs(item)), 1);
+  return source.slice(-8).map((value) => {
+    const normalized = Math.max(24, (Math.abs(value) / maxValue) * 100);
+    return {
+      height: Math.min(100, normalized),
+      tone: value > 0 ? "positive" : value < 0 ? "negative" : "neutral",
+    };
+  });
 }
 
 interface DashboardRecentTradeRow {

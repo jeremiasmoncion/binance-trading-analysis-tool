@@ -355,12 +355,12 @@ export function BalanceView(props: BalanceViewProps) {
           </div>
 
           <div className="wallet-main-grid">
-            <section className="wallet-holdings-card">
-              <div className="wallet-card-header">
-                <div className="wallet-card-title-block">
+            <section className="wallet-holdings-card ui-data-card">
+              <div className="wallet-card-header ui-data-header">
+                <div className="wallet-card-title-block ui-data-title-block">
                   <h3 className="wallet-card-title">Asset Holdings</h3>
                 </div>
-                <div className="wallet-card-tools">
+                <div className="wallet-card-tools ui-data-tools">
                   <div className="wallet-search-shell ui-input-shell">
                     <SearchIcon />
                     <input
@@ -416,11 +416,11 @@ export function BalanceView(props: BalanceViewProps) {
               </div>
 
               {filteredAssets.length ? (
-                <div className="wallet-pagination-row">
-                  <div className="wallet-pagination-copy">
+                <div className="wallet-pagination-row ui-pagination-row">
+                  <div className="wallet-pagination-copy ui-pagination-copy">
                     Mostrando {(assetPage - 1) * assetPageSize + 1}-{Math.min(assetPage * assetPageSize, filteredAssets.length)} de {filteredAssets.length} activos
                   </div>
-                  <div className="wallet-pagination-actions">
+                  <div className="wallet-pagination-actions ui-pagination-actions">
                     <button
                       className="wallet-secondary-button ui-button"
                       onClick={() => setAssetPage((page) => Math.max(1, page - 1))}
@@ -428,7 +428,7 @@ export function BalanceView(props: BalanceViewProps) {
                     >
                       Anterior
                     </button>
-                    <span className="wallet-pagination-pill">Página {assetPage} / {totalAssetPages}</span>
+                    <span className="wallet-pagination-pill ui-pagination-pill">Página {assetPage} / {totalAssetPages}</span>
                     <button
                       className="wallet-secondary-button ui-button"
                       onClick={() => setAssetPage((page) => Math.min(totalAssetPages, page + 1))}
@@ -471,37 +471,37 @@ export function BalanceView(props: BalanceViewProps) {
                 </div>
               </aside>
 
-              <section className="wallet-actions-card">
+              <section className="wallet-actions-card ui-data-card">
                 <h3 className="wallet-card-title">Quick Actions</h3>
-                <div className="wallet-actions-grid">
-                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
-                    <span className="wallet-action-icon wallet-action-icon-success"><DownloadIcon /></span>
-                    <span className="wallet-action-label">Deposit</span>
+                <div className="wallet-actions-grid ui-action-grid">
+                  <button type="button" className="wallet-action-tile ui-action-tile ui-interactive-surface" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-success ui-action-icon"><DownloadIcon /></span>
+                    <span className="wallet-action-label ui-action-label">Deposit</span>
                   </button>
-                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
-                    <span className="wallet-action-icon wallet-action-icon-info"><UploadIcon /></span>
-                    <span className="wallet-action-label">Withdraw</span>
+                  <button type="button" className="wallet-action-tile ui-action-tile ui-interactive-surface" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-info ui-action-icon"><UploadIcon /></span>
+                    <span className="wallet-action-label ui-action-label">Withdraw</span>
                   </button>
-                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
-                    <span className="wallet-action-icon wallet-action-icon-accent"><RepeatIcon /></span>
-                    <span className="wallet-action-label">Swap</span>
+                  <button type="button" className="wallet-action-tile ui-action-tile ui-interactive-surface" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-accent ui-action-icon"><RepeatIcon /></span>
+                    <span className="wallet-action-label ui-action-label">Swap</span>
                   </button>
-                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
-                    <span className="wallet-action-icon wallet-action-icon-warning"><SendIcon /></span>
-                    <span className="wallet-action-label">Transfer</span>
+                  <button type="button" className="wallet-action-tile ui-action-tile ui-interactive-surface" aria-disabled="true">
+                    <span className="wallet-action-icon wallet-action-icon-warning ui-action-icon"><SendIcon /></span>
+                    <span className="wallet-action-label ui-action-label">Transfer</span>
                   </button>
                 </div>
               </section>
 
-              <section className="wallet-recent-card">
-                <div className="wallet-card-header wallet-recent-header">
-                  <div className="wallet-card-title-block">
+              <section className="wallet-recent-card ui-data-card">
+                <div className="wallet-card-header wallet-recent-header ui-data-header">
+                  <div className="wallet-card-title-block ui-data-title-block">
                     <h3 className="wallet-card-title">Recent Activity</h3>
                   </div>
-                  <button type="button" className="wallet-link-button">View All</button>
+                  <button type="button" className="wallet-link-button ui-link-button">View All</button>
                 </div>
 
-                <div className="wallet-recent-stack">
+                <div className="wallet-recent-stack ui-activity-stack">
                   {recentMovements.length ? (
                     recentMovements.map((movement) => (
                       <WalletRecentActivityItem key={movement.id} movement={movement} />
@@ -534,12 +534,12 @@ export function BalanceView(props: BalanceViewProps) {
 
       {activeTab === "history" ? (
         <section className="wallet-history-card wallet-funding-history-card">
-          <div className="wallet-card-header">
-            <div className="wallet-card-title-block">
+          <div className="wallet-card-header ui-data-header">
+            <div className="wallet-card-title-block ui-data-title-block">
               <h3 className="wallet-card-title">Transaction History</h3>
               <p className="wallet-card-subtitle">Movimientos de fondos de la cuenta, como depósitos y retiros, sin incluir operaciones de trading.</p>
             </div>
-            <div className="wallet-card-tools">
+            <div className="wallet-card-tools ui-data-tools">
               <div className="wallet-history-filter-row">
                 <button className={`wallet-filter-chip ui-chip ${movementFilter === "all" ? "active" : ""}`} onClick={() => setMovementFilter("all")}>All Types</button>
                 <button className={`wallet-filter-chip ui-chip ${movementFilter === "deposit" ? "active" : ""}`} onClick={() => setMovementFilter("deposit")}>Deposits</button>
@@ -637,21 +637,21 @@ function WalletRecentActivityItem({ movement }: { movement: BinanceAccountMoveme
   const isDeposit = movement.type === "deposit";
 
   return (
-    <article className="wallet-recent-item ui-interactive-surface">
-      <div className="wallet-recent-main">
+    <article className="wallet-recent-item ui-activity-item ui-interactive-surface">
+      <div className="wallet-recent-main ui-activity-main">
         <div className={`wallet-movement-icon ${isDeposit ? "wallet-movement-icon-deposit" : "wallet-movement-icon-withdrawal"}`}>
           {isDeposit ? <DownloadIcon /> : <UploadIcon />}
         </div>
-        <div className="wallet-recent-copy">
-          <div className="wallet-recent-title">{isDeposit ? `Received ${movement.asset}` : `Sent ${movement.asset}`}</div>
-          <div className="wallet-recent-meta">{formatRelativeMovementTime(movement.time)}</div>
+        <div className="wallet-recent-copy ui-activity-copy">
+          <div className="wallet-recent-title ui-activity-title">{isDeposit ? `Received ${movement.asset}` : `Sent ${movement.asset}`}</div>
+          <div className="wallet-recent-meta ui-activity-meta">{formatRelativeMovementTime(movement.time)}</div>
         </div>
       </div>
-      <div className="wallet-recent-values">
-        <div className={`wallet-recent-amount ${isDeposit ? "wallet-positive" : "wallet-negative"}`}>
+      <div className="wallet-recent-values ui-activity-values">
+        <div className={`wallet-recent-amount ui-activity-amount ${isDeposit ? "wallet-positive" : "wallet-negative"}`}>
           {isDeposit ? "+" : "-"}{formatAmount(movement.amount)} {movement.asset}
         </div>
-        <div className="wallet-recent-usd">{movement.estimatedUsdValue ? formatPrice(movement.estimatedUsdValue) : "Valor no disponible"}</div>
+        <div className="wallet-recent-usd ui-activity-usd">{movement.estimatedUsdValue ? formatPrice(movement.estimatedUsdValue) : "Valor no disponible"}</div>
       </div>
     </article>
   );

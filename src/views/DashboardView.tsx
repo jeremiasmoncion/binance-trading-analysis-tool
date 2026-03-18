@@ -241,7 +241,7 @@ export function DashboardView(props: DashboardViewProps) {
 
           <div className="dashboard-filter-card">
             <div className="dashboard-filter-group">
-              <span className="dashboard-filter-label">Time Range:</span>
+              <span className="dashboard-filter-label">Range</span>
               <div className="dashboard-filter-chip-row">
                 {DASHBOARD_RANGES.map((range) => (
                   <button
@@ -261,11 +261,11 @@ export function DashboardView(props: DashboardViewProps) {
                 type="button"
                 className="ui-button"
                 onClick={() => openHelp({
-                  title: "Filtros del Dashboard",
-                  body: "Esta tarjeta intermedia controla la ventana visual del gráfico principal de rendimiento del portfolio.",
+                  title: "Dashboard filters",
+                  body: "Controla el rango visible del grafico principal.",
                   bullets: [
-                    "24H, 7D, 30D, 90D y All Time cambian la lectura del rendimiento.",
-                    "El gráfico principal ya no es de mercado; es de performance del portfolio.",
+                    "Cada rango cambia la lectura del chart.",
+                    "El chart principal sigue el rendimiento del portfolio.",
                   ],
                 })}
               >
@@ -342,8 +342,8 @@ export function DashboardView(props: DashboardViewProps) {
                   <>
                     <div className="dashboard-panel-head">
                       <div>
-                        <div className="dashboard-panel-kicker">Bot ranking</div>
-                        <h3 className="dashboard-side-title">Comparativa por bot / lane</h3>
+                        <div className="dashboard-panel-kicker">Ranking</div>
+                        <h3 className="dashboard-side-title">Bot ranking</h3>
                       </div>
                     </div>
                     <div className="dashboard-ranking-list">
@@ -367,17 +367,17 @@ export function DashboardView(props: DashboardViewProps) {
                   <>
                     <div className="dashboard-panel-head">
                       <div>
-                        <div className="dashboard-panel-kicker">Context panel</div>
-                        <h3 className="dashboard-side-title">Temporalidades y filtros</h3>
+                        <div className="dashboard-panel-kicker">Context</div>
+                        <h3 className="dashboard-side-title">Timeframes</h3>
                       </div>
                     </div>
                     <div className="timeframe-map compact dashboard-timeframe-card">
                       <div className="timeframe-map-header">
                         <div>
                           <div className="dashboard-card-topline">
-                            <div className="timeframe-map-title">Mapa de temporalidades</div>
+                            <div className="timeframe-map-title">Timeframe map</div>
                           </div>
-                          <div className="timeframe-map-subtitle">Referencia rápida del contexto mientras lees el rendimiento del portfolio.</div>
+                          <div className="timeframe-map-subtitle">Quick read of the current setup context.</div>
                         </div>
                         <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
                       </div>
@@ -510,15 +510,15 @@ function getDashboardTabSummary(
     case "bot-performance":
       return {
         kicker: "Bot performance",
-        title: "Lectura del bot y del embudo operativo",
-        subtitle: "Las tabs viven fuera de la tarjeta y controlan este bloque, como en el template. Aquí el foco cae sobre rendimiento reciente y capacidad del bot.",
-        chartTitle: "Performance del capital supervisado",
-        chartSubtitle: `${input.currentCoin} · ${input.timeframe} como referencia del contexto operativo`,
-        helpBody: "Esta pestaña usa el gráfico como ancla visual y mueve el foco hacia el flujo del bot: setups, bloqueo y margen operativo.",
+        title: "Bot performance",
+        subtitle: "Rendimiento reciente y capacidad operativa.",
+        chartTitle: "Bot performance comparison",
+        chartSubtitle: `${input.currentCoin} · ${input.timeframe} context`,
+        helpBody: "Compara rendimiento reciente entre bots y capacidad operativa.",
         helpBullets: [
-          "Qué tanto del flujo pasa filtros.",
-          "Cuánta capacidad demo queda.",
-          "Qué tan sano viene el rendimiento inmediato.",
+          "Recent bot returns.",
+          "Available execution capacity.",
+          "Eligible vs blocked flow.",
         ],
         metrics: [
           { label: "P&L bots 24h", value: formatSignedPrice(input.botGeneratedPnl24h), note: "Resultado cerrado reciente", tone: getSignedTone(input.botGeneratedPnl24h) },
@@ -530,15 +530,15 @@ function getDashboardTabSummary(
     case "capital":
       return {
         kicker: "Capital",
-        title: "Capital desplegado y capacidad restante",
-        subtitle: "Esta vista prioriza cómo se reparte el portfolio entre caja y exposición real del sistema.",
-        chartTitle: "Rendimiento del portfolio",
-        chartSubtitle: "La curva responde a la temporalidad seleccionada para ver cómo se comporta el capital visible",
-        helpBody: "La pestaña de capital resume exposición, liquidez y presión sobre el portfolio sin irse a la pantalla de Wallet.",
+        title: "Capital overview",
+        subtitle: "Capital deployed, cash and portfolio balance.",
+        chartTitle: "Portfolio performance",
+        chartSubtitle: "Portfolio curve by selected range",
+        helpBody: "Resume capital allocation and liquidity at a glance.",
         helpBullets: [
-          "Capital desplegado en grande.",
-          "Caja disponible como contrapeso.",
-          "Lectura rápida de rendimiento abierto.",
+          "Deployed capital.",
+          "Available cash.",
+          "Recent portfolio move.",
         ],
         metrics: [
           { label: "Capital en ejecución", value: formatPrice(input.deployedCapitalValue), note: `${formatPct(input.deploymentPct)} del portfolio total` },
@@ -550,15 +550,15 @@ function getDashboardTabSummary(
     case "activity":
       return {
         kicker: "Recent activity",
-        title: "Actividad reciente y alertas del sistema",
-        subtitle: "Esta pestaña se concentra en la traza operativa reciente y en lo que pide atención humana.",
-        chartTitle: "Rendimiento y actividad reciente",
-        chartSubtitle: "El gráfico central sigue la ventana elegida y el panel lateral resume alertas y contexto",
-        helpBody: "La pestaña de actividad no convierte el Dashboard en Signal Bot; solo enseña la traza más ejecutiva.",
+        title: "Recent activity",
+        subtitle: "Orders, alerts and system activity.",
+        chartTitle: "Recent performance",
+        chartSubtitle: "Recent activity by selected range",
+        helpBody: "Shows the latest operating trace and alerts.",
         helpBullets: [
-          "Operaciones recientes.",
-          "Alertas y frenos activos.",
-          "Contexto rápido para supervisión.",
+          "Recent orders.",
+          "Active alerts.",
+          "Quick supervision view.",
         ],
         metrics: [
           { label: "Órdenes recientes", value: String(input.recentOrdersCount), note: "Trazas demo recientes" },
@@ -571,15 +571,15 @@ function getDashboardTabSummary(
     default:
       return {
         kicker: "Overview",
-        title: "Resumen visual de plataforma",
-        subtitle: "Debajo de las 4 KPI queda esta tarjeta grande controlada por tabs externas, tal como el patrón del template, pero aterrizada a CRYPE.",
+        title: "Platform overview",
+        subtitle: "Main portfolio view with benchmark.",
         chartTitle: "Portfolio performance",
-        chartSubtitle: "Curva principal del capital visible de CRYPE con comparación de benchmark",
-        helpBody: "La vista general busca una lectura rápida del estado de la plataforma sin bajar al detalle del bot.",
+        chartSubtitle: "Main capital curve with benchmark",
+        helpBody: "Quick view of portfolio, deployment and bot output.",
         helpBullets: [
-          "Capital total y capital en ejecución.",
-          "Rendimiento reciente del bot.",
-          "Mapa visual más allocation del portfolio.",
+          "Total portfolio.",
+          "Capital deployed.",
+          "Recent bot output.",
         ],
         metrics: [
           { label: "Portfolio total", value: formatPrice(input.portfolioTotal), note: "Capital visible en la plataforma" },

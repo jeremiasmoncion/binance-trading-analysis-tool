@@ -1209,7 +1209,8 @@ function pickActiveVersions(versions) {
   return { activeByStrategy, promotedByStrategy };
 }
 
-export async function getSystemStrategyDecisionState(username) {
+export async function getSystemStrategyDecisionState(username, options = {}) {
+  const includeHistory = options.includeHistory !== false;
   let versions = [];
   let experiments = [];
   let executionProfile = null;
@@ -1235,15 +1236,15 @@ export async function getSystemStrategyDecisionState(username) {
     [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory, modelWindowGovernanceHistory, modelConfigRegistry] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
-      supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
-      fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []),
-      fetchRecentAdaptiveActions(username, "model-training-run", 12).catch(() => []),
-      fetchRecentAdaptiveActions(username, "model-config", 8).catch(() => []),
-      fetchRecentAdaptiveActions(username, "model-window-governance", 8).catch(() => []),
+      supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=strategy_id,strategy_version,timeframe,direction,market_regime,volume_condition,signal_score,adaptive_score,scorer_confidence,rr_ratio,realized_pnl,duration_minutes,created_at&username=eq.${String(username)}&order=created_at.desc&limit=320`).catch(() => []),
+      includeHistory ? fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []) : Promise.resolve([]),
+      includeHistory ? fetchRecentAdaptiveActions(username, "model-training-run", 12).catch(() => []) : Promise.resolve([]),
+      includeHistory ? fetchRecentAdaptiveActions(username, "model-config", 8).catch(() => []) : Promise.resolve([]),
+      includeHistory ? fetchRecentAdaptiveActions(username, "model-window-governance", 8).catch(() => []) : Promise.resolve([]),
       fetchModelConfigsForUser(username).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username, modelConfigRegistry).catch(() => null);
-    signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
+    signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=${includeHistory ? 300 : 220}`).catch(() => []);
   } catch {
     versions = [];
     experiments = [];
@@ -1324,10 +1325,10 @@ export async function getSystemStrategyDecisionState(username) {
     featureModelByScope: buildFeatureModelByScope(featureSnapshots || [], modelRegistry),
     scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
     shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
-    scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
-    modelTrainingRunHistory: normalizedTrainingRunHistory,
-    modelConfigHistory: normalizedModelConfigRegistry.length ? normalizeModelConfigHistory(modelConfigRegistry || []) : normalizeModelConfigHistory(modelConfigHistory || []),
-    modelWindowGovernanceHistory: normalizeModelWindowGovernanceHistory(modelWindowGovernanceHistory || []),
+    scorerEvaluationHistory: includeHistory ? normalizeScorerEvaluationHistory(scorerEvaluationHistory || []) : [],
+    modelTrainingRunHistory: includeHistory ? normalizedTrainingRunHistory : [],
+    modelConfigHistory: includeHistory ? (normalizedModelConfigRegistry.length ? normalizeModelConfigHistory(modelConfigRegistry || []) : normalizeModelConfigHistory(modelConfigHistory || [])) : [],
+    modelWindowGovernanceHistory: includeHistory ? normalizeModelWindowGovernanceHistory(modelWindowGovernanceHistory || []) : [],
     modelConfigRegistry: normalizedModelConfigRegistry,
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({

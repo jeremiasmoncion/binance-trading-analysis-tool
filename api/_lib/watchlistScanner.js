@@ -1,6 +1,6 @@
 import { getSession, sendJson } from "./auth.js";
 import { evaluateSignalEdgeSafety, executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
-import { buildMarketSnapshot, fetchTickerPrice, getScannableTimeframes, getTimeframeScanInterval } from "./marketRuntime.js";
+import { buildMarketSnapshot, fetchTickerPrice, getTimeframeScanInterval } from "./marketRuntime.js";
 import { createSignalSnapshotForUser, evaluatePendingSignalsForUser, listSignalSnapshotsForUser } from "./signals.js";
 import { applySystemStrategyDecision, getSystemStrategyDecisionState } from "./strategyEngine.js";
 import { listWatchlistScanTargets } from "./watchlist.js";
@@ -174,10 +174,11 @@ async function runWithConcurrency(items, limit, worker) {
 async function scanUserWatchlist(target, scanSource) {
   const scanState = await getScanState(target.username);
   const executionProfile = await getExecutionProfileForUser(target.username).catch(() => null);
-  const decisionState = await getSystemStrategyDecisionState(target.username).catch(() => null);
+  const decisionState = await getSystemStrategyDecisionState(target.username, { includeHistory: false }).catch(() => null);
   const pendingSignals = await listSignalSnapshotsForUser(target.username, {
     outcomeStatus: "pending",
     limit: 200,
+    select: "id,coin,timeframe,created_at,execution_status,signal_payload",
   }).catch(() => []);
   const coins = Array.from(new Set(target.coins || []));
   const timeframes = getScannableTimeframes();
@@ -223,18 +224,7 @@ async function scanUserWatchlist(target, scanSource) {
     }
 
     const candleCache = new Map();
-    if (dueTimeframes.length) {
-      await Promise.all(
-        Array.from(new Set([...getScannableTimeframes(), "5m", "15m", "1h", "4h", "1d"])).map(async (timeframe) => {
-          try {
-            const snapshot = await buildMarketSnapshot(coin, timeframe, { candleCache });
-            candleCache.set(`${coin}|${timeframe}|snapshot`, snapshot);
-          } catch (error) {
-            nextErrors.push(`${coin} ${timeframe}: ${error.message || "error desconocido"}`);
-          }
-        }),
-      );
-    } else if (pendingCoins.has(coin)) {
+    if (!dueTimeframes.length && pendingCoins.has(coin)) {
       const ticker = await fetchTickerPrice(coin).catch(() => null);
       if (ticker?.lastPrice) {
         nextPriceMap[coin] = ticker.lastPrice;

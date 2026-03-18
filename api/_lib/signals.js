@@ -59,7 +59,7 @@ async function listSignalSnapshots(req) {
 
 async function listSignalSnapshotsForUser(username, options = {}) {
   const params = new URLSearchParams({
-    select: "*",
+    select: String(options.select || "*"),
     username: `eq.${String(username)}`,
     order: options.order || "created_at.desc",
     limit: String(options.limit || 200),

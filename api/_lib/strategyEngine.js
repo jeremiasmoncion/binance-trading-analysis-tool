@@ -2947,6 +2947,7 @@ export function applySystemStrategyDecision(snapshot, decisionState, context = {
     primaryScopeAction: operationalPrimary?.scopeAction || "",
     adaptivePrimary: operationalPrimary?.adaptivePrimary || null,
     contextBias: operationalPrimary?.contextBias || null,
+    featureModel: operationalPrimary?.featureModel || null,
     adaptiveScore: operationalPrimary?.adaptiveScore ?? null,
     scorer: operationalPrimary?.scorer || null,
     activeStrategies: activeStrategies

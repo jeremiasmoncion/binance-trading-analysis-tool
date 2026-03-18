@@ -215,6 +215,7 @@ function normalizeSignalEdgeContext(signal) {
   const decision = payload.decision && typeof payload.decision === "object" ? payload.decision : {};
   const scorer = decision.scorer && typeof decision.scorer === "object" ? decision.scorer : {};
   const contextBias = decision.contextBias && typeof decision.contextBias === "object" ? decision.contextBias : {};
+  const featureModel = decision.featureModel && typeof decision.featureModel === "object" ? decision.featureModel : {};
   const effectiveScore = Number.isFinite(Number(decision.adaptiveScore))
     ? Number(decision.adaptiveScore)
     : Number(signal?.signal_score || 0);
@@ -224,6 +225,7 @@ function normalizeSignalEdgeContext(signal) {
     decision,
     scorer,
     contextBias,
+    featureModel,
     effectiveScore,
     setupQuality: String(analysis.setupQuality || ""),
     riskLabel: String(analysis.riskLabel || ""),
@@ -244,7 +246,12 @@ function evaluateSignalEdgeSafety(signal, profile, options = {}) {
   const contextSample = Number(edge.contextBias.sampleSize || 0);
   const contextAvgPnl = Number(edge.contextBias.avgPnl || 0);
   const contextWinRate = Number(edge.contextBias.winRate || 0);
+  const featureSample = Number(edge.featureModel.sampleSize || 0);
+  const featureAvgPnl = Number(edge.featureModel.avgPnl || 0);
+  const featureWinRate = Number(edge.featureModel.winRate || 0);
+  const featureConfidence = Number(edge.featureModel.preferredModelConfidence || edge.featureModel.confidence || 0);
   const scopeAction = String(edge.scorer.scopeAction || "");
+  const decisionSource = String(edge.decision.source || "");
   const weakVolume = edge.volumeCondition.toLowerCase().includes("debil") || edge.volumeCondition.toLowerCase().includes("débil");
   const mixedRegime = edge.marketRegime.toLowerCase() === "mixto";
   const rrRatio = Number(signal?.rr_ratio || 0);
@@ -273,7 +280,18 @@ function evaluateSignalEdgeSafety(signal, profile, options = {}) {
     reasons.push("Este scope está endurecido y la señal no trae suficiente colchón para justificar la entrada.");
   }
 
+  if (featureSample >= 8 && featureAvgPnl < 0) {
+    reasons.push(`El scope histórico viene perdiendo (${featureAvgPnl >= 0 ? "+" : ""}${featureAvgPnl.toFixed(2)} avg pnl en ${featureSample} cierres).`);
+  }
+
+  if (featureSample >= 10 && featureWinRate > 0 && featureWinRate < 46) {
+    reasons.push(`El scope histórico sigue con acierto flojo (${featureWinRate.toFixed(0)}% en ${featureSample} cierres).`);
+  }
+
   if (mode === "auto") {
+    if (!["experiment-active", "promoted", "active"].includes(decisionSource)) {
+      reasons.push("La autoejecución solo entra en señales que ya vienen del flujo operativo activo del motor.");
+    }
     if (String(signal?.timeframe || "") === "5m") {
       reasons.push("La autoejecución 24/7 ya no entra en 5m para reducir ruido.");
     }
@@ -292,9 +310,18 @@ function evaluateSignalEdgeSafety(signal, profile, options = {}) {
     if (edge.riskLabel.toLowerCase().includes("alto")) {
       reasons.push("La autoejecución no entra en setups marcados como riesgo alto.");
     }
+    if (featureConfidence > 0 && featureConfidence < 64) {
+      reasons.push(`El modelo todavía no trae suficiente confianza operativa para este scope (${featureConfidence.toFixed(0)}%).`);
+    }
+    if (edge.scorer.candidateReady && Number(edge.scorer.candidateDelta || 0) >= 6) {
+      reasons.push("La autoejecución evita scopes donde el scorer activo todavía está siendo retado por un challenger listo.");
+    }
   } else {
     if (mixedRegime && weakVolume) {
       reasons.push("La señal llega con mercado mixto y volumen débil: combinación demasiado frágil para demo.");
+    }
+    if (decisionSource === "fallback" && featureSample >= 8 && featureAvgPnl < 0) {
+      reasons.push("La señal quedó fuera del flujo preferido y el histórico del scope tampoco acompaña.");
     }
   }
 

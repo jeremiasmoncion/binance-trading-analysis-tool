@@ -438,6 +438,11 @@ export interface StrategyValidationLabPayload {
   report: StrategyValidationReport;
   runs: StrategyBacktestRun[];
   run?: StrategyBacktestRun | null;
+  backfill?: {
+    scannedClosedSignals: number;
+    executionLearningBackfilled: number;
+    featureSnapshotsBackfilled: number;
+  };
 }
 
 export interface RecommendationActivationResult {

@@ -24,6 +24,8 @@ export function ProfileView(props: ProfileViewProps) {
   const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>([]);
   const [validationLoading, setValidationLoading] = useState(false);
   const [backtestRunning, setBacktestRunning] = useState(false);
+  const [datasetBackfillRunning, setDatasetBackfillRunning] = useState(false);
+  const [lastBackfillSummary, setLastBackfillSummary] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const connection = props.connection;
   const summary = connection?.summary || {};
@@ -46,6 +48,7 @@ export function ProfileView(props: ProfileViewProps) {
         if (!cancelled) {
           setValidationReport(payload.report);
           setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+          setLastBackfillSummary(null);
         }
       })
       .catch((error) => {
@@ -275,9 +278,34 @@ export function ProfileView(props: ProfileViewProps) {
                 >
                   {backtestRunning ? "Corriendo..." : "Correr backtest"}
                 </button>
+                <button
+                  className="premium-action-button is-ghost"
+                  type="button"
+                  onClick={() => {
+                    setDatasetBackfillRunning(true);
+                    setValidationError(null);
+                    setLastBackfillSummary(null);
+                    strategyEngineService
+                      .backfillValidationDataset({ triggerSource: "admin-backfill", limit: 600 })
+                      .then((payload) => {
+                        setValidationReport(payload.report);
+                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                        if (payload.backfill) {
+                          setLastBackfillSummary(
+                            `${payload.backfill.executionLearningBackfilled} señales recibieron executionLearning y ${payload.backfill.featureSnapshotsBackfilled} snapshots quedaron reconstruidos sobre ${payload.backfill.scannedClosedSignals} cierres revisados.`,
+                          );
+                        }
+                      })
+                      .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo ejecutar el backfill del dataset"))
+                      .finally(() => setDatasetBackfillRunning(false));
+                  }}
+                >
+                  {datasetBackfillRunning ? "Reconstruyendo..." : "Backfill dataset"}
+                </button>
               </div>
 
               {validationError ? <p className="section-note with-top-gap">{validationError}</p> : null}
+              {lastBackfillSummary ? <p className="section-note with-top-gap">{lastBackfillSummary}</p> : null}
 
               {validationReport ? (
                 <>

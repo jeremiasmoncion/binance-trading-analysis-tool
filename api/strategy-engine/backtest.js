@@ -1,4 +1,19 @@
-import { getStrategyValidationLab, runStrategyBacktest, sendJson } from "../_lib/strategyEngine.js";
+import { backfillStrategyLearningDataset, getStrategyValidationLab, runStrategyBacktest, sendJson } from "../_lib/strategyEngine.js";
+
+async function parseBody(req) {
+  if (req?.body !== undefined && req?.body !== null) return req.body;
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
 
 export default async function handler(req, res) {
   try {
@@ -7,6 +22,11 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
+      const body = await parseBody(req);
+      req.body = body;
+      if (body?.action === "backfillDataset") {
+        return sendJson(res, 200, await backfillStrategyLearningDataset(req));
+      }
       return sendJson(res, 200, await runStrategyBacktest(req));
     }
 

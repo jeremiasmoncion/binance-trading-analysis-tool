@@ -1,5 +1,6 @@
 import { getSession, parseJsonBody, sendJson } from "./auth.js";
 import { isRunnableStrategyVersion } from "./marketRuntime.js";
+import { backfillSignalLearningDatasetForUser } from "./signals.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -3428,6 +3429,27 @@ export async function runStrategyBacktest(req) {
   return runStrategyBacktestForUser(session.username, {
     label: body?.label,
     triggerSource: body?.triggerSource || "manual",
+  });
+}
+
+export async function backfillStrategyLearningDatasetForUser(username, options = {}) {
+  const backfill = await backfillSignalLearningDatasetForUser(username, options);
+  const report = await getStrategyValidationReportForUser(username);
+  const run = await persistBacktestRunForUser(username, report, {
+    label: options.label || "Post-backfill validation",
+    triggerSource: options.triggerSource || "dataset-backfill",
+  });
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  return { backfill, report, run, runs };
+}
+
+export async function backfillStrategyLearningDataset(req) {
+  const session = requireSession(req);
+  const body = await parseRequestBody(req);
+  return backfillStrategyLearningDatasetForUser(session.username, {
+    label: body?.label,
+    triggerSource: body?.triggerSource || "admin-backfill",
+    limit: body?.limit,
   });
 }
 

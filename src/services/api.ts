@@ -237,6 +237,15 @@ export const strategyEngineService = {
       body: JSON.stringify(payload || {}),
     });
   },
+  backfillValidationDataset(payload?: { label?: string; triggerSource?: string; limit?: number }) {
+    return apiRequest<StrategyValidationLabPayload>("/api/strategy-engine/backtest", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "backfillDataset",
+        ...(payload || {}),
+      }),
+    });
+  },
   getValidationReport() {
     return apiRequest<StrategyValidationReport>("/api/strategy-engine/backtest").then((payload) => {
       const maybeLab = payload as unknown as StrategyValidationLabPayload;

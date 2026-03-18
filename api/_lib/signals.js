@@ -3,6 +3,7 @@ import { getSession, parseJsonBody, sendJson } from "./auth.js";
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
+const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -26,7 +27,13 @@ async function supabaseRequest(path, options = {}) {
   }
 
   if (response.status === 204) return null;
-  return response.json();
+  const text = await response.text().catch(() => "");
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 function requireSession(req) {
@@ -204,7 +211,7 @@ async function updateSignalSnapshot(req, id) {
 
 async function updateSignalSnapshotForUser(username, id, body) {
   const existingRows = await supabaseRequest(
-    `${SIGNALS_TABLE}?id=eq.${id}&username=eq.${String(username)}&select=id,signal_payload&limit=1`,
+    `${SIGNALS_TABLE}?id=eq.${id}&username=eq.${String(username)}&select=*&limit=1`,
   );
   const existing = existingRows?.[0] || null;
   const nextPayload = body.signalPayloadMerge && typeof body.signalPayloadMerge === "object"
@@ -213,6 +220,9 @@ async function updateSignalSnapshotForUser(username, id, body) {
       ...body.signalPayloadMerge,
     }
     : undefined;
+  const nextOutcomeStatus = body.outcomeStatus == null ? String(existing?.outcome_status || "pending") : String(body.outcomeStatus || "pending");
+  const nextOutcomePnl = body.outcomePnl == null ? Number(existing?.outcome_pnl || 0) : Number(body.outcomePnl || 0);
+  const nextNote = body.note == null ? String(existing?.note || "") : String(body.note || "");
 
   const params = new URLSearchParams({
     id: `eq.${id}`,
@@ -223,13 +233,17 @@ async function updateSignalSnapshotForUser(username, id, body) {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: {
-      outcome_status: String(body.outcomeStatus || "pending"),
-      outcome_pnl: Number(body.outcomePnl || 0),
-      note: String(body.note || ""),
+      outcome_status: nextOutcomeStatus,
+      outcome_pnl: nextOutcomePnl,
+      note: nextNote,
       ...(nextPayload ? { signal_payload: nextPayload } : {}),
     },
   });
-  return rows?.[0] || null;
+  const nextSignal = rows?.[0] || null;
+  if (nextSignal && nextOutcomeStatus !== "pending") {
+    await upsertSignalFeatureSnapshotForUser(username, nextSignal).catch(() => null);
+  }
+  return nextSignal;
 }
 
 async function updateSignalExecutionLink(username, id, body) {
@@ -316,13 +330,152 @@ async function evaluatePendingSignalsForUser(username, priceMap, options = {}) {
   return Promise.all(updates);
 }
 
+function buildSignalFeatureSnapshotRow(username, signal, existingRow = null) {
+  const payload = signal?.signal_payload && typeof signal.signal_payload === "object" ? signal.signal_payload : {};
+  const context = payload.context && typeof payload.context === "object" ? payload.context : {};
+  const decision = payload.decision && typeof payload.decision === "object" ? payload.decision : {};
+  const learning = payload.executionLearning && typeof payload.executionLearning === "object" ? payload.executionLearning : {};
+  return {
+    username: String(username),
+    signal_snapshot_id: Number(signal?.id || 0) || null,
+    execution_order_id: signal?.execution_order_id == null ? null : Number(signal.execution_order_id),
+    coin: String(signal?.coin || ""),
+    timeframe: String(signal?.timeframe || ""),
+    strategy_id: String(signal?.strategy_name || decision.primaryStrategy?.id || ""),
+    strategy_version: String(signal?.strategy_version || decision.primaryStrategy?.version || ""),
+    direction: String(learning.direction || context.direction || ""),
+    market_regime: String(learning.marketRegime || context.marketRegime || ""),
+    timeframe_bias: String(learning.timeframeBias || context.timeframeBias || ""),
+    volume_condition: String(learning.volumeCondition || context.volumeCondition || ""),
+    level_context: String(learning.levelContext || context.levelContext || ""),
+    context_signature: String(learning.contextSignature || context.contextSignature || ""),
+    setup_type: String(signal?.setup_type || payload.analysis?.setupType || ""),
+    setup_quality: String(signal?.setup_quality || payload.analysis?.setupQuality || ""),
+    risk_label: String(signal?.risk_label || payload.analysis?.riskLabel || ""),
+    signal_score: signal?.signal_score == null ? null : Number(signal.signal_score),
+    adaptive_score: decision.adaptiveScore == null ? null : Number(decision.adaptiveScore),
+    scorer_confidence: decision.scorer?.confidence == null ? null : Number(decision.scorer.confidence),
+    rr_ratio: signal?.rr_ratio == null ? null : Number(signal.rr_ratio),
+    notional_usd: learning.notionalUsd == null ? null : Number(learning.notionalUsd),
+    realized_pnl: signal?.outcome_pnl == null ? (learning.realizedPnl == null ? null : Number(learning.realizedPnl)) : Number(signal.outcome_pnl),
+    pnl_pct_on_notional: learning.pnlPctOnNotional == null ? null : Number(learning.pnlPctOnNotional),
+    duration_minutes: learning.durationMinutes == null ? null : Number(learning.durationMinutes),
+    protection_status: String(learning.protectionStatus || signal?.execution_status || existingRow?.protection_status || ""),
+    protection_retries: learning.protectionRetries == null ? null : Number(learning.protectionRetries),
+    execution_mode: String(learning.mode || signal?.execution_mode || ""),
+    lifecycle_status: String(learning.lifecycleStatus || signal?.outcome_status || ""),
+    decision_source: String(learning.decisionSource || decision.source || ""),
+    decision_eligible: typeof learning.decisionEligible === "boolean"
+      ? learning.decisionEligible
+      : (typeof decision.executionEligible === "boolean" ? decision.executionEligible : null),
+    entry_to_tp_pct: learning.entryToTpPct == null ? null : Number(learning.entryToTpPct),
+    entry_to_sl_pct: learning.entryToSlPct == null ? null : Number(learning.entryToSlPct),
+    feature_payload: {
+      ...(existingRow?.feature_payload && typeof existingRow.feature_payload === "object" ? existingRow.feature_payload : {}),
+      ...(learning && typeof learning === "object" ? learning : {}),
+      source: learning?.source || "signal-memory",
+      outcomeStatus: String(signal?.outcome_status || ""),
+      outcomePnl: Number(signal?.outcome_pnl || 0),
+      strategyLabel: String(signal?.strategy_label || ""),
+    },
+  };
+}
+
+async function upsertSignalFeatureSnapshotForUser(username, signal) {
+  if (!signal?.id || !signal?.outcome_status || signal.outcome_status === "pending") return null;
+  try {
+    const params = new URLSearchParams({
+      select: "*",
+      signal_snapshot_id: `eq.${Number(signal.id)}`,
+      order: "created_at.desc",
+      limit: "1",
+    });
+    const existingRows = await supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?${params.toString()}`).catch(() => []);
+    const existing = existingRows?.[0] || null;
+    const row = buildSignalFeatureSnapshotRow(username, signal, existing);
+    if (existing?.id) {
+      const patchParams = new URLSearchParams({ id: `eq.${Number(existing.id)}` });
+      const rows = await supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?${patchParams.toString()}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: row,
+      });
+      return rows?.[0] || existing;
+    }
+    const rows = await supabaseRequest(SIGNAL_FEATURE_SNAPSHOTS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: [row],
+    });
+    return rows?.[0] || null;
+  } catch (error) {
+    const message = String(error instanceof Error ? error.message : error || "").toLowerCase();
+    if (message.includes("42p01") || message.includes("relation") || message.includes("does not exist")) return null;
+    throw error;
+  }
+}
+
+async function backfillSignalLearningDatasetForUser(username, options = {}) {
+  const signals = await listSignalSnapshotsForUser(username, {
+    limit: options.limit || 400,
+    order: "created_at.desc",
+  }).catch(() => []);
+  const closedSignals = (signals || []).filter((item) => item?.outcome_status && item.outcome_status !== "pending");
+  let executionLearningBackfilled = 0;
+  let featureSnapshotsBackfilled = 0;
+
+  for (const signal of closedSignals) {
+    const payload = signal.signal_payload && typeof signal.signal_payload === "object" ? signal.signal_payload : {};
+    const hasExecutionLearning = payload.executionLearning && typeof payload.executionLearning === "object";
+    if (!hasExecutionLearning) {
+      const fallbackLearning = {
+        source: "historical-backfill",
+        updatedAt: new Date().toISOString(),
+        timeframe: String(signal.timeframe || ""),
+        coin: String(signal.coin || ""),
+        direction: String(payload.context?.direction || ""),
+        marketRegime: String(payload.context?.marketRegime || ""),
+        timeframeBias: String(payload.context?.timeframeBias || ""),
+        volumeCondition: String(payload.context?.volumeCondition || ""),
+        levelContext: String(payload.context?.levelContext || ""),
+        contextSignature: String(payload.context?.contextSignature || ""),
+        decisionSource: String(payload.decision?.source || ""),
+        decisionEligible: typeof payload.decision?.executionEligible === "boolean" ? payload.decision.executionEligible : null,
+        primaryStrategyId: String(payload.decision?.primaryStrategy?.id || signal.strategy_name || ""),
+        primaryStrategyVersion: String(payload.decision?.primaryStrategy?.version || signal.strategy_version || ""),
+        rrRatio: signal.rr_ratio == null ? null : Number(signal.rr_ratio),
+        score: signal.signal_score == null ? null : Number(signal.signal_score),
+        realizedPnl: signal.outcome_pnl == null ? null : Number(signal.outcome_pnl),
+        lifecycleStatus: String(signal.outcome_status || ""),
+      };
+      const patched = await updateSignalSnapshotForUser(username, signal.id, {
+        signalPayloadMerge: { executionLearning: fallbackLearning },
+      }).catch(() => null);
+      if (patched) {
+        signal.signal_payload = patched.signal_payload;
+        executionLearningBackfilled += 1;
+      }
+    }
+    const persisted = await upsertSignalFeatureSnapshotForUser(username, signal).catch(() => null);
+    if (persisted) featureSnapshotsBackfilled += 1;
+  }
+
+  return {
+    scannedClosedSignals: closedSignals.length,
+    executionLearningBackfilled,
+    featureSnapshotsBackfilled,
+  };
+}
+
 export {
+  backfillSignalLearningDatasetForUser,
   createSignalSnapshot,
   createSignalSnapshotForUser,
   evaluatePendingSignalsForUser,
   listSignalSnapshots,
   listSignalSnapshotsForUser,
   sendJson,
+  upsertSignalFeatureSnapshotForUser,
   updateSignalExecutionLink,
   updateSignalSnapshot,
   updateSignalSnapshotForUser,

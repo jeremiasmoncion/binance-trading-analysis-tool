@@ -220,6 +220,20 @@ export interface StrategyDecisionState {
     readiness: "low" | "medium" | "high";
     summary: string;
   }>;
+  shadowModelEvaluation?: {
+    candidateScorer: string;
+    activeScorer: string;
+    readySampleSize: number;
+    favorableSampleSize: number;
+    nonFavorableSampleSize: number;
+    favorableAvgPnl: number;
+    nonFavorableAvgPnl: number;
+    favorableWinRate: number;
+    nonFavorableWinRate: number;
+    confidence: number;
+    action: "observe" | "promote";
+    summary: string;
+  } | null;
   scorerEvaluationHistory?: Array<{
     id?: number;
     scorer: string;

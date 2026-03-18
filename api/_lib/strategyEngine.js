@@ -630,6 +630,7 @@ export async function getSystemStrategyDecisionState(username) {
     contextBiasByScope: buildContextBiasByScope(signals || []),
     featureModelByScope: buildFeatureModelByScope(featureSnapshots || []),
     scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
+    shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
     scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
@@ -871,6 +872,102 @@ function buildAdaptiveScorerPromotionRecommendations(signals, executionProfile) 
   }
 
   return recommendations;
+}
+
+function buildShadowModelEvaluation(signals, executionProfile) {
+  const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
+  const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const candidateRows = closedSignals.filter((item) =>
+    String(item.signal_payload?.decision?.scorer?.candidateLabel || "").toLowerCase() === "model-v1",
+  );
+  const readyRows = candidateRows.filter((item) => item.signal_payload?.decision?.scorer?.candidateReady);
+  if (readyRows.length < 6) {
+    return {
+      candidateScorer: "model-v1",
+      activeScorer,
+      readySampleSize: readyRows.length,
+      favorableSampleSize: 0,
+      nonFavorableSampleSize: 0,
+      favorableAvgPnl: 0,
+      nonFavorableAvgPnl: 0,
+      favorableWinRate: 0,
+      nonFavorableWinRate: 0,
+      confidence: 0,
+      action: "observe",
+      summary: "Todavía no hay suficiente muestra lista para evaluar model-v1 como challenger real.",
+    };
+  }
+
+  const favorable = readyRows.filter((item) => Number(item.signal_payload?.decision?.scorer?.candidateDelta || 0) > 0);
+  const nonFavorable = readyRows.filter((item) => Number(item.signal_payload?.decision?.scorer?.candidateDelta || 0) <= 0);
+  const favorableStats = summarizeSignals(favorable);
+  const nonFavorableStats = summarizeSignals(nonFavorable);
+  const favorableAvgPnl = favorableStats.total ? favorableStats.pnl / favorableStats.total : 0;
+  const nonFavorableAvgPnl = nonFavorableStats.total ? nonFavorableStats.pnl / nonFavorableStats.total : 0;
+  const edgeDelta = Number((favorableAvgPnl - nonFavorableAvgPnl).toFixed(2));
+  const winRateDelta = Number((favorableStats.winRate - nonFavorableStats.winRate).toFixed(2));
+  const confidence = Number(Math.min(
+    98,
+    38
+      + Math.min(readyRows.length, 24) * 1.8
+      + Math.max(0, edgeDelta) * 9
+      + Math.max(0, winRateDelta) * 0.8,
+  ).toFixed(1));
+  const promotable = favorableStats.total >= 6
+    && favorableAvgPnl > 0
+    && favorableStats.winRate >= 55
+    && edgeDelta >= 0.25
+    && confidence >= 68;
+
+  return {
+    candidateScorer: "model-v1",
+    activeScorer,
+    readySampleSize: readyRows.length,
+    favorableSampleSize: favorableStats.total,
+    nonFavorableSampleSize: nonFavorableStats.total,
+    favorableAvgPnl: Number(favorableAvgPnl.toFixed(2)),
+    nonFavorableAvgPnl: Number(nonFavorableAvgPnl.toFixed(2)),
+    favorableWinRate: Number(favorableStats.winRate.toFixed(2)),
+    nonFavorableWinRate: Number(nonFavorableStats.winRate.toFixed(2)),
+    confidence,
+    action: promotable ? "promote" : "observe",
+    summary: promotable
+      ? "Model-v1 ya está mostrando mejor edge cuando su score sombra favorece la lectura. Puede pasar a desafiar formalmente al scorer activo."
+      : "Model-v1 ya está acumulando muestra útil, pero todavía no deja una ventaja suficientemente clara para promoción.",
+  };
+}
+
+function buildModelV1PromotionRecommendations(signals, executionProfile) {
+  const evaluation = buildShadowModelEvaluation(signals, executionProfile);
+  if (!evaluation || evaluation.action !== "promote") return [];
+  if (evaluation.activeScorer === "model-v1") return [];
+  return [{
+    recommendation_key: `adaptive-scorer:${evaluation.activeScorer}->model-v1`,
+    strategy_id: "adaptive-scorer",
+    strategy_version: evaluation.activeScorer,
+    parameter_key: "scorerPolicy",
+    title: "Promover model-v1 como challenger formal",
+    summary: "El modelo versionado ya está mostrando ventaja suficiente en modo sombra. Conviene pasarlo a desafío formal frente al scorer activo.",
+    current_value: Number(evaluation.nonFavorableAvgPnl.toFixed(2)),
+    suggested_value: Number(evaluation.favorableAvgPnl.toFixed(2)),
+    confidence: Number((evaluation.confidence / 100).toFixed(2)),
+    status: evaluation.favorableSampleSize >= 8 && evaluation.confidence >= 78 ? "sandbox" : "draft",
+    evidence: {
+      recommendationType: "adaptive-scorer-promotion",
+      action: "promote",
+      baseScorer: evaluation.activeScorer,
+      candidateScorer: "model-v1",
+      sampleSizeReady: evaluation.readySampleSize,
+      sampleSizeFavorable: evaluation.favorableSampleSize,
+      sampleSizeOther: evaluation.nonFavorableSampleSize,
+      avgPnlFavorable: evaluation.favorableAvgPnl,
+      avgPnlOther: evaluation.nonFavorableAvgPnl,
+      winRateFavorable: evaluation.favorableWinRate,
+      winRateOther: evaluation.nonFavorableWinRate,
+      edgeDelta: Number((evaluation.favorableAvgPnl - evaluation.nonFavorableAvgPnl).toFixed(2)),
+      promotionMode: "shadow-model-challenge",
+    },
+  }];
 }
 
 function buildScorerEvaluations(signals, executionProfile) {
@@ -1906,6 +2003,10 @@ function buildRecommendationRows(signals, versions, executionProfile) {
     pushRecommendation(recommendations, row);
   }
   for (const row of buildAdaptiveScorerPromotionRecommendations(closedSignals, executionProfile)) {
+    pushRecommendation(recommendations, row);
+  }
+
+  for (const row of buildModelV1PromotionRecommendations(closedSignals, executionProfile)) {
     pushRecommendation(recommendations, row);
   }
 

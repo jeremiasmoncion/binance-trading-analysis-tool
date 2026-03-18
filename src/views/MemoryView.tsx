@@ -921,6 +921,10 @@ export function MemoryView(props: MemoryViewProps) {
     return rows.slice(0, 6);
   }, [decisionState?.scorerEvaluationHistory]);
 
+  const shadowModelEvaluation = useMemo(() => {
+    return decisionState?.shadowModelEvaluation || null;
+  }, [decisionState?.shadowModelEvaluation]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1207,11 +1211,12 @@ export function MemoryView(props: MemoryViewProps) {
       shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
+      shadowModelEvaluation,
       scorerEvaluationHistory,
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.shadowModelEvaluation, executionOverrideImpact, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1910,6 +1915,12 @@ export function MemoryView(props: MemoryViewProps) {
                 sub={automationMasterBoard.shadowModelReadiness.strongest ? `${automationMasterBoard.shadowModelReadiness.strongest.strategyId} · ${automationMasterBoard.shadowModelReadiness.strongest.timeframe} · ${automationMasterBoard.shadowModelReadiness.strongest.confidence.toFixed(0)}%` : "Sin suficiente muestra por scope todavía"}
                 accentClass={automationMasterBoard.shadowModelReadiness.accentClass}
               />
+              <StatCard
+                label="Reto model-v1"
+                value={automationMasterBoard.shadowModelEvaluation?.action || "--"}
+                sub={automationMasterBoard.shadowModelEvaluation ? `${automationMasterBoard.shadowModelEvaluation.favorableSampleSize} favorables · ${automationMasterBoard.shadowModelEvaluation.confidence.toFixed(0)}%` : "Esperando muestra sombra"}
+                accentClass={automationMasterBoard.shadowModelEvaluation?.action === "promote" ? "accent-emerald" : "accent-blue"}
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -2064,6 +2075,11 @@ export function MemoryView(props: MemoryViewProps) {
             {automationMasterBoard.shadowModelReadiness.totalReady > 0 ? (
               <p className="section-note">
                 Modelo candidato: {automationMasterBoard.shadowModelReadiness.reading}
+              </p>
+            ) : null}
+            {automationMasterBoard.shadowModelEvaluation ? (
+              <p className="section-note">
+                Evaluación sombra model-v1: {automationMasterBoard.shadowModelEvaluation.summary}
               </p>
             ) : null}
 

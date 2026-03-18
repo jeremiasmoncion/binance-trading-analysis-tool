@@ -657,6 +657,34 @@ function buildValidationReportFromStoredRun(run) {
   };
 }
 
+function buildValidationReportFromRunSummary(run) {
+  if (!run) return null;
+  return {
+    generatedAt: String(run.createdAt || new Date().toISOString()),
+    summary: {
+      maturityScore: Number(run.maturityScore || 0),
+      closedSignals: Number(run.closedSignals || 0),
+      featureSnapshots: Number(run.featureSnapshots || 0),
+      passedInvariants: Number(run.passedInvariants || 0),
+      warnedInvariants: Number(run.warnedInvariants || 0),
+      failedInvariants: Number(run.failedInvariants || 0),
+      activeScorer: String(run.activeScorer || "adaptive-v1"),
+    },
+    invariants: [],
+    scorerTable: [],
+    replayWindows: Array.isArray(run.windows) ? run.windows : [],
+    scenarios: [
+      {
+        title: "Última corrida guardada",
+        status: Number(run.failedInvariants || 0) > 0 ? "warning" : "neutral",
+        summary: String(run.summary || "La última corrida guardada se usa como lectura rápida del laboratorio."),
+      },
+    ],
+    modelWindowGovernance: null,
+    modelWindowGovernanceHistory: [],
+  };
+}
+
 function normalizeModelConfigRegistry(rows) {
   return (rows || []).map((row) => {
     const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
@@ -3487,9 +3515,8 @@ export async function getStrategyValidationReportForUser(username) {
 
 export async function getStrategyValidationLabForUser(username) {
   const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
-  const latestRunRow = await fetchLatestBacktestRunRowForUser(username).catch(() => null);
-  const cachedReport = buildValidationReportFromStoredRun(latestRunRow);
-  const report = cachedReport || await getStrategyValidationReportForUser(username);
+  const latestRun = Array.isArray(runs) && runs.length ? runs[0] : null;
+  const report = buildValidationReportFromRunSummary(latestRun) || await getStrategyValidationReportForUser(username);
   return { report, runs };
 }
 

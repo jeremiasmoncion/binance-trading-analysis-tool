@@ -129,20 +129,20 @@ export function BalanceView(props: BalanceViewProps) {
         </div>
       </div>
 
-      <div className="wallet-toolbar-row">
+      <div className="wallet-toolbar-row ui-toolbar">
         <div className="wallet-tab-bar">
-          <button className={`wallet-tab-button ${activeTab === "holdings" ? "active" : ""}`} onClick={() => setActiveTab("holdings")}>Holdings</button>
-          <button className={`wallet-tab-button ${activeTab === "nfts" ? "active" : ""}`} onClick={() => setActiveTab("nfts")}>NFTs</button>
-          <button className={`wallet-tab-button ${activeTab === "staking" ? "active" : ""}`} onClick={() => setActiveTab("staking")}>Staking</button>
-          <button className={`wallet-tab-button ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}>History</button>
+          <button className={`wallet-tab-button ui-chip ${activeTab === "holdings" ? "active" : ""}`} onClick={() => setActiveTab("holdings")}>Holdings</button>
+          <button className={`wallet-tab-button ui-chip ${activeTab === "nfts" ? "active" : ""}`} onClick={() => setActiveTab("nfts")}>NFTs</button>
+          <button className={`wallet-tab-button ui-chip ${activeTab === "staking" ? "active" : ""}`} onClick={() => setActiveTab("staking")}>Staking</button>
+          <button className={`wallet-tab-button ui-chip ${activeTab === "history" ? "active" : ""}`} onClick={() => setActiveTab("history")}>History</button>
         </div>
 
-        <div className="wallet-toolbar-actions">
-          <button className="wallet-secondary-button" onClick={() => props.onToggleHideSmall(!props.hideSmallAssets)}>
+        <div className="wallet-toolbar-actions ui-toolbar-actions">
+          <button className="wallet-secondary-button ui-button" onClick={() => props.onToggleHideSmall(!props.hideSmallAssets)}>
             <SlidersHorizontalIcon />
             Filters
           </button>
-          <button className="wallet-secondary-button" onClick={props.onRefresh}>
+          <button className="wallet-secondary-button ui-button" onClick={props.onRefresh}>
             <DownloadIcon />
             Export
           </button>
@@ -156,7 +156,7 @@ export function BalanceView(props: BalanceViewProps) {
               <div>
                 <div className="wallet-quick-label">Total Assets</div>
                 <div className="wallet-quick-value">{visibleAssets.length}</div>
-                <div className="wallet-quick-chip wallet-quick-chip-info">{props.payload?.summary?.accountType || "SPOT"} Account</div>
+                <div className="wallet-quick-chip wallet-quick-chip-info ui-pill">{props.payload?.summary?.accountType || "SPOT"} Account</div>
               </div>
               <div className="wallet-quick-icon wallet-quick-icon-info">◎</div>
             </div>
@@ -165,7 +165,7 @@ export function BalanceView(props: BalanceViewProps) {
               <div>
                 <div className="wallet-quick-label">In Profit</div>
                 <div className="wallet-quick-value wallet-positive">{positiveAssets.length}</div>
-                <div className="wallet-quick-chip wallet-positive">{visibleAssets.length ? formatPct((positiveAssets.length / visibleAssets.length) * 100) : "0%"}</div>
+                <div className="wallet-quick-chip wallet-positive ui-pill">{visibleAssets.length ? formatPct((positiveAssets.length / visibleAssets.length) * 100) : "0%"}</div>
               </div>
               <div className="wallet-quick-icon wallet-quick-icon-success">↗</div>
             </div>
@@ -174,7 +174,7 @@ export function BalanceView(props: BalanceViewProps) {
               <div>
                 <div className="wallet-quick-label">In Loss</div>
                 <div className="wallet-quick-value wallet-negative">{negativeAssets.length}</div>
-                <div className="wallet-quick-chip wallet-negative">{visibleAssets.length ? formatPct((negativeAssets.length / visibleAssets.length) * 100) : "0%"}</div>
+                <div className="wallet-quick-chip wallet-negative ui-pill">{visibleAssets.length ? formatPct((negativeAssets.length / visibleAssets.length) * 100) : "0%"}</div>
               </div>
               <div className="wallet-quick-icon wallet-quick-icon-danger">↘</div>
             </div>
@@ -183,7 +183,7 @@ export function BalanceView(props: BalanceViewProps) {
               <div>
                 <div className="wallet-quick-label">Best Performer</div>
                 <div className="wallet-quick-value">{bestPerformer?.asset || "--"}</div>
-                <div className={`wallet-quick-chip ${getPerformanceClass(bestPerformer?.pnlPct || 0)}`}>{bestPerformer ? formatSignedPct(bestPerformer.pnlPct) : "--"}</div>
+                <div className={`wallet-quick-chip ui-pill ${getPerformanceClass(bestPerformer?.pnlPct || 0)}`}>{bestPerformer ? formatSignedPct(bestPerformer.pnlPct) : "--"}</div>
               </div>
               <div className="wallet-quick-icon wallet-quick-icon-accent">{bestPerformer?.asset?.slice(0, 3) || "TOP"}</div>
             </div>
@@ -196,7 +196,7 @@ export function BalanceView(props: BalanceViewProps) {
                   <h3 className="wallet-card-title">Asset Holdings</h3>
                 </div>
                 <div className="wallet-card-tools">
-                  <div className="wallet-search-shell">
+                  <div className="wallet-search-shell ui-input-shell">
                     <SearchIcon />
                     <input
                       value={assetSearch}
@@ -204,24 +204,24 @@ export function BalanceView(props: BalanceViewProps) {
                       placeholder="Search assets..."
                     />
                   </div>
-                  <button className="wallet-secondary-button" onClick={props.onRefresh}>
+                  <button className="wallet-secondary-button ui-button" onClick={props.onRefresh}>
                     <ArrowUpDownIcon />
                     Sort
                   </button>
                 </div>
               </div>
 
-              <div className="wallet-filter-chip-row">
-                <button className={`wallet-filter-chip ${assetFilter === "all" ? "active" : ""}`} onClick={() => setAssetFilter("all")}>All Assets</button>
-                <button className={`wallet-filter-chip ${assetFilter === "large" ? "active" : ""}`} onClick={() => setAssetFilter("large")}>Large Cap</button>
-                <button className={`wallet-filter-chip ${assetFilter === "mid" ? "active" : ""}`} onClick={() => setAssetFilter("mid")}>Mid Cap</button>
-                <button className={`wallet-filter-chip ${assetFilter === "small" ? "active" : ""}`} onClick={() => setAssetFilter("small")}>Small Cap</button>
-                <button className={`wallet-filter-chip ${assetFilter === "stablecoins" ? "active" : ""}`} onClick={() => setAssetFilter("stablecoins")}>Stablecoins</button>
-                <button className={`wallet-filter-chip ${assetFilter === "defi" ? "active" : ""}`} onClick={() => setAssetFilter("defi")}>DeFi</button>
+              <div className="wallet-filter-chip-row ui-chip-row">
+                <button className={`wallet-filter-chip ui-chip ${assetFilter === "all" ? "active" : ""}`} onClick={() => setAssetFilter("all")}>All Assets</button>
+                <button className={`wallet-filter-chip ui-chip ${assetFilter === "large" ? "active" : ""}`} onClick={() => setAssetFilter("large")}>Large Cap</button>
+                <button className={`wallet-filter-chip ui-chip ${assetFilter === "mid" ? "active" : ""}`} onClick={() => setAssetFilter("mid")}>Mid Cap</button>
+                <button className={`wallet-filter-chip ui-chip ${assetFilter === "small" ? "active" : ""}`} onClick={() => setAssetFilter("small")}>Small Cap</button>
+                <button className={`wallet-filter-chip ui-chip ${assetFilter === "stablecoins" ? "active" : ""}`} onClick={() => setAssetFilter("stablecoins")}>Stablecoins</button>
+                <button className={`wallet-filter-chip ui-chip ${assetFilter === "defi" ? "active" : ""}`} onClick={() => setAssetFilter("defi")}>DeFi</button>
               </div>
 
-              <div className="wallet-table-shell">
-                <table className="wallet-assets-table">
+              <div className="wallet-table-shell ui-table-shell">
+                <table className="wallet-assets-table ui-table">
                   <thead>
                     <tr>
                       <th>Asset</th>
@@ -334,7 +334,7 @@ function WalletAssetRow({ asset }: { asset: PortfolioAsset }) {
       </td>
       <td>{formatPrice(asset.marketValue)}</td>
       <td>
-        <span className={`wallet-pill ${pnlClass}`}>{formatSignedPrice(asset.pnlValue)}</span>
+        <span className={`wallet-pill ui-pill ${pnlClass}`}>{formatSignedPrice(asset.pnlValue)}</span>
       </td>
       <td>
         <button type="button" className="wallet-row-action">•••</button>
@@ -359,7 +359,7 @@ function WalletHistoryPanel({ title, subtitle, children }: { title: string; subt
 
 function WalletOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummary[]; emptyMessage: string }) {
   return (
-    <table className="wallet-assets-table">
+    <table className="wallet-assets-table ui-table">
       <thead>
         <tr>
           <th>Pair</th>
@@ -394,7 +394,7 @@ function WalletOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummar
 
 function WalletClosedOrderTable({ orders, emptyMessage }: { orders: BinanceOrderSummary[]; emptyMessage: string }) {
   return (
-    <table className="wallet-assets-table">
+    <table className="wallet-assets-table ui-table">
       <thead>
         <tr>
           <th>Pair</th>
@@ -429,7 +429,7 @@ function WalletClosedOrderTable({ orders, emptyMessage }: { orders: BinanceOrder
 
 function WalletTradeTable({ trades, emptyMessage }: { trades: BinanceTradeSummary[]; emptyMessage: string }) {
   return (
-    <table className="wallet-assets-table">
+    <table className="wallet-assets-table ui-table">
       <thead>
         <tr>
           <th>Trade</th>

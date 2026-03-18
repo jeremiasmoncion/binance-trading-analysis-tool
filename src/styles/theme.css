@@ -49,14 +49,22 @@ body.light-theme .timeframe-select,
 body.light-theme .topbar-icon-btn,
 body.light-theme .user-pill,
 body.light-theme .module-tab,
+body.light-theme .ui-button,
+body.light-theme .ui-chip,
+body.light-theme .ui-pill,
 body.light-theme .card-help-button,
+body.light-theme .ui-input-shell input,
 body.light-theme .btn-secondary-soft,
 body:not(.dark-theme) .search-coin input,
 body:not(.dark-theme) .timeframe-select,
 body:not(.dark-theme) .topbar-icon-btn,
 body:not(.dark-theme) .user-pill,
 body:not(.dark-theme) .module-tab,
+body:not(.dark-theme) .ui-button,
+body:not(.dark-theme) .ui-chip,
+body:not(.dark-theme) .ui-pill,
 body:not(.dark-theme) .card-help-button,
+body:not(.dark-theme) .ui-input-shell input,
 body:not(.dark-theme) .btn-secondary-soft {
   background: rgba(255, 255, 255, 0.9);
   color: #334155;
@@ -64,6 +72,7 @@ body:not(.dark-theme) .btn-secondary-soft {
 }
 
 body.light-theme .module-tabs,
+body.light-theme .ui-table-shell,
 body:not(.dark-theme) .module-tabs {
   background: rgba(255, 255, 255, 0.76);
   border-color: rgba(148, 163, 184, 0.16);
@@ -261,6 +270,15 @@ body.dark-theme .module-tab.active {
   color: #eff6ff;
   box-shadow: 0 10px 18px rgba(37, 99, 235, 0.28);
 }
+body.dark-theme .ui-button,
+body.dark-theme .btn-secondary-soft,
+body.dark-theme .ui-chip,
+body.dark-theme .ui-pill,
+body.dark-theme .ui-input-shell input {
+  background: var(--crype-dark-panel-soft);
+  color: var(--crype-dark-text);
+  border-color: var(--crype-dark-border);
+}
 body.dark-theme .topbar-icon-btn,
 body.dark-theme .theme-toggle.topbar-icon-btn {
   background: rgba(15, 23, 42, 0.92);
@@ -306,7 +324,7 @@ body.dark-theme .theme-toggle .moon-icon { display: block; }
 body.dark-theme .binance-status-card,
 body.dark-theme .portfolio-highlight-card { background:#111827; border-color:#23314d; }
 body.dark-theme .binance-status-title { color: #e2e8f0; }
-body.dark-theme .btn-secondary-soft { background:#1e293b; color:#e2e8f0; }
+body.dark-theme .ui-table-shell { border-top-color: #1e293b; }
 body.dark-theme .portfolio-search-icon { color:#f8fafc; }
 body.dark-theme .portfolio-filter-toggle { color:#e5e7eb; }
 body.dark-theme .history-panel { background:#111827; border-color:#23314d; }

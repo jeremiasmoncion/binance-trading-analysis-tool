@@ -72,32 +72,6 @@
 .binance-status-title { font-size:14px; font-weight:700; color:#0f172a; margin-bottom:4px; }
 .binance-status-title::selection { background: rgba(59, 130, 246, 0.35); color: inherit; }
 .binance-status-note { font-size:12px; color:#64748b; }
-.btn-secondary-soft {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: auto;
-  min-height: 48px;
-  padding: 11px 18px;
-  background: rgba(255, 255, 255, 0.88);
-  color: #0f172a;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  margin-top: 0;
-  white-space: nowrap;
-  box-shadow: 0 10px 20px rgba(148, 163, 184, 0.12);
-  transition: all 0.2s ease;
-}
-
-.btn-secondary-soft:hover {
-  transform: translateY(-1px);
-  border-color: rgba(99, 102, 241, 0.28);
-  box-shadow: 0 14px 24px rgba(99, 102, 241, 0.12);
-}
-
 .section-fill-button.btn-secondary-soft,
 .profile-section .btn-secondary-soft,
 .calc-input-group .btn-secondary-soft {

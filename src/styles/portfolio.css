@@ -1,8 +1,3 @@
-.portfolio-table { width:100%; border-collapse:separate; border-spacing:0 12px; font-size:12px; }
-.portfolio-table th { text-align:left; padding:11px 16px; font-size:11px; color:#64748b; white-space:nowrap; text-transform:uppercase; letter-spacing:.08em; }
-.portfolio-table td { padding:16px; vertical-align:top; background: rgba(255,255,255,.58); border-top:1px solid rgba(148,163,184,.12); border-bottom:1px solid rgba(148,163,184,.12); }
-.portfolio-table td:first-child { border-left:1px solid rgba(148,163,184,.12); border-top-left-radius:18px; border-bottom-left-radius:18px; }
-.portfolio-table td:last-child { border-right:1px solid rgba(148,163,184,.12); border-top-right-radius:18px; border-bottom-right-radius:18px; }
 .portfolio-asset { display:flex; flex-direction:column; gap:4px; }
 .portfolio-asset strong { font-size:13px; color:#0f172a; }
 .portfolio-asset span { font-size:11px; color:#64748b; }

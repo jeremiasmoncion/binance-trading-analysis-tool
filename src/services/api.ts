@@ -1,5 +1,6 @@
 import type {
   BinanceConnection,
+  DashboardSummaryPayload,
   ExecutionCenterPayload,
   ExecutionProfile,
   DashboardAnalysis,
@@ -213,6 +214,13 @@ export const binanceService = {
   },
   getExecutionCenter() {
     return apiRequest<ExecutionCenterPayload>("/api/binance/execution");
+  },
+  getDashboardSummary(forceFresh = false) {
+    return cachedApiRequest<DashboardSummaryPayload>("/api/binance/dashboard-summary", {
+      cacheKey: "binance:dashboard-summary",
+      ttlMs: 8_000,
+      forceFresh,
+    });
   },
   updateExecutionProfile(profile: Partial<ExecutionProfile>) {
     return apiRequest<{ profile: ExecutionProfile }>("/api/binance/execution", {

@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, ExecutionCenterPayload, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
+import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, DashboardSummaryPayload, ExecutionCenterPayload, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
@@ -59,6 +59,7 @@ interface AppViewProps {
   onSetActiveWatchlist: (name: string) => Promise<void>;
   portfolioData: PortfolioPayload | null;
   executionCenter: ExecutionCenterPayload | null;
+  dashboardSummary: DashboardSummaryPayload | null;
   portfolioPeriod: string;
   hideSmallAssets: boolean;
   onPortfolioPeriodChange: (period: string) => void;
@@ -99,6 +100,7 @@ export function AppView(props: AppViewProps) {
           chartRef={props.chartRef}
           portfolioData={props.portfolioData}
           executionCenter={props.executionCenter}
+          dashboardSummary={props.dashboardSummary}
           onSaveSignal={props.onSaveSignal}
         />
       );

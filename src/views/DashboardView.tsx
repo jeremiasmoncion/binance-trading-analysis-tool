@@ -15,6 +15,7 @@ import type {
   BinanceTradeSummary,
   Candle,
   DashboardAnalysis,
+  DashboardSummaryPayload,
   ExecutionCenterPayload,
   ExecutionOrderRecord,
   OperationPlan,
@@ -44,6 +45,7 @@ interface DashboardViewProps {
   chartRef: React.RefObject<HTMLCanvasElement | null>;
   portfolioData: PortfolioPayload | null;
   executionCenter: ExecutionCenterPayload | null;
+  dashboardSummary: DashboardSummaryPayload | null;
   onSaveSignal: () => void;
 }
 
@@ -56,21 +58,35 @@ export function DashboardView(props: DashboardViewProps) {
   const [tradeSearch, setTradeSearch] = useState("");
   const signal = props.signal;
   const analysis = props.analysis;
-  const portfolio = props.portfolioData?.portfolio;
-  const executionAccount = props.executionCenter?.account;
-  const executionProfile = props.executionCenter?.profile;
+  const portfolio = props.dashboardSummary?.portfolio || props.portfolioData?.portfolio;
+  const executionAccount = props.dashboardSummary
+    ? {
+        connected: props.dashboardSummary.connection.connected,
+        alias: props.dashboardSummary.connection.accountAlias || "",
+        cashValue: Number(props.dashboardSummary.portfolio.cashValue || 0),
+        totalValue: Number(props.dashboardSummary.portfolio.totalValue || 0),
+        openOrdersCount: props.dashboardSummary.execution.openOrdersCount,
+        dailyLossPct: props.dashboardSummary.execution.dailyLossPct,
+        dailyAutoExecutions: props.dashboardSummary.execution.dailyAutoExecutions,
+        recentLossStreak: props.dashboardSummary.execution.recentLossStreak,
+        autoExecutionRemaining: props.dashboardSummary.execution.autoExecutionRemaining,
+      }
+    : props.executionCenter?.account;
+  const executionProfileEnabled = props.dashboardSummary
+    ? props.dashboardSummary.execution.profileEnabled
+    : props.executionCenter?.profile?.enabled;
   const currentPrice = props.currentPrice || props.candles.at(-1)?.close || 0;
   const firstClose = props.candles[0]?.close ?? currentPrice;
   const marketDriftPct = firstClose > 0 ? ((currentPrice - firstClose) / firstClose) * 100 : 0;
   const portfolioTotal = portfolio?.totalValue ?? executionAccount?.totalValue ?? 0;
   const portfolioChangeValue = portfolio?.periodChangeValue ?? 0;
   const portfolioChangePct = portfolio?.periodChangePct ?? marketDriftPct;
-  const activeBots = executionProfile?.enabled ? 1 : 0;
-  const totalBots = 1;
+  const activeBots = props.dashboardSummary?.execution.activeBots ?? (executionProfileEnabled ? 1 : 0);
+  const totalBots = props.dashboardSummary?.execution.totalBots ?? 1;
   const activeBotsLabel = `${activeBots} / ${totalBots}`;
   const last24hCutoff = Date.now() - 24 * 60 * 60 * 1000;
 
-  const recentExecuteOrders = (props.executionCenter?.recentOrders || []).filter((item) => item.mode === "execute");
+  const recentExecuteOrders = (props.dashboardSummary?.execution.recentOrders || props.executionCenter?.recentOrders || []).filter((item) => item.mode === "execute");
   const botClosedOrders24h = recentExecuteOrders.filter((item) => {
     const closedAt = item.closed_at ? new Date(item.closed_at).getTime() : 0;
     return closedAt >= last24hCutoff && Number.isFinite(closedAt);
@@ -83,8 +99,12 @@ export function DashboardView(props: DashboardViewProps) {
   const botWins24h = botOutcomes24h.filter((item) => isPositiveClosedOutcome(item)).length;
   const botWinRate24h = botOutcomes24h.length ? (botWins24h / botOutcomes24h.length) * 100 : 0;
   const botsPnlTone = botGeneratedPnl24h > 0 ? "positive" : botGeneratedPnl24h < 0 ? "negative" : "neutral";
-  const eligibleCandidates = (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible");
-  const blockedCandidates = (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked");
+  const eligibleCandidates = props.dashboardSummary
+    ? Array.from({ length: props.dashboardSummary.execution.eligibleCount }, (_, index) => ({ status: "eligible", id: index }))
+    : (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible");
+  const blockedCandidates = props.dashboardSummary
+    ? Array.from({ length: props.dashboardSummary.execution.blockedCount }, (_, index) => ({ status: "blocked", id: index }))
+    : (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked");
   const recentOrders = recentExecuteOrders.slice(0, 5);
   const recentTrades = useMemo(
     () => buildRecentTradesRows(props.portfolioData?.recentTrades || [], recentExecuteOrders),
@@ -144,8 +164,8 @@ export function DashboardView(props: DashboardViewProps) {
     ],
   );
   const topAssets = useMemo(
-    () => buildTopAssets(props.portfolioData?.assets || []),
-    [props.portfolioData?.assets],
+    () => buildTopAssets(props.dashboardSummary?.topAssets || props.portfolioData?.assets || []),
+    [props.dashboardSummary?.topAssets, props.portfolioData?.assets],
   );
   const recentActivity = useMemo(
     () => buildRecentActivity(props.portfolioData, recentExecuteOrders),
@@ -158,7 +178,7 @@ export function DashboardView(props: DashboardViewProps) {
     deployedCapitalValue,
     cashPct,
     executionAccount,
-    executionProfile,
+    executionProfile: executionProfileEnabled ? props.executionCenter?.profile || null : null,
     eligibleCount: eligibleCandidates.length,
     blockedCount: blockedCandidates.length,
     recentOrdersCount: recentOrders.length,

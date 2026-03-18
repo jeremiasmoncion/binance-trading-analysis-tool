@@ -602,6 +602,93 @@ async function getExecutionCenterForUser(username) {
   };
 }
 
+function deriveDashboardCandidateCounts(signals = []) {
+  let eligibleCount = 0;
+  let blockedCount = 0;
+
+  signals
+    .filter((item) => item.outcome_status === "pending")
+    .slice(0, 60)
+    .forEach((signal) => {
+      const decisionEligible = signal?.signal_payload?.decision?.executionEligible;
+      if (typeof decisionEligible === "boolean") {
+        if (decisionEligible) eligibleCount += 1;
+        else blockedCount += 1;
+        return;
+      }
+
+      const candidates = Array.isArray(signal?.signal_payload?.candidates) ? signal.signal_payload.candidates : [];
+      const hasEligibleCandidate = candidates.some((candidate) => candidate?.executionEligible === true);
+      const hasBlockedCandidate = candidates.length > 0 && candidates.every((candidate) => candidate?.executionEligible === false);
+
+      if (hasEligibleCandidate) eligibleCount += 1;
+      else if (hasBlockedCandidate) blockedCount += 1;
+    });
+
+  return { eligibleCount, blockedCount };
+}
+
+async function getExecutionDashboardSummaryForUser(username) {
+  const [profile, portfolioPayload, signals, executionOrdersRaw] = await Promise.all([
+    getExecutionProfileForUser(username),
+    getPortfolioSnapshotForUsername(username, "1d", "live"),
+    listSignalSnapshotsForUser(username, { limit: 80 }),
+    listExecutionOrdersForUser(username),
+  ]);
+
+  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals || [], executionOrdersRaw || []);
+  const recentExecuteOrders = (executionOrders || [])
+    .filter((item) => item.mode === "execute")
+    .slice(0, 20);
+  const recentClosedOrders24h = recentExecuteOrders.filter((item) => {
+    const timestamp = new Date(item.closed_at || item.last_synced_at || item.created_at).getTime();
+    return Number.isFinite(timestamp) && timestamp >= Date.now() - 24 * 60 * 60 * 1000;
+  });
+  const dailyLossAbs = recentClosedOrders24h.reduce((sum, item) => sum + Math.min(0, Number(item.realized_pnl || 0)), 0);
+  const accountValue = Number(portfolioPayload?.portfolio?.totalValue || 0);
+  const dailyLossPct = accountValue > 0 ? Math.abs((dailyLossAbs / accountValue) * 100) : 0;
+  const dailyAutoExecutions = buildDailyAutoExecutions(executionOrders || []);
+  const recentLossStreak = buildRecentLossStreak(executionOrders || []);
+  const { eligibleCount, blockedCount } = deriveDashboardCandidateCounts(signals || []);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    connection: {
+      connected: Boolean(portfolioPayload?.connected),
+      accountAlias: portfolioPayload?.accountAlias || "",
+    },
+    portfolio: portfolioPayload?.portfolio || {
+      period: "1d",
+      totalValue: 0,
+      periodChangeValue: 0,
+      periodChangePct: 0,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      unrealizedPnlPct: 0,
+      totalPnl: 0,
+      winnersCount: 0,
+      openPositionsCount: 0,
+      cashValue: 0,
+      positionsValue: 0,
+      investedValue: 0,
+    },
+    topAssets: Array.isArray(portfolioPayload?.assets) ? portfolioPayload.assets.slice(0, 5) : [],
+    execution: {
+      profileEnabled: Boolean(profile?.enabled),
+      activeBots: profile?.enabled ? 1 : 0,
+      totalBots: 1,
+      openOrdersCount: Number(portfolioPayload?.openOrders?.length || 0),
+      dailyLossPct: Number(dailyLossPct.toFixed(2)),
+      dailyAutoExecutions,
+      recentLossStreak,
+      autoExecutionRemaining: Math.max(0, Number(profile?.maxDailyAutoExecutions || 0) - dailyAutoExecutions),
+      eligibleCount,
+      blockedCount,
+      recentOrders: recentExecuteOrders,
+    },
+  };
+}
+
 async function saveExecutionProfileForUser(username, payload) {
   const existing = await getExecutionProfileForUser(username).catch(() => null);
   const profile = {
@@ -1182,6 +1269,11 @@ async function getExecutionCenter(req) {
   return getExecutionCenterForUser(session.username);
 }
 
+async function getExecutionDashboardSummary(req) {
+  const { session } = await getCredentialsForSession(req);
+  return getExecutionDashboardSummaryForUser(session.username);
+}
+
 async function updateExecutionProfile(req) {
   const { session } = await getCredentialsForSession(req);
   const body = parseJsonBody(req);
@@ -1485,6 +1577,8 @@ export {
   evaluateSignalEdgeSafety,
   executeSignalTrade,
   executeSignalTradeForUser,
+  getExecutionDashboardSummary,
+  getExecutionDashboardSummaryForUser,
   getExecutionCenter,
   getExecutionCenterForUser,
   getExecutionProfileForUser,

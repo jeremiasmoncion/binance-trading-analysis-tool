@@ -491,6 +491,7 @@ export function App() {
           onSetActiveWatchlist={watchlist.setActiveList}
           portfolioData={binance.portfolioData}
           executionCenter={binance.executionCenter}
+          dashboardSummary={binance.dashboardSummary}
           portfolioPeriod={binance.portfolioPeriod}
           hideSmallAssets={binance.hideSmallAssets}
           onPortfolioPeriodChange={handlePortfolioPeriodChange}

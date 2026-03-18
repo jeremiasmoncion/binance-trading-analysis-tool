@@ -1016,6 +1016,29 @@ export interface ExecutionCenterPayload {
   recentOrders: ExecutionOrderRecord[];
 }
 
+export interface DashboardSummaryPayload {
+  generatedAt: string;
+  connection: {
+    connected: boolean;
+    accountAlias?: string;
+  };
+  portfolio: PortfolioTotals;
+  topAssets: PortfolioAsset[];
+  execution: {
+    profileEnabled: boolean;
+    activeBots: number;
+    totalBots: number;
+    openOrdersCount: number;
+    dailyLossPct: number;
+    dailyAutoExecutions?: number;
+    recentLossStreak?: number;
+    autoExecutionRemaining?: number;
+    eligibleCount: number;
+    blockedCount: number;
+    recentOrders: ExecutionOrderRecord[];
+  };
+}
+
 export interface AppState {
   currentUser: UserSession | null;
   currentView: ViewName;

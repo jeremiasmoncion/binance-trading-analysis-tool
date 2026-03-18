@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authService, binanceService } from "../services/api";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
-import type { BinanceConnection, ExecutionCenterPayload, PortfolioPayload, UserSession, ViewName } from "../types";
+import type { BinanceConnection, DashboardSummaryPayload, ExecutionCenterPayload, PortfolioPayload, UserSession, ViewName } from "../types";
 
 interface BinanceFormState {
   alias: string;
@@ -91,6 +91,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   const [binanceConnection, setBinanceConnection] = useState<BinanceConnection | null>(null);
   const [portfolioData, setPortfolioData] = useState<PortfolioPayload | null>(null);
   const [executionCenter, setExecutionCenter] = useState<ExecutionCenterPayload | null>(null);
+  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummaryPayload | null>(null);
   const [portfolioPeriod, setPortfolioPeriod] = useState("1d");
   const [availableUsers, setAvailableUsers] = useState<UserSession[]>([]);
   const [hideSmallAssets, setHideSmallAssets] = useState(true);
@@ -204,6 +205,24 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return { ok: true as const, payload, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer la ejecución demo.";
+      return { ok: false as const, payload: null, message };
+    }
+  }, [currentUser?.username]);
+
+  const refreshDashboardSummary = useCallback(async (forceFresh = false) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return { ok: false as const, payload: null, message: "Sesion no disponible." };
+    }
+    try {
+      const payload = await binanceService.getDashboardSummary(forceFresh);
+      if (activeUsernameRef.current !== username) {
+        return { ok: false as const, payload: null, message: "Sesión cambió durante la carga." };
+      }
+      setDashboardSummary(payload);
+      return { ok: true as const, payload, message: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo leer el dashboard.";
       return { ok: false as const, payload: null, message };
     }
   }, [currentUser?.username]);
@@ -327,6 +346,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setBinanceConnection(null);
       setPortfolioData(null);
       setExecutionCenter(null);
+      setDashboardSummary(null);
       setAvailableUsers([]);
       setBinanceForm({ alias: "", apiKey: "", apiSecret: "" });
       return;
@@ -336,9 +356,10 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       const result = await refreshProfileData();
       if (result.connection?.connected) {
         await Promise.all([refreshPortfolio(portfolioPeriod, "full"), refreshExecutionCenter()]);
+        await refreshDashboardSummary(true).catch(() => null);
       }
     })();
-  }, [currentUser, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
+  }, [currentUser, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return;
@@ -354,10 +375,10 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
     if (currentView === "dashboard") {
-      void Promise.all([refreshPortfolio(portfolioPeriod, "live"), refreshExecutionCenter()]);
+      void refreshDashboardSummary(true);
     }
     lastViewRef.current = currentView;
-  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshExecutionCenter, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;
@@ -365,38 +386,49 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     const portfolioRefreshInterval =
       currentView === "balance"
         ? 20_000
-        : currentView === "dashboard"
-          ? 60_000
-          : 120_000;
+        : 120_000;
 
     const executionRefreshInterval =
       currentView === "memory"
         ? 35_000
-        : currentView === "dashboard"
-          ? 60_000
-          : 90_000;
+        : 90_000;
 
-    const portfolioIntervalId = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      const mode = currentView === "balance" || currentView === "dashboard" ? "live" : "full";
-      void refreshPortfolio(portfolioPeriod, mode);
-    }, portfolioRefreshInterval);
+    const dashboardRefreshInterval = currentView === "dashboard" ? 20_000 : 0;
 
-    const executionIntervalId = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void refreshExecutionCenter();
-    }, executionRefreshInterval);
+    const portfolioIntervalId = currentView === "dashboard"
+      ? null
+      : window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        const mode = currentView === "balance" ? "live" : "full";
+        void refreshPortfolio(portfolioPeriod, mode);
+      }, portfolioRefreshInterval);
+
+    const executionIntervalId = currentView === "dashboard"
+      ? null
+      : window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        void refreshExecutionCenter();
+      }, executionRefreshInterval);
+
+    const dashboardIntervalId = dashboardRefreshInterval
+      ? window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        void refreshDashboardSummary(true);
+      }, dashboardRefreshInterval)
+      : null;
 
     return () => {
-      window.clearInterval(portfolioIntervalId);
-      window.clearInterval(executionIntervalId);
+      if (portfolioIntervalId) window.clearInterval(portfolioIntervalId);
+      if (executionIntervalId) window.clearInterval(executionIntervalId);
+      if (dashboardIntervalId) window.clearInterval(dashboardIntervalId);
     };
-  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshExecutionCenter, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio]);
 
   return {
     binanceConnection,
     portfolioData,
     executionCenter,
+    dashboardSummary,
     portfolioPeriod,
     availableUsers,
     hideSmallAssets,
@@ -410,6 +442,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     refreshPortfolio,
     refreshPortfolioWithFeedback,
     refreshExecutionCenter,
+    refreshDashboardSummary,
     connect,
     disconnect,
   };

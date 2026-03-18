@@ -3,6 +3,7 @@ import {
   CoinsIcon,
   DownloadIcon,
   HelpCircleIcon,
+  SearchIcon,
   SparklesIcon,
   TrendUpIcon,
   WalletIcon,
@@ -49,6 +50,7 @@ type DashboardRange = "24h" | "7d" | "30d" | "90d" | "all";
 export function DashboardView(props: DashboardViewProps) {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [activeRange, setActiveRange] = useState<DashboardRange>("24h");
+  const [tradeSearch, setTradeSearch] = useState("");
   const signal = props.signal;
   const analysis = props.analysis;
   const portfolio = props.portfolioData?.portfolio;
@@ -85,6 +87,16 @@ export function DashboardView(props: DashboardViewProps) {
     () => buildRecentTradesRows(props.portfolioData?.recentTrades || [], recentExecuteOrders),
     [props.portfolioData?.recentTrades, recentExecuteOrders],
   );
+  const filteredRecentTrades = useMemo(() => {
+    const needle = tradeSearch.trim().toLowerCase();
+    if (!needle) return recentTrades;
+    return recentTrades.filter((trade) => (
+      trade.pair.toLowerCase().includes(needle)
+      || trade.side.toLowerCase().includes(needle)
+      || trade.typeLabel.toLowerCase().includes(needle)
+      || trade.botLabel.toLowerCase().includes(needle)
+    ));
+  }, [recentTrades, tradeSearch]);
   const deployedCapitalValue = portfolio?.positionsValue || 0;
   const deploymentPct = portfolioTotal > 0 ? ((deployedCapitalValue / portfolioTotal) * 100) : 0;
   const cashPct = portfolioTotal > 0 ? (((portfolio?.cashValue || 0) / portfolioTotal) * 100) : 0;
@@ -290,34 +302,32 @@ export function DashboardView(props: DashboardViewProps) {
           ) : null}
 
           <div className="dashboard-analytics-card">
-            <div className="dashboard-panel-head">
-              <div>
-                <div className="dashboard-panel-kicker">{tabSummary.kicker}</div>
-                <h2 className="dashboard-panel-title">{tabSummary.title}</h2>
-                <p className="dashboard-panel-subtitle">{tabSummary.subtitle}</p>
-              </div>
-              <DashboardHelpButton
-                title={tabSummary.title}
-                body={tabSummary.helpBody}
-                bullets={tabSummary.helpBullets}
-              />
-            </div>
-
             {activeTab === "recent-trades" ? (
               <div className="dashboard-trades-shell">
                 <div className="dashboard-trades-card">
                   <div className="ui-data-header dashboard-trades-header">
                     <div className="ui-data-title-block">
-                      <h3 className="dashboard-side-title">Recent trades</h3>
-                      <p className="dashboard-panel-subtitle">Last 5 account trades for quick review.</p>
+                      <h3 className="dashboard-side-title">Trade History</h3>
                     </div>
-                    <button type="button" className="ui-button" onClick={props.onSaveSignal}>
-                      <DownloadIcon />
-                      Export
-                    </button>
+                    <div className="dashboard-trades-tools">
+                      <label className="dashboard-trades-search">
+                        <SearchIcon />
+                        <input
+                          type="search"
+                          value={tradeSearch}
+                          onChange={(event) => setTradeSearch(event.target.value)}
+                          placeholder="Search trades..."
+                          aria-label="Search trades"
+                        />
+                      </label>
+                      <button type="button" className="ui-button" onClick={props.onSaveSignal}>
+                        <DownloadIcon />
+                        Export
+                      </button>
+                    </div>
                   </div>
 
-                  {!recentTrades.length ? (
+                  {!filteredRecentTrades.length ? (
                     <div className="dashboard-empty-state">No recent account trades yet.</div>
                   ) : (
                     <div className="ui-table-shell dashboard-trades-table-shell">
@@ -326,6 +336,7 @@ export function DashboardView(props: DashboardViewProps) {
                           <tr>
                             <th>Time</th>
                             <th>Pair</th>
+                            <th>Type</th>
                             <th>Side</th>
                             <th>Price</th>
                             <th>Amount</th>
@@ -335,11 +346,14 @@ export function DashboardView(props: DashboardViewProps) {
                           </tr>
                         </thead>
                         <tbody>
-                          {recentTrades.map((trade) => (
+                          {filteredRecentTrades.map((trade) => (
                             <tr key={trade.id}>
                               <td>{trade.timeLabel}</td>
                               <td>
                                 <strong className="dashboard-trade-pair">{trade.pair}</strong>
+                              </td>
+                              <td>
+                                <span className={`dashboard-trade-type ${trade.typeTone}`}>{trade.typeLabel}</span>
                               </td>
                               <td>
                                 <span className={`dashboard-trade-side ${trade.sideTone}`}>{trade.side}</span>
@@ -362,7 +376,21 @@ export function DashboardView(props: DashboardViewProps) {
                 </div>
               </div>
             ) : (
-              <div className="dashboard-analytics-grid">
+              <>
+                <div className="dashboard-panel-head">
+                  <div>
+                    <div className="dashboard-panel-kicker">{tabSummary.kicker}</div>
+                    <h2 className="dashboard-panel-title">{tabSummary.title}</h2>
+                    <p className="dashboard-panel-subtitle">{tabSummary.subtitle}</p>
+                  </div>
+                  <DashboardHelpButton
+                    title={tabSummary.title}
+                    body={tabSummary.helpBody}
+                    bullets={tabSummary.helpBullets}
+                  />
+                </div>
+
+                <div className="dashboard-analytics-grid">
                 <div className="dashboard-chart-shell">
                   <div className="chart-container dashboard-chart-card">
                     <div className="chart-header">
@@ -483,7 +511,8 @@ export function DashboardView(props: DashboardViewProps) {
                     </>
                   )}
                 </aside>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -733,6 +762,8 @@ interface DashboardRecentTradeRow {
   id: string;
   timeLabel: string;
   pair: string;
+  typeLabel: string;
+  typeTone: "primary" | "warning" | "danger";
   side: "BUY" | "SELL";
   sideTone: "buy" | "sell";
   price: number;
@@ -756,7 +787,9 @@ function buildRecentTradesRows(
         return {
           id: `${trade.orderId || trade.time || index}-${trade.symbol}-${trade.side}`,
           timeLabel: formatTradeTime(trade.time),
-          pair: trade.symbol,
+          pair: formatTradePair(trade.symbol),
+          typeLabel: getTradeTypeLabel(trade.sourceType, trade.originLabel),
+          typeTone: getTradeTypeTone(trade.sourceType, trade.originLabel),
           side: trade.side,
           sideTone: trade.side === "BUY" ? "buy" : "sell",
           price: Number(trade.price || 0),
@@ -782,6 +815,8 @@ function buildRecentTradesRows(
         id: String(order.id),
         timeLabel: formatTradeTime(order.closed_at || order.created_at),
         pair: order.coin ? `${order.coin}/USDT` : "--",
+        typeLabel: getTradeTypeLabel(order.mode, order.origin),
+        typeTone: getTradeTypeTone(order.mode, order.origin),
         side,
         sideTone: side === "SELL" ? "sell" : "buy",
         price,
@@ -798,13 +833,36 @@ function formatTradeTime(value: number | string | undefined) {
   if (!value) return "--";
   const date = typeof value === "number" ? new Date(value) : new Date(value);
   if (Number.isNaN(date.getTime())) return "--";
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
 }
 
 function formatTradeQty(value: number | undefined) {
   const amount = Number(value || 0);
   if (!Number.isFinite(amount) || amount <= 0) return "--";
   return amount >= 1 ? amount.toLocaleString(undefined, { maximumFractionDigits: 3 }) : amount.toFixed(4);
+}
+
+function formatTradePair(symbol?: string) {
+  const value = String(symbol || "").trim().toUpperCase();
+  if (!value) return "--";
+  if (value.endsWith("USDT")) return `${value.slice(0, -4)}/USDT`;
+  return value;
+}
+
+function getTradeTypeLabel(primary?: string, secondary?: string) {
+  const raw = String(primary || secondary || "").trim().toLowerCase();
+  if (raw.includes("manual")) return "Market";
+  if (raw.includes("signal")) return "Limit";
+  if (raw.includes("execute")) return "Limit";
+  if (raw.includes("stop")) return "Stop";
+  return "Trade";
+}
+
+function getTradeTypeTone(primary?: string, secondary?: string): "primary" | "warning" | "danger" {
+  const label = getTradeTypeLabel(primary, secondary);
+  if (label === "Stop") return "danger";
+  if (label === "Market") return "warning";
+  return "primary";
 }
 
 function getTradeOriginLabel(originLabel?: string, sourceType?: string) {

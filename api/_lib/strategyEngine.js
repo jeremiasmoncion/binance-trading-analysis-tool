@@ -402,6 +402,27 @@ function buildModelTrainingRunSignature(run) {
   });
 }
 
+function buildModelWindowGovernanceSignature(governance) {
+  return JSON.stringify({
+    activeScorer: String(governance?.activeScorer || ""),
+    candidateScorer: String(governance?.candidateScorer || ""),
+    action: String(governance?.action || "observe"),
+    alignedWindows: Number(governance?.alignedWindows || 0),
+    conflictingWindows: Number(governance?.conflictingWindows || 0),
+    confidence: Number(Number(governance?.confidence || 0).toFixed(1)),
+    windowVotes: Array.isArray(governance?.windowVotes)
+      ? governance.windowVotes.map((item) => ({
+        windowType: String(item?.windowType || "global"),
+        vote: String(item?.vote || "observe"),
+        sampleSize: Number(item?.sampleSize || 0),
+        edgeDelta: Number(Number(item?.edgeDelta || 0).toFixed(2)),
+        winRateDelta: Number(Number(item?.winRateDelta || 0).toFixed(2)),
+        confidence: Number(Number(item?.confidence || 0).toFixed(1)),
+      }))
+      : [],
+  });
+}
+
 async function recordScorerEvaluationHistory(username, scorerEvaluations) {
   const rows = Array.isArray(scorerEvaluations) ? scorerEvaluations : [];
   if (!rows.length) return;
@@ -452,6 +473,34 @@ async function recordScorerEvaluationHistory(username, scorerEvaluations) {
   }
 }
 
+async function recordModelWindowGovernanceHistory(username, governance) {
+  if (!governance?.candidateScorer) return;
+  const recentLogs = await fetchRecentAdaptiveActions(username, "model-window-governance", 6);
+  const signature = buildModelWindowGovernanceSignature(governance);
+  const latest = (recentLogs || [])[0];
+  const latestDetails = latest?.details && typeof latest.details === "object" ? latest.details : {};
+  if (String(latestDetails.signature || "") === signature) return;
+
+  await insertAdaptiveActionLogForUser(username, {
+    actionType: "model-window-governance",
+    targetType: "model-window-governance",
+    targetKey: `${governance.activeScorer}->${governance.candidateScorer}`,
+    source: "adaptive-governance",
+    status: String(governance.action || "observe"),
+    summary: String(governance.summary || ""),
+    details: {
+      signature,
+      activeScorer: governance.activeScorer,
+      candidateScorer: governance.candidateScorer,
+      challengerMode: governance.challengerMode,
+      alignedWindows: Number(governance.alignedWindows || 0),
+      conflictingWindows: Number(governance.conflictingWindows || 0),
+      confidence: Number(governance.confidence || 0),
+      windowVotes: Array.isArray(governance.windowVotes) ? governance.windowVotes : [],
+    },
+  }).catch(() => null);
+}
+
 function normalizeModelTrainingRunHistory(rows) {
   return (rows || []).map((row) => {
     const details = row?.details && typeof row.details === "object" ? row.details : {};
@@ -499,6 +548,25 @@ function normalizeModelConfigHistory(rows) {
       status: row?.status ? String(row.status) : undefined,
     };
   });
+}
+
+function normalizeModelWindowGovernanceHistory(rows) {
+  return (rows || []).map((row) => {
+    const details = row?.details && typeof row.details === "object" ? row.details : {};
+    return {
+      id: row?.id == null ? undefined : Number(row.id),
+      activeScorer: String(details.activeScorer || ""),
+      candidateScorer: String(details.candidateScorer || row?.target_key || ""),
+      challengerMode: details.challengerMode ? String(details.challengerMode) : undefined,
+      alignedWindows: Number(details.alignedWindows || 0),
+      conflictingWindows: Number(details.conflictingWindows || 0),
+      confidence: Number(details.confidence || 0),
+      action: String(row?.status || "observe"),
+      summary: String(row?.summary || ""),
+      windowVotes: Array.isArray(details.windowVotes) ? details.windowVotes : [],
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+    };
+  }).filter((item) => item.activeScorer || item.candidateScorer);
 }
 
 function normalizeModelConfigRegistry(rows) {
@@ -855,6 +923,7 @@ export async function getSystemStrategyDecisionState(username) {
   let scorerEvaluationHistory = [];
   let modelTrainingRunHistory = [];
   let modelConfigHistory = [];
+  let modelWindowGovernanceHistory = [];
   let modelConfigRegistry = [];
 
   try {
@@ -868,13 +937,14 @@ export async function getSystemStrategyDecisionState(username) {
       limit: "100",
     });
 
-    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory, modelConfigRegistry] = await Promise.all([
+    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory, modelWindowGovernanceHistory, modelConfigRegistry] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
       supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
       fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []),
       fetchRecentAdaptiveActions(username, "model-training-run", 12).catch(() => []),
       fetchRecentAdaptiveActions(username, "model-config", 8).catch(() => []),
+      fetchRecentAdaptiveActions(username, "model-window-governance", 8).catch(() => []),
       fetchModelConfigsForUser(username).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username, modelConfigRegistry).catch(() => null);
@@ -888,6 +958,7 @@ export async function getSystemStrategyDecisionState(username) {
     scorerEvaluationHistory = [];
     modelTrainingRunHistory = [];
     modelConfigHistory = [];
+    modelWindowGovernanceHistory = [];
     modelConfigRegistry = [];
   }
 
@@ -961,6 +1032,7 @@ export async function getSystemStrategyDecisionState(username) {
     scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
     modelTrainingRunHistory: normalizedTrainingRunHistory,
     modelConfigHistory: normalizedModelConfigRegistry.length ? normalizeModelConfigHistory(modelConfigRegistry || []) : normalizeModelConfigHistory(modelConfigHistory || []),
+    modelWindowGovernanceHistory: normalizeModelWindowGovernanceHistory(modelWindowGovernanceHistory || []),
     modelConfigRegistry: normalizedModelConfigRegistry,
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
@@ -2934,6 +3006,7 @@ export async function generateAdaptiveRecommendationsForUser(username) {
   const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
   const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, modelTrainingRuns, normalizedModelConfigRegistry);
   const modelWindowGovernance = buildModelWindowGovernance(modelTrainingRuns, modelRegistry, executionProfile);
+  await recordModelWindowGovernanceHistory(normalizedUsername, modelWindowGovernance).catch(() => null);
 
   const existingByKey = new Map((existingRecommendations || []).map((item) => [item.recommendation_key, item]));
   const rowsToUpsert = [

@@ -270,6 +270,26 @@ export interface StrategyDecisionState {
     createdAt?: string;
     status?: string;
   }>;
+  modelWindowGovernanceHistory?: Array<{
+    id?: number;
+    activeScorer: string;
+    candidateScorer: string;
+    challengerMode?: string;
+    alignedWindows: number;
+    conflictingWindows: number;
+    confidence: number;
+    action: "observe" | "sandbox" | "promote" | "rollback";
+    summary: string;
+    windowVotes?: Array<{
+      windowType: "recent" | "global" | "short";
+      vote: "observe" | "promote" | "keep";
+      sampleSize: number;
+      edgeDelta: number;
+      winRateDelta: number;
+      confidence: number;
+    }>;
+    createdAt?: string;
+  }>;
   scorerEvaluations?: Array<{
     scorer: string;
     challenger: string;

@@ -966,6 +966,11 @@ export function MemoryView(props: MemoryViewProps) {
     return rows.slice(0, 6);
   }, [decisionState?.modelConfigHistory]);
 
+  const modelWindowGovernanceHistory = useMemo(() => {
+    const rows = Array.isArray(decisionState?.modelWindowGovernanceHistory) ? decisionState.modelWindowGovernanceHistory : [];
+    return rows.slice(0, 6);
+  }, [decisionState?.modelWindowGovernanceHistory]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1180,6 +1185,36 @@ export function MemoryView(props: MemoryViewProps) {
     const contextBiasLeaders = [...(decisionState?.contextBiasByScope || [])]
       .sort((left, right) => Math.abs(Number(right.biasScore || 0)) - Math.abs(Number(left.biasScore || 0)));
     const strongestContextBias = contextBiasLeaders.find((item) => Number(item.biasScore || 0) > 0) || null;
+    const aiValidation = (() => {
+      const weights = {
+        scoring: scorerEvaluations.recent ? 15 : 0,
+        modelConfig: modelConfigHistory.length ? 10 : 0,
+        training: modelTrainingRunHistory.length >= 3 ? 12 : modelTrainingRunHistory.length ? 6 : 0,
+        governance: modelWindowGovernance
+          ? modelWindowGovernance.action === "promote"
+            ? 18
+            : modelWindowGovernance.action === "sandbox"
+              ? 12
+              : modelWindowGovernance.action === "observe"
+                ? 8
+                : 10
+          : 0,
+        activeModel: decisionState?.scorerPolicy?.activeScorer?.startsWith("model-") ? 15 : decisionState?.scorerPolicy?.activeScorer === "adaptive-v2" ? 8 : 0,
+        overrides: improvingOverrideCount >= degradingOverrideCount ? 10 : 4,
+        signalData: closedSignals.length >= 40 ? 12 : closedSignals.length >= 20 ? 8 : closedSignals.length >= 10 ? 4 : 0,
+        history: scorerEvaluationHistory.length >= 4 ? 8 : scorerEvaluationHistory.length ? 4 : 0,
+      };
+      const score = Math.min(100, Object.values(weights).reduce((sum, value) => sum + value, 0));
+      const stage = score >= 90 ? "muy cerca" : score >= 78 ? "avanzada" : score >= 62 ? "operativa" : "temprana";
+      const reading = score >= 90
+        ? "La IA ya tiene gobernanza learned, validación fuerte y suficiente trazabilidad para considerarse casi madura."
+        : score >= 78
+          ? "La IA ya gobierna partes clave del motor, pero todavía necesita más validación sostenida para considerarse madura al 100%."
+          : score >= 62
+            ? "La IA ya es operativa, aunque todavía hay piezas de validación y gobernanza por consolidar."
+            : "La IA ya aprende y ajusta, pero todavía no llega a una gobernanza suficientemente madura.";
+      return { score, stage, reading };
+    })();
 
     let nextAction: AutomationCommandCard = {
       title: "Seguir recolectando muestra útil",
@@ -1276,7 +1311,9 @@ export function MemoryView(props: MemoryViewProps) {
       modelRegistry,
       modelTrainingRunHistory,
       modelConfigHistory,
+      modelWindowGovernanceHistory,
       modelWindowGovernance,
+      aiValidation,
       shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
@@ -1285,7 +1322,7 @@ export function MemoryView(props: MemoryViewProps) {
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelConfigHistory, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.modelWindowGovernance, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelConfigHistory, modelRegistry, modelTrainingRunHistory, modelWindowGovernance, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
+  }, [adaptiveScoreImpact, closedSignals.length, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelConfigHistory, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.modelWindowGovernance, decisionState?.modelWindowGovernanceHistory, decisionState?.scorerPolicy?.activeScorer, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelConfigHistory, modelRegistry, modelTrainingRunHistory, modelWindowGovernance, modelWindowGovernanceHistory, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -2036,6 +2073,18 @@ export function MemoryView(props: MemoryViewProps) {
                       : "accent-blue"
                 }
               />
+              <StatCard
+                label="Madurez IA"
+                value={`${automationMasterBoard.aiValidation?.score || 0}%`}
+                sub={automationMasterBoard.aiValidation ? `Etapa ${automationMasterBoard.aiValidation.stage}` : "Calculando madurez"}
+                accentClass={
+                  (automationMasterBoard.aiValidation?.score || 0) >= 90
+                    ? "accent-emerald"
+                    : (automationMasterBoard.aiValidation?.score || 0) >= 75
+                      ? "accent-blue"
+                      : "accent-amber"
+                }
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -2212,6 +2261,11 @@ export function MemoryView(props: MemoryViewProps) {
                 Gobernanza multi-ventana: {automationMasterBoard.modelWindowGovernance.summary}
               </p>
             ) : null}
+            {automationMasterBoard.aiValidation ? (
+              <p className="section-note">
+                Validación IA: {automationMasterBoard.aiValidation.reading}
+              </p>
+            ) : null}
 
             <div className="signal-analytics-grid">
               <div className="signal-analytics-card">
@@ -2314,6 +2368,30 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                         <div className={`signal-analytics-pill ${item.status === "active" ? "status-running" : "status-sandbox"}`}>
                           {item.status || "active"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Historial multi-ventana</h4>
+                  <p>Aquí ves si short, recent y global se están alineando para promover o replegar modelos.</p>
+                </div>
+                {!automationMasterBoard.modelWindowGovernanceHistory?.length ? (
+                  <EmptyState message="Todavía no hay gobernanza multi-ventana registrada con suficiente historial." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {automationMasterBoard.modelWindowGovernanceHistory.map((item) => (
+                      <div key={`model-window-${item.id || `${item.activeScorer}-${item.candidateScorer}-${item.createdAt || item.summary}`}`} className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{item.activeScorer} vs {item.candidateScorer}</strong>
+                          <span>{item.summary}{item.createdAt ? ` · ${new Date(item.createdAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : ""}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${item.action === "promote" ? "status-running" : item.action === "rollback" ? "status-draft" : item.action === "sandbox" ? "status-sandbox" : "status-paused"}`}>
+                          {item.action}
                         </div>
                       </div>
                     ))}

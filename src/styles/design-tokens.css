@@ -46,8 +46,10 @@ html {
   --crype-shadow-dark: 0 10px 30px rgba(2, 6, 23, 0.35);
   --crype-motion-fast: 180ms cubic-bezier(0.22, 1, 0.36, 1);
   --crype-lift-y: -2px;
-  --crype-hover-border: rgba(99, 102, 241, 0.28);
-  --crype-hover-glow: 0 16px 28px rgba(99, 102, 241, 0.12);
+  --crype-hover-border: rgba(245, 158, 11, 0.62);
+  --crype-hover-glow:
+    0 16px 28px rgba(245, 158, 11, 0.14),
+    0 0 0 1px rgba(245, 158, 11, 0.1);
 }
 
 body {

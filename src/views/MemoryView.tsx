@@ -935,6 +935,11 @@ export function MemoryView(props: MemoryViewProps) {
     return rows.slice(0, 6);
   }, [decisionState?.modelTrainingRunHistory]);
 
+  const modelConfigHistory = useMemo(() => {
+    const rows = Array.isArray(decisionState?.modelConfigHistory) ? decisionState.modelConfigHistory : [];
+    return rows.slice(0, 6);
+  }, [decisionState?.modelConfigHistory]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1233,6 +1238,7 @@ export function MemoryView(props: MemoryViewProps) {
       scorerModelImpact,
       modelRegistry,
       modelTrainingRunHistory,
+      modelConfigHistory,
       shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
@@ -1241,7 +1247,7 @@ export function MemoryView(props: MemoryViewProps) {
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelRegistry, modelTrainingRunHistory, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelConfigHistory, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelConfigHistory, modelRegistry, modelTrainingRunHistory, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1968,6 +1974,12 @@ export function MemoryView(props: MemoryViewProps) {
                   : "Sin corridas registradas todavía"}
                 accentClass="accent-emerald"
               />
+              <StatCard
+                label="Config activa de modelo"
+                value={automationMasterBoard.modelConfigHistory?.[0]?.activeScorer || decisionState?.scorerPolicy?.activeScorer || "--"}
+                sub={automationMasterBoard.modelConfigHistory?.[0]?.createdAt ? `Actualizada ${new Date(automationMasterBoard.modelConfigHistory[0].createdAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : "Sin historial de activación todavía"}
+                accentClass="accent-amber"
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -2134,6 +2146,11 @@ export function MemoryView(props: MemoryViewProps) {
                 Training runs: {automationMasterBoard.modelTrainingRunHistory[0].label} {automationMasterBoard.modelTrainingRunHistory[0].windowType} deja {formatSignedPrice(automationMasterBoard.modelTrainingRunHistory[0].avgPnl)} con {automationMasterBoard.modelTrainingRunHistory[0].confidence.toFixed(0)}% de confianza.
               </p>
             ) : null}
+            {automationMasterBoard.modelConfigHistory?.length ? (
+              <p className="section-note">
+                Configuración activa de modelo: {automationMasterBoard.modelConfigHistory[0].activeScorer} · {automationMasterBoard.modelConfigHistory[0].summary}
+              </p>
+            ) : null}
 
             <div className="signal-analytics-grid">
               <div className="signal-analytics-card">
@@ -2212,6 +2229,30 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                         <div className={`signal-analytics-pill ${item.status === "ready" ? "status-running" : "status-sandbox"}`}>
                           {item.status || "observe"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Historial de configuración de modelo</h4>
+                  <p>Aquí ves cuándo el sistema cambió el modelo/scorer activo y por qué.</p>
+                </div>
+                {!automationMasterBoard.modelConfigHistory?.length ? (
+                  <EmptyState message="Todavía no hay cambios registrados de configuración de modelo." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {automationMasterBoard.modelConfigHistory.map((item) => (
+                      <div key={`model-config-${item.id || `${item.activeScorer}-${item.createdAt || item.summary}`}`} className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{item.activeScorer}</strong>
+                          <span>{item.summary || "Sin resumen"}{item.createdAt ? ` · ${new Date(item.createdAt).toLocaleString("es-DO", { dateStyle: "short", timeStyle: "short" })}` : ""}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${item.status === "active" ? "status-running" : "status-sandbox"}`}>
+                          {item.status || "active"}
                         </div>
                       </div>
                     ))}

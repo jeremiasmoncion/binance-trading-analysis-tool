@@ -463,6 +463,22 @@ function normalizeModelTrainingRunHistory(rows) {
   });
 }
 
+function normalizeModelConfigHistory(rows) {
+  return (rows || []).map((row) => {
+    const details = row?.details && typeof row.details === "object" ? row.details : {};
+    const scorerPolicy = details.scorerPolicy && typeof details.scorerPolicy === "object" ? details.scorerPolicy : {};
+    return {
+      id: row?.id,
+      activeScorer: String(scorerPolicy.activeScorer || row?.target_key || ""),
+      source: scorerPolicy.source ? String(scorerPolicy.source) : undefined,
+      confidence: scorerPolicy.confidence == null ? undefined : Number(scorerPolicy.confidence),
+      summary: row?.summary ? String(row.summary) : undefined,
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+      status: row?.status ? String(row.status) : undefined,
+    };
+  });
+}
+
 function buildLearnedModelRun(label, rows, windowType, scorerPolicy) {
   const cleanRows = (rows || []).filter((row) => row && row.realized_pnl != null);
   const total = cleanRows.length;
@@ -686,6 +702,7 @@ export async function getSystemStrategyDecisionState(username) {
   let featureSnapshots = [];
   let scorerEvaluationHistory = [];
   let modelTrainingRunHistory = [];
+  let modelConfigHistory = [];
 
   try {
     const versionsParams = new URLSearchParams({
@@ -698,12 +715,13 @@ export async function getSystemStrategyDecisionState(username) {
       limit: "100",
     });
 
-    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory] = await Promise.all([
+    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
       supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
       fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []),
       fetchRecentAdaptiveActions(username, "model-training-run", 12).catch(() => []),
+      fetchRecentAdaptiveActions(username, "model-config", 8).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username).catch(() => null);
     signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
@@ -715,6 +733,7 @@ export async function getSystemStrategyDecisionState(username) {
     featureSnapshots = [];
     scorerEvaluationHistory = [];
     modelTrainingRunHistory = [];
+    modelConfigHistory = [];
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -783,6 +802,7 @@ export async function getSystemStrategyDecisionState(username) {
     shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
     scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
     modelTrainingRunHistory: normalizedTrainingRunHistory,
+    modelConfigHistory: normalizeModelConfigHistory(modelConfigHistory || []),
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
@@ -2240,6 +2260,32 @@ function getScopeRecommendationPolicyAction(recommendation) {
   return "";
 }
 
+function getAdaptiveScorerRecommendationPolicyAction(recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const action = String(evidence.action || "promote");
+  const candidateScorer = String(evidence.candidateScorer || "").trim().toLowerCase();
+  const confidence = Number(recommendation.confidence || 0);
+  const sampleReady = Number(
+    evidence.sampleSizeReady
+      || evidence.sampleSizeRecent
+      || evidence.sampleSizeV2
+      || evidence.sampleSizeCurrent
+      || 0,
+  );
+
+  if (recommendation.status === "draft") {
+    if (action === "rollback" && sampleReady >= 6 && confidence >= 0.7) return "auto-sandbox";
+    if (candidateScorer.startsWith("model-") && sampleReady >= 8 && confidence >= 0.78) return "auto-sandbox";
+  }
+
+  if (recommendation.status === "sandbox") {
+    if (action === "rollback" && sampleReady >= 8 && confidence >= 0.78) return "auto-apply";
+    if (candidateScorer.startsWith("model-") && sampleReady >= 12 && confidence >= 0.86) return "auto-apply";
+  }
+
+  return "";
+}
+
 async function moveScopeRecommendationToSandbox(recommendation) {
   const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
   const rows = await supabaseRequest(
@@ -2255,6 +2301,30 @@ async function moveScopeRecommendationToSandbox(recommendation) {
           policyAutomation: {
             type: "auto-sandbox",
             action: evidence.scopeAction || "",
+            appliedAt: new Date().toISOString(),
+          },
+        },
+      },
+    },
+  );
+  return rows?.[0] || recommendation;
+}
+
+async function moveAdaptiveScorerRecommendationToSandbox(recommendation) {
+  const evidence = recommendation.evidence && typeof recommendation.evidence === "object" ? recommendation.evidence : {};
+  const rows = await supabaseRequest(
+    `${STRATEGY_RECOMMENDATIONS_TABLE}?id=eq.${Number(recommendation.id)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: {
+        status: "sandbox",
+        evidence: {
+          ...evidence,
+          sandboxAt: evidence.sandboxAt || new Date().toISOString(),
+          policyAutomation: {
+            type: "auto-sandbox",
+            action: evidence.action || "",
             appliedAt: new Date().toISOString(),
           },
         },
@@ -2458,13 +2528,25 @@ export async function generateAdaptiveRecommendationsForUser(username) {
   const finalRows = [];
   for (const row of rows || []) {
     let nextRow = row;
-    const policyAction = getScopeRecommendationPolicyAction(nextRow);
-    if (policyAction === "auto-sandbox") {
-      nextRow = await moveScopeRecommendationToSandbox(nextRow);
-    }
-    if (shouldAutoApplyScopeRecommendation(nextRow) || getScopeRecommendationPolicyAction(nextRow) === "auto-apply") {
-      finalRows.push((await applyExecutionScopeRecommendation(normalizedUsername, nextRow)).recommendation);
-      continue;
+    const evidence = nextRow.evidence && typeof nextRow.evidence === "object" ? nextRow.evidence : {};
+    if (evidence.recommendationType === "execution-scope-override") {
+      const policyAction = getScopeRecommendationPolicyAction(nextRow);
+      if (policyAction === "auto-sandbox") {
+        nextRow = await moveScopeRecommendationToSandbox(nextRow);
+      }
+      if (shouldAutoApplyScopeRecommendation(nextRow) || getScopeRecommendationPolicyAction(nextRow) === "auto-apply") {
+        finalRows.push((await applyExecutionScopeRecommendation(normalizedUsername, nextRow)).recommendation);
+        continue;
+      }
+    } else if (evidence.recommendationType === "adaptive-scorer-promotion") {
+      const scorerPolicyAction = getAdaptiveScorerRecommendationPolicyAction(nextRow);
+      if (scorerPolicyAction === "auto-sandbox") {
+        nextRow = await moveAdaptiveScorerRecommendationToSandbox(nextRow);
+      }
+      if (getAdaptiveScorerRecommendationPolicyAction(nextRow) === "auto-apply") {
+        finalRows.push((await applyAdaptiveScorerPromotionRecommendation(normalizedUsername, nextRow)).recommendation);
+        continue;
+      }
     }
     finalRows.push(nextRow);
   }
@@ -2659,6 +2741,22 @@ async function applyAdaptiveScorerPromotionRecommendation(username, recommendati
     details: {
       recommendationKey: recommendation.recommendation_key,
       scorerPolicy,
+      evidence: updatedEvidence,
+    },
+  }).catch(() => null);
+
+  await insertAdaptiveActionLogForUser(username, {
+    username,
+    actionType: "activate-model-config",
+    targetType: "model-config",
+    targetKey: candidateScorer,
+    recommendationId: recommendation.id,
+    source: "adaptive-recommendation",
+    status: "active",
+    summary: `Configuración activa del modelo ahora apunta a ${candidateScorer}`,
+    details: {
+      scorerPolicy,
+      recommendationKey: recommendation.recommendation_key,
       evidence: updatedEvidence,
     },
   }).catch(() => null);

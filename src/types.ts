@@ -234,6 +234,15 @@ export interface StrategyDecisionState {
     status?: string;
     createdAt?: string;
   }>;
+  modelConfigHistory?: Array<{
+    id?: number;
+    activeScorer: string;
+    source?: string;
+    confidence?: number;
+    summary?: string;
+    createdAt?: string;
+    status?: string;
+  }>;
   scorerEvaluations?: Array<{
     scorer: string;
     challenger: string;

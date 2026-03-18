@@ -630,6 +630,33 @@ function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
   });
 }
 
+function buildValidationReportFromStoredRun(run) {
+  if (!run) return null;
+  const payload = run.report_payload && typeof run.report_payload === "object" ? run.report_payload : {};
+  const report = payload && typeof payload === "object" && Array.isArray(payload.invariants)
+    ? payload
+    : null;
+  if (!report) return null;
+  return {
+    generatedAt: String(report.generatedAt || run.created_at || new Date().toISOString()),
+    summary: {
+      maturityScore: Number(report.summary?.maturityScore || run.maturity_score || 0),
+      closedSignals: Number(report.summary?.closedSignals || run.closed_signals || 0),
+      featureSnapshots: Number(report.summary?.featureSnapshots || run.feature_snapshots || 0),
+      passedInvariants: Number(report.summary?.passedInvariants || run.passed_invariants || 0),
+      warnedInvariants: Number(report.summary?.warnedInvariants || run.warned_invariants || 0),
+      failedInvariants: Number(report.summary?.failedInvariants || run.failed_invariants || 0),
+      activeScorer: String(report.summary?.activeScorer || run.active_scorer || "adaptive-v1"),
+    },
+    invariants: Array.isArray(report.invariants) ? report.invariants : [],
+    scorerTable: Array.isArray(report.scorerTable) ? report.scorerTable : [],
+    replayWindows: Array.isArray(report.replayWindows) ? report.replayWindows : [],
+    scenarios: Array.isArray(report.scenarios) ? report.scenarios : [],
+    modelWindowGovernance: report.modelWindowGovernance || null,
+    modelWindowGovernanceHistory: Array.isArray(report.modelWindowGovernanceHistory) ? report.modelWindowGovernanceHistory : [],
+  };
+}
+
 function normalizeModelConfigRegistry(rows) {
   return (rows || []).map((row) => {
     const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {};
@@ -762,6 +789,40 @@ async function fetchBacktestRunsForUser(username, limit = 12) {
     report_payload: row?.details,
     created_at: row?.created_at,
   })));
+}
+
+async function fetchLatestBacktestRunRowForUser(username) {
+  try {
+    const params = new URLSearchParams({
+      select: "*",
+      username: `eq.${String(username)}`,
+      order: "created_at.desc",
+      limit: "1",
+    });
+    const rows = await supabaseRequest(`${BACKTEST_RUNS_TABLE}?${params.toString()}`);
+    return rows?.[0] || null;
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  const fallbackRows = await fetchRecentAdaptiveActions(username, "backtest-run", 1);
+  const row = fallbackRows?.[0];
+  if (!row) return null;
+  return {
+    id: row?.id,
+    label: row?.target_key,
+    trigger_source: row?.source,
+    active_scorer: row?.details?.summary?.activeScorer,
+    maturity_score: row?.details?.summary?.maturityScore,
+    closed_signals: row?.details?.summary?.closedSignals,
+    feature_snapshots: row?.details?.summary?.featureSnapshots,
+    passed_invariants: row?.details?.summary?.passedInvariants,
+    warned_invariants: row?.details?.summary?.warnedInvariants,
+    failed_invariants: row?.details?.summary?.failedInvariants,
+    summary: row?.summary,
+    report_payload: row?.details,
+    created_at: row?.created_at,
+  };
 }
 
 async function persistBacktestRunForUser(username, report, options = {}) {
@@ -3348,20 +3409,44 @@ function buildValidationScenarios(decisionState, replayWindows) {
 
 export async function getStrategyValidationReportForUser(username) {
   const normalizedUsername = String(username || "").trim();
-  const [signals, featureSnapshots, decisionState] = await Promise.all([
-    supabaseRequest(`${SIGNALS_TABLE}?select=id,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_payload,execution_order_id&username=eq.${normalizedUsername}&order=created_at.desc&limit=300`).catch(() => []),
-    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
-    getSystemStrategyDecisionState(normalizedUsername),
+  const [signals, featureSnapshots, executionProfile, scorerEvaluationHistory, modelTrainingRunHistory, modelConfigHistory, modelWindowGovernanceHistory, modelConfigRegistry] = await Promise.all([
+    supabaseRequest(`${SIGNALS_TABLE}?select=id,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_payload,execution_order_id,strategy_name,strategy_version,timeframe,signal_label&username=eq.${normalizedUsername}&order=created_at.desc&limit=220`).catch(() => []),
+    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=320`).catch(() => []),
+    getExecutionProfileForUser(normalizedUsername).catch(() => null),
+    fetchRecentAdaptiveActions(normalizedUsername, "scorer-model-evaluation", 8).catch(() => []),
+    fetchRecentAdaptiveActions(normalizedUsername, "model-training-run", 10).catch(() => []),
+    fetchRecentAdaptiveActions(normalizedUsername, "model-config", 6).catch(() => []),
+    fetchRecentAdaptiveActions(normalizedUsername, "model-window-governance", 6).catch(() => []),
+    fetchModelConfigsForUser(normalizedUsername).catch(() => []),
   ]);
+
+  const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
+  const normalizedTrainingRunHistory = normalizeModelTrainingRunHistory(modelTrainingRunHistory || []);
+  const latestTrainingRuns = [];
+  const seenTrainingKeys = new Set();
+  for (const row of normalizedTrainingRunHistory) {
+    const key = `${row.label}:${row.windowType}`;
+    if (seenTrainingKeys.has(key)) continue;
+    seenTrainingKeys.add(key);
+    latestTrainingRuns.push(row);
+  }
+  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, latestTrainingRuns, normalizedModelConfigRegistry);
+  const modelWindowGovernance = buildModelWindowGovernance(latestTrainingRuns, modelRegistry, executionProfile);
+  const decisionState = {
+    scorerPolicy: executionProfile?.scorerPolicy || null,
+    modelConfigRegistry: normalizedModelConfigRegistry,
+    modelWindowGovernance,
+    modelWindowGovernanceHistory: normalizeModelWindowGovernanceHistory(modelWindowGovernanceHistory || []),
+  };
 
   const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
   const invariants = buildValidationInvariants({
-    executionProfile: { scorerPolicy: decisionState?.scorerPolicy || null },
+    executionProfile: executionProfile || { scorerPolicy: decisionState?.scorerPolicy || null },
     decisionState,
     signals,
     featureSnapshots,
   });
-  const scorerTable = buildValidationScorerTable(signals || [], { scorerPolicy: decisionState?.scorerPolicy || null });
+  const scorerTable = buildValidationScorerTable(signals || [], executionProfile || { scorerPolicy: decisionState?.scorerPolicy || null });
   const replayWindows = buildReplayWindows(signals || [], { scorerPolicy: decisionState?.scorerPolicy || null }, decisionState);
   const scenarios = buildValidationScenarios(decisionState, replayWindows);
   const passed = invariants.filter((item) => item.status === "pass").length;
@@ -3401,8 +3486,10 @@ export async function getStrategyValidationReportForUser(username) {
 }
 
 export async function getStrategyValidationLabForUser(username) {
-  const report = await getStrategyValidationReportForUser(username);
   const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  const latestRunRow = await fetchLatestBacktestRunRowForUser(username).catch(() => null);
+  const cachedReport = buildValidationReportFromStoredRun(latestRunRow);
+  const report = cachedReport || await getStrategyValidationReportForUser(username);
   return { report, runs };
 }
 

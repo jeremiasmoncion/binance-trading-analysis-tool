@@ -46,6 +46,7 @@ body:not(.dark-theme) .top-bar {
 
 body.light-theme .search-coin input,
 body.light-theme .timeframe-select,
+body.light-theme .topbar-sidebar-toggle,
 body.light-theme .topbar-icon-btn,
 body.light-theme .topbar-icon-shell,
 body.light-theme .topbar-status-shell,
@@ -61,6 +62,7 @@ body.light-theme .btn-secondary-soft,
 body.light-theme .coin-clear-btn,
 body:not(.dark-theme) .search-coin input,
 body:not(.dark-theme) .timeframe-select,
+body:not(.dark-theme) .topbar-sidebar-toggle,
 body:not(.dark-theme) .topbar-icon-btn,
 body:not(.dark-theme) .topbar-icon-shell,
 body:not(.dark-theme) .topbar-status-shell,
@@ -80,14 +82,27 @@ body:not(.dark-theme) .coin-clear-btn {
 }
 
 body.light-theme .topbar-status-shell,
+body.light-theme .topbar-sidebar-toggle,
 body.light-theme .topbar-icon-shell,
 body.light-theme .topbar-user-shell,
 body.light-theme .coin-clear-btn,
 body:not(.dark-theme) .topbar-status-shell,
+body:not(.dark-theme) .topbar-sidebar-toggle,
 body:not(.dark-theme) .topbar-icon-shell,
 body:not(.dark-theme) .topbar-user-shell,
 body:not(.dark-theme) .coin-clear-btn {
   box-shadow: 0 10px 20px rgba(148, 163, 184, 0.12);
+}
+
+body.light-theme .topbar-sidebar-toggle:hover,
+body:not(.dark-theme) .topbar-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.96);
+  color: #1e293b;
+  border-color: rgba(245, 158, 11, 0.42);
+  box-shadow:
+    0 14px 24px rgba(148, 163, 184, 0.16),
+    0 0 0 1px rgba(245, 158, 11, 0.14),
+    0 0 18px rgba(245, 158, 11, 0.12);
 }
 
 body.light-theme .topbar-user-chevron,

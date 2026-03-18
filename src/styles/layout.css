@@ -738,7 +738,7 @@
   gap: 12px;
   flex-wrap: nowrap;
   justify-content: flex-end;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 
 .wallet-filter-chip-row {
@@ -976,6 +976,47 @@ body.dark-theme .wallet-pill.wallet-negative { color: var(--crype-dark-danger); 
 body.dark-theme .wallet-hero-badge.wallet-neutral,
 body.dark-theme .wallet-quick-chip.wallet-neutral,
 body.dark-theme .wallet-pill.wallet-neutral { color: var(--crype-dark-muted); }
+
+body.dark-theme .wallet-hero-metric-value.wallet-positive,
+body.dark-theme .ui-metric-box-value.wallet-positive,
+body.dark-theme .wallet-quick-value.wallet-positive,
+body.dark-theme .ui-summary-card-value.wallet-positive {
+  color: var(--crype-dark-success);
+}
+
+body.dark-theme .wallet-hero-metric-value.wallet-negative,
+body.dark-theme .ui-metric-box-value.wallet-negative,
+body.dark-theme .wallet-quick-value.wallet-negative,
+body.dark-theme .ui-summary-card-value.wallet-negative {
+  color: var(--crype-dark-danger);
+}
+
+body.dark-theme .wallet-hero-metric-value.wallet-neutral,
+body.dark-theme .ui-metric-box-value.wallet-neutral,
+body.dark-theme .wallet-quick-value.wallet-neutral,
+body.dark-theme .ui-summary-card-value.wallet-neutral {
+  color: var(--crype-dark-muted);
+}
+
+@media (min-width: 821px) {
+  .wallet-card-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .wallet-card-tools {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    margin-left: auto;
+  }
+
+  .wallet-search-shell {
+    flex: 0 0 auto;
+  }
+}
 
 body.dark-theme .wallet-table-shell {
   border-top-color: var(--crype-dark-border);

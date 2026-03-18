@@ -95,6 +95,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   const [hideSmallAssets, setHideSmallAssets] = useState(true);
   const [binanceForm, setBinanceForm] = useState<BinanceFormState>({ alias: "", apiKey: "", apiSecret: "" });
   const activeUsernameRef = useRef("");
+  const lastViewRef = useRef(currentView);
 
   useEffect(() => {
     activeUsernameRef.current = currentUser?.username || "";
@@ -325,15 +326,19 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     if (!currentUser || !binanceConnection?.connected) return;
     if (currentView === "memory") {
       void refreshExecutionCenter();
+      lastViewRef.current = currentView;
       return;
     }
     if (currentView === "balance") {
-      void refreshPortfolio(portfolioPeriod, "live");
+      const enteringBalance = lastViewRef.current !== "balance";
+      void refreshPortfolio(portfolioPeriod, enteringBalance ? "full" : "live");
+      lastViewRef.current = currentView;
       return;
     }
     if (currentView === "dashboard") {
       void Promise.all([refreshPortfolio(portfolioPeriod, "live"), refreshExecutionCenter()]);
     }
+    lastViewRef.current = currentView;
   }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshExecutionCenter, refreshPortfolio]);
 
   useEffect(() => {

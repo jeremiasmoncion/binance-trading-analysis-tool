@@ -295,6 +295,18 @@ body.dark-theme .ui-metric-box-value,
 body.dark-theme .ui-legend-row {
   color: var(--crype-dark-text);
 }
+body.dark-theme .ui-metric-box-value.wallet-positive,
+body.dark-theme .ui-summary-card-value.wallet-positive {
+  color: var(--crype-dark-success);
+}
+body.dark-theme .ui-metric-box-value.wallet-negative,
+body.dark-theme .ui-summary-card-value.wallet-negative {
+  color: var(--crype-dark-danger);
+}
+body.dark-theme .ui-metric-box-value.wallet-neutral,
+body.dark-theme .ui-summary-card-value.wallet-neutral {
+  color: var(--crype-dark-muted);
+}
 body.dark-theme .topbar-icon-btn,
 body.dark-theme .theme-toggle.topbar-icon-btn {
   background: rgba(15, 23, 42, 0.92);

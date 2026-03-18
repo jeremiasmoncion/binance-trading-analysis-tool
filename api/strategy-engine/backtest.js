@@ -1,4 +1,4 @@
-import { backfillStrategyLearningDataset, getStrategyValidationLab, runStrategyBacktest, sendJson } from "../_lib/strategyEngine.js";
+import { backfillStrategyLearningDataset, getStrategyValidationLab, processQueuedStrategyBacktests, runStrategyBacktest, sendJson } from "../_lib/strategyEngine.js";
 
 async function parseBody(req) {
   if (req?.body !== undefined && req?.body !== null) return req.body;
@@ -26,6 +26,9 @@ export default async function handler(req, res) {
       req.body = body;
       if (body?.action === "backfillDataset") {
         return sendJson(res, 200, await backfillStrategyLearningDataset(req));
+      }
+      if (body?.action === "processQueue") {
+        return sendJson(res, 200, await processQueuedStrategyBacktests(req));
       }
       return sendJson(res, 200, await runStrategyBacktest(req));
     }

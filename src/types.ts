@@ -430,6 +430,7 @@ export interface StrategyBacktestRun {
   warnedInvariants: number;
   failedInvariants: number;
   summary: string;
+  status?: "queued" | "running" | "completed";
   createdAt?: string;
   windows: StrategyValidationReplayWindow[];
 }
@@ -438,6 +439,11 @@ export interface StrategyValidationLabPayload {
   report: StrategyValidationReport;
   runs: StrategyBacktestRun[];
   run?: StrategyBacktestRun | null;
+  processed?: StrategyBacktestRun[];
+  queue?: {
+    pending: number;
+    running: number;
+  };
   backfill?: {
     scannedClosedSignals: number;
     executionLearningBackfilled: number;

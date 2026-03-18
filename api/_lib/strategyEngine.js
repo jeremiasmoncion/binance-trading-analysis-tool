@@ -624,6 +624,7 @@ function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
       warnedInvariants: Number(row?.warned_invariants ?? reportPayload?.summary?.warnedInvariants ?? 0),
       failedInvariants: Number(row?.failed_invariants ?? reportPayload?.summary?.failedInvariants ?? 0),
       summary: String(row?.summary || reportPayload?.summaryText || "Sin resumen"),
+      status: String(row?.status || reportPayload?.runStatus || "completed"),
       createdAt: row?.created_at ? String(row.created_at) : undefined,
       windows,
     };
@@ -851,6 +852,143 @@ async function fetchLatestBacktestRunRowForUser(username) {
     report_payload: row?.details,
     created_at: row?.created_at,
   };
+}
+
+async function createPendingBacktestRunForUser(username, options = {}) {
+  const runLabel = String(options.label || `Run ${new Date().toLocaleString("es-DO")}`);
+  const requestedAt = new Date().toISOString();
+  const runPayload = {
+    username: String(username),
+    label: runLabel,
+    trigger_source: String(options.triggerSource || "manual"),
+    active_scorer: String(options.activeScorer || "adaptive-v1"),
+    maturity_score: 0,
+    closed_signals: 0,
+    feature_snapshots: 0,
+    passed_invariants: 0,
+    warned_invariants: 0,
+    failed_invariants: 0,
+    summary: "Corrida en cola. Todavía no se ha procesado.",
+    report_payload: {
+      runStatus: "queued",
+      requestedAt,
+      label: runLabel,
+      triggerSource: String(options.triggerSource || "manual"),
+      summaryText: "Corrida en cola. Todavía no se ha procesado.",
+    },
+  };
+
+  try {
+    const rows = await supabaseRequest(BACKTEST_RUNS_TABLE, {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: [runPayload],
+    });
+    return normalizeBacktestRuns(rows || [runPayload])[0] || null;
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  await insertAdaptiveActionLogForUser(username, {
+    actionType: "backtest-run",
+    targetType: "backtest-run",
+    targetKey: runLabel,
+    source: String(options.triggerSource || "manual"),
+    status: "queued",
+    summary: "Corrida en cola. Todavía no se ha procesado.",
+    details: runPayload.report_payload,
+  }).catch(() => null);
+
+  return {
+    label: runLabel,
+    triggerSource: String(options.triggerSource || "manual"),
+    activeScorer: String(options.activeScorer || "adaptive-v1"),
+    maturityScore: 0,
+    closedSignals: 0,
+    featureSnapshots: 0,
+    passedInvariants: 0,
+    warnedInvariants: 0,
+    failedInvariants: 0,
+    summary: "Corrida en cola. Todavía no se ha procesado.",
+    status: "queued",
+    createdAt: requestedAt,
+    windows: [],
+  };
+}
+
+async function updateBacktestRunForUser(username, runId, report, options = {}) {
+  const runLabel = String(options.label || `Run ${new Date().toLocaleString("es-DO")}`);
+  const runStatus = String(options.runStatus || "completed");
+  const summaryText = `${report.summary.activeScorer} · madurez ${report.summary.maturityScore}/100 · ${report.summary.closedSignals} cierres auditados`;
+  const runPayload = {
+    label: runLabel,
+    trigger_source: String(options.triggerSource || "manual"),
+    active_scorer: String(report.summary.activeScorer || "adaptive-v1"),
+    maturity_score: Number(report.summary.maturityScore || 0),
+    closed_signals: Number(report.summary.closedSignals || 0),
+    feature_snapshots: Number(report.summary.featureSnapshots || 0),
+    passed_invariants: Number(report.summary.passedInvariants || 0),
+    warned_invariants: Number(report.summary.warnedInvariants || 0),
+    failed_invariants: Number(report.summary.failedInvariants || 0),
+    summary: summaryText,
+    report_payload: {
+      ...report,
+      runStatus,
+      label: runLabel,
+      triggerSource: String(options.triggerSource || "manual"),
+      summaryText,
+      completedAt: new Date().toISOString(),
+    },
+  };
+
+  try {
+    const params = new URLSearchParams({
+      id: `eq.${Number(runId)}`,
+      username: `eq.${String(username)}`,
+    });
+    const rows = await supabaseRequest(`${BACKTEST_RUNS_TABLE}?${params.toString()}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: runPayload,
+    });
+    await supabaseRequest(`${BACKTEST_RUN_WINDOWS_TABLE}?run_id=eq.${Number(runId)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    }).catch((error) => {
+      if (!isMissingRelationError(error)) throw error;
+    });
+    if (Array.isArray(report.replayWindows) && report.replayWindows.length) {
+      await supabaseRequest(BACKTEST_RUN_WINDOWS_TABLE, {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: report.replayWindows.map((item) => ({
+          run_id: Number(runId),
+          window_key: String(item.key || String(item.label || "recent").toLowerCase()),
+          window_label: String(item.label || "Recent"),
+          sample_size: Number(item.total || item.sampleSize || 0),
+          active_scorer: String(item.activeScorer || ""),
+          challenger_scorer: String(item.challengerScorer || ""),
+          active_avg_pnl: Number(item.activeAvgPnl || 0),
+          challenger_avg_pnl: Number(item.challengerAvgPnl || 0),
+          active_win_rate: Number(item.activeWinRate || 0),
+          challenger_win_rate: Number(item.challengerWinRate || 0),
+          verdict: String(item.verdict || ""),
+        })),
+      }).catch((error) => {
+        if (!isMissingRelationError(error)) throw error;
+      });
+    }
+    return normalizeBacktestRuns(rows || [runPayload])[0] || null;
+  } catch (error) {
+    if (!isMissingRelationError(error)) throw error;
+  }
+
+  return persistBacktestRunForUser(username, report, options);
+}
+
+async function fetchQueuedBacktestRunsForUser(username, limit = 4) {
+  const runs = await fetchBacktestRunsForUser(username, limit + 8).catch(() => []);
+  return (runs || []).filter((item) => item.status === "queued" || item.status === "running").slice(0, limit);
 }
 
 async function persistBacktestRunForUser(username, report, options = {}) {
@@ -3516,9 +3654,16 @@ export async function getStrategyValidationReportForUser(username) {
 
 export async function getStrategyValidationLabForUser(username) {
   const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
-  const latestRun = Array.isArray(runs) && runs.length ? runs[0] : null;
+  const latestRun = Array.isArray(runs) && runs.find((item) => item.status !== "queued" && item.status !== "running") ? runs.find((item) => item.status !== "queued" && item.status !== "running") : (Array.isArray(runs) && runs.length ? runs[0] : null);
   const report = buildValidationReportFromRunSummary(latestRun) || await getStrategyValidationReportForUser(username);
-  return { report, runs };
+  return {
+    report,
+    runs,
+    queue: {
+      pending: (runs || []).filter((item) => item.status === "queued").length,
+      running: (runs || []).filter((item) => item.status === "running").length,
+    },
+  };
 }
 
 export async function getStrategyValidationReport(req) {
@@ -3532,10 +3677,36 @@ export async function getStrategyValidationLab(req) {
 }
 
 export async function runStrategyBacktestForUser(username, options = {}) {
-  const report = await getStrategyValidationReportForUser(username);
-  const run = await persistBacktestRunForUser(username, report, options);
+  const run = await createPendingBacktestRunForUser(username, options);
   const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
-  return { report, run, runs };
+  const latestRun = Array.isArray(runs) && runs.find((item) => item.status !== "queued" && item.status !== "running") ? runs.find((item) => item.status !== "queued" && item.status !== "running") : null;
+  const report = buildValidationReportFromRunSummary(latestRun);
+  return {
+    report: report || {
+      generatedAt: new Date().toISOString(),
+      summary: {
+        maturityScore: 0,
+        closedSignals: 0,
+        featureSnapshots: 0,
+        passedInvariants: 0,
+        warnedInvariants: 0,
+        failedInvariants: 0,
+        activeScorer: run?.activeScorer || "adaptive-v1",
+      },
+      invariants: [],
+      scorerTable: [],
+      replayWindows: [],
+      scenarios: [],
+      modelWindowGovernance: null,
+      modelWindowGovernanceHistory: [],
+    },
+    run,
+    runs,
+    queue: {
+      pending: (runs || []).filter((item) => item.status === "queued").length,
+      running: (runs || []).filter((item) => item.status === "running").length,
+    },
+  };
 }
 
 export async function runStrategyBacktest(req) {
@@ -3544,6 +3715,60 @@ export async function runStrategyBacktest(req) {
   return runStrategyBacktestForUser(session.username, {
     label: body?.label,
     triggerSource: body?.triggerSource || "manual",
+  });
+}
+
+export async function processQueuedStrategyBacktestsForUser(username, options = {}) {
+  const queuedRuns = await fetchQueuedBacktestRunsForUser(username, Number(options.limit || 1));
+  const processed = [];
+
+  for (const queuedRun of queuedRuns) {
+    const report = await getStrategyValidationReportForUser(username);
+    const completedRun = await updateBacktestRunForUser(username, queuedRun.id, report, {
+      label: queuedRun.label,
+      triggerSource: queuedRun.triggerSource || options.triggerSource || "queue-processor",
+      runStatus: "completed",
+    });
+    processed.push(completedRun || queuedRun);
+  }
+
+  const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
+  const latestRun = Array.isArray(runs) && runs.find((item) => item.status !== "queued" && item.status !== "running") ? runs.find((item) => item.status !== "queued" && item.status !== "running") : null;
+  const report = buildValidationReportFromRunSummary(latestRun) || {
+    generatedAt: new Date().toISOString(),
+    summary: {
+      maturityScore: 0,
+      closedSignals: 0,
+      featureSnapshots: 0,
+      passedInvariants: 0,
+      warnedInvariants: 0,
+      failedInvariants: 0,
+      activeScorer: processed[0]?.activeScorer || "adaptive-v1",
+    },
+    invariants: [],
+    scorerTable: [],
+    replayWindows: [],
+    scenarios: [],
+    modelWindowGovernance: null,
+    modelWindowGovernanceHistory: [],
+  };
+  return {
+    processed,
+    runs,
+    report,
+    queue: {
+      pending: (runs || []).filter((item) => item.status === "queued").length,
+      running: (runs || []).filter((item) => item.status === "running").length,
+    },
+  };
+}
+
+export async function processQueuedStrategyBacktests(req) {
+  const session = requireSession(req);
+  const body = await parseRequestBody(req);
+  return processQueuedStrategyBacktestsForUser(session.username, {
+    limit: body?.limit,
+    triggerSource: body?.triggerSource || "admin-queue-processor",
   });
 }
 

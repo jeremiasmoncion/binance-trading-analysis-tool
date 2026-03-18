@@ -22,11 +22,13 @@ export function ProfileView(props: ProfileViewProps) {
   const [usersPage, setUsersPage] = useState(1);
   const [validationReport, setValidationReport] = useState<StrategyValidationReport | null>(null);
   const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>([]);
+  const [backtestQueue, setBacktestQueue] = useState<{ pending: number; running: number }>({ pending: 0, running: 0 });
   const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
   const [backtestRunning, setBacktestRunning] = useState(false);
   const [datasetBackfillRunning, setDatasetBackfillRunning] = useState(false);
+  const [backtestQueueRunning, setBacktestQueueRunning] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
   const [scannerRunning, setScannerRunning] = useState(false);
   const [lastBackfillSummary, setLastBackfillSummary] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export function ProfileView(props: ProfileViewProps) {
         if (!cancelled) {
           setValidationReport(payload.report);
           setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+          setBacktestQueue(payload.queue || { pending: 0, running: 0 });
           setLastBackfillSummary(null);
         }
       })
@@ -477,12 +480,32 @@ export function ProfileView(props: ProfileViewProps) {
                       .then((payload) => {
                         setValidationReport(payload.report);
                         setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                        setBacktestQueue(payload.queue || { pending: 0, running: 0 });
                       })
-                      .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo ejecutar la corrida de backtesting"))
+                      .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo encolar la corrida de backtesting"))
                       .finally(() => setBacktestRunning(false));
                   }}
                 >
-                  {backtestRunning ? "Corriendo..." : "Correr backtest"}
+                  {backtestRunning ? "Encolando..." : "Encolar backtest"}
+                </button>
+                <button
+                  className="premium-action-button is-secondary"
+                  type="button"
+                  onClick={() => {
+                    setBacktestQueueRunning(true);
+                    setValidationError(null);
+                    strategyEngineService
+                      .processValidationBacktestQueue({ triggerSource: "admin-ui", limit: 1 })
+                      .then((payload) => {
+                        setValidationReport(payload.report);
+                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                        setBacktestQueue(payload.queue || { pending: 0, running: 0 });
+                      })
+                      .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo procesar la cola de backtesting"))
+                      .finally(() => setBacktestQueueRunning(false));
+                  }}
+                >
+                  {backtestQueueRunning ? "Procesando..." : "Procesar cola"}
                 </button>
                 <button
                   className="premium-action-button is-ghost"
@@ -496,6 +519,7 @@ export function ProfileView(props: ProfileViewProps) {
                       .then((payload) => {
                         setValidationReport(payload.report);
                         setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                        setBacktestQueue(payload.queue || { pending: 0, running: 0 });
                         if (payload.backfill) {
                           setLastBackfillSummary(
                             `${payload.backfill.executionLearningBackfilled} señales recibieron executionLearning y ${payload.backfill.featureSnapshotsBackfilled} snapshots quedaron reconstruidos sobre ${payload.backfill.scannedClosedSignals} cierres revisados.`,
@@ -520,6 +544,7 @@ export function ProfileView(props: ProfileViewProps) {
                     <StatCard label="Cierres auditados" value={String(validationReport.summary.closedSignals)} detail="Señales cerradas usadas en replay" tone="neutral" />
                     <StatCard label="Features limpias" value={String(validationReport.summary.featureSnapshots)} detail="Snapshots listos para modelo y replay" tone="accent" />
                     <StatCard label="Invariantes fallidos" value={String(validationReport.summary.failedInvariants)} detail={`${validationReport.summary.passedInvariants} OK · ${validationReport.summary.warnedInvariants} advertencias`} tone={validationReport.summary.failedInvariants ? "warning" : "profit"} />
+                    <StatCard label="Cola backtest" value={String(backtestQueue.pending)} detail={`${backtestQueue.running} corriendo ahora mismo`} tone={backtestQueue.pending > 0 ? "warning" : "neutral"} />
                   </div>
 
                   <div className="profile-validation-grid">
@@ -605,7 +630,7 @@ export function ProfileView(props: ProfileViewProps) {
                             <span>{item.createdAt ? new Date(item.createdAt).toLocaleString("es-DO") : item.triggerSource}</span>
                           </div>
                           <p>{item.summary}</p>
-                          <p>{item.activeScorer} · {item.closedSignals} cierres · {item.failedInvariants} fallos</p>
+                          <p>{item.activeScorer} · {item.closedSignals} cierres · {item.failedInvariants} fallos · {item.status || "completed"}</p>
                           <div className="profile-validation-mini-grid">
                             {item.windows.map((window) => (
                               <div key={`${item.label}-${window.key}`} className="profile-validation-mini-card">

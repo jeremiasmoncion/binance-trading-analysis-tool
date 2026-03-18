@@ -1,5 +1,5 @@
 import { getSession, sendJson } from "./auth.js";
-import { executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
+import { evaluateSignalEdgeSafety, executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
 import { buildMarketSnapshot, fetchTickerPrice, getScannableTimeframes, getTimeframeScanInterval } from "./marketRuntime.js";
 import { createSignalSnapshotForUser, evaluatePendingSignalsForUser, listSignalSnapshotsForUser } from "./signals.js";
 import { applySystemStrategyDecision, getSystemStrategyDecisionState } from "./strategyEngine.js";
@@ -108,23 +108,8 @@ function parseBinanceThrottle(error) {
 
 function canAutoExecuteSignal(createdSignal, executionProfile) {
   if (!executionProfile?.enabled || !executionProfile?.autoExecuteEnabled) return false;
-  const timeframe = String(createdSignal?.timeframe || "");
-  const score = Number(createdSignal?.signal_score || 0);
-  const rrRatio = Number(createdSignal?.rr_ratio || 0);
-  const payload = createdSignal?.signal_payload && typeof createdSignal.signal_payload === "object"
-    ? createdSignal.signal_payload
-    : {};
-  const analysis = payload.analysis && typeof payload.analysis === "object" ? payload.analysis : {};
-  const setupQuality = String(analysis.setupQuality || "");
-  const alignmentCount = Number(analysis.alignmentCount || 0);
-
-  if (timeframe === "5m") return false;
-  if (setupQuality !== "Alta") return false;
-  if (alignmentCount < 4) return false;
-  if (score < Number(executionProfile.minSignalScore || 0) + 5) return false;
-  if (rrRatio > 0 && rrRatio < Number(executionProfile.minRrRatio || 0) + 0.2) return false;
-
-  return true;
+  const edgeSafety = evaluateSignalEdgeSafety(createdSignal, executionProfile, { autoExecution: true });
+  return edgeSafety.reasons.length === 0;
 }
 
 async function getScanState(username) {

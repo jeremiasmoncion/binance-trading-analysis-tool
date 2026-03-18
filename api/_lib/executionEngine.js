@@ -206,6 +206,109 @@ function getEffectiveProfileForSignal(profile, signal) {
   };
 }
 
+function normalizeSignalEdgeContext(signal) {
+  const payload = signal?.signal_payload && typeof signal.signal_payload === "object"
+    ? signal.signal_payload
+    : {};
+  const analysis = payload.analysis && typeof payload.analysis === "object" ? payload.analysis : {};
+  const context = payload.context && typeof payload.context === "object" ? payload.context : {};
+  const decision = payload.decision && typeof payload.decision === "object" ? payload.decision : {};
+  const scorer = decision.scorer && typeof decision.scorer === "object" ? decision.scorer : {};
+  const contextBias = decision.contextBias && typeof decision.contextBias === "object" ? decision.contextBias : {};
+  const effectiveScore = Number.isFinite(Number(decision.adaptiveScore))
+    ? Number(decision.adaptiveScore)
+    : Number(signal?.signal_score || 0);
+  return {
+    analysis,
+    context,
+    decision,
+    scorer,
+    contextBias,
+    effectiveScore,
+    setupQuality: String(analysis.setupQuality || ""),
+    riskLabel: String(analysis.riskLabel || ""),
+    alignmentCount: Number(analysis.alignmentCount || 0),
+    marketRegime: String(context.marketRegime || ""),
+    volumeCondition: String(context.volumeCondition || ""),
+  };
+}
+
+function evaluateSignalEdgeSafety(signal, profile, options = {}) {
+  const mode = options.autoExecution ? "auto" : "demo";
+  const thresholds = getEffectiveProfileForSignal(profile, signal);
+  const edge = normalizeSignalEdgeContext(signal);
+  const reasons = [];
+  const minScoreMargin = mode === "auto" ? 8 : 3;
+  const minRrMargin = mode === "auto" ? 0.35 : 0.1;
+  const scorerConfidence = Number(edge.scorer.confidence || 0);
+  const contextSample = Number(edge.contextBias.sampleSize || 0);
+  const contextAvgPnl = Number(edge.contextBias.avgPnl || 0);
+  const contextWinRate = Number(edge.contextBias.winRate || 0);
+  const scopeAction = String(edge.scorer.scopeAction || "");
+  const weakVolume = edge.volumeCondition.toLowerCase().includes("debil") || edge.volumeCondition.toLowerCase().includes("débil");
+  const mixedRegime = edge.marketRegime.toLowerCase() === "mixto";
+  const rrRatio = Number(signal?.rr_ratio || 0);
+
+  if (edge.decision && edge.decision.executionEligible === false) {
+    reasons.push(String(edge.decision.executionReason || "La IA dejó esta señal fuera del flujo operativo actual."));
+  }
+
+  if (scopeAction === "cut") {
+    reasons.push("El scope quedó cortado por el motor adaptativo.");
+  }
+
+  if (scorerConfidence > 0 && scorerConfidence < (mode === "auto" ? 68 : 54)) {
+    reasons.push(`La confianza del scorer (${scorerConfidence.toFixed(0)}%) todavía es baja para ${mode === "auto" ? "autoejecutar" : "pasar a demo"}.`);
+  }
+
+  if (edge.effectiveScore < Number(thresholds.minSignalScore || 0) + minScoreMargin) {
+    reasons.push(`La convicción efectiva (${edge.effectiveScore.toFixed(1)}) no supera con margen el mínimo ${Number(thresholds.minSignalScore || 0).toFixed(1)}.`);
+  }
+
+  if (rrRatio > 0 && rrRatio < Number(thresholds.minRrRatio || 0) + minRrMargin) {
+    reasons.push(`El RR (${rrRatio.toFixed(2)}) todavía está muy justo frente al mínimo ${Number(thresholds.minRrRatio || 0).toFixed(2)}.`);
+  }
+
+  if (scopeAction === "tighten" && edge.effectiveScore < Number(thresholds.minSignalScore || 0) + (mode === "auto" ? 12 : 6)) {
+    reasons.push("Este scope está endurecido y la señal no trae suficiente colchón para justificar la entrada.");
+  }
+
+  if (mode === "auto") {
+    if (String(signal?.timeframe || "") === "5m") {
+      reasons.push("La autoejecución 24/7 ya no entra en 5m para reducir ruido.");
+    }
+    if (edge.setupQuality !== "Alta") {
+      reasons.push("La autoejecución solo deja pasar setups de calidad Alta.");
+    }
+    if (edge.alignmentCount < 4) {
+      reasons.push("La autoejecución exige al menos 4 alineaciones reales.");
+    }
+    if (mixedRegime) {
+      reasons.push("La autoejecución evita mercados mixtos hasta que el edge sea más claro.");
+    }
+    if (weakVolume) {
+      reasons.push("La autoejecución evita volumen débil para no gastar intentos en rupturas flojas.");
+    }
+    if (edge.riskLabel.toLowerCase().includes("alto")) {
+      reasons.push("La autoejecución no entra en setups marcados como riesgo alto.");
+    }
+  } else {
+    if (mixedRegime && weakVolume) {
+      reasons.push("La señal llega con mercado mixto y volumen débil: combinación demasiado frágil para demo.");
+    }
+  }
+
+  if (contextSample >= 5 && (contextAvgPnl < 0 || contextWinRate < 45)) {
+    reasons.push(`El contexto equivalente viene flojo (${contextWinRate.toFixed(0)}% win rate, ${contextAvgPnl >= 0 ? "+" : ""}${contextAvgPnl.toFixed(2)} avg pnl).`);
+  }
+
+  return {
+    reasons,
+    effectiveProfile: thresholds,
+    edge,
+  };
+}
+
 function isExecutionOpenStatus(status) {
   return ["placed", "filled", "protected", "filled_unprotected", "open"].includes(String(status || ""));
 }
@@ -661,7 +764,8 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   const currentPrice = Number(priceTicker?.price || signal.entry_price || 0);
   const rules = await getSymbolRules(symbol);
   const reasons = [];
-  const effectiveProfile = getEffectiveProfileForSignal(profile, signal);
+  const edgeSafety = evaluateSignalEdgeSafety(signal, profile, { autoExecution: false });
+  const effectiveProfile = edgeSafety.effectiveProfile;
   let side = signal.signal_label === "Comprar" ? "BUY" : signal.signal_label === "Vender" ? "SELL" : "";
   let qty = 0;
   let notionalUsd = 0;
@@ -669,29 +773,17 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   const dailyLossPct = Number(riskContext.dailyLossPct || 0);
   const dailyAutoExecutions = Number(riskContext.dailyAutoExecutions || 0);
   const recentLossStreak = Number(riskContext.recentLossStreak || 0);
-  const decision = signal.signal_payload?.decision && typeof signal.signal_payload.decision === "object"
-    ? signal.signal_payload.decision
-    : null;
+  const decision = edgeSafety.edge.decision || null;
   const baseScore = Number(signal.signal_score || 0);
   const adaptiveScore = decision && Number.isFinite(Number(decision.adaptiveScore))
     ? Number(decision.adaptiveScore)
     : null;
   const effectiveScore = adaptiveScore != null ? adaptiveScore : baseScore;
 
+  reasons.push(...edgeSafety.reasons);
+
   if (!profile.enabled) reasons.push("El perfil de ejecución está desactivado.");
   if (!side) reasons.push("La señal actual no tiene dirección operable.");
-  if (decision && decision.executionEligible === false) {
-    reasons.push(String(decision.executionReason || "La señal quedó fuera del flujo operativo actual del sistema."));
-  }
-  if (String(effectiveProfile.override?.action || "") === "cut") {
-    reasons.push(`Este scope (${signal.strategy_name || "estrategia"} · ${signal.timeframe || "--"}) quedó cortado por el motor adaptativo.`);
-  }
-  if (effectiveScore < effectiveProfile.minSignalScore) {
-    reasons.push(`La convicción efectiva (${effectiveScore.toFixed(1)}) está por debajo del mínimo ${effectiveProfile.minSignalScore}${adaptiveScore != null ? ` · base ${baseScore.toFixed(1)} vs adaptativo ${adaptiveScore.toFixed(1)}` : ""}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
-  }
-  if (Number(signal.rr_ratio || 0) > 0 && Number(signal.rr_ratio || 0) < effectiveProfile.minRrRatio) {
-    reasons.push(`El RR (${signal.rr_ratio || 0}) está por debajo del mínimo ${effectiveProfile.minRrRatio}${effectiveProfile.override ? ` para ${effectiveProfile.override.strategyId} · ${effectiveProfile.override.timeframe}` : ""}.`);
-  }
   if (profile.allowedStrategies.length && signal.strategy_name && !profile.allowedStrategies.includes(signal.strategy_name)) {
     reasons.push("La estrategia de esta señal no está autorizada en el perfil.");
   }
@@ -1363,6 +1455,7 @@ async function attachProtectionToExecutionOrderForUser(username, executionOrderI
 
 export {
   attachProtectionToExecutionOrderForUser,
+  evaluateSignalEdgeSafety,
   executeSignalTrade,
   executeSignalTradeForUser,
   getExecutionCenter,

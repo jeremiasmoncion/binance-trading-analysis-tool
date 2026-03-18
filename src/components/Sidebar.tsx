@@ -99,18 +99,9 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-header">
         <div className="sidebar-header-row">
-          <div className="sidebar-logo">
-            <div className="logo-icon">
-              <span className="logo-icon-core">C</span>
-            </div>
-            <div className="logo-text">
-              <h1>CRYPE</h1>
-              <p>IA operativa para trading</p>
-            </div>
-          </div>
           <button
             type="button"
-            className="sidebar-toggle"
+            className="sidebar-toggle sidebar-toggle-standalone"
             onClick={onToggleCollapse}
             aria-label={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}
             title={collapsed ? "Expandir sidebar" : "Colapsar sidebar"}

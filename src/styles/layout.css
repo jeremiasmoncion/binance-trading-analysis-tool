@@ -607,6 +607,15 @@
     display: inherit;
   }
 
+  .app-shell.sidebar-collapsed .sidebar .nav-text,
+  .app-shell.sidebar-collapsed .sidebar .submenu-item span {
+    display: inline-flex;
+    align-items: center;
+    opacity: 1;
+    visibility: visible;
+    white-space: nowrap;
+  }
+
   .app-shell.sidebar-collapsed .sidebar-brand-copy {
     display: block;
   }
@@ -639,6 +648,12 @@
   .app-shell.sidebar-collapsed .nav-item {
     justify-content: flex-start;
     padding: 11px 13px;
+    gap: 11px;
+  }
+
+  .app-shell.sidebar-collapsed .submenu-item {
+    justify-content: flex-start;
+    gap: 10px;
   }
 
   .app-shell.sidebar-collapsed .sidebar-user {
@@ -1540,7 +1555,21 @@ body.dark-theme .wallet-assets-table tbody td {
 
   .wallet-hero-main {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-align: center;
+  }
+
+  .wallet-hero-copy {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    width: 100%;
+  }
+
+  .wallet-hero-change-row {
+    justify-content: center;
   }
 
   .wallet-search-shell input { width: 100%; }

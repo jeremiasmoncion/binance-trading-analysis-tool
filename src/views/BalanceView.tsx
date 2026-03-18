@@ -77,6 +77,7 @@ export function BalanceView(props: BalanceViewProps) {
   const positiveAssets = visibleAssets.filter((asset) => asset.pnlValue > 0);
   const negativeAssets = visibleAssets.filter((asset) => asset.pnlValue < 0);
   const bestPerformer = visibleAssets.slice().sort((a, b) => b.pnlPct - a.pnlPct)[0];
+  const selectedWindowLabel = props.period === "30d" ? "30D P&L" : props.period === "7d" ? "7D P&L" : "24H P&L";
   const allocation = useMemo(() => buildAllocation(visibleAssets), [visibleAssets]);
   const allocationGradient = useMemo(() => buildAllocationGradient(allocation), [allocation]);
   const filteredAssets = useMemo(() => {
@@ -111,7 +112,7 @@ export function BalanceView(props: BalanceViewProps) {
             <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.realizedPnl || 0)}`}>{formatSignedPrice(portfolio?.realizedPnl || 0)}</div>
           </div>
           <div className="wallet-hero-metric-box">
-            <div className="wallet-hero-metric-label">{periodLabel} P&amp;L</div>
+            <div className="wallet-hero-metric-label">{selectedWindowLabel}</div>
             <div className={`wallet-hero-metric-value ${getPerformanceClass(portfolio?.periodChangeValue || 0)}`}>{formatSignedPrice(portfolio?.periodChangeValue || 0)}</div>
           </div>
           <div className="wallet-hero-metric-box">
@@ -135,7 +136,7 @@ export function BalanceView(props: BalanceViewProps) {
 
         <div className="wallet-toolbar-actions">
           <button className="wallet-secondary-button" onClick={() => props.onToggleHideSmall(!props.hideSmallAssets)}>
-            {props.hideSmallAssets ? "Show All" : "Filters"}
+            Filters
           </button>
           <button className="wallet-secondary-button" onClick={props.onRefresh}>Export</button>
         </div>
@@ -148,7 +149,7 @@ export function BalanceView(props: BalanceViewProps) {
               <div>
                 <div className="wallet-quick-label">Total Assets</div>
                 <div className="wallet-quick-value">{visibleAssets.length}</div>
-                <div className="wallet-quick-chip">{props.payload?.summary?.accountType || "SPOT"} Account</div>
+                <div className="wallet-quick-chip wallet-quick-chip-info">{props.payload?.summary?.accountType || "SPOT"} Account</div>
               </div>
               <div className="wallet-quick-icon wallet-quick-icon-info">◎</div>
             </div>

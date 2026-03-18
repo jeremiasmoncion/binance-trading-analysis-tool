@@ -376,6 +376,21 @@ function buildScorerEvaluationSignature(evaluation) {
   });
 }
 
+function buildModelTrainingRunSignature(run) {
+  return JSON.stringify({
+    label: String(run?.label || ""),
+    windowType: String(run?.windowType || "global"),
+    mode: String(run?.mode || "learned"),
+    sampleSize: Number(run?.sampleSize || 0),
+    confidence: Number(Number(run?.confidence || 0).toFixed(1)),
+    avgPnl: Number(Number(run?.avgPnl || 0).toFixed(2)),
+    winRate: Number(Number(run?.winRate || 0).toFixed(2)),
+    rrWeight: Number(Number(run?.rrWeight || 0).toFixed(3)),
+    adaptiveScoreWeight: Number(Number(run?.adaptiveScoreWeight || 0).toFixed(4)),
+    durationPenaltyWeight: Number(Number(run?.durationPenaltyWeight || 0).toFixed(3)),
+  });
+}
+
 async function recordScorerEvaluationHistory(username, scorerEvaluations) {
   const rows = Array.isArray(scorerEvaluations) ? scorerEvaluations : [];
   if (!rows.length) return;
@@ -421,6 +436,127 @@ async function recordScorerEvaluationHistory(username, scorerEvaluations) {
         winRateDelta: Number(evaluation.winRateDelta || 0),
         confidence: Number(evaluation.confidence || 0),
         readiness: String(evaluation.readiness || "low"),
+      },
+    }).catch(() => null);
+  }
+}
+
+function normalizeModelTrainingRunHistory(rows) {
+  return (rows || []).map((row) => {
+    const details = row?.details && typeof row.details === "object" ? row.details : {};
+    return {
+      id: row?.id,
+      label: String(details.label || row?.target_key || ""),
+      windowType: String(details.windowType || "global"),
+      mode: String(details.mode || "learned"),
+      sampleSize: Number(details.sampleSize || 0),
+      confidence: Number(details.confidence || 0),
+      avgPnl: Number(details.avgPnl || 0),
+      winRate: Number(details.winRate || 0),
+      rrWeight: details.rrWeight == null ? undefined : Number(details.rrWeight),
+      adaptiveScoreWeight: details.adaptiveScoreWeight == null ? undefined : Number(details.adaptiveScoreWeight),
+      durationPenaltyWeight: details.durationPenaltyWeight == null ? undefined : Number(details.durationPenaltyWeight),
+      summary: String(row?.summary || details.summary || ""),
+      status: row?.status ? String(row.status) : undefined,
+      createdAt: row?.created_at ? String(row.created_at) : undefined,
+    };
+  });
+}
+
+function buildLearnedModelRun(label, rows, windowType, scorerPolicy) {
+  const cleanRows = (rows || []).filter((row) => row && row.realized_pnl != null);
+  const total = cleanRows.length;
+  const positiveRows = cleanRows.filter((row) => Number(row.realized_pnl || 0) > 0);
+  const negativeRows = cleanRows.filter((row) => Number(row.realized_pnl || 0) <= 0);
+  const avg = (list, field) => list.length ? list.reduce((sum, row) => sum + Number(row[field] || 0), 0) / list.length : 0;
+  const winRate = total ? (positiveRows.length / total) * 100 : 0;
+  const avgPnl = avg(cleanRows, "realized_pnl");
+  const posAvgRr = avg(positiveRows, "rr_ratio");
+  const negAvgRr = avg(negativeRows, "rr_ratio");
+  const posAvgAdaptive = avg(positiveRows, "adaptive_score");
+  const negAvgAdaptive = avg(negativeRows, "adaptive_score");
+  const posAvgDuration = avg(positiveRows, "duration_minutes");
+  const negAvgDuration = avg(negativeRows, "duration_minutes");
+  const recentBoost = windowType === "recent" ? 0.35 : 0;
+  const rrWeight = Number((3.2 + recentBoost + Math.max(0, posAvgRr - negAvgRr) * 4.2).toFixed(2));
+  const adaptiveScoreWeight = Number((0.035 + (windowType === "recent" ? 0.004 : 0) + Math.max(0, posAvgAdaptive - negAvgAdaptive) * 0.0035).toFixed(4));
+  const durationPenaltyWeight = Number((0.18 + (windowType === "recent" ? 0.03 : 0) + Math.max(0, posAvgDuration - negAvgDuration) / 240).toFixed(3));
+  const confidence = Number(clampScore(
+    total * (windowType === "recent" ? 3 : 2.8)
+      + Math.max(0, winRate - 48) * 1.1
+      + Math.max(0, posAvgRr - 1) * 16,
+    0,
+    100,
+  ).toFixed(1));
+  const activeScorer = String(scorerPolicy?.activeScorer || "").trim().toLowerCase();
+  return {
+    label,
+    windowType,
+    mode: "learned",
+    active: activeScorer === label,
+    ready: total >= (windowType === "recent" ? 14 : 18) && confidence >= (windowType === "recent" ? 66 : 62),
+    sampleSize: total,
+    confidence,
+    avgPnl: Number(avgPnl.toFixed(2)),
+    winRate: Number(winRate.toFixed(2)),
+    rrWeight,
+    adaptiveScoreWeight,
+    durationPenaltyWeight,
+    reading: windowType === "recent"
+      ? `Corrida reciente de ${label} entrenada con ventana corta y sesgo a edge actual.`
+      : `Corrida global de ${label} entrenada con todo el dataset estructurado.`,
+  };
+}
+
+function buildModelTrainingRuns(rows, scorerPolicy) {
+  const sorted = (rows || [])
+    .filter((row) => row && row.realized_pnl != null)
+    .slice()
+    .sort((left, right) => new Date(right.created_at || 0).getTime() - new Date(left.created_at || 0).getTime());
+  const globalRows = sorted;
+  const recentRows = sorted.slice(0, 160);
+  return [
+    buildLearnedModelRun("model-v2", globalRows, "global", scorerPolicy),
+    buildLearnedModelRun("model-v3", recentRows, "recent", scorerPolicy),
+  ];
+}
+
+async function recordModelTrainingRunHistory(username, modelTrainingRuns) {
+  const rows = Array.isArray(modelTrainingRuns) ? modelTrainingRuns : [];
+  if (!rows.length) return;
+  const recentLogs = await fetchRecentAdaptiveActions(username, "model-training-run", 12);
+  const latestByKey = new Map();
+  for (const row of recentLogs || []) {
+    const details = row?.details && typeof row.details === "object" ? row.details : {};
+    const key = `${String(details.label || row?.target_key || "")}:${String(details.windowType || "global")}`;
+    if (key && !latestByKey.has(key)) latestByKey.set(key, row);
+  }
+  for (const run of rows) {
+    const key = `${String(run.label || "")}:${String(run.windowType || "global")}`;
+    const signature = buildModelTrainingRunSignature(run);
+    const latest = latestByKey.get(key);
+    const latestDetails = latest?.details && typeof latest.details === "object" ? latest.details : {};
+    if (String(latestDetails.signature || "") === signature) continue;
+    await insertAdaptiveActionLogForUser(username, {
+      actionType: "training-run",
+      targetType: "model-training-run",
+      targetKey: String(run.label || ""),
+      source: "model-training",
+      status: run.ready ? "ready" : "observe",
+      summary: String(run.reading || `${run.label} actualizado en ventana ${run.windowType}`),
+      details: {
+        signature,
+        label: run.label,
+        windowType: run.windowType,
+        mode: run.mode,
+        sampleSize: run.sampleSize,
+        confidence: run.confidence,
+        avgPnl: run.avgPnl,
+        winRate: run.winRate,
+        rrWeight: run.rrWeight,
+        adaptiveScoreWeight: run.adaptiveScoreWeight,
+        durationPenaltyWeight: run.durationPenaltyWeight,
+        summary: run.reading,
       },
     }).catch(() => null);
   }
@@ -549,6 +685,7 @@ export async function getSystemStrategyDecisionState(username) {
   let signals = [];
   let featureSnapshots = [];
   let scorerEvaluationHistory = [];
+  let modelTrainingRunHistory = [];
 
   try {
     const versionsParams = new URLSearchParams({
@@ -561,11 +698,12 @@ export async function getSystemStrategyDecisionState(username) {
       limit: "100",
     });
 
-    [versions, experiments, featureSnapshots, scorerEvaluationHistory] = await Promise.all([
+    [versions, experiments, featureSnapshots, scorerEvaluationHistory, modelTrainingRunHistory] = await Promise.all([
       supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionsParams.toString()}`).catch(() => []),
       supabaseRequest(`${STRATEGY_EXPERIMENTS_TABLE}?${experimentsParams.toString()}`).catch(() => []),
       supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${String(username)}&order=created_at.desc&limit=500`).catch(() => []),
       fetchRecentAdaptiveActions(username, "scorer-model-evaluation", 10).catch(() => []),
+      fetchRecentAdaptiveActions(username, "model-training-run", 12).catch(() => []),
     ]);
     executionProfile = await getExecutionProfileForUser(username).catch(() => null);
     signals = await supabaseRequest(`${SIGNALS_TABLE}?select=strategy_name,strategy_version,timeframe,outcome_status,outcome_pnl,signal_score,rr_ratio,updated_at,created_at,signal_label,signal_payload&username=eq.${String(username)}&order=created_at.desc&limit=300`).catch(() => []);
@@ -576,6 +714,7 @@ export async function getSystemStrategyDecisionState(username) {
     signals = [];
     featureSnapshots = [];
     scorerEvaluationHistory = [];
+    modelTrainingRunHistory = [];
   }
 
   const resolvedVersions = versions?.length ? versions : FALLBACK_VERSIONS;
@@ -592,7 +731,16 @@ export async function getSystemStrategyDecisionState(username) {
           || (item.metadata && typeof item.metadata === "object" && item.metadata.allowExecution === true),
       ),
     }));
-  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile);
+  const normalizedTrainingRunHistory = normalizeModelTrainingRunHistory(modelTrainingRunHistory || []);
+  const latestTrainingRuns = [];
+  const seenTrainingKeys = new Set();
+  for (const row of normalizedTrainingRunHistory) {
+    const key = `${row.label}:${row.windowType}`;
+    if (seenTrainingKeys.has(key)) continue;
+    seenTrainingKeys.add(key);
+    latestTrainingRuns.push(row);
+  }
+  const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, latestTrainingRuns);
 
   return {
     username,
@@ -634,6 +782,7 @@ export async function getSystemStrategyDecisionState(username) {
     scorerEvaluations: buildScorerEvaluations(signals || [], executionProfile),
     shadowModelEvaluation: buildShadowModelEvaluation(signals || [], executionProfile),
     scorerEvaluationHistory: normalizeScorerEvaluationHistory(scorerEvaluationHistory || []),
+    modelTrainingRunHistory: normalizedTrainingRunHistory,
     scorerPolicy: executionProfile?.scorerPolicy || null,
     scopeTuningByScope: (executionProfile?.scopeOverrides || []).map((item) => ({
       strategyId: item.strategyId,
@@ -1222,7 +1371,7 @@ function buildContextBiasByScope(signals) {
   return rows.sort((left, right) => Math.abs(right.biasScore) - Math.abs(left.biasScore)).slice(0, 60);
 }
 
-function buildModelRegistry(rows, scorerPolicy) {
+function buildModelRegistry(rows, scorerPolicy, modelTrainingRuns = []) {
   const cleanRows = (rows || []).filter((row) => row && row.realized_pnl != null);
   const total = cleanRows.length;
   const positiveRows = cleanRows.filter((row) => Number(row.realized_pnl || 0) > 0);
@@ -1238,6 +1387,9 @@ function buildModelRegistry(rows, scorerPolicy) {
   const negAvgDuration = avg(negativeRows, "duration_minutes");
   const activeScorer = String(scorerPolicy?.activeScorer || "adaptive-v1").trim().toLowerCase() || "adaptive-v1";
 
+  const runByLabel = new Map((modelTrainingRuns || []).map((item) => [String(item.label || ""), item]));
+  const learnedGlobal = runByLabel.get("model-v2");
+  const learnedRecent = runByLabel.get("model-v3");
   const learnedRrWeight = Number((3.2 + Math.max(0, posAvgRr - negAvgRr) * 4.2).toFixed(2));
   const learnedAdaptiveWeight = Number((0.035 + Math.max(0, posAvgAdaptive - negAvgAdaptive) * 0.0035).toFixed(4));
   const learnedDurationPenalty = Number((0.18 + Math.max(0, posAvgDuration - negAvgDuration) / 240).toFixed(3));
@@ -1262,15 +1414,29 @@ function buildModelRegistry(rows, scorerPolicy) {
       label: "model-v2",
       mode: "learned",
       active: activeScorer === "model-v2",
-      ready: total >= 18 && learnedConfidence >= 62,
-      sampleSize: total,
-      confidence: learnedConfidence,
-      avgPnl: Number(avgPnl.toFixed(2)),
-      winRate: Number(winRate.toFixed(2)),
-      rrWeight: learnedRrWeight,
-      adaptiveScoreWeight: learnedAdaptiveWeight,
-      durationPenaltyWeight: learnedDurationPenalty,
-      reading: "Modelo aprendido desde el dataset real de ejecución y features.",
+      ready: learnedGlobal ? Boolean(learnedGlobal.ready) : total >= 18 && learnedConfidence >= 62,
+      sampleSize: learnedGlobal ? Number(learnedGlobal.sampleSize || total) : total,
+      confidence: learnedGlobal ? Number(learnedGlobal.confidence || learnedConfidence) : learnedConfidence,
+      avgPnl: learnedGlobal ? Number(learnedGlobal.avgPnl || avgPnl) : Number(avgPnl.toFixed(2)),
+      winRate: learnedGlobal ? Number(learnedGlobal.winRate || winRate) : Number(winRate.toFixed(2)),
+      rrWeight: learnedGlobal ? Number(learnedGlobal.rrWeight || learnedRrWeight) : learnedRrWeight,
+      adaptiveScoreWeight: learnedGlobal ? Number(learnedGlobal.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
+      durationPenaltyWeight: learnedGlobal ? Number(learnedGlobal.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
+      reading: learnedGlobal?.reading || "Modelo aprendido desde el dataset real de ejecución y features.",
+    },
+    {
+      label: "model-v3",
+      mode: "learned",
+      active: activeScorer === "model-v3",
+      ready: learnedRecent ? Boolean(learnedRecent.ready) : false,
+      sampleSize: learnedRecent ? Number(learnedRecent.sampleSize || 0) : 0,
+      confidence: learnedRecent ? Number(learnedRecent.confidence || 0) : 0,
+      avgPnl: learnedRecent ? Number(learnedRecent.avgPnl || 0) : Number(avgPnl.toFixed(2)),
+      winRate: learnedRecent ? Number(learnedRecent.winRate || 0) : Number(winRate.toFixed(2)),
+      rrWeight: learnedRecent ? Number(learnedRecent.rrWeight || learnedRrWeight) : learnedRrWeight,
+      adaptiveScoreWeight: learnedRecent ? Number(learnedRecent.adaptiveScoreWeight || learnedAdaptiveWeight) : learnedAdaptiveWeight,
+      durationPenaltyWeight: learnedRecent ? Number(learnedRecent.durationPenaltyWeight || learnedDurationPenalty) : learnedDurationPenalty,
+      reading: learnedRecent?.reading || "Modelo learned reciente preparado para desafiar al modelo global cuando ya haya muestra suficiente.",
     },
   ];
 }
@@ -2265,15 +2431,18 @@ export async function generateAdaptiveRecommendationsForUser(username) {
     limit: "300",
   });
 
-  const [versions, signals, executionProfile, existingRecommendations] = await Promise.all([
+  const [versions, signals, executionProfile, existingRecommendations, featureSnapshots] = await Promise.all([
     supabaseRequest(`${STRATEGY_VERSIONS_TABLE}?${versionParams.toString()}`),
     supabaseRequest(`${SIGNALS_TABLE}?${signalsParams.toString()}`),
     getExecutionProfileForUser(normalizedUsername),
     supabaseRequest(`${STRATEGY_RECOMMENDATIONS_TABLE}?select=*`).catch(() => []),
+    supabaseRequest(`${SIGNAL_FEATURE_SNAPSHOTS_TABLE}?select=*&username=eq.${normalizedUsername}&order=created_at.desc&limit=500`).catch(() => []),
   ]);
 
   const scorerEvaluations = buildScorerEvaluations(signals || [], executionProfile);
   await recordScorerEvaluationHistory(normalizedUsername, scorerEvaluations).catch(() => null);
+  const modelTrainingRuns = buildModelTrainingRuns(featureSnapshots || [], executionProfile);
+  await recordModelTrainingRunHistory(normalizedUsername, modelTrainingRuns).catch(() => null);
 
   const existingByKey = new Map((existingRecommendations || []).map((item) => [item.recommendation_key, item]));
   const rowsToUpsert = buildRecommendationRows(signals || [], versions || [], executionProfile)

@@ -218,6 +218,22 @@ export interface StrategyDecisionState {
     durationPenaltyWeight?: number;
     reading?: string;
   }>;
+  modelTrainingRunHistory?: Array<{
+    id?: number;
+    label: string;
+    windowType: "recent" | "global";
+    mode: "static" | "learned";
+    sampleSize: number;
+    confidence: number;
+    avgPnl: number;
+    winRate: number;
+    rrWeight?: number;
+    adaptiveScoreWeight?: number;
+    durationPenaltyWeight?: number;
+    summary: string;
+    status?: string;
+    createdAt?: string;
+  }>;
   scorerEvaluations?: Array<{
     scorer: string;
     challenger: string;

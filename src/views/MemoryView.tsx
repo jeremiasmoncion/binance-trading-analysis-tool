@@ -930,6 +930,11 @@ export function MemoryView(props: MemoryViewProps) {
     return rows;
   }, [decisionState?.modelRegistry]);
 
+  const modelTrainingRunHistory = useMemo(() => {
+    const rows = Array.isArray(decisionState?.modelTrainingRunHistory) ? decisionState.modelTrainingRunHistory : [];
+    return rows.slice(0, 6);
+  }, [decisionState?.modelTrainingRunHistory]);
+
   const executionOverrideImpact = useMemo(() => {
     return (executionProfileForm?.scopeOverrides || []).map((override) => {
       const closedScopedSignals = closedSignals.filter((item) =>
@@ -1227,6 +1232,7 @@ export function MemoryView(props: MemoryViewProps) {
       adaptiveScoreImpact,
       scorerModelImpact,
       modelRegistry,
+      modelTrainingRunHistory,
       shadowModelReadiness,
       scorerGovernance,
       scorerEvaluations,
@@ -1235,7 +1241,7 @@ export function MemoryView(props: MemoryViewProps) {
       scorerPromotionRecommendation,
       nextAction,
     };
-  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelRegistry, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelRegistry, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
+  }, [adaptiveScoreImpact, decisionState?.adaptivePrimaryByScope, decisionState?.contextBiasByScope, decisionState?.featureModelByScope, decisionState?.modelRegistry, decisionState?.modelTrainingRunHistory, decisionState?.shadowModelEvaluation, executionOverrideImpact, modelRegistry, modelTrainingRunHistory, recommendations, sandboxStats, scopeEdgeRanking, scorerEvaluations, shadowModelEvaluation, scorerEvaluationHistory, scorerGovernance, scorerModelImpact, shadowModelReadiness]);
 
   const automationPolicyFeed = useMemo<AutomationPolicyEvent[]>(() => {
     return recommendations
@@ -1954,6 +1960,14 @@ export function MemoryView(props: MemoryViewProps) {
                   : "Sin modelos versionados todavía"}
                 accentClass="accent-blue"
               />
+              <StatCard
+                label="Training runs"
+                value={String(automationMasterBoard.modelTrainingRunHistory?.length || 0)}
+                sub={(automationMasterBoard.modelTrainingRunHistory || []).length
+                  ? (automationMasterBoard.modelTrainingRunHistory || []).map((item) => `${item.label} ${item.windowType}`).join(" · ")
+                  : "Sin corridas registradas todavía"}
+                accentClass="accent-emerald"
+              />
             </div>
 
             <div className="signal-analytics-grid">
@@ -2115,6 +2129,11 @@ export function MemoryView(props: MemoryViewProps) {
                 Evaluación sombra {automationMasterBoard.shadowModelEvaluation.candidateScorer}: {automationMasterBoard.shadowModelEvaluation.summary}
               </p>
             ) : null}
+            {automationMasterBoard.modelTrainingRunHistory?.length ? (
+              <p className="section-note">
+                Training runs: {automationMasterBoard.modelTrainingRunHistory[0].label} {automationMasterBoard.modelTrainingRunHistory[0].windowType} deja {formatSignedPrice(automationMasterBoard.modelTrainingRunHistory[0].avgPnl)} con {automationMasterBoard.modelTrainingRunHistory[0].confidence.toFixed(0)}% de confianza.
+              </p>
+            ) : null}
 
             <div className="signal-analytics-grid">
               <div className="signal-analytics-card">
@@ -2172,6 +2191,30 @@ export function MemoryView(props: MemoryViewProps) {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </div>
+
+              <div className="signal-analytics-card">
+                <div className="signal-analytics-head">
+                  <h4>Historial de training runs</h4>
+                  <p>Aquí ves las corridas recientes de entrenamiento del modelo con sus pesos y ventana.</p>
+                </div>
+                {!automationMasterBoard.modelTrainingRunHistory?.length ? (
+                  <EmptyState message="Todavía no hay corridas de entrenamiento de modelo registradas." />
+                ) : (
+                  <div className="signal-analytics-list">
+                    {automationMasterBoard.modelTrainingRunHistory.map((item) => (
+                      <div key={`model-run-${item.id || `${item.label}-${item.windowType}-${item.createdAt || item.summary}`}`} className="signal-analytics-item is-experiment">
+                        <div className="signal-analytics-copy">
+                          <strong>{item.label} · ventana {item.windowType}</strong>
+                          <span>{item.sampleSize} muestras · {formatSignedPrice(item.avgPnl)} · {item.winRate.toFixed(0)}% · RR w {Number(item.rrWeight || 0).toFixed(2)} · score w {Number(item.adaptiveScoreWeight || 0).toFixed(4)}</span>
+                        </div>
+                        <div className={`signal-analytics-pill ${item.status === "ready" ? "status-running" : "status-sandbox"}`}>
+                          {item.status || "observe"}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

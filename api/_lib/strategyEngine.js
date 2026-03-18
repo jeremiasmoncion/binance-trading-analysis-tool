@@ -601,7 +601,7 @@ function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
     const rawWindows = windowsByRunId.get(Number(row?.id)) || reportPayload.replayWindows || [];
     const windows = (rawWindows || []).map((item) => ({
       label: String(item.label || "Recent"),
-      key: String(item.key || "recent"),
+      key: String(item.key || String(item.label || "recent").toLowerCase()),
       total: Number(item.total || item.sampleSize || 0),
       activeScorer: String(item.activeScorer || ""),
       challengerScorer: String(item.challengerScorer || ""),
@@ -728,7 +728,7 @@ async function fetchBacktestRunsForUser(username, limit = 12) {
         if (!windowsByRunId.has(runId)) windowsByRunId.set(runId, []);
         windowsByRunId.get(runId).push({
           label: String(row?.window_label || "Recent"),
-          key: String(row?.window_key || "recent"),
+          key: String(row?.window_key || String(row?.window_label || "recent").toLowerCase()),
           total: Number(row?.sample_size || 0),
           activeScorer: String(row?.active_scorer || ""),
           challengerScorer: String(row?.challenger_scorer || ""),
@@ -800,9 +800,9 @@ async function persistBacktestRunForUser(username, report, options = {}) {
         headers: { Prefer: "return=minimal" },
         body: report.replayWindows.map((item) => ({
           run_id: runId,
-          window_key: String(item.key || "recent"),
+          window_key: String(item.key || String(item.label || "recent").toLowerCase()),
           window_label: String(item.label || "Recent"),
-          sample_size: Number(item.total || 0),
+          sample_size: Number(item.total || item.sampleSize || 0),
           active_scorer: String(item.activeScorer || ""),
           challenger_scorer: String(item.challengerScorer || ""),
           active_avg_pnl: Number(item.activeAvgPnl || 0),
@@ -3300,7 +3300,9 @@ function buildReplayWindows(signals, executionProfile, decisionState) {
           ? `${bestCandidate} habría defendido mejor esta ventana`
           : `${activeScorer} sigue defendiendo mejor esta ventana`;
     return {
-      label: window.label,
+      label: window.label.charAt(0).toUpperCase() + window.label.slice(1),
+      key: window.label,
+      total: rows.length,
       sampleSize: rows.length,
       activeScorer,
       challengerScorer: bestCandidate || "--",

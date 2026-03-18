@@ -1097,7 +1097,36 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
   const center = await getExecutionCenterForUser(username);
   const sourceSignals = await listSignalSnapshotsForUser(username, { limit: 200 }).catch(() => []);
   const sourceSignal = (sourceSignals || []).find((item) => Number(item.id) === Number(signalId)) || null;
-  const candidate = center.candidates.find((item) => item.signalId === signalId);
+  let candidate = center.candidates.find((item) => item.signalId === signalId);
+  if (!candidate && sourceSignal && String(sourceSignal.outcome_status || "") === "pending") {
+    candidate = await buildSignalCandidate(sourceSignal, center.account.connected
+      ? {
+        connected: center.account.connected,
+        portfolio: {
+          cashValue: center.account.cashValue,
+          totalValue: center.account.totalValue,
+        },
+        openOrders: Array.isArray(center.recentOrders)
+          ? center.recentOrders.filter((item) => isExecutionOpenStatus(item.lifecycle_status || item.status))
+          : [],
+        assets: [],
+      }
+      : {
+        connected: false,
+        portfolio: {
+          cashValue: center.account.cashValue,
+          totalValue: center.account.totalValue,
+        },
+        openOrders: Array.isArray(center.recentOrders)
+          ? center.recentOrders.filter((item) => isExecutionOpenStatus(item.lifecycle_status || item.status))
+          : [],
+        assets: [],
+      }, center.profile, {
+      dailyLossPct: center.account.dailyLossPct,
+      dailyAutoExecutions: center.account.dailyAutoExecutions,
+      recentLossStreak: center.account.recentLossStreak,
+    }).catch(() => null);
+  }
   if (!candidate) throw new Error("No encontramos esa señal abierta dentro de los candidatos actuales.");
 
   const recordBase = {

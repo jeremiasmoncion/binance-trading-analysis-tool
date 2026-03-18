@@ -3,14 +3,18 @@ import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, Exec
 import { BalanceView } from "../views/BalanceView";
 import { CalculatorView } from "../views/CalculatorView";
 import { CompareView } from "../views/CompareView";
+import { ControlPanelView } from "../views/ControlPanelView";
 import { DashboardView } from "../views/DashboardView";
 import { LearnView } from "../views/LearnView";
 import { MemoryView } from "../views/MemoryView";
 import { MarketView } from "../views/MarketView";
 import { ProfileView } from "../views/ProfileView";
+import { StatsView } from "../views/StatsView";
+import { TradingView } from "../views/TradingView";
 
 interface AppViewProps {
   currentView: ViewName;
+  onNavigateView: (view: ViewName) => void;
   currentCoin: string;
   watchlists: WatchlistGroup[];
   watchlist: string[];
@@ -101,6 +105,19 @@ export function AppView(props: AppViewProps) {
           executionCenter={props.executionCenter}
           onRefreshExecutionCenter={props.onRefreshExecutionCenter}
           onUpdateSignal={props.onUpdateSignal}
+        />
+      );
+    case "stats":
+      return <StatsView portfolioData={props.portfolioData} executionCenter={props.executionCenter} />;
+    case "trading":
+      return <TradingView executionCenter={props.executionCenter} signals={props.signalMemory} />;
+    case "control-overview":
+    case "control-bots":
+    case "control-history":
+      return (
+        <ControlPanelView
+          currentTab={props.currentView}
+          onTabChange={(tab) => props.onNavigateView(tab)}
         />
       );
     case "market":

@@ -1,6 +1,11 @@
 export type ViewName =
   | "dashboard"
   | "balance"
+  | "stats"
+  | "trading"
+  | "control-overview"
+  | "control-bots"
+  | "control-history"
   | "memory"
   | "market"
   | "calculator"

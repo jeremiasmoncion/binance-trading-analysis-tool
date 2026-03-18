@@ -6,6 +6,8 @@ import {
   SearchIcon,
   SparklesIcon,
   TrendUpIcon,
+  UploadIcon,
+  WarningTriangleIcon,
   WalletIcon,
 } from "../components/Icons";
 import { formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
@@ -16,6 +18,7 @@ import type {
   ExecutionCenterPayload,
   ExecutionOrderRecord,
   OperationPlan,
+  PortfolioAsset,
   PortfolioPayload,
   Signal,
   StrategyCandidate,
@@ -139,6 +142,14 @@ export function DashboardView(props: DashboardViewProps) {
       props.timeframe,
       props.multiTimeframes.length,
     ],
+  );
+  const topAssets = useMemo(
+    () => buildTopAssets(props.portfolioData?.assets || []),
+    [props.portfolioData?.assets],
+  );
+  const recentActivity = useMemo(
+    () => buildRecentActivity(props.portfolioData, recentExecuteOrders),
+    [props.portfolioData, recentExecuteOrders],
   );
   const tabSummary = getDashboardTabSummary(activeTab, {
     portfolioTotal,
@@ -619,6 +630,77 @@ export function DashboardView(props: DashboardViewProps) {
             })}
           </div>
         </section>
+
+        <section className="dashboard-bottom-grid">
+          <article className="dashboard-bottom-card">
+            <div className="dashboard-bottom-head">
+              <h2 className="dashboard-bottom-title">Top Performing Assets</h2>
+              <button type="button" className="dashboard-bottom-menu" aria-label="Asset options">
+                ...
+              </button>
+            </div>
+
+            <div className="dashboard-assets-list">
+              {topAssets.map((asset) => (
+                <article key={asset.symbol} className={`dashboard-asset-row${asset.highlight ? " active" : ""}`}>
+                  <div className={`dashboard-asset-icon ${asset.tone}`}>{asset.badge}</div>
+                  <div className="dashboard-asset-copy">
+                    <strong>{asset.label}</strong>
+                    <span>{asset.quantityLabel}</span>
+                  </div>
+                  <div className="dashboard-asset-values">
+                    <strong>{formatPrice(asset.value)}</strong>
+                    <span className={asset.changeTone}>{formatSignedPct(asset.changePct)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </article>
+
+          <article className="dashboard-bottom-card">
+            <div className="dashboard-bottom-head">
+              <h2 className="dashboard-bottom-title">Recent Activity</h2>
+              <button
+                type="button"
+                className="dashboard-bot-network-link"
+                onClick={() => openHelp({
+                  title: "Recent activity",
+                  body: "Muestra una lectura ejecutiva de movimientos recientes de cuenta y bot.",
+                  bullets: [
+                    "Trades cerradas recientes.",
+                    "Movimientos de cuenta cuando existen.",
+                    "Impacto rapido en USD.",
+                  ],
+                })}
+              >
+                View All
+              </button>
+            </div>
+
+            <div className="dashboard-recent-activity ui-activity-stack">
+              {recentActivity.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <article key={item.id} className="dashboard-activity-item ui-activity-item ui-interactive-surface">
+                    <div className="dashboard-activity-badge-wrap ui-activity-main">
+                      <div className={`dashboard-activity-badge ${item.tone}`}>
+                        <Icon />
+                      </div>
+                      <div className="dashboard-activity-copy ui-activity-copy">
+                        <div className="ui-activity-title">{item.title}</div>
+                        <div className="ui-activity-meta">{item.meta}</div>
+                        <div className="ui-activity-meta">{item.submeta}</div>
+                      </div>
+                    </div>
+                    <div className="ui-activity-values">
+                      <div className={`ui-activity-amount ${item.amountTone}`}>{item.amount}</div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </article>
+        </section>
       </div>
     </div>
   );
@@ -948,6 +1030,104 @@ function buildSparkBars(values: number[]) {
       tone: value > 0 ? "positive" : value < 0 ? "negative" : "neutral",
     };
   });
+}
+
+function buildTopAssets(assets: PortfolioAsset[]) {
+  return [...assets]
+    .filter((asset) => Number(asset.marketValue || 0) > 0)
+    .sort((a, b) => {
+      const pctDiff = Number(b.periodChangePct || b.pnlPct || 0) - Number(a.periodChangePct || a.pnlPct || 0);
+      if (Math.abs(pctDiff) > 0.01) return pctDiff;
+      return Number(b.marketValue || 0) - Number(a.marketValue || 0);
+    })
+    .slice(0, 5)
+    .map((asset, index) => ({
+      symbol: asset.symbol,
+      label: getAssetDisplayName(asset.asset),
+      badge: asset.asset.slice(0, 2).toUpperCase(),
+      quantityLabel: `${formatAssetQty(asset.quantity)} ${asset.asset}`,
+      value: Number(asset.marketValue || 0),
+      changePct: Number(asset.periodChangePct || asset.pnlPct || 0),
+      changeTone: getSignedTone(Number(asset.periodChangePct || asset.pnlPct || 0)),
+      tone: getAssetTone(asset.asset, index),
+      highlight: index === 1,
+    }));
+}
+
+function buildRecentActivity(
+  portfolioData: PortfolioPayload | null,
+  recentExecuteOrders: ExecutionOrderRecord[],
+) {
+  const movementItems = (portfolioData?.accountMovements || []).slice(0, 2).map((movement) => {
+    const isDeposit = movement.type === "deposit";
+    return {
+      id: `movement-${movement.id}`,
+      icon: isDeposit ? UploadIcon : WarningTriangleIcon,
+      tone: isDeposit ? "positive" as const : "warn" as const,
+      title: isDeposit ? `${movement.asset} Received` : `${movement.asset} Sent`,
+      meta: movement.network || movement.status || "Account movement",
+      submeta: formatRelativeTime(movement.time),
+      amount: `${isDeposit ? "+" : "-"}${formatPrice(movement.estimatedUsdValue || movement.amount)}`,
+      amountTone: isDeposit ? "positive" as const : "negative" as const,
+    };
+  });
+
+  const tradeItems = recentExecuteOrders.slice(0, 3).map((order) => {
+    const side = String(order.side).toUpperCase() === "SELL" ? "Sold" : "Bought";
+    const notional = Number(order.notional_usd || 0);
+    const pnl = Number(order.realized_pnl || 0);
+    return {
+      id: `trade-${order.id}`,
+      icon: side === "Sold" ? TrendUpIcon : CoinsIcon,
+      tone: side === "Sold" ? "positive" as const : "neutral" as const,
+      title: `${order.coin || "Asset"} ${side}`,
+      meta: `${formatTradeQty(order.quantity)} ${order.coin || ""} @ ${formatPrice(order.current_price || 0)}`.trim(),
+      submeta: `${formatRelativeTime(order.closed_at || order.created_at)} · ${getTradeOriginLabel(order.strategy_name, order.origin)}`,
+      amount: pnl !== 0 ? formatSignedPrice(pnl) : formatSignedPrice(notional * (side === "Sold" ? 1 : -1)),
+      amountTone: pnl > 0 ? "positive" as const : pnl < 0 ? "negative" as const : side === "Sold" ? "positive" as const : "negative" as const,
+    };
+  });
+
+  return [...tradeItems, ...movementItems].slice(0, 5);
+}
+
+function getAssetDisplayName(asset: string) {
+  const normalized = asset.toUpperCase();
+  if (normalized === "BTC") return "Bitcoin";
+  if (normalized === "ETH") return "Ethereum";
+  if (normalized === "SOL") return "Solana";
+  if (normalized === "LINK") return "Chainlink";
+  if (normalized === "AVAX") return "Avalanche";
+  return asset;
+}
+
+function getAssetTone(asset: string, index: number) {
+  const normalized = asset.toUpperCase();
+  if (normalized === "BTC") return "orange";
+  if (normalized === "ETH") return "blue";
+  if (normalized === "SOL") return "violet";
+  if (normalized === "LINK") return "indigo";
+  if (normalized === "AVAX") return "slate";
+  return index % 2 === 0 ? "blue" : "violet";
+}
+
+function formatAssetQty(value: number) {
+  if (value >= 100) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (value >= 1) return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return value.toFixed(4);
+}
+
+function formatRelativeTime(value: number | string | undefined) {
+  if (!value) return "Just now";
+  const date = typeof value === "number" ? new Date(value) : new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  if (!Number.isFinite(diffMs)) return "Just now";
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 interface DashboardRecentTradeRow {

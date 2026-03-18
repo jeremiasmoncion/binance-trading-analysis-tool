@@ -474,19 +474,19 @@ export function BalanceView(props: BalanceViewProps) {
               <section className="wallet-actions-card">
                 <h3 className="wallet-card-title">Quick Actions</h3>
                 <div className="wallet-actions-grid">
-                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
                     <span className="wallet-action-icon wallet-action-icon-success"><DownloadIcon /></span>
                     <span className="wallet-action-label">Deposit</span>
                   </button>
-                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
                     <span className="wallet-action-icon wallet-action-icon-info"><UploadIcon /></span>
                     <span className="wallet-action-label">Withdraw</span>
                   </button>
-                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
                     <span className="wallet-action-icon wallet-action-icon-accent"><RepeatIcon /></span>
                     <span className="wallet-action-label">Swap</span>
                   </button>
-                  <button type="button" className="wallet-action-tile" aria-disabled="true">
+                  <button type="button" className="wallet-action-tile ui-interactive-surface" aria-disabled="true">
                     <span className="wallet-action-icon wallet-action-icon-warning"><SendIcon /></span>
                     <span className="wallet-action-label">Transfer</span>
                   </button>
@@ -637,7 +637,7 @@ function WalletRecentActivityItem({ movement }: { movement: BinanceAccountMoveme
   const isDeposit = movement.type === "deposit";
 
   return (
-    <article className="wallet-recent-item">
+    <article className="wallet-recent-item ui-interactive-surface">
       <div className="wallet-recent-main">
         <div className={`wallet-movement-icon ${isDeposit ? "wallet-movement-icon-deposit" : "wallet-movement-icon-withdrawal"}`}>
           {isDeposit ? <DownloadIcon /> : <UploadIcon />}

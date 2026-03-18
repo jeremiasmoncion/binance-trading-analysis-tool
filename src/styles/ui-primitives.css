@@ -90,14 +90,19 @@
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 10px 20px rgba(148, 163, 184, 0.12);
-  transition: all 0.2s ease;
+  transition:
+    transform var(--crype-motion-fast),
+    border-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast),
+    background-color var(--crype-motion-fast),
+    color var(--crype-motion-fast);
 }
 
 .ui-button:hover,
 .btn-secondary-soft:hover {
-  transform: translateY(-1px);
-  border-color: rgba(99, 102, 241, 0.28);
-  box-shadow: 0 14px 24px rgba(99, 102, 241, 0.12);
+  transform: translateY(var(--crype-lift-y));
+  border-color: var(--crype-hover-border);
+  box-shadow: var(--crype-hover-glow);
 }
 
 .ui-button svg,
@@ -123,7 +128,19 @@
 .ui-chip {
   color: #475569;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition:
+    transform var(--crype-motion-fast),
+    border-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast),
+    background-color var(--crype-motion-fast),
+    color var(--crype-motion-fast);
+}
+
+.ui-chip:hover:not(.active) {
+  transform: translateY(var(--crype-lift-y));
+  border-color: var(--crype-hover-border);
+  box-shadow: var(--crype-hover-glow);
+  color: #1e293b;
 }
 
 .ui-chip.active {
@@ -181,6 +198,28 @@
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
+.ui-input-shell input,
+.ui-input-shell select,
+.ui-input-shell textarea {
+  transition:
+    border-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast),
+    background-color var(--crype-motion-fast),
+    color var(--crype-motion-fast);
+}
+
+.ui-input-shell:hover input,
+.ui-input-shell:hover select,
+.ui-input-shell:hover textarea {
+  border-color: var(--crype-hover-border);
+  box-shadow: var(--crype-hover-glow);
+}
+
+.ui-input-shell:hover svg {
+  color: #64748b;
+  transition: color var(--crype-motion-fast);
+}
+
 .ui-table-shell {
   overflow: auto;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
@@ -215,6 +254,11 @@
   vertical-align: top;
   border-top: 1px solid rgba(148, 163, 184, 0.12);
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  transition:
+    transform var(--crype-motion-fast),
+    border-color var(--crype-motion-fast),
+    background-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast);
 }
 
 .ui-table tbody td:first-child,
@@ -285,6 +329,11 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 22px 48px rgba(148, 163, 184, 0.16);
   backdrop-filter: blur(18px);
+  transition:
+    transform var(--crype-motion-fast),
+    border-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast),
+    background-color var(--crype-motion-fast);
 }
 
 .ui-summary-card-copy {
@@ -332,13 +381,70 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition:
+    transform var(--crype-motion-fast),
+    border-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast),
+    background-color var(--crype-motion-fast),
+    color var(--crype-motion-fast);
 }
 
 .ui-row-action:hover {
-  transform: translateY(-1px);
-  border-color: rgba(99, 102, 241, 0.28);
-  box-shadow: 0 14px 24px rgba(99, 102, 241, 0.12);
+  transform: translateY(var(--crype-lift-y));
+  border-color: var(--crype-hover-border);
+  box-shadow: var(--crype-hover-glow);
+}
+
+.ui-metric-box,
+.ui-interactive-surface {
+  transition:
+    transform var(--crype-motion-fast),
+    border-color var(--crype-motion-fast),
+    box-shadow var(--crype-motion-fast),
+    background-color var(--crype-motion-fast),
+    color var(--crype-motion-fast);
+}
+
+.ui-summary-card:hover,
+.ui-metric-box:hover,
+.ui-interactive-surface:hover {
+  transform: translateY(var(--crype-lift-y));
+  border-color: var(--crype-hover-border);
+  box-shadow: var(--crype-hover-glow);
+}
+
+.ui-table tbody tr:hover td,
+.portfolio-table tbody tr:hover td {
+  border-color: rgba(99, 102, 241, 0.2);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-button,
+  .btn-secondary-soft,
+  .ui-chip,
+  .ui-input-shell input,
+  .ui-input-shell select,
+  .ui-input-shell textarea,
+  .ui-table tbody td,
+  .portfolio-table td,
+  .ui-summary-card,
+  .ui-metric-box,
+  .ui-row-action,
+  .ui-interactive-surface,
+  .ui-input-shell svg {
+    transition: none;
+  }
+
+  .ui-button:hover,
+  .btn-secondary-soft:hover,
+  .ui-chip:hover:not(.active),
+  .ui-summary-card:hover,
+  .ui-metric-box:hover,
+  .ui-row-action:hover,
+  .ui-interactive-surface:hover {
+    transform: none;
+  }
 }
 
 .ui-legend {

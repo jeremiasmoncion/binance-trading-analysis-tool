@@ -54,6 +54,17 @@ const MAIN_ITEMS: SidebarEntry[] = [
 const TRADING_ITEMS: SidebarEntry[] = [
   {
     kind: "item",
+    view: "memory",
+    label: "Signal Bot",
+    icon: (
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9a4 4 0 1 1 8 0c0 1.3-.42 2.2-1.2 3l-.8.8v1.2H10v-1.2l-.8-.8A4.2 4.2 0 0 1 8 9Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 18h4m-3 3h2" />
+      </svg>
+    ),
+  },
+  {
+    kind: "item",
     view: "trading",
     label: "Trading",
     icon: (

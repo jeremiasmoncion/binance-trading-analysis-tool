@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   BoltIcon,
   CheckCircleIcon,
@@ -43,10 +44,14 @@ interface DashboardViewProps {
   onSaveSignal: () => void;
 }
 
+type DashboardTab = "overview" | "bot-performance" | "capital" | "activity";
+
 export function DashboardView(props: DashboardViewProps) {
+  const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const signal = props.signal;
   const analysis = props.analysis;
   const portfolio = props.portfolioData?.portfolio;
+  const assets = props.portfolioData?.assets || [];
   const executionAccount = props.executionCenter?.account;
   const executionProfile = props.executionCenter?.profile;
   const currentPrice = props.currentPrice || props.candles.at(-1)?.close || 0;
@@ -79,7 +84,24 @@ export function DashboardView(props: DashboardViewProps) {
   const deployedCapitalValue = portfolio?.positionsValue || 0;
   const deploymentPct = portfolioTotal > 0 ? ((deployedCapitalValue / portfolioTotal) * 100) : 0;
   const cashPct = portfolioTotal > 0 ? (((portfolio?.cashValue || 0) / portfolioTotal) * 100) : 0;
-  const topCandidate = props.strategyCandidates.find((item) => !item.isPrimary) || null;
+  const allocationItems = buildDashboardAllocation(assets);
+  const allocationGradient = buildAllocationGradient(allocationItems);
+  const tabSummary = getDashboardTabSummary(activeTab, {
+    portfolioTotal,
+    portfolioChangeValue,
+    deploymentPct,
+    deployedCapitalValue,
+    cashPct,
+    executionAccount,
+    executionProfile,
+    eligibleCount: eligibleCandidates.length,
+    blockedCount: blockedCandidates.length,
+    recentOrdersCount: recentOrders.length,
+    currentCoin: props.currentCoin,
+    timeframe: props.timeframe,
+    botGeneratedPnl24h,
+    botWinRate24h,
+  });
   const riskAlerts = buildRiskAlerts({
     executionAccount,
     executionProfile,
@@ -208,318 +230,215 @@ export function DashboardView(props: DashboardViewProps) {
           </div>
         </section>
 
-        <section className="dashboard-command-grid ui-insight-layout">
-          <div className="dashboard-command-main">
-            <div className="dashboard-command-card">
-              <div className="dashboard-panel-head">
-                <div>
-                  <div className="dashboard-panel-kicker">Platform status</div>
-                  <h2 className="dashboard-panel-title">Pulso operativo de CRYPE</h2>
-                  <p className="dashboard-panel-subtitle">
-                    Resumen ejecutivo de capital, bot operativo, capa de ejecución e IA adaptativa usando la base de layout de Wallet.
-                  </p>
-                </div>
-                <DashboardHelpButton
-                  title="Pulso operativo"
-                  body="Este bloque resume cómo está funcionando la plataforma ahora mismo sin entrar al detalle táctico de cada señal."
-                  bullets={[
-                    "Capital: cuánto está desplegado y cuánto está líquido.",
-                    "Bot: si Signal Bot está operativo y con qué filtros.",
-                    "Ejecución: capacidad demo disponible y frenos activos.",
-                  ]}
-                />
-              </div>
-
-              <div className="dashboard-kpi-grid">
-                <article className="dashboard-kpi-tile ui-interactive-surface">
-                  <span className="dashboard-kpi-label">Capital desplegado</span>
-                  <strong className="dashboard-kpi-value">{formatPct(deploymentPct)}</strong>
-                  <span className="dashboard-kpi-note">
-                    {formatPrice(portfolio?.positionsValue || 0)} en posiciones · caja {formatPct(cashPct)}
-                  </span>
-                </article>
-                <article className="dashboard-kpi-tile ui-interactive-surface">
-                  <span className="dashboard-kpi-label">Signal Bot</span>
-                  <strong className="dashboard-kpi-value">{executionProfile?.autoExecuteEnabled ? "Auto" : "Assist"}</strong>
-                  <span className="dashboard-kpi-note">
-                    Filtro base {Math.round(executionProfile?.minSignalScore || 0)} score · RR {Number(executionProfile?.minRrRatio || 0).toFixed(2)}
-                  </span>
-                </article>
-                <article className="dashboard-kpi-tile ui-interactive-surface">
-                  <span className="dashboard-kpi-label">Capacidad demo hoy</span>
-                  <strong className="dashboard-kpi-value">{String(executionAccount?.autoExecutionRemaining ?? 0)}</strong>
-                  <span className="dashboard-kpi-note">
-                    {String(executionAccount?.dailyAutoExecutions ?? 0)} usadas de {String(executionProfile?.maxDailyAutoExecutions ?? 0)}
-                  </span>
-                </article>
-                <article className="dashboard-kpi-tile ui-interactive-surface">
-                  <span className="dashboard-kpi-label">Market pulse</span>
-                  <strong className={`dashboard-kpi-value ${getSignedTone(marketDriftPct)}`}>{formatSignedPct(marketDriftPct)}</strong>
-                  <span className="dashboard-kpi-note">
-                    {props.currentCoin} · {props.timeframe} · {formatPrice(currentPrice)}
-                  </span>
-                </article>
-              </div>
-
-              <div className="dashboard-signal-grid">
-                {operatingSignals.map((item) => (
-                  <article key={item.label} className={`dashboard-signal-card ${item.tone} ui-interactive-surface`}>
-                    <div className="dashboard-signal-card-head">
-                      <span className="dashboard-signal-icon">{item.icon}</span>
-                      <span className={`dashboard-signal-pill ${item.tone}`}>{item.pill}</span>
-                    </div>
-                    <div className="dashboard-signal-title">{item.label}</div>
-                    <div className="dashboard-signal-body">{item.detail}</div>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div className="dashboard-command-card">
-              <div className="dashboard-panel-head">
-                <div>
-                  <div className="dashboard-panel-kicker">Bot operations</div>
-                  <h2 className="dashboard-panel-title">Actividad reciente del bot</h2>
-                  <p className="dashboard-panel-subtitle">
-                    El Dashboard observa al bot y su ejecución reciente; el análisis táctico profundo sigue perteneciendo a Signal Bot.
-                  </p>
-                </div>
-                <DashboardHelpButton
-                  title="Actividad reciente del bot"
-                  body="Aquí solo vemos trazas operativas recientes para entender si el sistema está ejecutando, cerrando y respetando controles."
-                />
-              </div>
-
-              {!recentOrders.length ? (
-                <div className="dashboard-empty-state">
-                  Aún no hay ejecuciones demo recientes para mostrar en el centro de mando.
-                </div>
-              ) : (
-                <div className="ui-activity-stack">
-                  {recentOrders.map((item) => {
-                    const tone = getOrderTone(item);
-                    const statusLabel = getOrderStatusLabel(item);
-                    const amountLabel = item.realized_pnl != null
-                      ? formatSignedPrice(item.realized_pnl)
-                      : formatPrice(item.notional_usd || 0);
-
-                    return (
-                      <article key={item.id} className="dashboard-activity-item ui-activity-item ui-interactive-surface">
-                        <div className="ui-activity-main">
-                          <div className={`dashboard-activity-badge ${tone}`}>
-                            {tone === "positive" ? <CheckCircleIcon /> : tone === "negative" ? <WarningTriangleIcon /> : <InfoCircleIcon />}
-                          </div>
-                          <div className="ui-activity-copy">
-                            <div className="ui-activity-title">
-                              {item.coin || "Signal Bot"} {item.side ? `· ${String(item.side).toUpperCase()}` : ""}
-                            </div>
-                            <div className="ui-activity-meta">
-                              {statusLabel} · {item.strategy_name || props.strategy.label} · {item.timeframe || props.timeframe}
-                            </div>
-                            <div className="ui-activity-meta">
-                              {formatExecutionTime(item)} · modo {item.mode === "execute" ? "demo" : item.mode}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="ui-activity-values">
-                          <div className={`ui-activity-amount ${tone}`}>{amountLabel}</div>
-                          <div className="ui-activity-usd">
-                            {item.realized_pnl != null ? "P&L realizado" : `Notional ${formatPrice(item.notional_usd || 0)}`}
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            <div className="dashboard-command-card">
-              <div className="dashboard-panel-head">
-                <div>
-                  <div className="dashboard-panel-kicker">Intelligence</div>
-                  <h2 className="dashboard-panel-title">Lectura de IA y contexto</h2>
-                  <p className="dashboard-panel-subtitle">
-                    Un resumen compacto del estado del motor, del contexto actual y de qué está priorizando el sistema.
-                  </p>
-                </div>
-                <DashboardHelpButton
-                  title="Lectura de IA y contexto"
-                  body="Esta parte condensa el estado del motor de estrategias y del mercado sin arrastrar todo el detalle de la pantalla del bot."
-                />
-              </div>
-
-              <div className="dashboard-intelligence-grid">
-                <article className="dashboard-context-card ui-interactive-surface">
-                  <div className="dashboard-context-label">Estrategia activa</div>
-                  <div className="dashboard-context-value">{props.strategy.label}</div>
-                  <div className="dashboard-context-copy">{props.strategy.description}</div>
-                  <div className="dashboard-context-meta">
-                    {props.strategy.preferredTimeframes.join(" / ")} · {getFriendlyTradingStyle(props.strategy.tradingStyle)}
-                  </div>
-                </article>
-
-                <article className="dashboard-context-card ui-interactive-surface">
-                  <div className="dashboard-context-label">Setup observado</div>
-                  <div className="dashboard-context-value">{analysis?.setupQuality || "Media"}</div>
-                  <div className="dashboard-context-copy">
-                    {analysis?.setupType || "Esperando una estructura de mayor convicción antes de exponer más capital."}
-                  </div>
-                  <div className="dashboard-context-meta">
-                    {signal?.label || "Esperar"} · score {signal?.score ?? 0}% · {analysis?.volumeLabel || "Volumen normal"}
-                  </div>
-                </article>
-
-                <article className="dashboard-context-card ui-interactive-surface">
-                  <div className="dashboard-context-label">Alternativa inmediata</div>
-                  <div className="dashboard-context-value">{topCandidate?.strategy.label || "Sin rival claro"}</div>
-                  <div className="dashboard-context-copy">
-                    {topCandidate
-                      ? `${topCandidate.signal.label} · ${topCandidate.analysis.setupType} · ${topCandidate.signal.score}%`
-                      : "El motor no tiene otra estrategia compitiendo con fuerza suficiente ahora mismo."}
-                  </div>
-                  <div className="dashboard-context-meta">
-                    Ritmo del motor: cada {formatSchedulerInterval(props.strategyRefreshIntervalMs)}
-                  </div>
-                </article>
-              </div>
-
-              <div className="timeframe-map compact">
-                <div className="timeframe-map-header">
-                  <div>
-                    <div className="dashboard-card-topline">
-                      <div className="timeframe-map-title">Mapa de temporalidades</div>
-                      <DashboardHelpButton
-                        title="Mapa de temporalidades"
-                        body="Permite ver si varios marcos apoyan la misma narrativa antes de aumentar convicción operativa."
-                      />
-                    </div>
-                    <div className="timeframe-map-subtitle">Indicador rápido de alineación del mercado para el sistema.</div>
-                  </div>
-                  <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
-                </div>
-                <div className="timeframe-map-grid">
-                  {props.multiTimeframes.length ? (
-                    props.multiTimeframes.map((item) => {
-                      const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
-                      return (
-                        <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>
-                          <div className="timeframe-chip-head">
-                            <span className="timeframe-chip-label">{item.timeframe}</span>
-                            <span className="timeframe-chip-dot" />
-                          </div>
-                          <div className="timeframe-chip-value">{item.label}</div>
-                          <div className="timeframe-chip-note">{item.note}</div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="timeframe-chip wait">
-                      <div className="timeframe-chip-head">
-                        <span className="timeframe-chip-label">--</span>
-                        <span className="timeframe-chip-dot" />
-                      </div>
-                      <div className="timeframe-chip-value">Esperar</div>
-                      <div className="timeframe-chip-note">Cargando contexto</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+        <section className="dashboard-tabs-section">
+          <div className="dashboard-tab-row">
+            {DASHBOARD_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`dashboard-tab-pill ${activeTab === tab.id ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          <aside className="ui-side-stack">
-            <div className="dashboard-side-card">
-              <div className="dashboard-panel-head">
-                <div>
-                  <div className="dashboard-panel-kicker">Capital</div>
-                  <h2 className="dashboard-panel-title">Estado del capital</h2>
-                </div>
-                <DashboardHelpButton
-                  title="Estado del capital"
-                  body="Ayuda a ver si el capital está demasiado expuesto, demasiado ocioso o distribuido de forma sana."
-                />
+          <div className="dashboard-analytics-card">
+            <div className="dashboard-panel-head">
+              <div>
+                <div className="dashboard-panel-kicker">{tabSummary.kicker}</div>
+                <h2 className="dashboard-panel-title">{tabSummary.title}</h2>
+                <p className="dashboard-panel-subtitle">{tabSummary.subtitle}</p>
               </div>
-
-              <div className="dashboard-side-metrics">
-                <div className="dashboard-side-metric">
-                  <span>24h P&amp;L</span>
-                  <strong className={getSignedTone(portfolioChangeValue)}>{formatSignedPrice(portfolioChangeValue)}</strong>
-                </div>
-                <div className="dashboard-side-metric">
-                  <span>Open P&amp;L</span>
-                  <strong className={getSignedTone(portfolio?.unrealizedPnl || 0)}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</strong>
-                </div>
-                <div className="dashboard-side-metric">
-                  <span>Posiciones abiertas</span>
-                  <strong>{String(portfolio?.openPositionsCount || 0)}</strong>
-                </div>
-                <div className="dashboard-side-metric">
-                  <span>Ganadoras</span>
-                  <strong>{String(portfolio?.winnersCount || 0)}</strong>
-                </div>
-              </div>
+              <DashboardHelpButton
+                title={tabSummary.title}
+                body={tabSummary.helpBody}
+                bullets={tabSummary.helpBullets}
+              />
             </div>
 
-            <div className="dashboard-side-card">
-              <div className="dashboard-panel-head">
-                <div>
-                  <div className="dashboard-panel-kicker">Execution</div>
-                  <h2 className="dashboard-panel-title">Embudo de ejecución</h2>
-                </div>
-                <DashboardHelpButton
-                  title="Embudo de ejecución"
-                  body="Muestra qué tanto del flujo está listo para ejecutar y qué parte se está quedando bloqueada por filtros."
-                />
-              </div>
-
-              <div className="dashboard-funnel-list">
-                <div className="dashboard-funnel-row">
-                  <span>Candidatos elegibles</span>
-                  <strong>{String(eligibleCandidates.length)}</strong>
-                </div>
-                <div className="dashboard-funnel-row">
-                  <span>Candidatos bloqueados</span>
-                  <strong>{String(blockedCandidates.length)}</strong>
-                </div>
-                <div className="dashboard-funnel-row">
-                  <span>Daily loss</span>
-                  <strong>{Number(executionAccount?.dailyLossPct || 0).toFixed(2)}%</strong>
-                </div>
-                <div className="dashboard-funnel-row">
-                  <span>Racha de pérdidas</span>
-                  <strong>{String(executionAccount?.recentLossStreak || 0)}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="dashboard-side-card">
-              <div className="dashboard-panel-head">
-                <div>
-                  <div className="dashboard-panel-kicker">Risk desk</div>
-                  <h2 className="dashboard-panel-title">Alertas y frenos</h2>
-                </div>
-                <DashboardHelpButton
-                  title="Alertas y frenos"
-                  body="Resume lo que hoy pide atención humana para evitar sobreexposición, ruido o baja calidad de edge."
-                />
-              </div>
-
-              <div className="dashboard-alert-list">
-                {riskAlerts.map((item) => (
-                  <article key={item.title} className={`dashboard-alert-item ${item.tone}`}>
-                    <div className="dashboard-alert-icon">
-                      {item.tone === "good" ? <CheckCircleIcon /> : item.tone === "warn" ? <WarningTriangleIcon /> : <InfoCircleIcon />}
+            <div className="dashboard-analytics-grid">
+              <div className="dashboard-chart-shell">
+                <div className="chart-container dashboard-chart-card">
+                  <div className="chart-header">
+                    <div>
+                      <div className="dashboard-card-topline">
+                        <div className="chart-title">{tabSummary.chartTitle}</div>
+                      </div>
+                      <div className="card-subtitle">{tabSummary.chartSubtitle}</div>
                     </div>
-                    <div className="dashboard-alert-copy">
-                      <strong>{item.title}</strong>
-                      <span>{item.body}</span>
+                    <div className="chart-legend">
+                      <div className="legend-item">
+                        <span className="legend-dot green" />
+                        Precio
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-dot blue" />
+                        SMA 20
+                      </div>
+                      <div className="legend-item">
+                        <span className="legend-dot orange" />
+                        SMA 50
+                      </div>
                     </div>
-                  </article>
-                ))}
+                  </div>
+                  <canvas ref={props.chartRef} />
+                </div>
+
+                <div className="dashboard-kpi-grid">
+                  {tabSummary.metrics.map((item) => (
+                    <article key={item.label} className="dashboard-kpi-tile ui-interactive-surface">
+                      <span className="dashboard-kpi-label">{item.label}</span>
+                      <strong className={`dashboard-kpi-value ${item.tone || ""}`.trim()}>{item.value}</strong>
+                      <span className="dashboard-kpi-note">{item.note}</span>
+                    </article>
+                  ))}
+                </div>
               </div>
+
+              <aside className="dashboard-side-card dashboard-tab-side-card">
+                {activeTab === "overview" ? (
+                  <>
+                    <div className="dashboard-panel-head">
+                      <div>
+                        <div className="dashboard-panel-kicker">Capital map</div>
+                        <h3 className="dashboard-side-title">Asignación del portfolio</h3>
+                      </div>
+                    </div>
+                    <div className="dashboard-allocation-shell">
+                      <div className="dashboard-allocation-donut" style={{ background: allocationGradient }}>
+                        <div className="dashboard-allocation-center">
+                          <strong>{allocationItems.length}</strong>
+                          <span>activos top</span>
+                        </div>
+                      </div>
+                      <div className="ui-legend">
+                        {allocationItems.map((item) => (
+                          <div key={item.asset} className="ui-legend-row">
+                            <div className="ui-legend-key">
+                              <span className="ui-legend-dot" style={{ background: item.color }} />
+                              <span>{item.asset}</span>
+                            </div>
+                            <strong>{formatPct(item.sharePct)}</strong>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                {activeTab === "bot-performance" ? (
+                  <>
+                    <div className="dashboard-panel-head">
+                      <div>
+                        <div className="dashboard-panel-kicker">Bot lane</div>
+                        <h3 className="dashboard-side-title">Flujo del Signal Bot</h3>
+                      </div>
+                    </div>
+                    <div className="dashboard-funnel-list">
+                      <div className="dashboard-funnel-row">
+                        <span>Candidatos elegibles</span>
+                        <strong>{String(eligibleCandidates.length)}</strong>
+                      </div>
+                      <div className="dashboard-funnel-row">
+                        <span>Candidatos bloqueados</span>
+                        <strong>{String(blockedCandidates.length)}</strong>
+                      </div>
+                      <div className="dashboard-funnel-row">
+                        <span>Autoejecuciones restantes</span>
+                        <strong>{String(executionAccount?.autoExecutionRemaining ?? 0)}</strong>
+                      </div>
+                    </div>
+                    <div className="dashboard-signal-stack">
+                      {operatingSignals.map((item) => (
+                        <article key={item.label} className={`dashboard-signal-card ${item.tone} ui-interactive-surface`}>
+                          <div className="dashboard-signal-card-head">
+                            <span className="dashboard-signal-icon">{item.icon}</span>
+                            <span className={`dashboard-signal-pill ${item.tone}`}>{item.pill}</span>
+                          </div>
+                          <div className="dashboard-signal-title">{item.label}</div>
+                          <div className="dashboard-signal-body">{item.detail}</div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+
+                {activeTab === "capital" ? (
+                  <>
+                    <div className="dashboard-panel-head">
+                      <div>
+                        <div className="dashboard-panel-kicker">Capital desk</div>
+                        <h3 className="dashboard-side-title">Distribución activa</h3>
+                      </div>
+                    </div>
+                    <div className="dashboard-side-metrics">
+                      <div className="dashboard-side-metric">
+                        <span>Capital desplegado</span>
+                        <strong>{formatPrice(deployedCapitalValue)}</strong>
+                      </div>
+                      <div className="dashboard-side-metric">
+                        <span>Caja disponible</span>
+                        <strong>{formatPrice(portfolio?.cashValue || 0)}</strong>
+                      </div>
+                      <div className="dashboard-side-metric">
+                        <span>Open P&amp;L</span>
+                        <strong className={getSignedTone(portfolio?.unrealizedPnl || 0)}>{formatSignedPrice(portfolio?.unrealizedPnl || 0)}</strong>
+                      </div>
+                      <div className="dashboard-side-metric">
+                        <span>Ganadoras</span>
+                        <strong>{String(portfolio?.winnersCount || 0)}</strong>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+
+                {activeTab === "activity" ? (
+                  <>
+                    <div className="dashboard-panel-head">
+                      <div>
+                        <div className="dashboard-panel-kicker">Risk & activity</div>
+                        <h3 className="dashboard-side-title">Actividad reciente</h3>
+                      </div>
+                    </div>
+                    {!recentOrders.length ? (
+                      <div className="dashboard-empty-state">
+                        Aún no hay operaciones demo recientes para mostrar en esta vista.
+                      </div>
+                    ) : (
+                      <div className="dashboard-compact-activity">
+                        {recentOrders.slice(0, 4).map((item) => (
+                          <article key={item.id} className="dashboard-compact-row">
+                            <div>
+                              <strong>{item.coin || "Signal Bot"}</strong>
+                              <span>{getOrderStatusLabel(item)} · {item.timeframe || props.timeframe}</span>
+                            </div>
+                            <strong className={getOrderTone(item)}>
+                              {item.realized_pnl != null ? formatSignedPrice(item.realized_pnl) : formatPrice(item.notional_usd || 0)}
+                            </strong>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    <div className="dashboard-alert-list">
+                      {riskAlerts.map((item) => (
+                        <article key={item.title} className={`dashboard-alert-item ${item.tone}`}>
+                          <div className="dashboard-alert-icon">
+                            {item.tone === "good" ? <CheckCircleIcon /> : item.tone === "warn" ? <WarningTriangleIcon /> : <InfoCircleIcon />}
+                          </div>
+                          <div className="dashboard-alert-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.body}</span>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </aside>
             </div>
-          </aside>
+          </div>
         </section>
       </div>
     </div>
@@ -551,22 +470,6 @@ function DashboardHelpButton(props: DashboardHelpButtonProps) {
   );
 }
 
-function getFriendlyTradingStyle(style: string) {
-  if (style === "scalping / intradía") return "Scalping / intradía";
-  if (style === "intradía") return "Intradía";
-  if (style === "swing corto") return "Swing corto";
-  return style || "Sin perfil";
-}
-
-function formatSchedulerInterval(intervalMs: number) {
-  const minutes = Math.max(1, Math.round(intervalMs / 60000));
-  if (minutes >= 60) {
-    const hours = Math.round(minutes / 60);
-    return `${hours}h`;
-  }
-  return `${minutes}m`;
-}
-
 function getSignedTone(value: number) {
   if (value > 0.1) return "positive";
   if (value < -0.1) return "negative";
@@ -596,17 +499,6 @@ function getOrderStatusLabel(item: ExecutionOrderRecord) {
   if (lifecycle === "closed_win") return "Cierre en ganancia";
   if (lifecycle === "closed_loss") return "Cierre en pérdida";
   return lifecycle || "Sin estado";
-}
-
-function formatExecutionTime(item: ExecutionOrderRecord) {
-  const source = item.closed_at || item.last_synced_at || item.created_at;
-  if (!source) return "Sin tiempo";
-  return new Intl.DateTimeFormat("es-DO", {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(source));
 }
 
 function buildOperatingSignals(input: {
@@ -710,4 +602,143 @@ function buildRiskAlerts(input: {
   }
 
   return alerts.slice(0, 4);
+}
+
+const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "bot-performance", label: "Bot Performance" },
+  { id: "capital", label: "Capital" },
+  { id: "activity", label: "Recent Activity" },
+];
+
+function buildDashboardAllocation(assets: PortfolioPayload["assets"]) {
+  const ranked = [...assets]
+    .filter((item) => Number(item.marketValue || 0) > 0)
+    .sort((left, right) => Number(right.marketValue || 0) - Number(left.marketValue || 0))
+    .slice(0, 5);
+  const total = ranked.reduce((sum, item) => sum + Number(item.marketValue || 0), 0);
+  const palette = ["#7c6df6", "#ff7a18", "#4ecdc4", "#5b6dff", "#f59e0b"];
+  return ranked.map((item, index) => ({
+    asset: item.asset,
+    sharePct: total > 0 ? (Number(item.marketValue || 0) / total) * 100 : 0,
+    color: palette[index] || "#94a3b8",
+  }));
+}
+
+function buildAllocationGradient(items: Array<{ sharePct: number; color: string }>) {
+  if (!items.length) return "conic-gradient(#cbd5e1 0deg 360deg)";
+  let current = 0;
+  const stops = items.map((item) => {
+    const start = current;
+    current += (item.sharePct / 100) * 360;
+    return `${item.color} ${start}deg ${current}deg`;
+  });
+  if (current < 360) {
+    stops.push(`#cbd5e1 ${current}deg 360deg`);
+  }
+  return `conic-gradient(${stops.join(", ")})`;
+}
+
+function getDashboardTabSummary(
+  activeTab: DashboardTab,
+  input: {
+    portfolioTotal: number;
+    portfolioChangeValue: number;
+    deploymentPct: number;
+    deployedCapitalValue: number;
+    cashPct: number;
+    executionAccount: ExecutionCenterPayload["account"] | null | undefined;
+    executionProfile: ExecutionCenterPayload["profile"] | null | undefined;
+    eligibleCount: number;
+    blockedCount: number;
+    recentOrdersCount: number;
+    currentCoin: string;
+    timeframe: string;
+    botGeneratedPnl24h: number;
+    botWinRate24h: number;
+  },
+) {
+  switch (activeTab) {
+    case "bot-performance":
+      return {
+        kicker: "Bot performance",
+        title: "Lectura del bot y del embudo operativo",
+        subtitle: "Las tabs viven fuera de la tarjeta y controlan este bloque, como en el template. Aquí el foco cae sobre rendimiento reciente y capacidad del bot.",
+        chartTitle: "Pulso del bot",
+        chartSubtitle: `${input.currentCoin} · ${input.timeframe} con lectura del bot como referencia visual`,
+        helpBody: "Esta pestaña usa el gráfico como ancla visual y mueve el foco hacia el flujo del bot: setups, bloqueo y margen operativo.",
+        helpBullets: [
+          "Qué tanto del flujo pasa filtros.",
+          "Cuánta capacidad demo queda.",
+          "Qué tan sano viene el rendimiento inmediato.",
+        ],
+        metrics: [
+          { label: "P&L bots 24h", value: formatSignedPrice(input.botGeneratedPnl24h), note: "Resultado cerrado reciente", tone: getSignedTone(input.botGeneratedPnl24h) },
+          { label: "Win rate", value: formatPct(input.botWinRate24h), note: "Cierres recientes del bot" },
+          { label: "Elegibles", value: String(input.eligibleCount), note: "Setups que sí pasan filtros" },
+          { label: "Bloqueados", value: String(input.blockedCount), note: "Setups rechazados por edge guard" },
+        ],
+      };
+    case "capital":
+      return {
+        kicker: "Capital",
+        title: "Capital desplegado y capacidad restante",
+        subtitle: "Esta vista prioriza cómo se reparte el portfolio entre caja y exposición real del sistema.",
+        chartTitle: "Capital / contexto de mercado",
+        chartSubtitle: "El gráfico ayuda a leer dónde está operando el capital dentro del movimiento actual",
+        helpBody: "La pestaña de capital resume exposición, liquidez y presión sobre el portfolio sin irse a la pantalla de Wallet.",
+        helpBullets: [
+          "Capital desplegado en grande.",
+          "Caja disponible como contrapeso.",
+          "Lectura rápida de rendimiento abierto.",
+        ],
+        metrics: [
+          { label: "Capital en ejecución", value: formatPrice(input.deployedCapitalValue), note: `${formatPct(input.deploymentPct)} del portfolio total` },
+          { label: "Portfolio total", value: formatPrice(input.portfolioTotal), note: "Base completa del capital visible" },
+          { label: "Caja", value: formatPct(input.cashPct), note: "Porcentaje líquido disponible" },
+          { label: "24h P&L", value: formatSignedPrice(input.portfolioChangeValue), note: "Movimiento reciente del portfolio", tone: getSignedTone(input.portfolioChangeValue) },
+        ],
+      };
+    case "activity":
+      return {
+        kicker: "Recent activity",
+        title: "Actividad reciente y alertas del sistema",
+        subtitle: "Esta pestaña se concentra en la traza operativa reciente y en lo que pide atención humana.",
+        chartTitle: "Ritmo del mercado observado",
+        chartSubtitle: "El gráfico sirve como contexto visual mientras el panel derecho resume actividad y alertas",
+        helpBody: "La pestaña de actividad no convierte el Dashboard en Signal Bot; solo enseña la traza más ejecutiva.",
+        helpBullets: [
+          "Operaciones recientes.",
+          "Alertas y frenos activos.",
+          "Contexto rápido para supervisión.",
+        ],
+        metrics: [
+          { label: "Órdenes recientes", value: String(input.recentOrdersCount), note: "Trazas demo recientes" },
+          { label: "Auto restantes", value: String(input.executionAccount?.autoExecutionRemaining ?? 0), note: "Capacidad disponible hoy" },
+          { label: "Loss streak", value: String(input.executionAccount?.recentLossStreak ?? 0), note: "Racha reciente bajo vigilancia" },
+          { label: "Daily loss", value: `${Number(input.executionAccount?.dailyLossPct || 0).toFixed(2)}%`, note: "Consumo del límite diario" },
+        ],
+      };
+    case "overview":
+    default:
+      return {
+        kicker: "Overview",
+        title: "Resumen visual de plataforma",
+        subtitle: "Debajo de las 4 KPI queda esta tarjeta grande controlada por tabs externas, tal como el patrón del template, pero aterrizada a CRYPE.",
+        chartTitle: "Mercado y performance visual",
+        chartSubtitle: `${input.currentCoin} · ${input.timeframe} como ancla de lectura para plataforma, bot y capital`,
+        helpBody: "La vista general busca una lectura rápida del estado de la plataforma sin bajar al detalle del bot.",
+        helpBullets: [
+          "Capital total y capital en ejecución.",
+          "Rendimiento reciente del bot.",
+          "Mapa visual más allocation del portfolio.",
+        ],
+        metrics: [
+          { label: "Portfolio total", value: formatPrice(input.portfolioTotal), note: "Capital visible en la plataforma" },
+          { label: "Capital desplegado", value: formatPct(input.deploymentPct), note: `${formatPrice(input.deployedCapitalValue)} en ejecución` },
+          { label: "Bots 24h", value: formatSignedPrice(input.botGeneratedPnl24h), note: "Resultado reciente de bots", tone: getSignedTone(input.botGeneratedPnl24h) },
+          { label: "Win rate", value: formatPct(input.botWinRate24h), note: "Cierres recientes del bot" },
+        ],
+      };
+  }
 }

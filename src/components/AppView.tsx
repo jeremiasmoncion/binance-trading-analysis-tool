@@ -14,6 +14,7 @@ import { TradingView } from "../views/TradingView";
 
 interface AppViewProps {
   currentView: ViewName;
+  theme: "light" | "dark";
   onNavigateView: (view: ViewName) => void;
   currentCoin: string;
   watchlists: WatchlistGroup[];
@@ -83,6 +84,7 @@ export function AppView(props: AppViewProps) {
     case "dashboard":
       return (
         <DashboardView
+          theme={props.theme}
           currentCoin={props.currentCoin}
           timeframe={props.timeframe}
           currentPrice={props.currentPrice}

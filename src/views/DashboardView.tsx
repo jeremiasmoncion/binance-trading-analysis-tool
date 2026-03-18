@@ -24,6 +24,7 @@ import { openHelp } from "../lib/ui-events";
 import { drawPerformanceChart } from "../lib/chart";
 
 interface DashboardViewProps {
+  theme: "light" | "dark";
   currentCoin: string;
   timeframe: string;
   currentPrice: number;
@@ -103,9 +104,8 @@ export function DashboardView(props: DashboardViewProps) {
     [activeRange, portfolio, props.candles],
   );
   useEffect(() => {
-    const isDark = document.body.classList.contains("dark-theme");
-    drawPerformanceChart(props.chartRef.current, performancePoints, isDark);
-  }, [performancePoints, props.chartRef]);
+    drawPerformanceChart(props.chartRef.current, performancePoints, props.theme === "dark");
+  }, [performancePoints, props.chartRef, props.theme]);
 
   return (
     <div id="dashboardView" className="view-panel active">

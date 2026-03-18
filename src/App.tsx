@@ -411,6 +411,7 @@ export function App() {
 
         <AppView
           currentView={view.currentView}
+          theme={theme}
           onNavigateView={handleNavigateView}
           currentCoin={market.currentCoin}
           watchlists={watchlist.lists}

@@ -158,11 +158,10 @@
   gap: 20px;
   align-items: start;
 }
-.dashboard-chart-shell { display: grid; gap: 18px; }
+.dashboard-chart-shell { display: grid; gap: 18px; align-content: start; }
 .dashboard-timeframe-card { background: transparent; border: none; padding: 0; }
 .dashboard-chart-card {
   margin-bottom: 0;
-  min-height: 100%;
   border-radius: 24px;
   border: 1px solid rgba(148, 163, 184, 0.16);
   box-shadow:
@@ -560,7 +559,7 @@
 .legend-dot.red { background: #ef4444; }
 .legend-dot.blue { background: #3b82f6; }
 .legend-dot.orange { background: #f97316; }
-canvas { width: 100%; height: 340px; }
+canvas { display: block; width: 100%; height: 340px; }
 
 @media (max-width: 1440px) {
   .dashboard-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

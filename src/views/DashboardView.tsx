@@ -21,7 +21,7 @@ import type {
   TimeframeSignal,
 } from "../types";
 import { openHelp } from "../lib/ui-events";
-import { drawPerformanceChart } from "../lib/chart";
+import { drawBotComparisonChart, drawPerformanceChart } from "../lib/chart";
 
 interface DashboardViewProps {
   theme: "light" | "dark";
@@ -103,9 +103,17 @@ export function DashboardView(props: DashboardViewProps) {
     () => buildPerformanceSeries(props.candles, portfolio, activeRange),
     [activeRange, portfolio, props.candles],
   );
+  const botComparisonBars = useMemo(
+    () => buildBotComparisonBars(recentExecuteOrders, props.strategy, props.strategyCandidates, activeRange),
+    [activeRange, props.strategy, props.strategyCandidates, recentExecuteOrders],
+  );
   useEffect(() => {
+    if (activeTab === "bot-performance") {
+      drawBotComparisonChart(props.chartRef.current, botComparisonBars, props.theme === "dark");
+      return;
+    }
     drawPerformanceChart(props.chartRef.current, performancePoints, props.theme === "dark");
-  }, [performancePoints, props.chartRef, props.theme]);
+  }, [activeTab, botComparisonBars, performancePoints, props.chartRef, props.theme]);
 
   return (
     <div id="dashboardView" className="view-panel active">
@@ -297,16 +305,23 @@ export function DashboardView(props: DashboardViewProps) {
                       </div>
                       <div className="card-subtitle">{tabSummary.chartSubtitle} · ventana {getRangeLabel(activeRange)}</div>
                     </div>
-                    <div className="chart-legend">
-                      <div className="legend-item">
-                        <span className="legend-dot portfolio" />
-                        Portfolio
+                    {activeTab === "bot-performance" ? (
+                      <button type="button" className="ui-button" onClick={props.onSaveSignal}>
+                        <DownloadIcon />
+                        Export
+                      </button>
+                    ) : (
+                      <div className="chart-legend">
+                        <div className="legend-item">
+                          <span className="legend-dot portfolio" />
+                          Portfolio
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-dot benchmark" />
+                          Benchmark
+                        </div>
                       </div>
-                      <div className="legend-item">
-                        <span className="legend-dot benchmark" />
-                        Benchmark
-                      </div>
-                    </div>
+                    )}
                   </div>
                   <canvas ref={props.chartRef} />
                 </div>
@@ -323,64 +338,93 @@ export function DashboardView(props: DashboardViewProps) {
               </div>
 
               <aside className="dashboard-side-card dashboard-tab-side-card">
-                <div className="dashboard-panel-head">
-                  <div>
-                    <div className="dashboard-panel-kicker">Context panel</div>
-                    <h3 className="dashboard-side-title">Temporalidades y filtros</h3>
-                  </div>
-                </div>
-                <div className="timeframe-map compact dashboard-timeframe-card">
-                  <div className="timeframe-map-header">
-                    <div>
-                      <div className="dashboard-card-topline">
-                        <div className="timeframe-map-title">Mapa de temporalidades</div>
+                {activeTab === "bot-performance" ? (
+                  <>
+                    <div className="dashboard-panel-head">
+                      <div>
+                        <div className="dashboard-panel-kicker">Bot ranking</div>
+                        <h3 className="dashboard-side-title">Comparativa por bot / lane</h3>
                       </div>
-                      <div className="timeframe-map-subtitle">Referencia rápida del contexto mientras lees el rendimiento del portfolio.</div>
                     </div>
-                    <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
-                  </div>
-                  <div className="timeframe-map-grid">
-                    {props.multiTimeframes.length ? (
-                      props.multiTimeframes.map((item) => {
-                        const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
-                        return (
-                          <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>
+                    <div className="dashboard-ranking-list">
+                      {botComparisonBars.map((item) => (
+                        <article key={item.label} className="dashboard-ranking-item">
+                          <div className="dashboard-ranking-head">
+                            <strong>{item.label}</strong>
+                            <span className={item.tone}>{formatSignedPrice(item.value)}</span>
+                          </div>
+                          <div className="dashboard-ranking-track">
+                            <div
+                              className={`dashboard-ranking-fill ${item.tone}`}
+                              style={{ width: `${getComparisonBarWidth(item.value, botComparisonBars)}%` }}
+                            />
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="dashboard-panel-head">
+                      <div>
+                        <div className="dashboard-panel-kicker">Context panel</div>
+                        <h3 className="dashboard-side-title">Temporalidades y filtros</h3>
+                      </div>
+                    </div>
+                    <div className="timeframe-map compact dashboard-timeframe-card">
+                      <div className="timeframe-map-header">
+                        <div>
+                          <div className="dashboard-card-topline">
+                            <div className="timeframe-map-title">Mapa de temporalidades</div>
+                          </div>
+                          <div className="timeframe-map-subtitle">Referencia rápida del contexto mientras lees el rendimiento del portfolio.</div>
+                        </div>
+                        <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
+                      </div>
+                      <div className="timeframe-map-grid">
+                        {props.multiTimeframes.length ? (
+                          props.multiTimeframes.map((item) => {
+                            const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
+                            return (
+                              <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>
+                                <div className="timeframe-chip-head">
+                                  <span className="timeframe-chip-label">{item.timeframe}</span>
+                                  <span className="timeframe-chip-dot" />
+                                </div>
+                                <div className="timeframe-chip-value">{item.label}</div>
+                                <div className="timeframe-chip-note">{item.note}</div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="timeframe-chip wait">
                             <div className="timeframe-chip-head">
-                              <span className="timeframe-chip-label">{item.timeframe}</span>
+                              <span className="timeframe-chip-label">--</span>
                               <span className="timeframe-chip-dot" />
                             </div>
-                            <div className="timeframe-chip-value">{item.label}</div>
-                            <div className="timeframe-chip-note">{item.note}</div>
+                            <div className="timeframe-chip-value">Esperar</div>
+                            <div className="timeframe-chip-note">Cargando contexto</div>
                           </div>
-                        );
-                      })
-                    ) : (
-                      <div className="timeframe-chip wait">
-                        <div className="timeframe-chip-head">
-                          <span className="timeframe-chip-label">--</span>
-                          <span className="timeframe-chip-dot" />
-                        </div>
-                        <div className="timeframe-chip-value">Esperar</div>
-                        <div className="timeframe-chip-note">Cargando contexto</div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="dashboard-funnel-list">
-                  <div className="dashboard-funnel-row">
-                    <span>Capital en ejecución</span>
-                    <strong>{formatPrice(deployedCapitalValue)}</strong>
-                  </div>
-                  <div className="dashboard-funnel-row">
-                    <span>% desplegado</span>
-                    <strong>{formatPct(deploymentPct)}</strong>
-                  </div>
-                  <div className="dashboard-funnel-row">
-                    <span>Señal actual</span>
-                    <strong>{signal?.label || "Esperar"}</strong>
-                  </div>
-                </div>
+                    <div className="dashboard-funnel-list">
+                      <div className="dashboard-funnel-row">
+                        <span>Capital en ejecución</span>
+                        <strong>{formatPrice(deployedCapitalValue)}</strong>
+                      </div>
+                      <div className="dashboard-funnel-row">
+                        <span>% desplegado</span>
+                        <strong>{formatPct(deploymentPct)}</strong>
+                      </div>
+                      <div className="dashboard-funnel-row">
+                        <span>Señal actual</span>
+                        <strong>{signal?.label || "Esperar"}</strong>
+                      </div>
+                    </div>
+                  </>
+                )}
               </aside>
             </div>
           </div>
@@ -591,6 +635,61 @@ function buildPerformanceSeries(
       benchmark,
     };
   });
+}
+
+function buildBotComparisonBars(
+  orders: ExecutionOrderRecord[],
+  activeStrategy: StrategyDescriptor,
+  candidates: StrategyCandidate[],
+  range: DashboardRange,
+) {
+  const cutoff = getRangeCutoff(range);
+  const filtered = orders.filter((item) => {
+    const source = item.closed_at || item.last_synced_at || item.created_at;
+    if (!source) return false;
+    if (!cutoff) return true;
+    return new Date(source).getTime() >= cutoff;
+  });
+
+  const grouped = new Map<string, number>();
+  filtered.forEach((item) => {
+    const key = String(item.strategy_name || "Signal Bot Core").trim() || "Signal Bot Core";
+    grouped.set(key, Number(grouped.get(key) || 0) + Number(item.realized_pnl || 0));
+  });
+
+  const fallbackLabels = [
+    activeStrategy.label,
+    ...candidates.map((item) => item.strategy.label),
+    "Signal Bot Core",
+  ];
+
+  fallbackLabels.forEach((label) => {
+    if (!grouped.has(label) && grouped.size < 5) {
+      grouped.set(label, 0);
+    }
+  });
+
+  return Array.from(grouped.entries())
+    .slice(0, 5)
+    .map(([label, value]) => ({
+      label,
+      value,
+      tone: value > 0 ? "positive" as const : value < 0 ? "negative" as const : "neutral" as const,
+    }));
+}
+
+function getRangeCutoff(range: DashboardRange) {
+  const now = Date.now();
+  if (range === "24h") return now - 24 * 60 * 60 * 1000;
+  if (range === "7d") return now - 7 * 24 * 60 * 60 * 1000;
+  if (range === "30d") return now - 30 * 24 * 60 * 60 * 1000;
+  if (range === "90d") return now - 90 * 24 * 60 * 60 * 1000;
+  return null;
+}
+
+function getComparisonBarWidth(value: number, bars: Array<{ value: number }>) {
+  const maxValue = Math.max(...bars.map((item) => Math.abs(item.value)), 1);
+  return (Math.abs(value) / maxValue) * 100;
 }
 
 function getRangeStartValue(totalValue: number, totalPnl: number, dayChange: number, range: DashboardRange) {

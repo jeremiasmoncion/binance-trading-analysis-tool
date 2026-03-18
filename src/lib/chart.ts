@@ -102,6 +102,12 @@ interface PerformancePoint {
   benchmark: number;
 }
 
+interface BotComparisonBar {
+  label: string;
+  value: number;
+  tone: "positive" | "negative" | "neutral";
+}
+
 export function drawPerformanceChart(
   canvas: HTMLCanvasElement | null,
   points: PerformancePoint[],
@@ -195,4 +201,96 @@ export function drawPerformanceChart(
     if (!point) return;
     ctx.fillText(point.label, toX(index), canvas.height - 10);
   });
+}
+
+export function drawBotComparisonChart(
+  canvas: HTMLCanvasElement | null,
+  bars: BotComparisonBar[],
+  isDark: boolean,
+) {
+  if (!canvas || !bars.length) return;
+  const ctx = canvas.getContext("2d");
+  const container = canvas.parentElement;
+  if (!ctx || !container) return;
+
+  canvas.width = Math.max(320, container.clientWidth - 40);
+  canvas.height = 420;
+
+  const chartBg = isDark ? "#0b1018" : "#ffffff";
+  const gridColor = isDark ? "rgba(71, 85, 105, 0.28)" : "rgba(148, 163, 184, 0.22)";
+  const labelColor = isDark ? "#94a3b8" : "#64748b";
+  const padding = { top: 28, right: 28, bottom: 52, left: 54 };
+  const width = canvas.width - padding.left - padding.right;
+  const height = canvas.height - padding.top - padding.bottom;
+  const maxAbs = Math.max(...bars.map((bar) => Math.abs(bar.value)), 1);
+  const topValue = maxAbs * 1.15;
+  const bottomValue = Math.min(0, -maxAbs * 0.2);
+  const range = topValue - bottomValue || 1;
+  const stepX = width / Math.max(1, bars.length);
+  const barWidth = Math.min(140, stepX * 0.72);
+  const zeroY = padding.top + height - ((0 - bottomValue) / range) * height;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = chartBg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i += 1) {
+    const y = padding.top + (height / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(canvas.width - padding.right, y);
+    ctx.stroke();
+  }
+
+  const toY = (value: number) => padding.top + height - ((value - bottomValue) / range) * height;
+
+  bars.forEach((bar, index) => {
+    const x = padding.left + stepX * index + (stepX - barWidth) / 2;
+    const y = toY(bar.value);
+    const barTop = Math.min(zeroY, y);
+    const barHeight = Math.max(4, Math.abs(y - zeroY));
+    const radius = 10;
+
+    ctx.beginPath();
+    roundRectPath(ctx, x, barTop, barWidth, barHeight, radius);
+    ctx.fillStyle = bar.tone === "negative"
+      ? "#ef4444"
+      : bar.tone === "neutral"
+        ? "#94a3b8"
+        : "#33b27b";
+    ctx.fill();
+
+    ctx.fillStyle = labelColor;
+    ctx.font = "12px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(bar.label, x + barWidth / 2, canvas.height - 16);
+  });
+
+  ctx.fillStyle = labelColor;
+  ctx.font = "12px Inter, sans-serif";
+  ctx.textAlign = "right";
+  for (let i = 0; i <= 5; i += 1) {
+    const value = topValue - (range / 5) * i;
+    const y = padding.top + (height / 5) * i + 4;
+    ctx.fillText(formatPrice(value), padding.left - 10, y);
+  }
+}
+
+function roundRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const nextRadius = Math.min(radius, width / 2, height / 2);
+  ctx.moveTo(x + nextRadius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, nextRadius);
+  ctx.arcTo(x + width, y + height, x, y + height, nextRadius);
+  ctx.arcTo(x, y + height, x, y, nextRadius);
+  ctx.arcTo(x, y, x + width, y, nextRadius);
+  ctx.closePath();
 }

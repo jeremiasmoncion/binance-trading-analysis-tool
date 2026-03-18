@@ -199,6 +199,40 @@
 .dashboard-allocation-center span { color: #64748b; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .dashboard-signal-stack { display: grid; gap: 12px; }
 .dashboard-compact-activity { display: grid; gap: 10px; }
+.dashboard-ranking-list { display: grid; gap: 14px; }
+.dashboard-ranking-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.52);
+}
+.dashboard-ranking-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-ranking-head strong { color: #0f172a; font-size: 14px; font-weight: 800; }
+.dashboard-ranking-head span { font-size: 13px; font-weight: 800; }
+.dashboard-ranking-head span.positive { color: #16a34a; }
+.dashboard-ranking-head span.negative { color: #dc2626; }
+.dashboard-ranking-head span.neutral { color: #64748b; }
+.dashboard-ranking-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+}
+.dashboard-ranking-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+.dashboard-ranking-fill.positive { background: linear-gradient(90deg, #33b27b 0%, #5ad59d 100%); }
+.dashboard-ranking-fill.negative { background: linear-gradient(90deg, #ef4444 0%, #f87171 100%); }
+.dashboard-ranking-fill.neutral { background: linear-gradient(90deg, #94a3b8 0%, #cbd5e1 100%); }
 .dashboard-compact-row {
   display: flex;
   align-items: flex-start;

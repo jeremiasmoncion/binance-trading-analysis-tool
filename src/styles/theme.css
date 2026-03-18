@@ -734,6 +734,7 @@ body.dark-theme .dashboard-chart-card,
 body.dark-theme .dashboard-side-metric,
 body.dark-theme .dashboard-funnel-row,
 body.dark-theme .dashboard-alert-item,
+body.dark-theme .dashboard-ranking-item,
 body.dark-theme .dashboard-compact-row,
 body.dark-theme .dashboard-activity-item {
   background: rgba(15, 23, 42, 0.64);
@@ -741,6 +742,7 @@ body.dark-theme .dashboard-activity-item {
 }
 body.dark-theme .dashboard-side-title,
 body.dark-theme .dashboard-allocation-center strong,
+body.dark-theme .dashboard-ranking-head strong,
 body.dark-theme .dashboard-compact-row strong { color: #f8fafc; }
 body.dark-theme .dashboard-compact-row span,
 body.dark-theme .dashboard-allocation-center span { color: #94a3b8; }

@@ -687,6 +687,10 @@ export interface WatchlistScanRun {
   status: string;
   errors?: string[];
   created_at: string;
+  auto_orders_placed?: number;
+  auto_orders_blocked?: number;
+  auto_orders_skipped?: number;
+  auto_execution_cooldown_until?: string | null;
 }
 
 export interface WatchlistScannerStatus {
@@ -698,10 +702,15 @@ export interface WatchlistScannerStatus {
     coins: string[];
   }>;
   latestRun: WatchlistScanRun | null;
+  latestSchedulerRun?: WatchlistScanRun | null;
   runs: WatchlistScanRun[];
   summary: {
     watchedUsers: number;
     watchedCoins: number;
+    schedulerRuns?: number;
+    autoExecutionCooldownUntil?: string | null;
+    autoExecutionCooldownActive?: boolean;
+    autoExecutionCooldownReason?: string;
   };
 }
 
@@ -716,8 +725,10 @@ export interface WatchlistScanExecution {
     signalsClosed: number;
     autoOrdersPlaced: number;
     autoOrdersBlocked: number;
+    autoOrdersSkipped?: number;
     errors: string[];
     runPersistError?: string | null;
+    autoExecutionCooldownUntil?: string | null;
   }>;
   summary: {
     users: number;

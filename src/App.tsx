@@ -362,6 +362,7 @@ export function App() {
 
       <main className="main-content">
         <TopBar
+          currentView={view.currentView}
           currentCoin={market.currentCoin}
           coinOptions={market.availableCoins}
           popularCoins={market.popularCoins}

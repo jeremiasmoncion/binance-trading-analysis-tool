@@ -4,6 +4,7 @@ import { BellIcon, BoltIcon, MoonIcon, SparklesIcon, StarIcon, SunIcon } from ".
 import type { UserSession } from "../types";
 
 interface TopBarProps {
+  currentView: string;
   currentCoin: string;
   coinOptions: string[];
   popularCoins: string[];
@@ -23,6 +24,41 @@ interface TopBarProps {
   onLogout: () => void;
 }
 
+const VIEW_META: Record<string, { title: string; subtitle: string }> = {
+  dashboard: {
+    title: "Centro de mando",
+    subtitle: "Lectura general del mercado, señal principal y pulso del sistema.",
+  },
+  memory: {
+    title: "Señales e IA",
+    subtitle: "Motor adaptativo, ejecución demo y gobernanza del edge en vivo.",
+  },
+  market: {
+    title: "Radar de mercado",
+    subtitle: "Watchlists, contexto y exploración rápida de pares y marcos.",
+  },
+  balance: {
+    title: "Balance operativo",
+    subtitle: "Capital, PnL y lectura general de la cuenta conectada.",
+  },
+  calculator: {
+    title: "Calculadora táctica",
+    subtitle: "Tamaño, riesgo y estructura de la operación antes de entrar.",
+  },
+  compare: {
+    title: "Comparador",
+    subtitle: "Monedas, momentum y fuerza relativa para decidir mejor.",
+  },
+  learn: {
+    title: "Aprendizaje",
+    subtitle: "Base de apoyo para entender mejor el flujo del sistema.",
+  },
+  profile: {
+    title: "Perfil y control",
+    subtitle: "Cuenta, Binance, backtesting y paneles de administración.",
+  },
+};
+
 export function TopBar(props: TopBarProps) {
   const [query, setQuery] = useState(props.currentCoin);
   const [isOpen, setIsOpen] = useState(false);
@@ -38,6 +74,7 @@ export function TopBar(props: TopBarProps) {
       : props.popularCoins;
     return source.slice(0, 10);
   }, [props.coinOptions, props.popularCoins, query]);
+  const viewMeta = VIEW_META[props.currentView] || VIEW_META.dashboard;
 
   useEffect(() => {
     setQuery(props.currentCoin);
@@ -74,6 +111,18 @@ export function TopBar(props: TopBarProps) {
   return (
     <header className="top-bar">
       <div className="top-left">
+        <div className="topbar-title-block">
+          <div className="topbar-title-row">
+            <div className="topbar-live-pill">
+              <span className={`status-indicator ${props.status === "loading" ? "loading" : props.status === "error" ? "error" : ""}`} />
+              <span>{props.status === "loading" ? "Sincronizando" : props.status === "error" ? "Con incidencia" : "Live"}</span>
+            </div>
+            <div className="topbar-coin-pill">{props.currentCoin}</div>
+          </div>
+          <div className="topbar-headline">{viewMeta.title}</div>
+          <div className="topbar-subcopy">{viewMeta.subtitle}</div>
+        </div>
+
         <div className="search-coin" ref={wrapperRef}>
           {query ? (
             <button
@@ -176,11 +225,9 @@ export function TopBar(props: TopBarProps) {
       </div>
 
       <div className="top-right">
-        {props.watchlist.length ? (
-          <div className="user-pill watchlist-pill">
-            <span>{props.watchlist.length} en watchlist</span>
-          </div>
-        ) : null}
+        <div className="user-pill watchlist-pill">
+          <span>{props.watchlist.length} en watchlist</span>
+        </div>
 
         <button className="topbar-icon-btn utility-highlight" type="button" aria-label="Automatización activa">
           <BoltIcon />
@@ -195,12 +242,12 @@ export function TopBar(props: TopBarProps) {
           <MoonIcon className="moon-icon" />
         </button>
 
-        <div className="user-pill">
+        <div className="user-pill topbar-status-pill">
           <span className={`status-indicator ${props.status === "loading" ? "loading" : props.status === "error" ? "error" : ""}`} />
           <span>{statusText}</span>
         </div>
 
-        <div className="user-pill">
+        <div className="user-pill topbar-user-pill">
           <span>
             Usuario: <strong>{props.user.displayName || props.user.username}</strong>
           </span>

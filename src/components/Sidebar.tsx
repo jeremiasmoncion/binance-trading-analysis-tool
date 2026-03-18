@@ -80,9 +80,9 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 const NAV_GROUPS: Array<{ title: string; views: ViewName[] }> = [
-  { title: "Principal", views: ["dashboard", "memory", "market"] },
-  { title: "Herramientas", views: ["balance", "calculator", "compare"] },
-  { title: "Soporte", views: ["learn", "profile"] },
+  { title: "Core", views: ["dashboard", "memory", "market"] },
+  { title: "Trading Studio", views: ["balance", "calculator", "compare"] },
+  { title: "Cuenta", views: ["learn", "profile"] },
 ];
 
 interface SidebarProps {
@@ -99,13 +99,15 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
       <div className="sidebar-header">
         <div className="sidebar-header-row">
-        <div className="sidebar-logo">
-          <div className="logo-icon">C</div>
-          <div className="logo-text">
-            <h1>CRYPE</h1>
-            <p>Trading simple con identidad propia</p>
+          <div className="sidebar-logo">
+            <div className="logo-icon">
+              <span className="logo-icon-core">C</span>
+            </div>
+            <div className="logo-text">
+              <h1>CRYPE</h1>
+              <p>IA operativa para trading</p>
+            </div>
           </div>
-        </div>
           <button
             type="button"
             className="sidebar-toggle"
@@ -116,6 +118,14 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
             <PanelLeftIcon className={collapsed ? "is-collapsed" : ""} />
           </button>
         </div>
+      </div>
+
+      <div className="sidebar-status-strip">
+        <div className="sidebar-status-badge">
+          <span className="sidebar-status-dot" />
+          <span>24/7 activo</span>
+        </div>
+        <div className="sidebar-status-meta">Señales, IA y watcher en vivo</div>
       </div>
 
       <nav className="sidebar-nav">
@@ -145,9 +155,14 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onToggleCo
       </nav>
 
       <div className="sidebar-user">
+        <div className="sidebar-user-avatar">{(user.displayName || user.username || "C").slice(0, 2).toUpperCase()}</div>
         <div className="user-info">
           <div className="name">{user.displayName || user.username}</div>
-          <div className="role">Rol: {user.role === "admin" ? "Administrador" : "Genérico"}</div>
+          <div className="role">{user.role === "admin" ? "Administrador" : "Usuario"} · Entorno vivo</div>
+        </div>
+        <div className="sidebar-user-pills">
+          <span className="sidebar-mini-pill">{user.role === "admin" ? "Admin" : "User"}</span>
+          <span className="sidebar-mini-pill sidebar-mini-pill-accent">Main</span>
         </div>
         <button className="btn-logout" onClick={onLogout}>
           Cerrar sesión

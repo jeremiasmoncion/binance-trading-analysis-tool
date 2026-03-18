@@ -17,6 +17,7 @@ interface BalanceViewProps {
 type WalletTab = "holdings" | "nfts" | "staking" | "history";
 type AssetFilter = "all" | "large" | "mid" | "small" | "stablecoins" | "defi";
 type MovementFilter = "all" | "deposit" | "withdrawal";
+type AssetSortDirection = "desc" | "asc";
 
 const STABLE_ASSETS = new Set(["USDT", "USDC", "FDUSD", "DAI", "TUSD", "BUSD"]);
 const DEFI_ASSETS = new Set(["UNI", "AAVE", "LINK", "MKR", "LDO", "CRV", "SNX", "COMP", "SUSHI"]);
@@ -162,6 +163,8 @@ export function BalanceView(props: BalanceViewProps) {
   const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
   const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
   const [assetSearch, setAssetSearch] = useState("");
+  const [assetSortDirection, setAssetSortDirection] = useState<AssetSortDirection>("desc");
+  const [assetPage, setAssetPage] = useState(1);
   const [historyBootstrapped, setHistoryBootstrapped] = useState(false);
   const portfolio = props.payload?.portfolio;
   const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
@@ -174,16 +177,27 @@ export function BalanceView(props: BalanceViewProps) {
   const allocationGradient = useMemo(() => buildAllocationGradient(allocation), [allocation]);
   const accountMovements = props.payload?.accountMovements || [];
   const filteredAssets = useMemo(() => {
-    return visibleAssets.filter((asset) => {
+    const matches = visibleAssets.filter((asset) => {
       const matchesFilter = assetFilter === "all" ? true : classifyAsset(asset) === assetFilter;
       const needle = assetSearch.trim().toUpperCase();
       const matchesSearch = needle ? asset.asset.includes(needle) || asset.symbol.includes(needle) : true;
       return matchesFilter && matchesSearch;
     });
-  }, [assetFilter, assetSearch, visibleAssets]);
+    return matches.sort((left, right) => (
+      assetSortDirection === "desc"
+        ? Number(right.marketValue || 0) - Number(left.marketValue || 0)
+        : Number(left.marketValue || 0) - Number(right.marketValue || 0)
+    ));
+  }, [assetFilter, assetSearch, assetSortDirection, visibleAssets]);
   const filteredMovements = useMemo(() => {
     return accountMovements.filter((movement) => movementFilter === "all" ? true : movement.type === movementFilter);
   }, [accountMovements, movementFilter]);
+  const assetPageSize = 10;
+  const totalAssetPages = Math.max(1, Math.ceil(filteredAssets.length / assetPageSize));
+  const paginatedAssets = useMemo(() => {
+    const start = (assetPage - 1) * assetPageSize;
+    return filteredAssets.slice(start, start + assetPageSize);
+  }, [assetPage, filteredAssets]);
 
   useEffect(() => {
     if (activeTab === "history" && !historyBootstrapped) {
@@ -194,6 +208,16 @@ export function BalanceView(props: BalanceViewProps) {
       setHistoryBootstrapped(false);
     }
   }, [activeTab, historyBootstrapped, props.onRefreshFull]);
+
+  useEffect(() => {
+    setAssetPage(1);
+  }, [assetFilter, assetSearch, assetSortDirection]);
+
+  useEffect(() => {
+    if (assetPage > totalAssetPages) {
+      setAssetPage(totalAssetPages);
+    }
+  }, [assetPage, totalAssetPages]);
 
   return (
     <div id="balanceView" className="view-panel active wallet-template-view">
@@ -323,9 +347,12 @@ export function BalanceView(props: BalanceViewProps) {
                       placeholder="Search assets..."
                     />
                   </div>
-                  <button className="wallet-secondary-button ui-button" onClick={props.onRefresh}>
+                  <button
+                    className="wallet-secondary-button ui-button"
+                    onClick={() => setAssetSortDirection((prev) => (prev === "desc" ? "asc" : "desc"))}
+                  >
                     <ArrowUpDownIcon />
-                    Sort
+                    Sort {assetSortDirection === "desc" ? "↓" : "↑"}
                   </button>
                 </div>
               </div>
@@ -360,11 +387,36 @@ export function BalanceView(props: BalanceViewProps) {
                         </td>
                       </tr>
                     ) : (
-                      filteredAssets.map((asset) => <WalletAssetRow key={asset.asset} asset={asset} />)
+                      paginatedAssets.map((asset) => <WalletAssetRow key={asset.asset} asset={asset} />)
                     )}
                   </tbody>
                 </table>
               </div>
+
+              {filteredAssets.length ? (
+                <div className="wallet-pagination-row">
+                  <div className="wallet-pagination-copy">
+                    Mostrando {(assetPage - 1) * assetPageSize + 1}-{Math.min(assetPage * assetPageSize, filteredAssets.length)} de {filteredAssets.length} activos
+                  </div>
+                  <div className="wallet-pagination-actions">
+                    <button
+                      className="wallet-secondary-button ui-button"
+                      onClick={() => setAssetPage((page) => Math.max(1, page - 1))}
+                      disabled={assetPage === 1}
+                    >
+                      Anterior
+                    </button>
+                    <span className="wallet-pagination-pill">Página {assetPage} / {totalAssetPages}</span>
+                    <button
+                      className="wallet-secondary-button ui-button"
+                      onClick={() => setAssetPage((page) => Math.min(totalAssetPages, page + 1))}
+                      disabled={assetPage === totalAssetPages}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <aside className="wallet-allocation-card">

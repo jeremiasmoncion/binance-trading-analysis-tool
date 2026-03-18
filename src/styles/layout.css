@@ -814,6 +814,43 @@
 
 .wallet-table-shell { padding-top: 18px; }
 
+.wallet-pagination-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 20px;
+}
+
+.wallet-pagination-copy {
+  color: var(--muted-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.wallet-pagination-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.wallet-pagination-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-soft);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .wallet-assets-table {
   min-width: 780px;
 }
@@ -1240,6 +1277,15 @@ body.dark-theme .wallet-table-shell {
   border-top-color: var(--crype-dark-border);
 }
 
+body.dark-theme .wallet-pagination-pill {
+  background: var(--crype-dark-panel-soft);
+  border-color: var(--crype-dark-border);
+}
+
+body.dark-theme .wallet-pagination-copy {
+  color: var(--crype-dark-muted);
+}
+
 body.dark-theme .wallet-assets-table tbody td:first-child,
 body.dark-theme .wallet-assets-table tbody td:last-child,
 body.dark-theme .wallet-assets-table tbody td {
@@ -1295,6 +1341,15 @@ body.dark-theme .wallet-assets-table tbody td {
   .wallet-card-header,
   .wallet-card-tools {
     flex-direction: column;
+  }
+
+  .wallet-pagination-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .wallet-pagination-actions {
+    justify-content: space-between;
   }
 
   .wallet-movement-card {

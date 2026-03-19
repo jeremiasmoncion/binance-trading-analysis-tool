@@ -50,13 +50,18 @@ The project also now has an orchestration base for multi-thread execution under:
   - execution candidates -> published feeds
   - published feeds -> bot-consumable feeds
 - clarified that `AI Unrestricted Lab` is a supported isolated example/profile, not a global default policy for all bots
+- added a second adapter boundary for:
+  - `signal memory snapshots` -> `published signal feed`
+  - `published signal feed` + bot policy -> `bot-consumable feed`
+- added a first read-only UI validation surface hosted inside `MemoryView`
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
 
 - no persistence or shared store has been attached to the new bot registry yet
-- no UI surface consumes the new domain module yet
-- no signal feed has been wired into the existing market/runtime pipeline yet
+- no persistence has been attached to the new bot registry yet
+- no global shell wiring has been added for the domain module
+- no signal feed has been wired into the existing market/runtime pipeline beyond a read-only host in `MemoryView`
 - no AI conversational layer has been implemented yet
 
 ## Files Added
@@ -82,21 +87,25 @@ The project also now has an orchestration base for multi-thread execution under:
 - `src/domain/signals/contracts.ts`
 - `src/domain/signals/classification.ts`
 - `src/domain/signals/feedAdapters.ts`
+- `src/domain/signals/memoryAdapters.ts`
+- `src/domain/signals/selectors.ts`
 - `src/domain/index.ts`
+- `src/components/domain/SignalsBotsReadOnlyLab.tsx`
 
 ## Recommended Next Implementation Step
 
 Bridge the new contracts into a safe read-only Phase 3 seam:
 
 - the first registry/store location is now established in `src/domain/bots/registry.ts`
-- next expose selectors or adapters that let the UI read:
-  - bot registry entries
-  - published signal feeds
-  - bot-consumable signal feeds
-- decide with the director whether the first integration point should start from:
-  - frontend execution candidates
-  - backend execution candidates
-  - signal memory snapshots
+- a first read-only UI host now exists in `MemoryView`
+- next step should likely prioritize feed ranking/prioritization before registry persistence
+- current hydration source is intentionally:
+  - `signal memory snapshots`
+- current validated read path is:
+  - `signal memory snapshots`
+  - -> `published signal feed`
+  - -> `bot-consumable feed`
+  - -> read-only UI
 
 ## GitHub Notification Practice
 
@@ -153,18 +162,20 @@ What implementers should avoid:
 ## Sensitive Areas Touched
 
 - None in this round.
-- The new work stayed isolated under `src/domain/` and documentation files.
+- The new work stayed isolated under `src/domain/`, a read-only UI host in `MemoryView`, and documentation files.
 
 ## Director Review Needed
 
 - confirm whether the next priority should be:
-  - read-only UI composition using domain selectors
-  - registry persistence seam
   - feed ranking/prioritization
-- confirm the first hydration boundary for feeds:
-  - frontend execution candidates
-  - signal memory snapshots
-  - backend payload adapters
+  - deeper UI composition
+  - registry persistence later
+- review whether `MemoryView` is the right temporary inspection host until a dedicated signals/bots workspace surface is approved
+
+## Warning For Director
+
+- The branch `codex/implementador-bots-signals` currently includes a prior realtime refinement commit (`390d0aa`) outside the intended implementer scope.
+- This round did not extend that cross-scope work, but the integration review should account for it.
 
 ## Refiner Coordination Needed
 

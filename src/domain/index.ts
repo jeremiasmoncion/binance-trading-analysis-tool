@@ -6,3 +6,5 @@ export * from "./bots/selectors";
 export * from "./signals/classification";
 export * from "./signals/contracts";
 export * from "./signals/feedAdapters";
+export * from "./signals/memoryAdapters";
+export * from "./signals/selectors";

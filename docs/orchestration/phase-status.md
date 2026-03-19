@@ -16,11 +16,11 @@
   - signal feed taxonomy contracts added
   - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
 - `in progress`
-  - selecting the first hydration boundary for the new domain-owned bot registry and signal feed selectors
+  - validating read-only domain consumption from `signal memory snapshots`
 - `next`
-  - read-only UI composition backed by domain selectors
-  - feed hydration adapters for published and bot-consumable signals
-  - optional persistence seam for the local bot registry
+  - feed ranking/prioritization for published signals
+  - deeper UI composition backed by domain selectors
+  - optional persistence seam for the local bot registry later
   - director review for Phase 3 integration boundary
 
 ## Rule For Future Updates

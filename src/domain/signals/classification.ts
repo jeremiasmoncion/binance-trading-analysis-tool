@@ -55,11 +55,49 @@ export function publishSystemSignal(
   };
 }
 
+function matchesBotUniverse(bot: Bot, signal: PublishedSignal): { matched: boolean; note: string } {
+  if (bot.universePolicy.kind === "watchlist") {
+    return {
+      matched: signal.audience === "watchlist",
+      note: signal.audience === "watchlist" ? "Coincide con universo watchlist." : "Fuera del universo watchlist del bot.",
+    };
+  }
+
+  if (bot.universePolicy.kind === "custom-list") {
+    const matched = bot.universePolicy.symbols.includes(signal.context.symbol);
+    return {
+      matched,
+      note: matched ? "Coincide con la lista propia del bot." : "La moneda no esta en la lista propia del bot.",
+    };
+  }
+
+  if (bot.universePolicy.kind === "hybrid") {
+    const matched = signal.audience === "watchlist" || bot.universePolicy.symbols.includes(signal.context.symbol);
+    return {
+      matched,
+      note: matched ? "Coincide con el universo hibrido del bot." : "Fuera del universo hibrido del bot.",
+    };
+  }
+
+  return {
+    matched: true,
+    note: "Universo filtrado a nivel de mercado.",
+  };
+}
+
 export function createBotConsumableSignal(bot: Bot, signal: PublishedSignal): BotConsumableSignal {
   const styleAffinity = bot.stylePolicy.multiStyleEnabled
     ? bot.stylePolicy.allowedStyles
     : [bot.stylePolicy.dominantStyle];
   const acceptedTimeframe = bot.timeframePolicy.allowedTimeframes.includes(signal.context.timeframe);
+  const acceptedStrategy = !bot.strategyPolicy.allowedStrategyIds.length || bot.strategyPolicy.allowedStrategyIds.includes(signal.context.strategyId);
+  const universeMatch = matchesBotUniverse(bot, signal);
+  const acceptedByPolicy = universeMatch.matched && acceptedTimeframe && acceptedStrategy;
+  const policyNotes = [
+    universeMatch.note,
+    acceptedTimeframe ? "Timeframe permitido por el bot." : "Timeframe fuera de la politica del bot.",
+    acceptedStrategy ? "Estrategia permitida por el bot." : "Estrategia fuera de la politica del bot.",
+  ];
 
   return {
     id: `${signal.id}:bot:${bot.id}`,
@@ -67,7 +105,13 @@ export function createBotConsumableSignal(bot: Bot, signal: PublishedSignal): Bo
     context: signal.context,
     reasons: signal.reasons,
     botId: bot.id,
-    acceptedByPolicy: acceptedTimeframe,
+    acceptedByPolicy,
+    policyMatches: {
+      universe: universeMatch.matched,
+      timeframe: acceptedTimeframe,
+      strategy: acceptedStrategy,
+    },
+    policyNotes,
     styleAffinity,
     requiredAutomationMode: bot.automationMode,
     allowedEnvironments: [bot.executionEnvironment],

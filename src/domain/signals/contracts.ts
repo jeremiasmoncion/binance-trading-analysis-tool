@@ -47,6 +47,12 @@ export interface BotConsumableSignal {
   reasons: string[];
   botId: string;
   acceptedByPolicy: boolean;
+  policyMatches: {
+    universe: boolean;
+    timeframe: boolean;
+    strategy: boolean;
+  };
+  policyNotes: string[];
   styleAffinity: BotTradingStyle[];
   requiredAutomationMode: BotAutomationMode;
   allowedEnvironments: BotExecutionEnvironment[];

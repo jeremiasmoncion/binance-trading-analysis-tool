@@ -234,3 +234,101 @@ Phase 2 / Phase 3 bridge
   - read-only UI composition for bots/signals
   - registry persistence seam
   - feed ranking/prioritization
+
+## 2026-03-19 - Read-Only Domain Validation Round
+
+### Phase
+
+Phase 2 / Phase 3 bridge
+
+### Completed
+
+- Added a memory-based adapter from `SignalSnapshot[]` into the new published signal feed model under `src/domain/signals/memoryAdapters.ts`.
+- Kept the feed hydration source on `signal memory snapshots`, as directed, instead of starting from execution candidates or backend payloads.
+- Extended the bot-consumable signal contract so the derivation can expose policy-fit details:
+  - universe match
+  - timeframe match
+  - strategy match
+  - policy notes
+- Added signal selectors under `src/domain/signals/selectors.ts` for:
+  - published feed reads
+  - audience slicing
+  - high-confidence slicing
+  - accepted vs blocked bot-consumable reads
+- Built a first read-only inspection surface in `src/components/domain/SignalsBotsReadOnlyLab.tsx`.
+- Mounted that surface inside the existing `MemoryView` overview tab so the new domain can be inspected without touching `App.tsx` or shared runtime wiring.
+- Added light/dark theme-safe styles for the new inspection surface in `src/styles/content.css`.
+- Verified the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Mapping Used
+
+- `signal memory snapshots` -> `published signal feed`
+  - source classification uses active watchlist membership to split `watchlist` vs `market`
+  - visibility score is derived from base signal score plus confirmations, watchlist bias, and execution-eligibility hint
+- `published signal feed` + `bot policy` -> `bot-consumable feed`
+  - current policy fit checks:
+    - universe policy
+    - allowed timeframes
+    - allowed strategies
+
+### UI Built
+
+- New read-only lab surface:
+  - published signals
+  - high-confidence subset
+  - bot policy fit summaries
+  - bot-consumable examples showing accepted vs blocked cases
+- Host location:
+  - `MemoryView` -> `Resumen`
+- Why this seam is safe:
+  - no new fetch
+  - no polling added
+  - no new runtime
+  - no hot-path integration
+
+### Files Added
+
+- `src/domain/signals/memoryAdapters.ts`
+- `src/domain/signals/selectors.ts`
+- `src/components/domain/SignalsBotsReadOnlyLab.tsx`
+
+### Files Updated
+
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/classification.ts`
+- `src/domain/index.ts`
+- `src/views/MemoryView.tsx`
+- `src/styles/content.css`
+
+### Sensitive Areas Avoided
+
+- Still avoided:
+  - `src/App.tsx`
+  - `src/types.ts`
+  - `src/data-platform/*`
+  - `src/realtime-core/*`
+  - protected hooks
+  - `api/_lib/*`
+
+### What We Learned
+
+- The domain seam remains safe when the first hydration source is `signal memory`, because it gives enough structure to validate:
+  - published feed taxonomy
+  - bot-consumption derivation
+  - policy readability in UI
+- Before persistence, the more valuable next step is likely feed ranking/prioritization, because:
+  - the UI can already inspect the domain
+  - the bigger product risk now is noise management, not local bot registry storage
+
+### Warning
+
+- The working branch currently contains a prior realtime refinement commit (`390d0aa`) that does not belong to the implementer scope originally assigned.
+- This round did not touch that area, but the director should take the branch contamination into account during later integration review.
+
+### Recommended Next Step
+
+- move to ranking/prioritization on top of the published feed
+- keep persistence deferred
+- keep the next integration read-only until feed quality and visual organization are validated

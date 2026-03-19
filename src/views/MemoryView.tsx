@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
+import { SignalsBotsReadOnlyLab } from "../components/domain/SignalsBotsReadOnlyLab";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -1823,6 +1824,11 @@ export function MemoryView() {
               Resumen rápido: hay {openSignals.length} señales abiertas, pero solo {eligibleExecutionCandidates.length} cumplen hoy todo lo necesario para pasar a demo.
             </p>
           </SectionCard>
+
+          <SignalsBotsReadOnlyLab
+            signals={signals}
+            watchlistSymbols={watchlist}
+          />
 
           <SectionCard
             title="Tablero maestro de edge y automatización"

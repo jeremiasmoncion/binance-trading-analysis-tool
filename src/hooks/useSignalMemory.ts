@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
+import { marketDataPlaneStore } from "../data-platform/marketDataPlane";
 import { systemDataPlaneStore } from "../data-platform/systemDataPlane";
-import { marketService, signalService } from "../services/api";
+import { signalService } from "../services/api";
 import type { DashboardAnalysis, OperationPlan, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName } from "../types";
 
 interface UseSignalMemoryOptions {
@@ -31,6 +32,27 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
         signalMemory: nextSignals,
       },
     }));
+  }, []);
+
+  const buildClientPriceMap = useCallback((context?: { currentCoin?: string; currentPrice?: number | null }) => {
+    const marketState = marketDataPlaneStore.getState();
+    const prices = new Map<string, number>();
+
+    if (marketState.currentCoin && Number(marketState.currentPrice || 0) > 0) {
+      prices.set(marketState.currentCoin, Number(marketState.currentPrice));
+    }
+
+    marketState.comparison.forEach((item) => {
+      if (item.symbol && Number(item.price || 0) > 0) {
+        prices.set(item.symbol, Number(item.price));
+      }
+    });
+
+    if (context?.currentCoin && Number(context.currentPrice || 0) > 0) {
+      prices.set(context.currentCoin, Number(context.currentPrice));
+    }
+
+    return prices;
   }, []);
 
   const refreshSignals = useCallback(async () => {
@@ -158,19 +180,10 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     lastEvaluationAtRef.current = Date.now();
 
     try {
-      const uniqueCoins = Array.from(new Set(pendingSignals.map((item) => item.coin)));
-      const priceEntries = await Promise.all(
-        uniqueCoins.map(async (coin) => {
-          if (context?.currentCoin === coin && Number(context.currentPrice || 0) > 0) {
-            return [coin, Number(context.currentPrice)] as const;
-          }
-
-          const ticker = await marketService.fetch24h(coin);
-          return [coin, Number(ticker.lastPrice || 0)] as const;
-        }),
-      );
-
-      const prices = new Map(priceEntries);
+      // Client-side signal evaluation is now only allowed to use prices that
+      // are already inside the shared market plane. Off-screen coins should be
+      // resolved by the backend watcher instead of spawning parallel market IO.
+      const prices = buildClientPriceMap(context);
       const updates: Array<Promise<unknown>> = [];
 
       pendingSignals.forEach((item) => {
@@ -233,7 +246,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     } finally {
       evaluationInFlightRef.current = false;
     }
-  }, [currentUser, refreshSignals, signals]);
+  }, [buildClientPriceMap, currentUser, refreshSignals, signals]);
 
   useEffect(() => {
     if (!currentUser) {

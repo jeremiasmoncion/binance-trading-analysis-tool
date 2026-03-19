@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ViewName } from "../types";
 
 const SIDEBAR_STORAGE_KEY = "crype-sidebar-collapsed";
@@ -27,18 +27,27 @@ export function useViewState(initialView: ViewName = "dashboard") {
     }
   }, [sidebarCollapsed]);
 
-  return {
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((current) => !current);
+  }, []);
+
+  const openProfile = useCallback(() => {
+    setCurrentView("profile");
+  }, []);
+
+  const resetToDashboard = useCallback(() => {
+    setCurrentView("dashboard");
+  }, []);
+
+  return useMemo(() => ({
     currentView,
     setCurrentView,
     sidebarCollapsed,
-    toggleSidebar() {
-      setSidebarCollapsed((current) => !current);
-    },
-    openProfile() {
-      setCurrentView("profile");
-    },
-    resetToDashboard() {
-      setCurrentView("dashboard");
-    },
-  };
+    // The shell depends on these handlers at the top of the tree. Keeping them
+    // stable avoids rebroadcasting fresh callback props across Sidebar/TopBar
+    // every time unrelated market or system state updates.
+    toggleSidebar,
+    openProfile,
+    resetToDashboard,
+  }), [currentView, openProfile, resetToDashboard, sidebarCollapsed, toggleSidebar]);
 }

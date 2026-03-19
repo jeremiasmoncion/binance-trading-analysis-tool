@@ -30,6 +30,14 @@ function isMobileViewport() {
 
 export function App() {
   const view = useViewState("dashboard");
+  const {
+    currentView,
+    sidebarCollapsed,
+    toggleSidebar,
+    openProfile,
+    resetToDashboard,
+    setCurrentView,
+  } = view;
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const bootstrappedRef = useRef(false);
   const connectionToastStateRef = useRef<{ bootstrapped: boolean; lastConnected: boolean | null }>({
@@ -49,21 +57,21 @@ export function App() {
 
   const auth = useAuth();
   const { realtimeCore } = useRealtimeCoreStatusSelector();
-  const market = useMarketData({ currentView: view.currentView });
+  const market = useMarketData({ currentView });
   const calculatorState = useCalculator(
     market.indicators,
     market.indicators && market.signal
       ? getOperationPlan(market.indicators, market.signal, 0, market.timeframe, market.analysis)
       : null,
   );
-  const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
-  const handleNavigateView = useCallback((nextView: typeof view.currentView) => {
-    view.setCurrentView(nextView);
-    if (isMobileViewport() && !view.sidebarCollapsed) {
-      view.toggleSidebar();
+  const binance = useBinanceData({ currentUser: auth.currentUser, currentView });
+  const handleNavigateView = useCallback((nextView: typeof currentView) => {
+    setCurrentView(nextView);
+    if (isMobileViewport() && !sidebarCollapsed) {
+      toggleSidebar();
     }
-  }, [view]);
-  const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
+  }, [currentView, setCurrentView, sidebarCollapsed, toggleSidebar]);
+  const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView });
   const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser });
   const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
@@ -535,7 +543,7 @@ export function App() {
 
   async function handleLogout() {
     await auth.handleLogout(async () => {
-      view.resetToDashboard();
+      resetToDashboard();
     });
   }
 
@@ -587,18 +595,18 @@ export function App() {
   }
 
   return (
-    <div className={`app-shell${view.sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+    <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <SystemUiHost />
       <button
         type="button"
         className="app-mobile-backdrop"
         aria-label="Cerrar navegación"
-        onClick={view.toggleSidebar}
+        onClick={toggleSidebar}
       />
       <Sidebar
         user={auth.currentUser}
-        currentView={view.currentView}
-        collapsed={view.sidebarCollapsed}
+        currentView={currentView}
+        collapsed={sidebarCollapsed}
         onViewChange={handleNavigateView}
         onLogout={handleLogout}
       />
@@ -607,15 +615,15 @@ export function App() {
         <TopBar
           user={auth.currentUser}
           showAdmin={auth.currentUser.role === "admin"}
-          sidebarCollapsed={view.sidebarCollapsed}
+          sidebarCollapsed={sidebarCollapsed}
           onToggleTheme={toggleTheme}
-          onToggleSidebar={view.toggleSidebar}
-          onOpenAdmin={view.openProfile}
+          onToggleSidebar={toggleSidebar}
+          onOpenAdmin={openProfile}
           onLogout={handleLogout}
         />
 
         <AppView
-          currentView={view.currentView}
+          currentView={currentView}
           theme={theme}
           onNavigateView={handleNavigateView}
           chartRef={chartRef}

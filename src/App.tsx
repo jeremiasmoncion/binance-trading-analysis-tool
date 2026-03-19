@@ -14,7 +14,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncSystemDataPlane, syncSystemDataPlaneActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
 import { applyRealtimeCoreEvent } from "./realtime-core/events";
@@ -107,13 +107,12 @@ export function App() {
   ]);
 
   useEffect(() => {
-    syncSystemDataPlane(binance, signalMemory, watchlist);
+    syncSystemDataPlane(binance, watchlist);
   }, [
     binance.binanceConnection,
     binance.dashboardSummary,
     binance.executionCenter,
     binance.portfolioData,
-    signalMemory.signals,
     watchlist.activeListName,
     watchlist.lists,
   ]);
@@ -131,6 +130,10 @@ export function App() {
     binance.setBinanceFormField,
     binance.setHideSmallAssets,
   ]);
+
+  useEffect(() => {
+    syncSystemSignalActions(signalMemory);
+  }, [signalMemory.refreshSignals]);
 
   useEffect(() => {
     if (bootstrappedRef.current) return;

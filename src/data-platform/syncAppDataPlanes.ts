@@ -40,14 +40,12 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
 
 export function syncSystemDataPlane(
   binance: ReturnTypeUseBinanceData,
-  signalMemory: ReturnTypeUseSignalMemory,
   watchlist: ReturnTypeUseWatchlist,
 ) {
   const hasSystemPayload = Boolean(
     binance.portfolioData
     || binance.executionCenter
     || binance.dashboardSummary
-    || signalMemory.signals.length
     || watchlist.lists.length,
   );
 
@@ -64,7 +62,7 @@ export function syncSystemDataPlane(
     snapshot: {
       connection: binance.binanceConnection,
       portfolio: binance.portfolioData,
-      signalMemory: signalMemory.signals,
+      signalMemory: current.snapshot.signalMemory,
       watchlists: watchlist.lists,
       activeWatchlistName: watchlist.activeListName,
     },
@@ -85,6 +83,7 @@ export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
   systemDataPlaneStore.setState((current) => ({
     ...current,
     actions: {
+      ...current.actions,
       refreshPortfolio: actions.refreshPortfolio,
       refreshPortfolioWithFeedback: actions.refreshPortfolioWithFeedback,
       refreshExecutionCenter: actions.refreshExecutionCenter,
@@ -94,6 +93,16 @@ export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
       setBinanceFormField: actions.setBinanceFormField,
       connectBinance: actions.connect,
       disconnectBinance: actions.disconnect,
+    },
+  }));
+}
+
+export function syncSystemSignalActions(actions: ReturnTypeUseSignalMemory) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      ...current.actions,
+      refreshSignals: actions.refreshSignals,
     },
   }));
 }

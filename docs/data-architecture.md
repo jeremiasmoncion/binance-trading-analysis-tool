@@ -110,6 +110,9 @@ Current reduction already applied:
 
 - `Dashboard` no longer polls `execution` and `dashboard summary` on an interval while the overlay stream is active
 - `Memory` no longer polls `execution` on an interval while the overlay stream is active
+- `signal memory` now publishes into the shared `system plane` directly instead of depending only on `App` sync
+- `Dashboard` no longer runs periodic `signal memory` refreshes
+- `Memory` keeps a slower `signal memory` refresh cadence while the realtime migration continues
 - portfolio snapshots still refresh independently because they are not yet on the overlay stream
 
 ## Migration Phases

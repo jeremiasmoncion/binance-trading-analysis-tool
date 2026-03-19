@@ -28,6 +28,7 @@ const initialSystemDataPlane: SystemDataPlane = {
     binanceForm: { alias: "", apiKey: "", apiSecret: "" },
   },
   actions: {
+    refreshSignals: async () => null,
     refreshPortfolio: async () => null,
     refreshPortfolioWithFeedback: async () => null,
     refreshExecutionCenter: async () => null,

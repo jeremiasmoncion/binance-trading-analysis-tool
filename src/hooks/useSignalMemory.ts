@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
+import { systemDataPlaneStore } from "../data-platform/systemDataPlane";
 import { marketService, signalService } from "../services/api";
 import type { DashboardAnalysis, OperationPlan, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName } from "../types";
 
@@ -15,15 +16,35 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   const evaluationInFlightRef = useRef(false);
   const lastEvaluationAtRef = useRef(0);
 
+  const publishSignalsToPlane = useCallback((nextSignals: SignalSnapshot[]) => {
+    systemDataPlaneStore.setState((current) => ({
+      ...current,
+      meta: {
+        ...current.meta,
+        status: "ready",
+        source: "snapshot",
+        lastFullSyncAt: Date.now(),
+        lastError: null,
+      },
+      snapshot: {
+        ...current.snapshot,
+        signalMemory: nextSignals,
+      },
+    }));
+  }, []);
+
   const refreshSignals = useCallback(async () => {
     if (!currentUser) return;
     try {
       const payload = await signalService.list();
-      setSignals(payload.signals || []);
+      const nextSignals = payload.signals || [];
+      setSignals(nextSignals);
+      publishSignalsToPlane(nextSignals);
     } catch {
       setSignals([]);
+      publishSignalsToPlane([]);
     }
-  }, [currentUser]);
+  }, [currentUser, publishSignalsToPlane]);
 
   const saveSignal = useCallback(async (payload: {
     coin: string;
@@ -211,14 +232,19 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   useEffect(() => {
     if (!currentUser) {
       setSignals([]);
+      publishSignalsToPlane([]);
       return;
     }
 
     void refreshSignals();
-  }, [currentUser, currentView, refreshSignals]);
+  }, [currentUser, currentView, publishSignalsToPlane, refreshSignals]);
 
   useEffect(() => {
     if (!currentUser) return undefined;
+
+    if (!refreshPolicy.signalMemoryIntervalMs || refreshPolicy.signalMemoryIntervalMs <= 0) {
+      return undefined;
+    }
 
     const refreshInterval = refreshPolicy.signalMemoryIntervalMs;
     const intervalId = window.setInterval(() => {

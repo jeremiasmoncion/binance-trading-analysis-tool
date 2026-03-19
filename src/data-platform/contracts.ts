@@ -73,6 +73,7 @@ export interface SystemDataPlane {
     binanceForm: { alias: string; apiKey: string; apiSecret: string };
   };
   actions: {
+    refreshSignals: () => Promise<unknown>;
     refreshPortfolio: (period?: string, mode?: "full" | "live") => Promise<unknown>;
     refreshPortfolioWithFeedback: (period?: string, mode?: "full" | "live") => Promise<unknown>;
     refreshExecutionCenter: () => Promise<unknown>;

@@ -30,6 +30,7 @@ export function useMemorySystemSelector() {
     execution: state.overlay.execution,
     watchlists: state.snapshot.watchlists,
     activeWatchlistName: state.snapshot.activeWatchlistName,
+    refreshSignals: state.actions.refreshSignals,
     refreshExecutionCenter: state.actions.refreshExecutionCenter,
   }), shallowEqualSelection);
 }

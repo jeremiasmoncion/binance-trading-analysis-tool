@@ -82,6 +82,7 @@ export function App() {
   } = signalMemory;
   const isCurrentCoinWatched = watchlist.isWatched(market.currentCoin);
   const { theme, toggleTheme } = useTheme(chartRef, market.candles);
+  const clientMarketAutomationEnabled = currentView === "dashboard" || currentView === "market";
   const plan = useMemo(() => {
     if (!market.indicators || !market.signal) return null;
     return getOperationPlan(market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis);
@@ -273,7 +274,10 @@ export function App() {
   }, [auth.currentUser, refreshRealtimeCoreStatus]);
 
   useEffect(() => {
-    if (!auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;
+    if (!clientMarketAutomationEnabled || !auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;
+    // Client-side market automations are only allowed while the user is on a
+    // screen that is actively consuming the hot market context. Off-screen
+    // coins and background monitoring belong to the backend watcher/runtime.
     void maybeAutoSaveSignal({
       coin: market.currentCoin,
       timeframe: market.timeframe,
@@ -286,6 +290,7 @@ export function App() {
     });
   }, [
     auth.currentUser,
+    clientMarketAutomationEnabled,
     market.currentCoin,
     market.timeframe,
     market.signal,
@@ -297,13 +302,14 @@ export function App() {
   ]);
 
   useEffect(() => {
-    if (!auth.currentUser || !market.indicators?.current) return;
+    if (!clientMarketAutomationEnabled || !auth.currentUser || !market.indicators?.current) return;
     void evaluatePendingSignals({
       currentCoin: market.currentCoin,
       currentPrice: market.indicators.current,
     });
   }, [
     auth.currentUser,
+    clientMarketAutomationEnabled,
     market.currentCoin,
     market.indicators?.current,
     evaluatePendingSignals,

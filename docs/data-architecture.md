@@ -205,6 +205,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - `MemoryView` now scopes its strategy/scanner polling to tabs that actually use that data instead of polling unconditionally in the background
 - `MemoryView` strategy-engine and scanner data now hydrate through the shared `system plane`; only the tab-aware heartbeat remains local while that screen still decides which subsection is visible
 - `signal memory` client-side evaluation must not open parallel market reads; it can only use prices already present in the shared `market plane`, while off-screen coins remain the responsibility of the backend watcher
+- App-level client market automations should only run on screens that actively consume the hot market context; background monitoring for off-screen coins belongs to the backend watcher/runtime, not to a global effect in the shell
 - scanner admin refresh/run actions should resolve through shared `system plane actions`, even when the final execution summary is rendered only in admin screens like `Perfil` or `Memory`
 - `useBinanceData` should keep any remaining per-view warm-up logic behind a single load-plan helper; if that behavior needs to change, it should be updated in one place instead of reintroducing screen-specific refresh branches across multiple effects
 - profile backtesting controls should resolve through shared `system plane` state/actions; `ProfileView` should not own a second validation-lab fetch cycle

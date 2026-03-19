@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppView } from "./components/AppView";
 import { LoginOverlay } from "./components/LoginOverlay";
 import { Sidebar } from "./components/Sidebar";
+import { StartupOverlay } from "./components/StartupOverlay";
 import { TopBar } from "./components/TopBar";
 import { SystemUiHost } from "./components/ui/SystemUiHost";
 import { useAuth } from "./hooks/useAuth";
@@ -41,6 +42,8 @@ export function App() {
   const executionEventsBootstrappedRef = useRef(false);
   const seenAutomationEventsRef = useRef<Set<string>>(new Set());
   const automationEventsBootstrappedRef = useRef(false);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [startupPending, setStartupPending] = useState(false);
 
   const auth = useAuth();
   const { realtimeCore } = useRealtimeCoreStatusSelector();
@@ -95,6 +98,22 @@ export function App() {
     applyRealtimeCoreBootstrap(payload);
     return payload;
   }, [binance.portfolioPeriod, market.currentCoin, market.timeframe]);
+
+  const runInitialWorkspaceLoad = useCallback(async (
+    coin = market.currentCoin,
+    timeframe = market.timeframe,
+    period = binance.portfolioPeriod,
+  ) => {
+    setStartupPending(true);
+    try {
+      await Promise.allSettled([
+        hydrateRealtimeBootstrap(coin, timeframe, period),
+        market.fetchData(coin, timeframe),
+      ]);
+    } finally {
+      setStartupPending(false);
+    }
+  }, [binance.portfolioPeriod, hydrateRealtimeBootstrap, market]);
 
   const refreshRealtimeCoreStatus = useCallback(async () => {
     const runtime = await realtimeCoreService.getRuntimeStatus(true);
@@ -160,11 +179,11 @@ export function App() {
     void (async () => {
       const session = await auth.bootstrapSession();
       if (session) {
-        await hydrateRealtimeBootstrap("BTC/USDT", "1h", binance.portfolioPeriod).catch(() => null);
-        await market.fetchData("BTC/USDT", "1h");
+        await runInitialWorkspaceLoad("BTC/USDT", "1h", binance.portfolioPeriod);
       }
+      setSessionChecked(true);
     })();
-  }, [auth, binance.portfolioPeriod, hydrateRealtimeBootstrap, market]);
+  }, [auth, binance.portfolioPeriod, market, runInitialWorkspaceLoad]);
 
   useEffect(() => {
     if (!auth.currentUser) return undefined;
@@ -513,6 +532,15 @@ export function App() {
     }
   }
 
+  if (!auth.currentUser && !sessionChecked) {
+    return (
+      <StartupOverlay
+        title="Restaurando sesión"
+        detail="Validando acceso y preparando el workspace inicial."
+      />
+    );
+  }
+
   if (!auth.currentUser) {
     return (
       <LoginOverlay
@@ -524,13 +552,20 @@ export function App() {
         onLoginChange={auth.setLoginField}
         onRegisterChange={auth.setRegisterField}
         onLoginSubmit={(event) => auth.handleLogin(event, async () => {
-          await hydrateRealtimeBootstrap(market.currentCoin, market.timeframe, binance.portfolioPeriod).catch(() => null);
-          await market.fetchData(market.currentCoin, market.timeframe);
+          await runInitialWorkspaceLoad(market.currentCoin, market.timeframe, binance.portfolioPeriod);
         })}
         onRegisterSubmit={(event) => auth.handleRegister(event, async () => {
-          await hydrateRealtimeBootstrap(market.currentCoin, market.timeframe, binance.portfolioPeriod).catch(() => null);
-          await market.fetchData(market.currentCoin, market.timeframe);
+          await runInitialWorkspaceLoad(market.currentCoin, market.timeframe, binance.portfolioPeriod);
         })}
+      />
+    );
+  }
+
+  if (startupPending) {
+    return (
+      <StartupOverlay
+        title="Preparando CRYPE"
+        detail="Cargando capital, bot system, mercado y estado realtime inicial."
       />
     );
   }

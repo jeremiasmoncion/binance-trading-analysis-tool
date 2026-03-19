@@ -4,6 +4,8 @@
 
 The project now has a dedicated documentation base for the redesign of CRYPE into a `signals + bots + AI` platform.
 
+The first code-level Phase 2 foundation now exists in an isolated domain module under `src/domain/`.
+
 This documentation is the source of truth for:
 
 - redesign intent
@@ -27,12 +29,60 @@ The project also now has an orchestration base for multi-thread execution under:
 - defined target conceptual architecture
 - documented closed product decisions
 - established a phased work structure
+- introduced code-level contracts for:
+  - bot entity
+  - universe policy
+  - execution environment
+  - automation mode
+  - overlap policy
+  - AI policy
+  - memory summary
+  - performance summary
+- introduced signal taxonomy contracts for:
+  - `system-signal`
+  - `published-signal`
+  - `bot-consumable-signal`
+  - `execution-candidate`
+- added pure adapters to bridge future integration from existing `ExecutionCandidate` and `ExecutionOrderRecord` data
+- added initial registry scaffolding with a standard bot and an isolated unrestricted AI bot definition
+- added a local domain-owned registry seam for bots with store primitives and read selectors
+- added the first adapter boundary for:
+  - execution candidates -> published feeds
+  - published feeds -> bot-consumable feeds
+- clarified that `AI Unrestricted Lab` is a supported isolated example/profile, not a global default policy for all bots
+- added a second adapter boundary for:
+  - `signal memory snapshots` -> `published signal feed`
+  - `published signal feed` + bot policy -> `bot-consumable feed`
+- added a first read-only UI validation surface hosted inside `MemoryView`
+- added an explicit ranking/prioritization layer over the published feed
+- added visible ranking explanations for:
+  - promotions
+  - degradations
+  - high-confidence subset membership
+- tightened ranking thresholds and split ranked signals into:
+  - `watchlist-first`
+  - `market-discovery`
+- made market discovery intentionally stricter to reduce feed noise before future product expansion
+- moved the read-only lab one step closer to the intended future UX pattern with:
+  - stronger header hierarchy
+  - denser quick stats
+  - clearer feed segmentation
+- added human-readable `raw vs ranked` explainability directly on ranked signals
+- added more aggressive pruning for weak `market-discovery` combinations
+- grouped the lab more explicitly into product-like blocks:
+  - overview
+  - watchlist-first
+  - market discovery
+  - high-confidence
+  - bot-consumable
+- verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
 
-- no new bot domain code has been introduced yet
-- no signal feed separation code has been introduced yet
-- no new persistence or selectors for bots exist yet
+- no persistence or shared store has been attached to the new bot registry yet
+- no persistence has been attached to the new bot registry yet
+- no global shell wiring has been added for the domain module
+- no signal feed has been wired into the existing market/runtime pipeline beyond a read-only host in `MemoryView`
 - no AI conversational layer has been implemented yet
 
 ## Files Added
@@ -50,21 +100,37 @@ The project also now has an orchestration base for multi-thread execution under:
 - `docs/orchestration/phase-status.md`
 - `docs/orchestration/ownership.md`
 - `docs/orchestration/task-template.md`
+- `src/domain/bots/contracts.ts`
+- `src/domain/bots/defaults.ts`
+- `src/domain/bots/adapters.ts`
+- `src/domain/bots/registry.ts`
+- `src/domain/bots/selectors.ts`
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/classification.ts`
+- `src/domain/signals/feedAdapters.ts`
+- `src/domain/signals/memoryAdapters.ts`
+- `src/domain/signals/ranking.ts`
+- `src/domain/signals/selectors.ts`
+- `src/domain/index.ts`
+- `src/components/domain/SignalsBotsReadOnlyLab.tsx`
 
 ## Recommended Next Implementation Step
 
-Introduce explicit code-level domain contracts for:
+Bridge the new contracts into a safe read-only Phase 3 seam:
 
-- bot
-- bot universe policy
-- execution environment
-- automation mode
-- overlap policy
-- signal feed taxonomy
-- bot memory summary
-- bot performance summary
-
-This should be done before trying to “convert” current scanner or execution behavior into bot behavior.
+- the first registry/store location is now established in `src/domain/bots/registry.ts`
+- a first read-only UI host now exists in `MemoryView`
+- feed ranking/prioritization is now in place as a read-only layer over published feed
+- current hydration source is intentionally:
+  - `signal memory snapshots`
+- current validated read path is:
+  - `signal memory snapshots`
+  - -> `published signal feed`
+  - -> `ranked published feed`
+  - -> `bot-consumable feed`
+  - -> read-only UI
+- next step should stay focused on threshold tuning, watchlist-vs-market noise split, and explainability before registry persistence
+- next step should likely continue on explainability language and discovery pruning before any persistence work
 
 ## GitHub Notification Practice
 
@@ -86,6 +152,62 @@ This makes GitHub the practical notification path to the owner mobile device.
 - do not discard adaptive governance logic
 - do not allow unrestricted AI mode to break accounting/execution isolation
 - do not implement the entire redesign in one step
+
+## Runtime Refinement Note
+
+The shared realtime event path was further hardened so identical operational overlays do not recreate the `system plane`.
+
+Files touched in this round:
+
+- `src/realtime-core/events.ts`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+
+Why this matters:
+
+- the future `signals + bots + AI` system will increase overlay frequency
+- duplicated live frames would otherwise scale rerender pressure across dashboard, runtime selectors, and bot-facing surfaces
+- this is a core stability refinement, not a product-layer feature
+
+What remains pending:
+
+- keep auditing whether deduplication should also happen before emit inside the external realtime core
+- continue checking hot shared paths before adding first-class bot runtime state
+
+What the director should review:
+
+- whether future bot/live event work should be forced through the existing `system.overlay.updated` contract or split into a more granular event taxonomy later
+
+What implementers should avoid:
+
+- do not add new parallel live channels for bot state directly into screens
+- do not bypass `selectors + actions` with ad-hoc SSE/WebSocket consumers in feature work
+- do not move the new domain contracts into `src/types.ts` until the director chooses the integration strategy
+
+## Sensitive Areas Touched
+
+- None in this round.
+- The new work stayed isolated under `src/domain/`, a read-only UI host in `MemoryView`, and documentation files.
+
+## Director Review Needed
+
+- confirm whether the next priority should be:
+  - stronger threshold defensibility for `high-confidence`
+  - better separation between watchlist-first and market discovery
+  - richer ranking explanation before opening a dedicated surface
+  - whether the temporary lab is allowed one more refinement round before extraction
+- review whether `MemoryView` is the right temporary inspection host until a dedicated signals/bots workspace surface is approved
+
+## Warning For Director
+
+- The branch `codex/implementador-bots-signals` currently includes a prior realtime refinement commit (`390d0aa`) outside the intended implementer scope.
+- This round did not extend that cross-scope work, but the integration review should account for it.
+- Clean publication for the read-only lab round is being done from a separate branch derived from `origin/codex/implementador-bots-signals`, so the published implementer lot stays free of those realtime commits.
+
+## Refiner Coordination Needed
+
+- align before any future hydration from runtime, realtime, signal memory, or execution eligibility flows
+- review any future overlap between bot summaries and adaptive governance snapshots
 
 ## Warning For Future Contributors
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authService, binanceService } from "../services/api";
+import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { BinanceConnection, DashboardSummaryPayload, ExecutionCenterPayload, PortfolioPayload, UserSession, ViewName } from "../types";
 
@@ -88,6 +89,7 @@ function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: Port
 }
 
 export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptions) {
+  const refreshPolicy = getViewRefreshPolicy(currentView);
   const [binanceConnection, setBinanceConnection] = useState<BinanceConnection | null>(null);
   const [portfolioData, setPortfolioData] = useState<PortfolioPayload | null>(null);
   const [executionCenter, setExecutionCenter] = useState<ExecutionCenterPayload | null>(null);
@@ -397,25 +399,13 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;
 
-    const portfolioRefreshInterval =
-      currentView === "balance"
-        ? 20_000
-        : currentView === "dashboard"
-          ? 60_000
-          : 120_000;
-
-    const executionRefreshInterval =
-      currentView === "memory"
-        ? 35_000
-        : currentView === "dashboard"
-          ? 30_000
-          : 90_000;
-
-    const dashboardRefreshInterval = currentView === "dashboard" ? 20_000 : 0;
+    const portfolioRefreshInterval = refreshPolicy.portfolioIntervalMs;
+    const executionRefreshInterval = refreshPolicy.executionIntervalMs;
+    const dashboardRefreshInterval = refreshPolicy.dashboardSummaryIntervalMs;
 
     const portfolioIntervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
-      const mode = currentView === "balance" ? "live" : "full";
+      const mode = refreshPolicy.portfolioMode;
       void refreshPortfolio(portfolioPeriod, mode);
     }, portfolioRefreshInterval);
 
@@ -436,7 +426,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (executionIntervalId) window.clearInterval(executionIntervalId);
       if (dashboardIntervalId) window.clearInterval(dashboardIntervalId);
     };
-  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.dashboardSummaryIntervalMs, refreshPolicy.executionIntervalMs, refreshPolicy.portfolioIntervalMs, refreshPolicy.portfolioMode, refreshPortfolio]);
 
   return {
     binanceConnection,

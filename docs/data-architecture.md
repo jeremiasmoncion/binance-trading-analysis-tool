@@ -69,12 +69,14 @@ Lifecycle:
 - stats, trading and market consuming shared planes
 - support/resistance moved into market plane
 - reduced prop-driven live state in `AppView`
+- shared selectors for primary view domains
+- centralized refresh policy for market/system/signal planes
 
 ### In Progress
 
 - migrate remaining views to selector-first shared consumption
-- formalize selector-based consumption for all screens
-- consolidate refresh policy by plane instead of by individual screen
+- move local logic that still polls by screen toward plane-owned policies
+- prepare the bridge from snapshots to event-driven overlays
 
 ### Pending
 

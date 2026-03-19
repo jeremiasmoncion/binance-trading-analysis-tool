@@ -11,6 +11,7 @@ import {
   WalletIcon,
 } from "../components/Icons";
 import { formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
+import { useDashboardMarketSelector, useDashboardSystemSelector } from "../data-platform/selectors";
 import type {
   BinanceTradeSummary,
   Candle,
@@ -28,8 +29,6 @@ import type {
 } from "../types";
 import { openHelp } from "../lib/ui-events";
 import { drawBotComparisonChart, drawPerformanceChart } from "../lib/chart";
-import { useMarketDataPlane } from "../data-platform/marketDataPlane";
-import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 
 interface DashboardViewProps {
   theme: "light" | "dark";
@@ -55,8 +54,8 @@ type DashboardTab = "overview" | "bot-performance" | "recent-trades";
 type DashboardRange = "24h" | "7d" | "30d" | "90d" | "all";
 
 export function DashboardView(incomingProps: DashboardViewProps) {
-  const marketData = useMarketDataPlane((state) => state);
-  const systemData = useSystemDataPlane((state) => state);
+  const marketData = useDashboardMarketSelector();
+  const systemData = useDashboardSystemSelector();
   const props: DashboardViewProps = {
     ...incomingProps,
     currentCoin: incomingProps.currentCoin ?? marketData.currentCoin,

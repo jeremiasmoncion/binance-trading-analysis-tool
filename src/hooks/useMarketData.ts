@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MAP_TIMEFRAMES, POPULAR_COINS } from "../config/constants";
+import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
 import { calcIndicators, generateFallbackCandles, generateSignal, getSupportResistance } from "../lib/trading";
 import { runStrategyEngine } from "../strategies";
 import { marketService } from "../services/api";
@@ -71,6 +72,7 @@ function updateLiveTimeframes(items: TimeframeSignal[], activeTimeframe: string,
 }
 
 export function useMarketData({ currentView }: UseMarketDataOptions) {
+  const refreshPolicy = getViewRefreshPolicy(currentView);
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState("1h");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
@@ -230,16 +232,17 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   }, []);
 
   useEffect(() => {
-    if (currentView !== "dashboard" && currentView !== "market") return undefined;
+    if (!refreshPolicy.marketSnapshotIntervalMs) return undefined;
     const refreshInterval = getSmartRefreshInterval(timeframe, strategy?.tradingStyle);
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void fetchData();
     }, refreshInterval);
     return () => window.clearInterval(intervalId);
-  }, [currentView, fetchData, timeframe, strategy?.tradingStyle]);
+  }, [fetchData, refreshPolicy.marketSnapshotIntervalMs, timeframe, strategy?.tradingStyle]);
 
   useEffect(() => {
+    if (!refreshPolicy.marketStreamsEnabled) return undefined;
     const closeStream = marketService.openTickerStream(currentCoin, (payload) => {
       latestTickerRef.current = {
         price: Number(payload.c || 0),
@@ -279,9 +282,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       }
       closeStream();
     };
-  }, [currentCoin]);
+  }, [currentCoin, refreshPolicy.marketStreamsEnabled]);
 
   useEffect(() => {
+    if (!refreshPolicy.marketStreamsEnabled) return undefined;
     const closeStream = marketService.openKlineStream(currentCoin, timeframe, (payload) => {
       const kline = payload.k;
       if (!kline?.t) return;
@@ -318,9 +322,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       }
       closeStream();
     };
-  }, [applyLiveDerivedState, currentCoin, timeframe]);
+  }, [applyLiveDerivedState, currentCoin, refreshPolicy.marketStreamsEnabled, timeframe]);
 
   useEffect(() => {
+    if (!refreshPolicy.marketStreamsEnabled) return undefined;
     const comparisonSymbols = POPULAR_COINS.slice(0, 4);
     const closeComparisonStream = marketService.openComparisonStream(comparisonSymbols, (symbol, payload) => {
       const nextPrice = Number(payload.c || 0);
@@ -347,7 +352,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     return () => {
       closeComparisonStream();
     };
-  }, []);
+  }, [refreshPolicy.marketStreamsEnabled]);
 
   return {
     currentCoin,

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 
 type Listener = () => void;
 type Updater<TState> = Partial<TState> | ((current: TState) => TState);
@@ -8,6 +8,20 @@ export interface DataPlaneStore<TState> {
   setState: (updater: Updater<TState>) => void;
   subscribe: (listener: Listener) => () => void;
   reset: () => void;
+}
+
+export type EqualityFn<TSelection> = (left: TSelection, right: TSelection) => boolean;
+
+export function shallowEqualSelection<TSelection>(left: TSelection, right: TSelection) {
+  if (Object.is(left, right)) return true;
+  if (!left || !right) return false;
+  if (typeof left !== "object" || typeof right !== "object") return false;
+
+  const leftEntries = Object.entries(left as Record<string, unknown>);
+  const rightEntries = Object.entries(right as Record<string, unknown>);
+  if (leftEntries.length !== rightEntries.length) return false;
+
+  return leftEntries.every(([key, value]) => Object.is(value, (right as Record<string, unknown>)[key]));
 }
 
 export function createDataPlaneStore<TState>(initialState: TState): DataPlaneStore<TState> {
@@ -43,10 +57,26 @@ export function createDataPlaneStore<TState>(initialState: TState): DataPlaneSto
 export function useDataPlaneStore<TState, TSelection>(
   store: DataPlaneStore<TState>,
   selector: (state: TState) => TSelection,
+  isEqual: EqualityFn<TSelection> = Object.is,
 ) {
+  const cacheRef = useRef<TSelection | undefined>(undefined);
   return useSyncExternalStore(
     store.subscribe,
-    () => selector(store.getState()),
-    () => selector(store.getState()),
+    () => {
+      const nextSelection = selector(store.getState());
+      if (cacheRef.current !== undefined && isEqual(cacheRef.current, nextSelection)) {
+        return cacheRef.current;
+      }
+      cacheRef.current = nextSelection;
+      return nextSelection;
+    },
+    () => {
+      const nextSelection = selector(store.getState());
+      if (cacheRef.current !== undefined && isEqual(cacheRef.current, nextSelection)) {
+        return cacheRef.current;
+      }
+      cacheRef.current = nextSelection;
+      return nextSelection;
+    },
   );
 }

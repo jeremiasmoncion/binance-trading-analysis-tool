@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDownIcon, CoinsIcon, DownloadIcon, RepeatIcon, SearchIcon, SendIcon, SlidersHorizontalIcon, TrendDownIcon, TrendUpIcon, UploadIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
+import { usePortfolioSelector } from "../data-platform/selectors";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
-import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 import type { BinanceAccountMovement, PortfolioAsset, PortfolioPayload } from "../types";
 
 interface BalanceViewProps {
@@ -177,7 +177,7 @@ function AssetLogo({
 }
 
 export function BalanceView(incomingProps: BalanceViewProps) {
-  const systemData = useSystemDataPlane((state) => state);
+  const systemData = usePortfolioSelector();
   const props: BalanceViewProps = {
     ...incomingProps,
     payload: incomingProps.payload ?? systemData.portfolio,

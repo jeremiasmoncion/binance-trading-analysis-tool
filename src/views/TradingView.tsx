@@ -1,6 +1,6 @@
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useSystemDataPlane } from "../data-platform/systemDataPlane";
+import { useStatsSelector } from "../data-platform/selectors";
 import type { ExecutionCenterPayload, SignalSnapshot } from "../types";
 
 interface TradingViewProps {
@@ -9,7 +9,7 @@ interface TradingViewProps {
 }
 
 export function TradingView(incomingProps: TradingViewProps) {
-  const systemData = useSystemDataPlane((state) => state);
+  const systemData = useStatsSelector();
   const executionCenter = incomingProps.executionCenter ?? systemData.execution;
   const signals = incomingProps.signals ?? systemData.signalMemory;
   const pendingSignals = signals.filter((signal) => signal.outcome_status === "pending").length;

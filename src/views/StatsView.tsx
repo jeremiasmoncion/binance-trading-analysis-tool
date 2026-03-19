@@ -1,6 +1,6 @@
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useSystemDataPlane } from "../data-platform/systemDataPlane";
+import { useStatsSelector } from "../data-platform/selectors";
 import type { ExecutionCenterPayload, PortfolioPayload } from "../types";
 
 interface StatsViewProps {
@@ -9,7 +9,7 @@ interface StatsViewProps {
 }
 
 export function StatsView(incomingProps: StatsViewProps) {
-  const systemData = useSystemDataPlane((state) => state);
+  const systemData = useStatsSelector();
   const portfolioData = incomingProps.portfolioData ?? systemData.portfolio;
   const executionCenter = incomingProps.executionCenter ?? systemData.execution;
   const portfolio = portfolioData?.portfolio;

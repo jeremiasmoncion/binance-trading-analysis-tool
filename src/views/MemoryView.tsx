@@ -7,7 +7,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
 import { openHelp, showToast, startLoading, stopLoading } from "../lib/ui-events";
 import { binanceService, strategyEngineService, watchlistService } from "../services/api";
-import { useSystemDataPlane } from "../data-platform/systemDataPlane";
+import { useMemorySystemSelector } from "../data-platform/selectors";
 import type {
   ExecutionCenterPayload,
   ExecutionCandidate,
@@ -226,7 +226,7 @@ function buildScannerStatusFromExecution(
 }
 
 export function MemoryView(incomingProps: MemoryViewProps) {
-  const systemData = useSystemDataPlane((state) => state);
+  const systemData = useMemorySystemSelector();
   const props: MemoryViewProps = {
     ...incomingProps,
     signals: incomingProps.signals ?? systemData.signalMemory,

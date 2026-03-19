@@ -3,8 +3,7 @@ import { ModuleTabs } from "../components/ModuleTabs";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useMarketDataPlane } from "../data-platform/marketDataPlane";
-import { useSystemDataPlane } from "../data-platform/systemDataPlane";
+import { useMarketSummarySelector, useWatchlistSelector } from "../data-platform/selectors";
 import { formatPrice } from "../lib/format";
 import type { Indicators, Signal, WatchlistGroup } from "../types";
 
@@ -34,8 +33,8 @@ interface MarketViewProps {
 }
 
 export function MarketView(incomingProps: MarketViewProps) {
-  const marketData = useMarketDataPlane((state) => state);
-  const systemData = useSystemDataPlane((state) => state);
+  const marketData = useMarketSummarySelector();
+  const systemData = useWatchlistSelector();
   const props: MarketViewProps = {
     ...incomingProps,
     currentCoin: incomingProps.currentCoin ?? marketData.currentCoin,

@@ -16,19 +16,19 @@ export const APP_DATA_ARCHITECTURE_PHASES: AppDataArchitecturePhase[] = [
   {
     id: "phase-3",
     title: "App como punto único de sincronización",
-    status: "in_progress",
-    description: "App publica snapshots y overlays a la capa global. Falta migrar más vistas para leer desde ella.",
+    status: "completed",
+    description: "App ya publica snapshots y overlays a la capa global para market y system.",
   },
   {
     id: "phase-4",
-    title: "Realtime core persistente",
-    status: "pending",
-    description: "El hot path live todavía no sale por completo de serverless. Falta el servicio persistente.",
+    title: "Selectors y refresh policy",
+    status: "completed",
+    description: "Las vistas principales ya consumen por selectors compartidos y la política de refresh quedó centralizada por plano.",
   },
   {
     id: "phase-5",
-    title: "Migración total de vistas",
+    title: "Realtime core persistente",
     status: "pending",
-    description: "Dashboard, Memory, Balance y futuras pantallas deben leer del mismo plano de datos.",
+    description: "El hot path live todavía no sale por completo de serverless. Falta el servicio persistente.",
   },
 ];

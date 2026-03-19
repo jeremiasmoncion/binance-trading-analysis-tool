@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
 import { marketService, signalService } from "../services/api";
 import type { DashboardAnalysis, OperationPlan, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName } from "../types";
 
@@ -8,6 +9,7 @@ interface UseSignalMemoryOptions {
 }
 
 export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOptions) {
+  const refreshPolicy = getViewRefreshPolicy(currentView);
   const [signals, setSignals] = useState<SignalSnapshot[]>([]);
   const pendingSaveKeysRef = useRef<Set<string>>(new Set());
   const evaluationInFlightRef = useRef(false);
@@ -218,14 +220,14 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   useEffect(() => {
     if (!currentUser) return undefined;
 
-    const refreshInterval = currentView === "memory" ? 20_000 : 45_000;
+    const refreshInterval = refreshPolicy.signalMemoryIntervalMs;
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void refreshSignals();
     }, refreshInterval);
 
     return () => window.clearInterval(intervalId);
-  }, [currentUser, currentView, refreshSignals]);
+  }, [currentUser, refreshPolicy.signalMemoryIntervalMs, refreshSignals]);
 
   return {
     signals,

@@ -51,6 +51,28 @@ function stabilizeOverlay(nextOverlay, previousOverlay) {
   } else if (nextSummary && previousSummary) {
     const nextTopAssets = Array.isArray(nextSummary.topAssets) ? nextSummary.topAssets : [];
     const previousTopAssets = Array.isArray(previousSummary.topAssets) ? previousSummary.topAssets : [];
+    const previousPortfolio = previousSummary.portfolio || {};
+    const nextPortfolio = nextSummary.portfolio || {};
+    const previousPositionsValue = Number(previousPortfolio.positionsValue || 0);
+    const nextPositionsValue = Number(nextPortfolio.positionsValue || 0);
+    const previousTotalValue = Number(previousPortfolio.totalValue || 0);
+    const nextTotalValue = Number(nextPortfolio.totalValue || 0);
+    const nextCashValue = Number(nextPortfolio.cashValue || 0);
+    const collapsedToMostlyCash = nextTotalValue > 0 && nextCashValue / nextTotalValue >= 0.9;
+    const collapsedPositions = previousPositionsValue > 0 && nextPositionsValue <= previousPositionsValue * 0.25;
+    const collapsedTotalValue = previousTotalValue > 0 && nextTotalValue <= previousTotalValue * 0.75;
+
+    if (collapsedTotalValue && collapsedPositions && collapsedToMostlyCash) {
+      nextOverlay = {
+        ...nextOverlay,
+        dashboardSummary: {
+          ...nextSummary,
+          portfolio: previousSummary.portfolio,
+          topAssets: previousTopAssets,
+        },
+      };
+      return nextOverlay;
+    }
 
     // The live overlay can arrive with KPI totals but no top-assets collection.
     // Keep the last good list in-memory so dashboard revisit does not blank

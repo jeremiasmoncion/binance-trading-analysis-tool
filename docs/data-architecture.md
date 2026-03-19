@@ -175,6 +175,7 @@ This means:
 
 - `snapshot.portfolio` should survive weak legacy sync frames
 - `snapshot.portfolio` should also reject live frames that collapse a previously non-cash portfolio into cash-only coverage; lightweight live reads may be partial, but they must not fabricate a fake drawdown by dropping all open positions for one cycle
+- `snapshot.portfolio` and `overlay.dashboardSummary` should also reject near-cash collapses where one tiny asset survives but the portfolio still drops from diversified holdings to almost pure cash in a single live frame
 - `overlay.execution` should survive degraded overlay frames
 - `overlay.dashboardSummary` should survive degraded overlay frames
 - `snapshot.signalMemory` should survive transient list failures

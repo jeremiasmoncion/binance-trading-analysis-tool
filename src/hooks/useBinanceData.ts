@@ -69,15 +69,29 @@ function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: Port
   const openPositions = mergedAssets.filter((asset) => asset.asset !== "USDT" && Number(asset.quantity || 0) > 0);
   const hiddenLockedAssets = live.hiddenLockedAssets || previous.hiddenLockedAssets || [];
   const hiddenLockedValue = hiddenLockedAssets.reduce((sum: number, asset) => sum + Number(asset.marketValue || 0), 0);
+  const previousTotalValue = Number(previous.portfolio?.totalValue || 0);
   const previousPositionsValue = Number(previous.portfolio?.positionsValue || 0);
   const livePositionsValue = Number(live.portfolio?.positionsValue || 0);
   const liveNonCashAssets = mergedAssets.filter((asset) => asset.asset !== "USDT" && Number(asset.marketValue || 0) > 0);
+  const liveCashValue = Number(live.portfolio?.cashValue || cashAsset?.marketValue || 0);
+  const collapsedToMostlyCash = totalValue > 0 && liveCashValue / totalValue >= 0.9;
+  const collapsedPositions = previousPositionsValue > 0 && livePositionsValue <= previousPositionsValue * 0.25;
+  const collapsedTotalValue = previousTotalValue > 0 && totalValue <= previousTotalValue * 0.75;
 
   // Live portfolio mode is intentionally lighter than a full snapshot. If a
   // transient upstream miss suddenly collapses the asset universe down to cash
-  // only, preserve the last good snapshot instead of accepting a fake drawdown
-  // where totalValue momentarily becomes just the USDT balance.
-  if (previousPositionsValue > 0 && liveNonCashAssets.length === 0 && livePositionsValue <= 0) {
+  // only, or nearly cash-only, preserve the last good snapshot instead of
+  // accepting a fake drawdown where totalValue momentarily becomes just the
+  // USDT balance plus a tiny remainder from one surviving asset.
+  if (
+    previousPositionsValue > 0
+    && collapsedTotalValue
+    && collapsedPositions
+    && (
+      liveNonCashAssets.length === 0
+      || collapsedToMostlyCash
+    )
+  ) {
     return {
       ...previous,
       ...live,

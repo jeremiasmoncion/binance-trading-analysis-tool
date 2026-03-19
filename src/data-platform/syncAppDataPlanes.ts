@@ -21,6 +21,27 @@ function mergeDashboardSummaryPreservingCollections(
   const nextTopAssets = Array.isArray((nextSummary as { topAssets?: PortfolioAsset[] }).topAssets)
     ? (nextSummary as { topAssets: PortfolioAsset[] }).topAssets
     : [];
+  const currentPortfolio = currentSummary.portfolio || null;
+  const nextPortfolio = nextSummary.portfolio || null;
+  const currentPositionsValue = Number(currentPortfolio?.positionsValue || 0);
+  const nextPositionsValue = Number(nextPortfolio?.positionsValue || 0);
+  const currentTotalValue = Number(currentPortfolio?.totalValue || 0);
+  const nextTotalValue = Number(nextPortfolio?.totalValue || 0);
+  const nextCashValue = Number(nextPortfolio?.cashValue || 0);
+  const collapsedToMostlyCash = nextTotalValue > 0 && nextCashValue / nextTotalValue >= 0.9;
+  const collapsedPositions = currentPositionsValue > 0 && nextPositionsValue <= currentPositionsValue * 0.25;
+  const collapsedTotalValue = currentTotalValue > 0 && nextTotalValue <= currentTotalValue * 0.75;
+
+  // Dashboard summary is a lightweight operational overlay. If it drops from a
+  // diversified portfolio to almost pure cash in one frame, prefer the last
+  // good summary and let the next healthy cycle confirm a real liquidation.
+  if (collapsedTotalValue && collapsedPositions && collapsedToMostlyCash) {
+    return {
+      ...nextSummary,
+      portfolio: currentPortfolio,
+      topAssets: currentTopAssets,
+    };
+  }
 
   // Dashboard summary can stay "useful" for KPI totals while the lightweight
   // overlay omits top assets. Preserve the last good collection so dashboard
@@ -54,6 +75,39 @@ function hasMarketPlanePayloadChanged(current: ReturnType<typeof marketDataPlane
     && current.market24h === market.market24h
     && current.support === market.supportResistance.support
     && current.resistance === market.supportResistance.resistance
+  );
+}
+
+function hasSystemPlanePayloadChanged(
+  current: ReturnType<typeof systemDataPlaneStore.getState>,
+  next: ReturnType<typeof systemDataPlaneStore.getState>,
+) {
+  return !(
+    current.meta.status === next.meta.status
+    && current.meta.source === next.meta.source
+    && current.snapshot.connection === next.snapshot.connection
+    && current.snapshot.portfolio === next.snapshot.portfolio
+    && current.snapshot.signalMemory === next.snapshot.signalMemory
+    && current.snapshot.watchlists === next.snapshot.watchlists
+    && current.snapshot.activeWatchlistName === next.snapshot.activeWatchlistName
+    && current.snapshot.strategyRegistry === next.snapshot.strategyRegistry
+    && current.snapshot.strategyVersions === next.snapshot.strategyVersions
+    && current.snapshot.strategyExperiments === next.snapshot.strategyExperiments
+    && current.snapshot.strategyRecommendations === next.snapshot.strategyRecommendations
+    && current.snapshot.strategyDecision === next.snapshot.strategyDecision
+    && current.snapshot.scannerStatus === next.snapshot.scannerStatus
+    && current.snapshot.validationReport === next.snapshot.validationReport
+    && current.snapshot.backtestRuns === next.snapshot.backtestRuns
+    && current.snapshot.backtestQueue.pending === next.snapshot.backtestQueue.pending
+    && current.snapshot.backtestQueue.running === next.snapshot.backtestQueue.running
+    && current.overlay.execution === next.overlay.execution
+    && current.overlay.dashboardSummary === next.overlay.dashboardSummary
+    && current.controls.portfolioPeriod === next.controls.portfolioPeriod
+    && current.controls.hideSmallAssets === next.controls.hideSmallAssets
+    && current.controls.availableUsers === next.controls.availableUsers
+    && current.controls.binanceForm.alias === next.controls.binanceForm.alias
+    && current.controls.binanceForm.apiKey === next.controls.binanceForm.apiKey
+    && current.controls.binanceForm.apiSecret === next.controls.binanceForm.apiSecret
   );
 }
 
@@ -122,74 +176,87 @@ export function syncSystemDataPlane(
   watchlist: ReturnTypeUseWatchlist,
   isAuthenticated: boolean,
 ) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    meta: {
-      ...current.meta,
-      status: isAuthenticated
-        ? (
-          binance.portfolioData
-          || binance.executionCenter
-          || binance.dashboardSummary
-          || memoryRuntime.strategyRegistry.length
-          || memoryRuntime.strategyExperiments.length
-          || memoryRuntime.strategyRecommendations.length
-          || memoryRuntime.scannerStatus
-          || validationLabRuntime.validationReport
-          || validationLabRuntime.backtestRuns.length
-          || current.snapshot.portfolio
-          || current.overlay.execution
-          || current.overlay.dashboardSummary
-          || watchlist.lists.length
-            ? "ready"
-            : current.meta.status
-        )
-        : "idle",
-      source: "snapshot",
-      lastFullSyncAt: isAuthenticated && (binance.portfolioData || watchlist.lists.length)
-        ? Date.now()
-        : current.meta.lastFullSyncAt,
-      lastOverlayAt: isAuthenticated && (binance.executionCenter || binance.dashboardSummary)
-        ? Date.now()
-        : current.meta.lastOverlayAt,
-      lastError: null,
-    },
-    snapshot: {
-      connection: isAuthenticated
-        ? (binance.binanceConnection ?? current.snapshot.connection)
-        : null,
-      portfolio: isAuthenticated
-        ? (binance.portfolioData ?? current.snapshot.portfolio)
-        : null,
-      signalMemory: current.snapshot.signalMemory,
-      watchlists: isAuthenticated ? watchlist.lists : [],
-      activeWatchlistName: isAuthenticated ? watchlist.activeListName : "Principal",
-      strategyRegistry: isAuthenticated ? memoryRuntime.strategyRegistry : [],
-      strategyVersions: isAuthenticated ? memoryRuntime.strategyVersions : [],
-      strategyExperiments: isAuthenticated ? memoryRuntime.strategyExperiments : [],
-      strategyRecommendations: isAuthenticated ? memoryRuntime.strategyRecommendations : [],
-      strategyDecision: isAuthenticated ? memoryRuntime.strategyDecision : null,
-      scannerStatus: isAuthenticated ? memoryRuntime.scannerStatus : null,
-      validationReport: isAuthenticated ? validationLabRuntime.validationReport : null,
-      backtestRuns: isAuthenticated ? validationLabRuntime.backtestRuns : [],
-      backtestQueue: isAuthenticated ? validationLabRuntime.backtestQueue : { pending: 0, running: 0 },
-    },
-    overlay: {
-      execution: isAuthenticated
-        ? (binance.executionCenter ?? current.overlay.execution)
-        : null,
-      dashboardSummary: isAuthenticated
-        ? mergeDashboardSummaryPreservingCollections(current.overlay.dashboardSummary, binance.dashboardSummary)
-        : null,
-    },
-    controls: {
-      ...current.controls,
-      portfolioPeriod: binance.portfolioPeriod,
-      hideSmallAssets: binance.hideSmallAssets,
-      availableUsers: binance.availableUsers,
-      binanceForm: binance.binanceForm,
-    },
-  }));
+  systemDataPlaneStore.setState((current) => {
+    const nextStatus = isAuthenticated
+      ? (
+        binance.portfolioData
+        || binance.executionCenter
+        || binance.dashboardSummary
+        || memoryRuntime.strategyRegistry.length
+        || memoryRuntime.strategyExperiments.length
+        || memoryRuntime.strategyRecommendations.length
+        || memoryRuntime.scannerStatus
+        || validationLabRuntime.validationReport
+        || validationLabRuntime.backtestRuns.length
+        || current.snapshot.portfolio
+        || current.overlay.execution
+        || current.overlay.dashboardSummary
+        || watchlist.lists.length
+          ? "ready"
+          : current.meta.status
+      )
+      : "idle";
+
+    const nextState = {
+      ...current,
+      meta: {
+        ...current.meta,
+        status: nextStatus,
+        source: "snapshot" as const,
+        lastFullSyncAt: isAuthenticated && (binance.portfolioData || watchlist.lists.length)
+          ? Date.now()
+          : current.meta.lastFullSyncAt,
+        lastOverlayAt: isAuthenticated && (binance.executionCenter || binance.dashboardSummary)
+          ? Date.now()
+          : current.meta.lastOverlayAt,
+        lastError: null,
+      },
+      snapshot: {
+        connection: isAuthenticated
+          ? (binance.binanceConnection ?? current.snapshot.connection)
+          : null,
+        portfolio: isAuthenticated
+          ? (binance.portfolioData ?? current.snapshot.portfolio)
+          : null,
+        signalMemory: current.snapshot.signalMemory,
+        watchlists: isAuthenticated ? watchlist.lists : [],
+        activeWatchlistName: isAuthenticated ? watchlist.activeListName : "Principal",
+        strategyRegistry: isAuthenticated ? memoryRuntime.strategyRegistry : [],
+        strategyVersions: isAuthenticated ? memoryRuntime.strategyVersions : [],
+        strategyExperiments: isAuthenticated ? memoryRuntime.strategyExperiments : [],
+        strategyRecommendations: isAuthenticated ? memoryRuntime.strategyRecommendations : [],
+        strategyDecision: isAuthenticated ? memoryRuntime.strategyDecision : null,
+        scannerStatus: isAuthenticated ? memoryRuntime.scannerStatus : null,
+        validationReport: isAuthenticated ? validationLabRuntime.validationReport : null,
+        backtestRuns: isAuthenticated ? validationLabRuntime.backtestRuns : [],
+        backtestQueue: isAuthenticated ? validationLabRuntime.backtestQueue : { pending: 0, running: 0 },
+      },
+      overlay: {
+        execution: isAuthenticated
+          ? (binance.executionCenter ?? current.overlay.execution)
+          : null,
+        dashboardSummary: isAuthenticated
+          ? mergeDashboardSummaryPreservingCollections(current.overlay.dashboardSummary, binance.dashboardSummary)
+          : null,
+      },
+      controls: {
+        ...current.controls,
+        portfolioPeriod: binance.portfolioPeriod,
+        hideSmallAssets: binance.hideSmallAssets,
+        availableUsers: binance.availableUsers,
+        binanceForm: binance.binanceForm,
+      },
+    };
+
+    // The system plane receives many sync attempts from shared hooks. If the
+    // effective payload did not change, keep the exact same object so selector
+    // consumers do not rerender just because App ran another sync pass.
+    if (!hasSystemPlanePayloadChanged(current, nextState)) {
+      return current;
+    }
+
+    return nextState;
+  });
 }
 
 export function syncRealtimeCoreControl(nextState: {

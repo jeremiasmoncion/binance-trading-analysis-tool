@@ -60,6 +60,24 @@ function mergeDashboardSummaryPreservingCollections(
   const nextTopAssets = Array.isArray((nextSummary as { topAssets?: PortfolioAsset[] }).topAssets)
     ? (nextSummary as { topAssets: PortfolioAsset[] }).topAssets
     : [];
+  const currentPortfolio = currentSummary.portfolio || null;
+  const nextPortfolio = nextSummary.portfolio || null;
+  const currentPositionsValue = Number(currentPortfolio?.positionsValue || 0);
+  const nextPositionsValue = Number(nextPortfolio?.positionsValue || 0);
+  const currentTotalValue = Number(currentPortfolio?.totalValue || 0);
+  const nextTotalValue = Number(nextPortfolio?.totalValue || 0);
+  const nextCashValue = Number(nextPortfolio?.cashValue || 0);
+  const collapsedToMostlyCash = nextTotalValue > 0 && nextCashValue / nextTotalValue >= 0.9;
+  const collapsedPositions = currentPositionsValue > 0 && nextPositionsValue <= currentPositionsValue * 0.25;
+  const collapsedTotalValue = currentTotalValue > 0 && nextTotalValue <= currentTotalValue * 0.75;
+
+  if (collapsedTotalValue && collapsedPositions && collapsedToMostlyCash) {
+    return {
+      ...nextSummary,
+      portfolio: currentPortfolio,
+      topAssets: currentTopAssets,
+    };
+  }
 
   if (!nextTopAssets.length && currentTopAssets.length) {
     return {

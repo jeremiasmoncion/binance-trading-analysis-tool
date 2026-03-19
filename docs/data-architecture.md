@@ -203,6 +203,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - centralized refresh policy for market/system/signal planes
 - market refresh policy now sets a real per-view cadence ceiling instead of acting as a boolean switch
 - heavy market comparison and symbol-universe reads are now skipped outside the views that actually need them
+- a market refresh should never request the active timeframe candles twice; multi-timeframe context must reuse the canonical active snapshot from the same cycle
 - system plane split into `snapshot + overlay + controls + actions`
 - balance, memory and profile actions can now resolve from the shared plane
 

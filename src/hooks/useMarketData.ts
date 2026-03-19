@@ -79,6 +79,31 @@ function viewNeedsSymbolUniverse(view: ViewName) {
   return view === "market" || view === "compare" || view === "trading";
 }
 
+async function buildMultiTimeframePayloads(
+  coin: string,
+  activeTimeframe: string,
+  activeCandles: Candle[],
+) {
+  return Promise.all(
+    MAP_TIMEFRAMES.map(async (mapTf) => {
+      // Reuse the active timeframe candles so a single refresh does not request
+      // the same market snapshot twice before running the strategy engine.
+      const tfCandles = mapTf === activeTimeframe
+        ? activeCandles
+        : ((await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf));
+      const tfSignal = generateSignal(calcIndicators(tfCandles));
+      return {
+        timeframe: mapTf,
+        label: tfSignal.label,
+        note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
+        trend: tfSignal.trend,
+        score: tfSignal.score,
+        aligned: false,
+      };
+    }),
+  );
+}
+
 export function useMarketData({ currentView }: UseMarketDataOptions) {
   const refreshPolicy = getViewRefreshPolicy(currentView);
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
@@ -145,22 +170,9 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     setStatus("loading");
     try {
       const shouldLoadComparison = viewNeedsMarketComparison(currentView);
-      const [fetchedCandlesResponse, multiTfPayloads, ticker, nextComparison] = await Promise.all([
-        marketService.fetchCandles(coin, nextTimeframe),
-        Promise.all(
-          MAP_TIMEFRAMES.map(async (mapTf) => {
-            const tfCandles = (await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf);
-            const tfSignal = generateSignal(calcIndicators(tfCandles));
-            return {
-              timeframe: mapTf,
-              label: tfSignal.label,
-              note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
-              trend: tfSignal.trend,
-              score: tfSignal.score,
-              aligned: false,
-            };
-          }),
-        ),
+      const fetchedCandles = (await marketService.fetchCandles(coin, nextTimeframe)) || generateFallbackCandles(nextTimeframe);
+      const [multiTfPayloads, ticker, nextComparison] = await Promise.all([
+        buildMultiTimeframePayloads(coin, nextTimeframe, fetchedCandles),
         marketService.fetch24h(coin),
         shouldLoadComparison
           ? Promise.all(
@@ -178,7 +190,6 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           : Promise.resolve<ComparisonCoin[]>([]),
       ]);
 
-      const fetchedCandles = fetchedCandlesResponse || generateFallbackCandles(nextTimeframe);
       const nextIndicators = calcIndicators(fetchedCandles);
       const nextMultiTimeframes = multiTfPayloads;
       const strategyExecution = runStrategyEngine({
@@ -347,7 +358,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   }, [applyLiveDerivedState, currentCoin, refreshPolicy.marketStreamsEnabled, timeframe]);
 
   useEffect(() => {
-    if (!refreshPolicy.marketStreamsEnabled) return undefined;
+    if (!refreshPolicy.marketStreamsEnabled || !viewNeedsMarketComparison(currentView)) return undefined;
     const comparisonSymbols = POPULAR_COINS.slice(0, 4);
     const closeComparisonStream = marketService.openComparisonStream(comparisonSymbols, (symbol, payload) => {
       const nextPrice = Number(payload.c || 0);
@@ -374,7 +385,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     return () => {
       closeComparisonStream();
     };
-  }, [refreshPolicy.marketStreamsEnabled]);
+  }, [currentView, refreshPolicy.marketStreamsEnabled]);
 
   return {
     currentCoin,

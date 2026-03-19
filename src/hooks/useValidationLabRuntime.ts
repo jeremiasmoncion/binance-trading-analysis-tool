@@ -8,6 +8,39 @@ interface UseValidationLabRuntimeOptions {
 
 const EMPTY_QUEUE = { pending: 0, running: 0 };
 
+function hasBacktestRunsChanged(current: StrategyBacktestRun[], next: StrategyBacktestRun[]) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (
+      currentItem.id !== nextItem.id
+      || currentItem.status !== nextItem.status
+      || (currentItem.createdAt || "") !== (nextItem.createdAt || "")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasBacktestQueueChanged(
+  current: { pending: number; running: number },
+  next: { pending: number; running: number },
+) {
+  return current.pending !== next.pending || current.running !== next.running;
+}
+
+function hasValidationReportChanged(current: StrategyValidationReport | null, next: StrategyValidationReport | null) {
+  if (current === next) return false;
+  if (!current || !next) return current !== next;
+
+  return JSON.stringify(current) !== JSON.stringify(next);
+}
+
 export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntimeOptions) {
   const [validationReport, setValidationReport] = useState<StrategyValidationReport | null>(null);
   const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>([]);
@@ -20,9 +53,17 @@ export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntime
 
   const applyPayload = useCallback((payload: StrategyValidationLabPayload | null) => {
     if (!payload) return null;
-    setValidationReport(payload.report || null);
-    setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
-    setBacktestQueue(payload.queue || EMPTY_QUEUE);
+    const nextReport = payload.report || null;
+    const nextRuns = Array.isArray(payload.runs) ? payload.runs : [];
+    const nextQueue = payload.queue || EMPTY_QUEUE;
+
+    // Validation lab payloads can be large, but they are low-frequency and
+    // shared across admin surfaces. Skip equivalent rewrites so Profile and the
+    // system plane do not rerender just because an admin action returned the
+    // same lab snapshot with fresh object references.
+    setValidationReport((current) => (hasValidationReportChanged(current, nextReport) ? nextReport : current));
+    setBacktestRuns((current) => (hasBacktestRunsChanged(current, nextRuns) ? nextRuns : current));
+    setBacktestQueue((current) => (hasBacktestQueueChanged(current, nextQueue) ? nextQueue : current));
     return payload;
   }, []);
 

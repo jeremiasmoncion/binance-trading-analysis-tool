@@ -181,6 +181,7 @@ This means:
 - `snapshot.signalMemory` should survive transient list failures
 - `signal memory` refresh should be no-op aware too; repeated shared refreshes must not republish the same signal list just because the backend returned a new array reference
 - shared `memory runtime` refreshes should be no-op aware as well; strategy/scanner polling can remain centralized, but equivalent payloads must not recreate the canonical engine snapshot on every interval
+- `useBinanceData` refreshes should also be no-op aware for connection, execution and dashboard summary payloads; shared runtime hooks may poll or refresh for safety, but they should not wake the `system plane` when those operational payloads are semantically unchanged
 - external realtime bootstrap and overlays must resolve system data from the already-authenticated username/session, not from same-origin request cookies
 - frontend bootstrap fallback is now quality-aware: if the external realtime core answers but the first payload is degraded by upstream exchange issues, CRYPE falls back to the internal bootstrap before rendering the authenticated workspace
 - bootstrap composition must derive `portfolio`, `execution` and `dashboard summary` from one canonical account snapshot whenever possible; first paint should not fan out multiple full account reads for the same user

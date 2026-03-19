@@ -29,6 +29,86 @@ interface ConnectedViewLoadPlan {
   refreshDashboard: boolean;
 }
 
+function hasConnectionChanged(current: BinanceConnection | null, next: BinanceConnection | null) {
+  if (current === next) return false;
+  if (!current || !next) return current !== next;
+
+  return !(
+    current.connected === next.connected
+    && (current.maskedApiKey || "") === (next.maskedApiKey || "")
+    && (current.accountAlias || "") === (next.accountAlias || "")
+    && (current.summary?.accountType || "") === (next.summary?.accountType || "")
+    && Number(current.summary?.openOrdersCount || 0) === Number(next.summary?.openOrdersCount || 0)
+  );
+}
+
+function hasUserListChanged(current: UserSession[], next: UserSession[]) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentUser = current[index];
+    const nextUser = next[index];
+    if (
+      currentUser.username !== nextUser.username
+      || currentUser.role !== nextUser.role
+      || (currentUser.displayName || "") !== (nextUser.displayName || "")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasExecutionCenterChanged(current: ExecutionCenterPayload | null, next: ExecutionCenterPayload | null) {
+  if (current === next) return false;
+  if (!current || !next) return current !== next;
+
+  return !(
+    current.profile.enabled === next.profile.enabled
+    && current.profile.autoExecuteEnabled === next.profile.autoExecuteEnabled
+    && Number(current.profile.updatedAt ? Date.parse(current.profile.updatedAt) : 0) === Number(next.profile.updatedAt ? Date.parse(next.profile.updatedAt) : 0)
+    && current.account.connected === next.account.connected
+    && Number(current.account.cashValue || 0) === Number(next.account.cashValue || 0)
+    && Number(current.account.totalValue || 0) === Number(next.account.totalValue || 0)
+    && Number(current.account.openOrdersCount || 0) === Number(next.account.openOrdersCount || 0)
+    && Number(current.account.dailyLossPct || 0) === Number(next.account.dailyLossPct || 0)
+    && Number(current.account.dailyAutoExecutions || 0) === Number(next.account.dailyAutoExecutions || 0)
+    && Number(current.account.recentLossStreak || 0) === Number(next.account.recentLossStreak || 0)
+    && Number(current.account.autoExecutionRemaining || 0) === Number(next.account.autoExecutionRemaining || 0)
+    && current.candidates.length === next.candidates.length
+    && current.recentOrders.length === next.recentOrders.length
+    && (current.recentOrders[0]?.id || 0) === (next.recentOrders[0]?.id || 0)
+    && (current.recentOrders[0]?.lifecycle_status || "") === (next.recentOrders[0]?.lifecycle_status || "")
+    && Number(current.recentOrders[0]?.realized_pnl || 0) === Number(next.recentOrders[0]?.realized_pnl || 0)
+  );
+}
+
+function hasDashboardSummaryChanged(current: DashboardSummaryPayload | null, next: DashboardSummaryPayload | null) {
+  if (current === next) return false;
+  if (!current || !next) return current !== next;
+
+  return !(
+    current.generatedAt === next.generatedAt
+    && current.connection.connected === next.connection.connected
+    && (current.connection.accountAlias || "") === (next.connection.accountAlias || "")
+    && (current.connectionIssue || "") === (next.connectionIssue || "")
+    && Number(current.portfolio.totalValue || 0) === Number(next.portfolio.totalValue || 0)
+    && Number(current.portfolio.cashValue || 0) === Number(next.portfolio.cashValue || 0)
+    && Number(current.portfolio.positionsValue || 0) === Number(next.portfolio.positionsValue || 0)
+    && Number(current.portfolio.periodChangeValue || 0) === Number(next.portfolio.periodChangeValue || 0)
+    && Number(current.portfolio.periodChangePct || 0) === Number(next.portfolio.periodChangePct || 0)
+    && current.topAssets.length === next.topAssets.length
+    && Number(current.execution.activeBots || 0) === Number(next.execution.activeBots || 0)
+    && Number(current.execution.openOrdersCount || 0) === Number(next.execution.openOrdersCount || 0)
+    && Number(current.execution.eligibleCount || 0) === Number(next.execution.eligibleCount || 0)
+    && Number(current.execution.blockedCount || 0) === Number(next.execution.blockedCount || 0)
+    && current.execution.recentOrders.length === next.execution.recentOrders.length
+    && (current.execution.recentOrders[0]?.id || 0) === (next.execution.recentOrders[0]?.id || 0)
+  );
+}
+
 function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: PortfolioPayload, period: string): PortfolioPayload {
   if (!previous || !previous.assets?.length) {
     return live;
@@ -219,8 +299,8 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (activeUsernameRef.current !== username) {
         return { ok: false as const, connection: null, users: [] as UserSession[], message: "Sesión cambió durante la carga." };
       }
-      setBinanceConnection(connection);
-      setAvailableUsers(users);
+      setBinanceConnection((current) => (hasConnectionChanged(current, connection) ? connection : current));
+      setAvailableUsers((current) => (hasUserListChanged(current, users) ? users : current));
       if (connection?.accountAlias) {
         setBinanceForm((prev) => ({ ...prev, alias: connection.accountAlias || "" }));
       }
@@ -303,7 +383,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       if (activeUsernameRef.current !== username) {
         return { ok: false as const, payload: null, message: "Sesión cambió durante la carga." };
       }
-      setExecutionCenter(payload);
+      setExecutionCenter((current) => (hasExecutionCenterChanged(current, payload) ? payload : current));
       return { ok: true as const, payload, message: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo leer la ejecución demo.";
@@ -330,7 +410,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
         if (!hasUsefulPayload && payload?.connectionIssue && previous) {
           return previous;
         }
-        return payload;
+        return hasDashboardSummaryChanged(previous, payload) ? payload : previous;
       });
       return { ok: true as const, payload, message: null };
     } catch (error) {

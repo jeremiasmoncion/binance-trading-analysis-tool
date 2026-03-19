@@ -66,6 +66,16 @@ export interface RealtimeCoreHeartbeatPayload {
   generatedAt: string;
 }
 
+export interface RealtimeCoreHealthPayload {
+  ok: boolean;
+  service: string;
+  mode?: string;
+  now: string;
+  activeChannels?: number;
+  activeSubscribers?: number;
+  pollIntervalMs?: number;
+}
+
 export interface RealtimeCoreBootstrapPayload {
   version: number;
   generatedAt: string;

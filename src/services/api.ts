@@ -25,8 +25,7 @@ import type {
   WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
-import type { RealtimeCoreBootstrapPayload } from "../realtime-core/contracts";
-import type { RealtimeCoreEventEnvelope } from "../realtime-core/contracts";
+import type { RealtimeCoreBootstrapPayload, RealtimeCoreEventEnvelope, RealtimeCoreHealthPayload } from "../realtime-core/contracts";
 
 interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -43,6 +42,8 @@ const hotApiInFlight = new Map<string, Promise<unknown>>();
 const realtimeCoreBaseUrl = String(import.meta.env.VITE_REALTIME_CORE_URL || "").trim().replace(/\/$/, "");
 let realtimeCoreBridgeTokenCache: { token: string; expiresAt: number } | null = null;
 let realtimeCoreBridgeTokenInFlight: Promise<string> | null = null;
+let realtimeCoreModeCache: { mode: "external" | "serverless"; expiresAt: number } | null = null;
+let realtimeCoreModeInFlight: Promise<"external" | "serverless"> | null = null;
 
 async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { timeoutMs, ...requestOptions } = options;
@@ -150,6 +151,144 @@ async function getRealtimeCoreBridgeToken() {
     });
 
   return realtimeCoreBridgeTokenInFlight;
+}
+
+async function requestExternalRealtimeCoreHealth() {
+  if (!realtimeCoreBaseUrl || typeof fetch !== "function") return null;
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller ? window.setTimeout(() => controller.abort(), 4_000) : null;
+
+  try {
+    const response = await fetch(`${realtimeCoreBaseUrl}/health`, {
+      method: "GET",
+      credentials: "omit",
+      signal: controller?.signal,
+    });
+    if (!response.ok) return null;
+    const payload = await response.json().catch(() => null);
+    return payload as RealtimeCoreHealthPayload | null;
+  } catch {
+    return null;
+  } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+  }
+}
+
+async function resolveRealtimeCoreMode(forceFresh = false): Promise<"external" | "serverless"> {
+  if (!realtimeCoreBaseUrl) return "serverless";
+
+  const now = Date.now();
+  if (!forceFresh && realtimeCoreModeCache && realtimeCoreModeCache.expiresAt > now) {
+    return realtimeCoreModeCache.mode;
+  }
+
+  if (!forceFresh && realtimeCoreModeInFlight) {
+    return realtimeCoreModeInFlight;
+  }
+
+  realtimeCoreModeInFlight = requestExternalRealtimeCoreHealth()
+    .then((payload) => {
+      const mode = payload?.ok ? "external" : "serverless";
+      realtimeCoreModeCache = {
+        mode,
+        expiresAt: Date.now() + (mode === "external" ? 15_000 : 8_000),
+      };
+      realtimeCoreModeInFlight = null;
+      return mode;
+    })
+    .catch(() => {
+      realtimeCoreModeCache = {
+        mode: "serverless",
+        expiresAt: Date.now() + 8_000,
+      };
+      realtimeCoreModeInFlight = null;
+      return "serverless";
+    });
+
+  return realtimeCoreModeInFlight;
+}
+
+async function buildRealtimeCoreBootstrapPath(coin: string, timeframe: string, period: string) {
+  const params = new URLSearchParams({
+    coin,
+    timeframe,
+    period,
+  });
+  const mode = await resolveRealtimeCoreMode();
+
+  if (mode === "external") {
+    const token = await getRealtimeCoreBridgeToken();
+    params.set("token", token);
+    return {
+      mode,
+      path: `${realtimeCoreBaseUrl}/bootstrap?${params.toString()}`,
+    };
+  }
+
+  return {
+    mode,
+    path: `/api/realtime/bootstrap?${params.toString()}`,
+  };
+}
+
+async function buildRealtimeCoreEventsPath(options: { intervalMs?: number } = {}) {
+  const params = new URLSearchParams();
+  if (options.intervalMs) {
+    params.set("intervalMs", String(options.intervalMs));
+  }
+
+  const mode = await resolveRealtimeCoreMode();
+  if (mode === "external") {
+    const token = await getRealtimeCoreBridgeToken();
+    params.set("token", token);
+    return {
+      mode,
+      path: `${realtimeCoreBaseUrl}/events${params.toString() ? `?${params.toString()}` : ""}`,
+    };
+  }
+
+  return {
+    mode,
+    path: `/api/realtime/events${params.toString() ? `?${params.toString()}` : ""}`,
+  };
+}
+
+function attachRealtimeCoreEventSource(
+  eventsPath: string,
+  onEvent: (event: RealtimeCoreEventEnvelope) => void,
+  options: {
+    onFatalError?: () => void;
+  } = {},
+) {
+  const source = new EventSource(eventsPath, {
+    withCredentials: !eventsPath.startsWith("http"),
+  });
+
+  const handleMessage = (event: MessageEvent<string>) => {
+    try {
+      onEvent(JSON.parse(event.data) as RealtimeCoreEventEnvelope);
+    } catch {
+      // ignore malformed event frames
+    }
+  };
+
+  const handleError = () => {
+    options.onFatalError?.();
+  };
+
+  source.addEventListener("system.overlay.updated", handleMessage as EventListener);
+  source.addEventListener("system.heartbeat", handleMessage as EventListener);
+  source.addEventListener("error", handleError as EventListener);
+
+  return () => {
+    source.removeEventListener("system.overlay.updated", handleMessage as EventListener);
+    source.removeEventListener("system.heartbeat", handleMessage as EventListener);
+    source.removeEventListener("error", handleError as EventListener);
+    source.close();
+  };
 }
 
 const marketCache = {
@@ -686,59 +825,89 @@ export const marketService = {
 
 export const realtimeCoreService = {
   async getBootstrap(coin: string, timeframe: string, period = "1d") {
-    const params = new URLSearchParams({
+    let mode: "external" | "serverless" = "serverless";
+    let bootstrapPath = `/api/realtime/bootstrap?${new URLSearchParams({
       coin,
       timeframe,
       period,
-    });
-    if (realtimeCoreBaseUrl) {
-      const token = await getRealtimeCoreBridgeToken();
-      params.set("token", token);
+    }).toString()}`;
+
+    try {
+      const resolved = await buildRealtimeCoreBootstrapPath(coin, timeframe, period);
+      mode = resolved.mode;
+      bootstrapPath = resolved.path;
+    } catch {
+      realtimeCoreModeCache = {
+        mode: "serverless",
+        expiresAt: Date.now() + 8_000,
+      };
     }
-    const bootstrapPath = realtimeCoreBaseUrl
-      ? `${realtimeCoreBaseUrl}/bootstrap?${params.toString()}`
-      : `/api/realtime/bootstrap?${params.toString()}`;
-    return apiRequest<RealtimeCoreBootstrapPayload>(bootstrapPath, {
-      timeoutMs: 15_000,
-    });
+
+    try {
+      return await apiRequest<RealtimeCoreBootstrapPayload>(bootstrapPath, {
+        timeoutMs: 15_000,
+      });
+    } catch (error) {
+      if (mode !== "external") throw error;
+      realtimeCoreModeCache = {
+        mode: "serverless",
+        expiresAt: Date.now() + 8_000,
+      };
+      return apiRequest<RealtimeCoreBootstrapPayload>(`/api/realtime/bootstrap?${new URLSearchParams({
+        coin,
+        timeframe,
+        period,
+      }).toString()}`, {
+        timeoutMs: 15_000,
+      });
+    }
   },
   async openSystemEvents(onEvent: (event: RealtimeCoreEventEnvelope) => void, options: { intervalMs?: number } = {}) {
     if (typeof window === "undefined" || typeof EventSource === "undefined") {
       return () => undefined;
     }
 
-    const params = new URLSearchParams();
-    if (options.intervalMs) {
-      params.set("intervalMs", String(options.intervalMs));
-    }
-    if (realtimeCoreBaseUrl) {
-      const token = await getRealtimeCoreBridgeToken();
-      params.set("token", token);
-    }
+    let closed = false;
+    let closeCurrent = () => {};
+    let fallbackUsed = false;
 
-    const eventsPath = realtimeCoreBaseUrl
-      ? `${realtimeCoreBaseUrl}/events${params.toString() ? `?${params.toString()}` : ""}`
-      : `/api/realtime/events${params.toString() ? `?${params.toString()}` : ""}`;
-
-    const source = new EventSource(eventsPath, {
-      withCredentials: true,
-    });
-
-    const handleMessage = (event: MessageEvent<string>) => {
-      try {
-        onEvent(JSON.parse(event.data) as RealtimeCoreEventEnvelope);
-      } catch {
-        // ignore malformed event frames
-      }
+    const openFallback = () => {
+      if (closed || fallbackUsed) return;
+      fallbackUsed = true;
+      realtimeCoreModeCache = {
+        mode: "serverless",
+        expiresAt: Date.now() + 8_000,
+      };
+      closeCurrent = attachRealtimeCoreEventSource(
+        `/api/realtime/events${options.intervalMs ? `?intervalMs=${encodeURIComponent(String(options.intervalMs))}` : ""}`,
+        onEvent,
+      );
     };
 
-    source.addEventListener("system.overlay.updated", handleMessage as EventListener);
-    source.addEventListener("system.heartbeat", handleMessage as EventListener);
+    let mode: "external" | "serverless" = "serverless";
+    let eventsPath = `/api/realtime/events${options.intervalMs ? `?intervalMs=${encodeURIComponent(String(options.intervalMs))}` : ""}`;
+
+    try {
+      const resolved = await buildRealtimeCoreEventsPath(options);
+      mode = resolved.mode;
+      eventsPath = resolved.path;
+    } catch {
+      realtimeCoreModeCache = {
+        mode: "serverless",
+        expiresAt: Date.now() + 8_000,
+      };
+    }
+
+    closeCurrent = attachRealtimeCoreEventSource(eventsPath, onEvent, {
+      onFatalError: mode === "external" ? () => {
+        closeCurrent();
+        openFallback();
+      } : undefined,
+    });
 
     return () => {
-      source.removeEventListener("system.overlay.updated", handleMessage as EventListener);
-      source.removeEventListener("system.heartbeat", handleMessage as EventListener);
-      source.close();
+      closed = true;
+      closeCurrent();
     };
   },
 };

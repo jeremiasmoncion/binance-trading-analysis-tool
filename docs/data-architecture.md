@@ -116,8 +116,10 @@ The frontend can now consume an external persistent realtime core service throug
 When this env is present:
 
 - frontend first requests `/api/realtime/session` on the app domain
+- frontend probes the external `/health`
 - bootstrap requests go to the external realtime core service with a bridge token
 - event stream requests go to the external realtime core service with the same bridge token
+- if the external service is unhealthy or fails, frontend falls back to Vercel routes
 - frontend contracts stay the same
 
 This allows infrastructure migration without rewriting view logic.

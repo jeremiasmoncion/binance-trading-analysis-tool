@@ -84,6 +84,17 @@ That route issues a short-lived bridge token derived from the current CRYPE sess
 
 This keeps Vercel session cookies on the app domain while still allowing the external realtime core to authenticate requests cross-origin.
 
+## Frontend Safety Model
+
+The frontend now uses this external service in a guarded way:
+
+- it probes `GET /health` first
+- it only prefers the external realtime core when that probe succeeds
+- if `bootstrap` fails after a healthy probe, it falls back to the internal Vercel route
+- if the external SSE stream breaks, it falls back to the internal Vercel SSE route
+
+This lets us enable `VITE_REALTIME_CORE_URL` in production without turning the external service into a single point of failure on day one.
+
 ## Current Runtime Model
 
 The service now keeps a hot in-memory channel per authenticated user.

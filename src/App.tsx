@@ -128,6 +128,7 @@ export function App() {
     market.status,
     market.strategy,
     market.strategyCandidates,
+    market.supportResistance,
     market.timeframe,
   ]);
 

@@ -2,6 +2,26 @@ import type { ReturnTypeUseBinanceData, ReturnTypeUseMarketData, ReturnTypeUseMe
 import { marketDataPlaneStore } from "./marketDataPlane";
 import { systemDataPlaneStore } from "./systemDataPlane";
 
+function hasMarketPlanePayloadChanged(current: ReturnType<typeof marketDataPlaneStore.getState>, market: ReturnTypeUseMarketData, nextStatus: "ready" | "loading" | "error" | "idle") {
+  return !(
+    current.meta.status === nextStatus
+    && current.currentCoin === market.currentCoin
+    && current.timeframe === market.timeframe
+    && current.candles === market.candles
+    && current.currentPrice === market.currentPrice
+    && current.indicators === market.indicators
+    && current.signal === market.signal
+    && current.analysis === market.analysis
+    && current.strategy === market.strategy
+    && current.strategyCandidates === market.strategyCandidates
+    && current.multiTimeframes === market.multiTimeframes
+    && current.comparison === market.comparison
+    && current.market24h === market.market24h
+    && current.support === market.supportResistance.support
+    && current.resistance === market.supportResistance.resistance
+  );
+}
+
 export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
   const nextStatus = market.status === "ok"
     ? "ready"
@@ -11,31 +31,40 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
         ? "error"
         : "idle";
 
-  marketDataPlaneStore.setState((current) => ({
-    ...current,
-    meta: {
-      ...current.meta,
-      status: nextStatus,
-      source: market.candles.length ? "stream" : "snapshot",
-      lastFullSyncAt: market.candles.length ? current.meta.lastFullSyncAt || Date.now() : current.meta.lastFullSyncAt,
-      lastStreamAt: market.currentPrice > 0 ? Date.now() : current.meta.lastStreamAt,
-      lastError: nextStatus === "error" ? "No se pudo refrescar el mercado." : null,
-    },
-    currentCoin: market.currentCoin,
-    timeframe: market.timeframe,
-    candles: market.candles,
-    currentPrice: market.currentPrice,
-    indicators: market.indicators,
-    signal: market.signal,
-    analysis: market.analysis,
-    strategy: market.strategy,
-    strategyCandidates: market.strategyCandidates,
-    multiTimeframes: market.multiTimeframes,
-    comparison: market.comparison,
-    market24h: market.market24h,
-    support: market.supportResistance.support,
-    resistance: market.supportResistance.resistance,
-  }));
+  marketDataPlaneStore.setState((current) => {
+    // Keep the market plane quiet unless the payload meaningfully changed.
+    // The hook still refreshes often, but selectors should not pay for no-op
+    // syncs that only recreate the same plane object.
+    if (!hasMarketPlanePayloadChanged(current, market, nextStatus)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      meta: {
+        ...current.meta,
+        status: nextStatus,
+        source: market.candles.length ? "stream" : "snapshot",
+        lastFullSyncAt: market.candles.length && current.candles !== market.candles ? Date.now() : current.meta.lastFullSyncAt,
+        lastStreamAt: market.currentPrice > 0 && current.currentPrice !== market.currentPrice ? Date.now() : current.meta.lastStreamAt,
+        lastError: nextStatus === "error" ? "No se pudo refrescar el mercado." : null,
+      },
+      currentCoin: market.currentCoin,
+      timeframe: market.timeframe,
+      candles: market.candles,
+      currentPrice: market.currentPrice,
+      indicators: market.indicators,
+      signal: market.signal,
+      analysis: market.analysis,
+      strategy: market.strategy,
+      strategyCandidates: market.strategyCandidates,
+      multiTimeframes: market.multiTimeframes,
+      comparison: market.comparison,
+      market24h: market.market24h,
+      support: market.supportResistance.support,
+      resistance: market.supportResistance.resistance,
+    };
+  });
 }
 
 export function syncSystemDataPlane(

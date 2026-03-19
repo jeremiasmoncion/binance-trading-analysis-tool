@@ -4,6 +4,7 @@ import type {
   RealtimeCoreHeartbeatPayload,
   RealtimeCoreSystemOverlayPayload,
 } from "./contracts";
+import type { DashboardSummaryPayload, PortfolioAsset } from "../types";
 
 function isSystemOverlayPayload(payload: unknown): payload is RealtimeCoreSystemOverlayPayload {
   return Boolean(payload) && typeof payload === "object" && (
@@ -41,6 +42,35 @@ function hasUsefulExecutionCenter(execution: unknown) {
   return totalValue > 0 || cashValue > 0 || openOrdersCount > 0 || candidatesCount > 0 || recentOrdersCount > 0;
 }
 
+function mergeDashboardSummaryPreservingCollections(
+  currentSummary: DashboardSummaryPayload | null,
+  nextSummary: DashboardSummaryPayload | null | undefined,
+): DashboardSummaryPayload | null {
+  if (!nextSummary || typeof nextSummary !== "object") {
+    return currentSummary ?? null;
+  }
+
+  if (!currentSummary || typeof currentSummary !== "object") {
+    return nextSummary;
+  }
+
+  const currentTopAssets = Array.isArray((currentSummary as { topAssets?: PortfolioAsset[] }).topAssets)
+    ? (currentSummary as { topAssets: PortfolioAsset[] }).topAssets
+    : [];
+  const nextTopAssets = Array.isArray((nextSummary as { topAssets?: PortfolioAsset[] }).topAssets)
+    ? (nextSummary as { topAssets: PortfolioAsset[] }).topAssets
+    : [];
+
+  if (!nextTopAssets.length && currentTopAssets.length) {
+    return {
+      ...nextSummary,
+      topAssets: currentTopAssets,
+    };
+  }
+
+  return nextSummary;
+}
+
 export function applyRealtimeCoreEvent(event: RealtimeCoreEventEnvelope) {
   if (event.type === "system.overlay.updated" && isSystemOverlayPayload(event.payload)) {
     const payload = event.payload;
@@ -63,7 +93,7 @@ export function applyRealtimeCoreEvent(event: RealtimeCoreEventEnvelope) {
           ? payload.execution
           : current.overlay.execution,
         dashboardSummary: hasUsefulDashboardSummary(payload.dashboardSummary)
-          ? payload.dashboardSummary
+          ? mergeDashboardSummaryPreservingCollections(current.overlay.dashboardSummary, payload.dashboardSummary)
           : current.overlay.dashboardSummary,
       },
     }));

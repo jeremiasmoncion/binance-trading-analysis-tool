@@ -168,6 +168,7 @@ Current rules:
 - realtime/bootstrap state is allowed to establish a better `system` state before legacy hooks finish
 - legacy sync from `useBinanceData` must not overwrite an existing good `system plane` value with `null` or an empty payload
 - `signal memory` follows the same `last good state` principle as `dashboard summary` and `execution`
+- `dashboardSummary.topAssets` is also part of that `last good state` rule; a lightweight summary may legitimately omit the collection, but it must not blank the dashboard assets card if a previous good list already exists
 - transient fetch failures should degrade status, not blank the UI
 
 This means:

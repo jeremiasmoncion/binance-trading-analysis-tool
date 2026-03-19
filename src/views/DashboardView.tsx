@@ -179,7 +179,15 @@ export function DashboardView(props: DashboardViewProps) {
     ],
   );
   const topAssets = useMemo(
-    () => buildTopAssets(summary?.topAssets || portfolioData?.assets || []),
+    () => {
+      const summaryTopAssets = Array.isArray(summary?.topAssets) ? summary.topAssets : [];
+      const portfolioAssets = Array.isArray(portfolioData?.assets) ? portfolioData.assets : [];
+
+      // A lightweight dashboard summary can stay valid for KPI totals while
+      // omitting the expensive top-assets list. Fall back to the portfolio
+      // snapshot instead of treating an empty summary array as authoritative.
+      return buildTopAssets(summaryTopAssets.length ? summaryTopAssets : portfolioAssets);
+    },
     [portfolioData?.assets, summary?.topAssets],
   );
   const recentActivity = useMemo(

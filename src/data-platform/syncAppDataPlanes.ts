@@ -1,6 +1,39 @@
 import type { ReturnTypeUseBinanceData, ReturnTypeUseMarketData, ReturnTypeUseMemoryRuntime, ReturnTypeUseSignalMemory, ReturnTypeUseValidationLabRuntime, ReturnTypeUseWatchlist } from "./syncTypes";
+import type { DashboardSummaryPayload, PortfolioAsset } from "../types";
 import { marketDataPlaneStore } from "./marketDataPlane";
 import { systemDataPlaneStore } from "./systemDataPlane";
+
+function mergeDashboardSummaryPreservingCollections(
+  currentSummary: DashboardSummaryPayload | null,
+  nextSummary: DashboardSummaryPayload | null | undefined,
+): DashboardSummaryPayload | null {
+  if (!nextSummary || typeof nextSummary !== "object") {
+    return currentSummary ?? null;
+  }
+
+  if (!currentSummary || typeof currentSummary !== "object") {
+    return nextSummary;
+  }
+
+  const currentTopAssets = Array.isArray((currentSummary as { topAssets?: PortfolioAsset[] }).topAssets)
+    ? (currentSummary as { topAssets: PortfolioAsset[] }).topAssets
+    : [];
+  const nextTopAssets = Array.isArray((nextSummary as { topAssets?: PortfolioAsset[] }).topAssets)
+    ? (nextSummary as { topAssets: PortfolioAsset[] }).topAssets
+    : [];
+
+  // Dashboard summary can stay "useful" for KPI totals while the lightweight
+  // overlay omits top assets. Preserve the last good collection so dashboard
+  // navigation does not blank the assets card on a later revisit.
+  if (!nextTopAssets.length && currentTopAssets.length) {
+    return {
+      ...nextSummary,
+      topAssets: currentTopAssets,
+    };
+  }
+
+  return nextSummary;
+}
 
 function hasMarketPlanePayloadChanged(current: ReturnType<typeof marketDataPlaneStore.getState>, market: ReturnTypeUseMarketData, nextStatus: "ready" | "loading" | "error" | "idle") {
   return !(
@@ -146,7 +179,7 @@ export function syncSystemDataPlane(
         ? (binance.executionCenter ?? current.overlay.execution)
         : null,
       dashboardSummary: isAuthenticated
-        ? (binance.dashboardSummary ?? current.overlay.dashboardSummary)
+        ? mergeDashboardSummaryPreservingCollections(current.overlay.dashboardSummary, binance.dashboardSummary)
         : null,
     },
     controls: {

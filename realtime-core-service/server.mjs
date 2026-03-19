@@ -48,6 +48,22 @@ function stabilizeOverlay(nextOverlay, previousOverlay) {
       ...nextOverlay,
       dashboardSummary: previousSummary,
     };
+  } else if (nextSummary && previousSummary) {
+    const nextTopAssets = Array.isArray(nextSummary.topAssets) ? nextSummary.topAssets : [];
+    const previousTopAssets = Array.isArray(previousSummary.topAssets) ? previousSummary.topAssets : [];
+
+    // The live overlay can arrive with KPI totals but no top-assets collection.
+    // Keep the last good list in-memory so dashboard revisit does not blank
+    // the assets card between navigations or lighter refresh cycles.
+    if (!nextTopAssets.length && previousTopAssets.length) {
+      nextOverlay = {
+        ...nextOverlay,
+        dashboardSummary: {
+          ...nextSummary,
+          topAssets: previousTopAssets,
+        },
+      };
+    }
   }
 
   const nextExecution = nextOverlay?.execution ?? null;

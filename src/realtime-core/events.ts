@@ -18,6 +18,17 @@ function isHeartbeatPayload(payload: unknown): payload is RealtimeCoreHeartbeatP
   return Boolean(payload) && typeof payload === "object" && "generatedAt" in (payload as Record<string, unknown>);
 }
 
+function hasUsefulDashboardSummary(summary: unknown) {
+  if (!summary || typeof summary !== "object") return false;
+  const typed = summary as Record<string, unknown>;
+  const portfolio = (typed.portfolio || {}) as Record<string, unknown>;
+  const execution = (typed.execution || {}) as Record<string, unknown>;
+  const portfolioValue = Number(portfolio.totalValue || 0);
+  const topAssetsCount = Array.isArray(typed.topAssets) ? typed.topAssets.length : 0;
+  const recentOrdersCount = Array.isArray(execution.recentOrders) ? execution.recentOrders.length : 0;
+  return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
+}
+
 export function applyRealtimeCoreEvent(event: RealtimeCoreEventEnvelope) {
   if (event.type === "system.overlay.updated" && isSystemOverlayPayload(event.payload)) {
     const payload = event.payload;
@@ -37,7 +48,9 @@ export function applyRealtimeCoreEvent(event: RealtimeCoreEventEnvelope) {
       },
       overlay: {
         execution: payload.execution ?? current.overlay.execution,
-        dashboardSummary: payload.dashboardSummary ?? current.overlay.dashboardSummary,
+        dashboardSummary: hasUsefulDashboardSummary(payload.dashboardSummary)
+          ? payload.dashboardSummary
+          : current.overlay.dashboardSummary,
       },
     }));
     return;

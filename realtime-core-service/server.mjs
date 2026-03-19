@@ -15,6 +15,33 @@ const MAX_CHANNEL_IDLE_MS = Math.max(30_000, Number(process.env.REALTIME_CORE_MA
 
 const overlayChannels = new Map();
 
+function hasUsefulDashboardSummary(summary) {
+  if (!summary || typeof summary !== "object") return false;
+  const portfolioValue = Number(summary?.portfolio?.totalValue || 0);
+  const topAssetsCount = Array.isArray(summary?.topAssets) ? summary.topAssets.length : 0;
+  const recentOrdersCount = Array.isArray(summary?.execution?.recentOrders) ? summary.execution.recentOrders.length : 0;
+  return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
+}
+
+function stabilizeOverlay(nextOverlay, previousOverlay) {
+  if (!previousOverlay) return nextOverlay;
+
+  const nextSummary = nextOverlay?.dashboardSummary ?? null;
+  const previousSummary = previousOverlay?.dashboardSummary ?? null;
+  const nextIsUseful = hasUsefulDashboardSummary(nextSummary);
+  const previousIsUseful = hasUsefulDashboardSummary(previousSummary);
+  const nextHasIssue = Boolean(nextSummary?.connectionIssue);
+
+  if (previousIsUseful && (!nextIsUseful || nextHasIssue)) {
+    return {
+      ...nextOverlay,
+      dashboardSummary: previousSummary,
+    };
+  }
+
+  return nextOverlay;
+}
+
 function setCorsHeaders(req, res) {
   const origin = String(req.headers.origin || "");
   if (!ALLOWED_ORIGIN || !origin || origin !== ALLOWED_ORIGIN) return;
@@ -163,9 +190,10 @@ async function publishOverlay(channel, { force = false } = {}) {
 
   channel.inFlight = (async () => {
     try {
-      const overlay = await buildRealtimeCoreSystemOverlay(createSystemRequest(channel), {
+      const rawOverlay = await buildRealtimeCoreSystemOverlay(createSystemRequest(channel), {
         session: channel.session,
       });
+      const overlay = stabilizeOverlay(rawOverlay, channel.lastOverlay);
       const overlayHash = JSON.stringify(overlay);
       const changed = force || overlayHash !== channel.lastOverlayHash;
 

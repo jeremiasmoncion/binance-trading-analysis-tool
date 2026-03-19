@@ -137,6 +137,49 @@ Current reduction already applied:
 - `Dashboard` portfolio live totals now arrive through the overlay stream, so the view no longer polls portfolio on an interval
 - portfolio snapshots still refresh independently because they are not yet on the overlay stream
 
+## Startup and Initial Paint
+
+The authenticated shell should not render before the minimum startup payload is ready.
+
+Current rule:
+
+- after session restore, login or register, `App` gates the authenticated UI behind a startup overlay
+- the initial gate waits for:
+  - realtime bootstrap hydration
+  - first market snapshot load
+- this prevents the dashboard from painting with temporary `$0.00` placeholders and then filling one or two seconds later
+
+Auth flow rule:
+
+- `useAuth` must not publish `currentUser` before the startup bootstrap callback completes
+- if a future auth flow bypasses that order, it will reintroduce the empty-first-paint bug
+
+## Snapshot vs Overlay Rules
+
+The app is now stricter about which layer can overwrite which state.
+
+Current rules:
+
+- realtime/bootstrap state is allowed to establish a better `system` state before legacy hooks finish
+- legacy sync from `useBinanceData` must not overwrite an existing good `system plane` value with `null` or an empty payload
+- `signal memory` follows the same `last good state` principle as `dashboard summary` and `execution`
+- transient fetch failures should degrade status, not blank the UI
+
+This means:
+
+- `snapshot.portfolio` should survive weak legacy sync frames
+- `overlay.execution` should survive degraded overlay frames
+- `overlay.dashboardSummary` should survive degraded overlay frames
+- `snapshot.signalMemory` should survive transient list failures
+
+## Transitional Legacy Boundaries
+
+CRYPE is still in a hybrid migration, so these boundaries are important:
+
+- `AppView` should keep shrinking its prop surface as views move to selector-first consumption
+- per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors
+- `MemoryView` now scopes its strategy/scanner polling to tabs that actually use that data instead of polling unconditionally in the background
+
 ## Migration Phases
 
 ### Completed

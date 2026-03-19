@@ -55,16 +55,6 @@ export function App() {
       : null,
   );
   const binance = useBinanceData({ currentUser: auth.currentUser, currentView: view.currentView });
-  const handlePortfolioPeriodChange = useCallback((period: string) => {
-    void binance.refreshPortfolioWithFeedback(period);
-  }, [binance.refreshPortfolioWithFeedback]);
-  const handleRefreshPortfolio = useCallback(() => {
-    void binance.refreshPortfolioWithFeedback();
-  }, [binance.refreshPortfolioWithFeedback]);
-  const handleRefreshPortfolioFull = useCallback(() => {
-    void binance.refreshPortfolio(binance.portfolioPeriod, "full");
-  }, [binance.portfolioPeriod, binance.refreshPortfolio]);
-  const handleRefreshExecutionCenter = useCallback(() => binance.refreshExecutionCenter(), [binance.refreshExecutionCenter]);
   const handleNavigateView = useCallback((nextView: typeof view.currentView) => {
     view.setCurrentView(nextView);
     if (isMobileViewport() && !view.sidebarCollapsed) {
@@ -74,7 +64,6 @@ export function App() {
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {
-    signals: memorySignals,
     saveSignal,
     updateSignal,
     maybeAutoSaveSignal,
@@ -627,19 +616,6 @@ export function App() {
           theme={theme}
           onNavigateView={handleNavigateView}
           currentCoin={market.currentCoin}
-          watchlists={watchlist.lists}
-          watchlist={watchlist.watchlist}
-          activeWatchlistName={watchlist.activeListName}
-          timeframe={market.timeframe}
-          currentPrice={market.currentPrice || market.indicators?.current || 0}
-          signal={market.signal}
-          plan={plan}
-          analysis={market.analysis}
-          strategy={market.strategy}
-          strategyCandidates={market.strategyCandidates}
-          strategyRefreshIntervalMs={market.refreshIntervalMs}
-          multiTimeframes={market.multiTimeframes}
-          candles={market.candles}
           chartRef={chartRef}
           onSaveSignal={() => {
             if (!market.signal) {
@@ -685,10 +661,6 @@ export function App() {
               }
             })();
           }}
-          indicators={market.indicators}
-          market24h={market.market24h}
-          support={market.supportResistance.support}
-          resistance={market.supportResistance.resistance}
           calculatorValues={calculatorState.calculator}
           calculatorResult={calculatorState.result}
           onCalculatorChange={calculatorState.setField}
@@ -702,26 +674,8 @@ export function App() {
           onRenameWatchlist={watchlist.renameList}
           onDeleteWatchlist={watchlist.deleteList}
           onSetActiveWatchlist={watchlist.setActiveList}
-          portfolioData={binance.portfolioData}
-          executionCenter={binance.executionCenter}
-          dashboardSummary={binance.dashboardSummary}
-          portfolioPeriod={binance.portfolioPeriod}
-          hideSmallAssets={binance.hideSmallAssets}
-          onPortfolioPeriodChange={handlePortfolioPeriodChange}
-          onRefreshPortfolio={handleRefreshPortfolio}
-          onRefreshPortfolioFull={handleRefreshPortfolioFull}
-          onRefreshExecutionCenter={handleRefreshExecutionCenter}
-          onToggleHideSmallAssets={binance.setHideSmallAssets}
-          signalMemory={memorySignals.filter((item) => watchlist.watchlistSet.has(item.coin))}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
           user={auth.currentUser}
-          users={binance.availableUsers}
-          connection={binance.binanceConnection}
-          binanceForm={binance.binanceForm}
-          onBinanceFormChange={binance.setBinanceFormField}
-          onConnectBinance={binance.connect}
-          onRefreshBinance={() => void binance.refreshProfileDataWithFeedback()}
-          onDisconnectBinance={binance.disconnect}
         />
       </main>
     </div>

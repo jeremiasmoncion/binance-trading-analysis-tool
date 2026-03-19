@@ -127,6 +127,19 @@ Each channel:
 
 This is the first real step from `request composition` toward `persistent orchestration`.
 
+## Stability Guards Now In Place
+
+The runtime now protects the UI from degraded live frames.
+
+Current protections:
+
+- `dashboard summary` keeps the last good state when a new live frame is partial or degraded
+- `execution overlay` keeps the last good state when a new live frame is weaker than the current one
+- frontend applies the same principle again before letting a degraded overlay replace a good one
+- bootstrap no longer replaces a full portfolio snapshot with a lighter live overlay payload
+
+This makes the external realtime core safer during Binance/API instability and reduces visible KPI jumps on the dashboard.
+
 ## Recommended Next Infra Step
 
 Run this service on a persistent host:

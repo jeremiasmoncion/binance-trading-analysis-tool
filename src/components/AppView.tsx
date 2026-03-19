@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode, type RefObject } from "react";
-import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, DashboardSummaryPayload, ExecutionCenterPayload, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
+import type { ComparisonCoin, SignalOutcomeStatus, UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
@@ -19,24 +19,7 @@ interface AppViewProps {
   theme: "light" | "dark";
   onNavigateView: (view: ViewName) => void;
   currentCoin: string;
-  watchlists: WatchlistGroup[];
-  watchlist: string[];
-  activeWatchlistName: string;
-  timeframe: string;
-  currentPrice: number;
-  signal: Signal | null;
-  plan: OperationPlan | null;
-  analysis: DashboardAnalysis | null;
-  strategy: StrategyDescriptor;
-  strategyCandidates: StrategyCandidate[];
-  strategyRefreshIntervalMs: number;
-  multiTimeframes: TimeframeSignal[];
-  candles: Candle[];
   chartRef: RefObject<HTMLCanvasElement | null>;
-  indicators: Indicators | null;
-  market24h: { change: number; high: number; low: number; volume: string; updatedAt: string };
-  support: number;
-  resistance: number;
   calculatorValues: { capital: string; entry: string; percent: string; stopPct: string };
   calculatorResult: {
     exitPrice: number;
@@ -59,27 +42,9 @@ interface AppViewProps {
   onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
   onDeleteWatchlist: (name: string) => Promise<void>;
   onSetActiveWatchlist: (name: string) => Promise<void>;
-  portfolioData: PortfolioPayload | null;
-  executionCenter: ExecutionCenterPayload | null;
-  dashboardSummary: DashboardSummaryPayload | null;
-  portfolioPeriod: string;
-  hideSmallAssets: boolean;
-  onPortfolioPeriodChange: (period: string) => void;
-  onRefreshPortfolio: () => void;
-  onRefreshPortfolioFull: () => void;
-  onRefreshExecutionCenter: () => Promise<unknown>;
-  onToggleHideSmallAssets: (value: boolean) => void;
-  signalMemory: SignalSnapshot[];
   onSaveSignal: () => void;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
-  users: UserSession[];
-  connection: BinanceConnection | null;
-  binanceForm: { alias: string; apiKey: string; apiSecret: string };
-  onBinanceFormChange: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
-  onConnectBinance: () => void;
-  onRefreshBinance: () => void;
-  onDisconnectBinance: () => void;
 }
 
 export function AppView(props: AppViewProps) {

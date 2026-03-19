@@ -205,6 +205,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - watchlists should treat `localStorage` as a startup cache and last-good fallback only; once a user has a remote session, the remote payload remains canonical and optimistic local edits should reconcile back through that same remote path
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors
 - global automation notifications should observe the shared memory-runtime snapshot, not open a second App-level polling loop straight to the strategy service
+- realtime-core runtime supervision in `App` should be adaptive too; fallback or unhealthy states can keep a tighter health cadence, but a healthy external core should back off to a slower shared probe instead of behaving like a permanent high-frequency poll on every authenticated screen
 - `MemoryView` now scopes its strategy/scanner polling to tabs that actually use that data instead of polling unconditionally in the background
 - `MemoryView` strategy-engine and scanner data now hydrate through the shared `system plane`; only the tab-aware heartbeat remains local while that screen still decides which subsection is visible
 - `signal memory` client-side evaluation must not open parallel market reads; it can only use prices already present in the shared `market plane`, while off-screen coins remain the responsibility of the backend watcher

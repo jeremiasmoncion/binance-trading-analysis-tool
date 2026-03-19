@@ -28,6 +28,14 @@ function isMobileViewport() {
   return typeof window !== "undefined" && window.innerWidth <= 1024;
 }
 
+function getRealtimeRuntimePollIntervalMs(activeMode: "external" | "serverless", healthy: boolean) {
+  if (activeMode === "external" && healthy) {
+    return 60_000;
+  }
+
+  return 30_000;
+}
+
 export function App() {
   const view = useViewState("dashboard");
   const {
@@ -255,6 +263,7 @@ export function App() {
     }
 
     let intervalId: number | null = null;
+    const intervalMs = getRealtimeRuntimePollIntervalMs(realtimeCore.activeMode, realtimeCore.healthy);
 
     const tick = () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") {
@@ -264,14 +273,17 @@ export function App() {
     };
 
     tick();
-    intervalId = window.setInterval(tick, 30_000);
+    // Runtime supervision stays aggressive while CRYPE is degraded, but backs
+    // off once the external core is healthy so health probes stop behaving like
+    // a permanent high-frequency poll on every authenticated screen.
+    intervalId = window.setInterval(tick, intervalMs);
 
     return () => {
       if (intervalId !== null) {
         window.clearInterval(intervalId);
       }
     };
-  }, [auth.currentUser, refreshRealtimeCoreStatus]);
+  }, [auth.currentUser, realtimeCore.activeMode, realtimeCore.healthy, refreshRealtimeCoreStatus]);
 
   useEffect(() => {
     if (!clientMarketAutomationEnabled || !auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;

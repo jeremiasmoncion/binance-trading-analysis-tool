@@ -773,3 +773,89 @@ Phase 3 - UX architecture reform
 - keep refining the new `Signals` and `Bots` pages as the primary user flow
 - stop investing product UX effort into the old `Signal Bot` page
 - let technical/admin detail live elsewhere later if needed
+
+## 2026-03-19 - Template Flow Navigation Migration
+
+### Phase
+
+Phase 3 - template-faithful navigation and page architecture
+
+### Completed
+
+- Rebased the implementer UX work onto the integrated direction and stopped treating generic `Signals` and `Bots` pages as the visible end state.
+- Replaced the visible sidebar flow with the `TradeBotX` hierarchy using CRYPE's shared style architecture:
+  - `MAIN`
+    - `Dashboard`
+    - `My Wallet`
+    - `My Statistics`
+  - `TRADING & BOTS`
+    - `Trading`
+    - `Control Panel`
+      - `Overview`
+      - `Bot Settings`
+      - `Execution Logs`
+    - `AI Bot`
+      - `Signal Bot`
+      - `DCA Bot`
+      - `Arbitrage Bot`
+      - `Pump Screener`
+  - `DEFI & PORTFOLIO`
+  - `MARKETPLACE`
+- Added first template-aligned product pages for:
+  - `Control Panel -> Overview`
+  - `Control Panel -> Bot Settings`
+  - `Control Panel -> Execution Logs`
+  - `AI Bot -> Signal Bot`
+- Added explicit placeholders for the remaining template destinations so the visible navigation is already correct without inventing interim UX.
+- Retargeted the dashboard entry actions to the new flow:
+  - Signal CTA -> `AI Bot -> Signal Bot`
+  - Bot CTA -> `Control Panel -> Bot Settings`
+
+### Reused
+
+- Existing shared selectors from `src/data-platform/selectors.ts`
+- The new domain layer under `src/domain/` for:
+  - ranked published feed
+  - high-confidence subset
+  - bot consumable feed
+  - bot registry snapshot
+- Shared CRYPE visual architecture from:
+  - `Dashboard`
+  - `My Wallet`
+  - shared buttons/cards/tokens/layout classes
+
+### Files Added
+
+- `src/views/ControlOverviewView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `src/views/ExecutionLogsView.tsx`
+- `src/views/SignalBotView.tsx`
+- `src/views/TemplatePlaceholderView.tsx`
+
+### Files Updated
+
+- `src/types.ts`
+- `src/components/Sidebar.tsx`
+- `src/components/AppView.tsx`
+- `src/views/DashboardView.tsx`
+- `src/styles/content.css`
+
+### Risk Avoided
+
+- Avoided extending the legacy signals/bots UX as if it were the final destination.
+- Avoided copying template CSS patterns directly into the app.
+- Avoided touching protected runtime/data-plane files while still moving the visible product flow to the correct architecture.
+
+### Pending
+
+- Make the new pages even more literal where the template uses richer controls, especially:
+  - filters/search interactions
+  - deeper subpage content
+  - drawer/table/card behavior
+- Decide when the old `SignalsView`, `BotsView`, and `ControlPanelView` become removable instead of merely bypassed.
+- Fill the placeholder template routes as later product phases open.
+
+### Recommended Next Step
+
+- Continue refining the new template-matched pages instead of reopening generic `Signals` / `Bots` surfaces
+- Replace remaining transitional content inside those pages with more literal template behavior where direction approves it

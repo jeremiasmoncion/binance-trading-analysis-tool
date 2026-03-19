@@ -65,6 +65,31 @@ Practical consequence:
 - reuse the existing global style system and theme tokens
 - keep new pages visually coherent with the current CRYPE dashboard/wallet implementation
 
+## Style Implementation Rule
+
+Matching the template does not mean reproducing its CSS implementation style literally.
+
+The requirement is:
+
+- visual result should match the template as closely as possible
+- implementation should follow CRYPE's style architecture and good practices
+
+That means:
+
+- use global/shared classes
+- use theme tokens and reusable patterns
+- avoid isolated one-off styling when a shared pattern should exist
+- avoid template-style hardcoded styling shortcuts that bypass the project's style architecture
+
+The implementation reference pages for this rule are:
+
+- `My Wallet`
+- `Dashboard`
+
+These pages are the model for how to achieve template-level visuals with cleaner project-level CSS architecture.
+
+Future UI work should treat them as the implementation reference, not just as visual inspiration.
+
 ## Core UX Rule
 
 The legacy `Signal Bot` page is no longer the future home of signals and bots.
@@ -407,6 +432,7 @@ The following should remain out of the main end-user flow unless productized fir
 - do not keep expanding the old `Signal Bot` page as the future UX
 - implement page and submenu flow to match the template hierarchy
 - preserve the CRYPE theme/style system while matching template structure
+- use `My Wallet` and `Dashboard` as the implementation reference for how to build template-faithful visuals with the project's shared CSS architecture
 - think first in terms of:
   - page
   - subpage

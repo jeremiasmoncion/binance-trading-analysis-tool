@@ -243,6 +243,7 @@ Future directors should assume the following without reopening the discussion:
 - page nesting should match the template
 - user-facing page composition should match the template
 - the migrated CRYPE graphic line in `Dashboard` and `My Wallet` remains the visual baseline
+- `Dashboard` and `My Wallet` are also the implementation reference for how template-faithful visuals should be built using CRYPE's shared CSS architecture
 - user-facing modules should show only the minimum useful information first
 - technical detail belongs in translated form or in future admin/technical surfaces
 
@@ -468,3 +469,69 @@ Keep the work phased.
 
 - Do not rely on `generatedAt` or similar freshness metadata to decide whether a shared summary is “new”.
 - Do not introduce bot-facing read models that force selector churn just because a backend response recreated arrays or timestamps.
+
+## Implementador - 2026-03-19 - Template Flow Migration
+
+### What Was Done
+
+- Replaced the visible navigation flow with the template hierarchy approved by direction.
+- Moved the first visible product surfaces away from generic `Signals` / `Bots` destinations and into:
+  - `Control Panel -> Overview`
+  - `Control Panel -> Bot Settings`
+  - `Control Panel -> Execution Logs`
+  - `AI Bot -> Signal Bot`
+- Added placeholder routes for the remaining template sections so the sidebar and page tree are already correct.
+- Implemented the new pages with CRYPE's shared visual architecture instead of copying template CSS literally.
+
+### Files Touched
+
+- `src/types.ts`
+- `src/components/Sidebar.tsx`
+- `src/components/AppView.tsx`
+- `src/views/DashboardView.tsx`
+- `src/views/ControlOverviewView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `src/views/ExecutionLogsView.tsx`
+- `src/views/SignalBotView.tsx`
+- `src/views/TemplatePlaceholderView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### What Was Reused
+
+- `src/domain/` ranking and bot-feed logic
+- `signal memory` snapshots as the shared read source
+- shared selectors and existing CRYPE tokens/components
+- visual implementation patterns from `Dashboard` and `My Wallet`
+
+### Where This Round Ended
+
+- The app no longer depends on generic `Signals` and `Bots` as the visible UX target for this initiative.
+- The sidebar and first user-facing pages now follow the template architecture much more literally.
+- The visible flow is correct even where content is still placeholder.
+
+### What Remains Pending
+
+- Make the new pages even more literal where the template expects richer controls and fuller subpage content.
+- Decide whether transitional files like `SignalsView`, `BotsView`, and `ControlPanelView` should now be removed or kept only as internal legacy artifacts.
+- Fill remaining placeholder routes in later rounds if direction opens those product phases.
+
+### What The Director Should Review
+
+- Whether the new `Control Panel` and `AI Bot` surfaces are now sufficiently aligned to the template for preview/integration review.
+- Whether direction wants the next round to deepen fidelity inside these new pages or begin removing transitional legacy views from the visible code path.
+
+### Sensitive Areas Avoided
+
+- `src/App.tsx`
+- `src/data-platform/*`
+- `src/realtime-core/*`
+- hooks sensibles
+- `api/_lib/*`
+
+### Coordination Note For Refinador
+
+- No runtime wiring or new per-screen fetch/polling was introduced.
+- The new pages continue to read from existing shared selectors and local domain adapters only.

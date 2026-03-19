@@ -79,6 +79,18 @@ function mergeLiveCandle(prevCandles: Candle[], incoming: Candle) {
   return nextCandles;
 }
 
+function isSameCandle(left: Candle | null | undefined, right: Candle | null | undefined) {
+  if (!left || !right) return false;
+  return (
+    left.time === right.time
+    && left.open === right.open
+    && left.high === right.high
+    && left.low === right.low
+    && left.close === right.close
+    && left.volume === right.volume
+  );
+}
+
 function updateLiveTimeframes(items: TimeframeSignal[], activeTimeframe: string, nextSignal: Signal) {
   return items.map((item) => (
     item.timeframe === activeTimeframe
@@ -507,6 +519,13 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           if (!incomingCandle) return;
 
           const prevCandles = snapshotRef.current.candles;
+          const lastVisibleCandle = prevCandles[prevCandles.length - 1];
+          // Kline streams can echo the same candle payload multiple times in a
+          // row. Skip fully identical frames so the live path does not rerun
+          // indicators and strategy derivation without any market change.
+          if (isSameCandle(lastVisibleCandle, incomingCandle)) {
+            return;
+          }
           const source = prevCandles.length ? prevCandles : generateFallbackCandles(activeTimeframeRef.current);
           const nextCandles = mergeLiveCandle(source, incomingCandle);
           applyLiveDerivedState(nextCandles, incomingCandle.close);

@@ -153,6 +153,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const multiTimeframesRef = useRef<TimeframeSignal[]>(snapshot.multiTimeframes);
   const snapshotRef = useRef(snapshot);
   const activeTimeframeRef = useRef(timeframe);
+  const marketRequestSeqRef = useRef(0);
   const tickerFrameRef = useRef<number | null>(null);
   const klineFrameRef = useRef<number | null>(null);
   const latestTickerRef = useRef<{ price: number; change: number; high: number; low: number; volume: number } | null>(null);
@@ -199,6 +200,8 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   }, []);
 
   const fetchData = useCallback(async (coin = currentCoin, nextTimeframe = timeframe) => {
+    const requestSeq = marketRequestSeqRef.current + 1;
+    marketRequestSeqRef.current = requestSeq;
     setStatus("loading");
     try {
       const shouldLoadComparison = viewNeedsMarketComparison(currentView);
@@ -237,6 +240,13 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         aligned: item.label === nextSignal.label,
       }));
 
+      // Only the latest market request is allowed to commit UI state. This
+      // prevents slow responses from older coin/timeframe selections from
+      // snapping the plane back to stale market context.
+      if (marketRequestSeqRef.current !== requestSeq) {
+        return;
+      }
+
       setCurrentCoin(coin);
       setTimeframe(nextTimeframe);
       setSnapshot((current) => ({
@@ -261,7 +271,9 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       multiTimeframesRef.current = alignedTimeframes;
       setStatus("ok");
     } catch {
-      setStatus("error");
+      if (marketRequestSeqRef.current === requestSeq) {
+        setStatus("error");
+      }
     }
   }, [currentCoin, currentView, timeframe]);
 

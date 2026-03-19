@@ -497,6 +497,16 @@
   line-height: 1.45;
 }
 
+.profile-runtime-error {
+  margin-top: 0.9rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 95, 109, 0.18);
+  background: rgba(255, 95, 109, 0.08);
+  color: var(--loss);
+  font-size: 0.82rem;
+}
+
 .binance-connection-banner {
   display: flex;
   justify-content: space-between;

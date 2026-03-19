@@ -43,15 +43,18 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const [backtestQueueRunning, setBacktestQueueRunning] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
   const [scannerRunning, setScannerRunning] = useState(false);
+  const [realtimeChecking, setRealtimeChecking] = useState(false);
   const [lastBackfillSummary, setLastBackfillSummary] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
+  const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const connection = props.connection || null;
   const binanceForm = props.binanceForm || { alias: "", apiKey: "", apiSecret: "" };
   const onBinanceFormChange = props.onBinanceFormChange || (() => undefined);
   const onConnect = props.onConnect || (() => undefined);
   const onRefresh = props.onRefresh || (() => undefined);
   const onDisconnect = props.onDisconnect || (() => undefined);
+  const onRefreshRealtimeRuntime = systemData.refreshRealtimeCoreStatus || (async () => null);
   const summary = connection?.summary || {};
   const users = props.users || [];
   const pagedUsers = paginateRows(users, usersPage);
@@ -254,6 +257,22 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                     <span>Última verificación</span>
                     <strong>{realtimeCore.lastCheckedAt ? new Date(realtimeCore.lastCheckedAt).toLocaleString("es-DO") : "--"}</strong>
                   </div>
+                  <div className="profile-data-row">
+                    <span>Modo del servicio</span>
+                    <strong>{realtimeCore.serviceMode || "--"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Canales activos</span>
+                    <strong>{realtimeCore.activeChannels ?? "--"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Subscribers activos</span>
+                    <strong>{realtimeCore.activeSubscribers ?? "--"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Polling del core</span>
+                    <strong>{realtimeCore.pollIntervalMs ? `${realtimeCore.pollIntervalMs} ms` : "--"}</strong>
+                  </div>
                 </div>
 
                 <div className="profile-runtime-checklist">
@@ -266,6 +285,31 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                       </div>
                     </div>
                   ))}
+                </div>
+
+                {realtimeError ? (
+                  <div className="profile-runtime-error">{realtimeError}</div>
+                ) : null}
+
+                <div className="premium-action-row">
+                  <button
+                    className="premium-action-button is-secondary"
+                    type="button"
+                    onClick={() => {
+                      setRealtimeChecking(true);
+                      setRealtimeError(null);
+                      void onRefreshRealtimeRuntime()
+                        .catch((error) => {
+                          setRealtimeError(error instanceof Error ? error.message : "No se pudo revalidar el runtime realtime");
+                        })
+                        .finally(() => {
+                          setRealtimeChecking(false);
+                        });
+                    }}
+                    disabled={realtimeChecking}
+                  >
+                    {realtimeChecking ? "Verificando..." : "Revalidar runtime"}
+                  </button>
                 </div>
               </SectionCard>
             ) : null}

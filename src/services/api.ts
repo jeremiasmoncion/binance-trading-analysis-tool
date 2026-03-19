@@ -34,6 +34,10 @@ export interface RealtimeCoreRuntimeState {
   activeMode: RealtimeCoreRuntimeMode;
   healthy: boolean;
   targetLabel: string;
+  serviceMode: string | null;
+  activeChannels: number | null;
+  activeSubscribers: number | null;
+  pollIntervalMs: number | null;
 }
 
 interface ApiRequestOptions extends RequestInit {
@@ -201,6 +205,21 @@ function buildRealtimeCoreRuntimeState(activeMode: RealtimeCoreRuntimeMode, heal
     activeMode,
     healthy,
     targetLabel,
+    serviceMode: activeMode === "external" ? "unknown" : "serverless-fallback",
+    activeChannels: null,
+    activeSubscribers: null,
+    pollIntervalMs: null,
+  };
+}
+
+function buildRealtimeCoreRuntimeStateFromHealth(payload: RealtimeCoreHealthPayload | null): RealtimeCoreRuntimeState {
+  const base = buildRealtimeCoreRuntimeState(payload?.ok ? "external" : "serverless", Boolean(payload?.ok));
+  return {
+    ...base,
+    serviceMode: payload?.mode || base.serviceMode,
+    activeChannels: typeof payload?.activeChannels === "number" ? payload.activeChannels : null,
+    activeSubscribers: typeof payload?.activeSubscribers === "number" ? payload.activeSubscribers : null,
+    pollIntervalMs: typeof payload?.pollIntervalMs === "number" ? payload.pollIntervalMs : null,
   };
 }
 
@@ -851,6 +870,26 @@ export const marketService = {
 };
 
 export const realtimeCoreService = {
+  async getRuntimeStatus(forceFresh = false) {
+    if (!realtimeCoreBaseUrl) {
+      return buildRealtimeCoreRuntimeState("serverless", true);
+    }
+
+    const payload = await requestExternalRealtimeCoreHealth();
+    if (payload?.ok) {
+      realtimeCoreModeCache = {
+        mode: "external",
+        expiresAt: Date.now() + 15_000,
+      };
+      return buildRealtimeCoreRuntimeStateFromHealth(payload);
+    }
+
+    realtimeCoreModeCache = {
+      mode: "serverless",
+      expiresAt: Date.now() + (forceFresh ? 0 : 8_000),
+    };
+    return buildRealtimeCoreRuntimeState("serverless", false);
+  },
   async getBootstrap(
     coin: string,
     timeframe: string,

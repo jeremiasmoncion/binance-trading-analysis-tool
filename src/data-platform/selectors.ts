@@ -82,6 +82,7 @@ export function useProfileSystemSelector() {
     connectBinance: state.actions.connectBinance,
     disconnectBinance: state.actions.disconnectBinance,
     refreshProfileDataWithFeedback: state.actions.refreshProfileDataWithFeedback,
+    refreshRealtimeCoreStatus: state.actions.refreshRealtimeCoreStatus,
   }), shallowEqualSelection);
 }
 

@@ -78,6 +78,10 @@ export interface SystemDataPlane {
       healthy: boolean;
       lastCheckedAt: number | null;
       targetLabel: string;
+      serviceMode: string | null;
+      activeChannels: number | null;
+      activeSubscribers: number | null;
+      pollIntervalMs: number | null;
     };
   };
   actions: {
@@ -91,6 +95,7 @@ export interface SystemDataPlane {
     setBinanceFormField: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
     connectBinance: () => Promise<unknown>;
     disconnectBinance: () => Promise<unknown>;
+    refreshRealtimeCoreStatus: () => Promise<unknown>;
   };
 }
 

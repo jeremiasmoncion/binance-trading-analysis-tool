@@ -86,6 +86,10 @@ export function syncRealtimeCoreControl(nextState: {
   activeMode: "external" | "serverless";
   healthy: boolean;
   targetLabel: string;
+  serviceMode: string | null;
+  activeChannels: number | null;
+  activeSubscribers: number | null;
+  pollIntervalMs: number | null;
 }) {
   systemDataPlaneStore.setState((current) => ({
     ...current,
@@ -98,6 +102,10 @@ export function syncRealtimeCoreControl(nextState: {
         healthy: nextState.healthy,
         lastCheckedAt: Date.now(),
         targetLabel: nextState.targetLabel,
+        serviceMode: nextState.serviceMode,
+        activeChannels: nextState.activeChannels,
+        activeSubscribers: nextState.activeSubscribers,
+        pollIntervalMs: nextState.pollIntervalMs,
       },
     },
   }));
@@ -117,6 +125,16 @@ export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
       setBinanceFormField: actions.setBinanceFormField,
       connectBinance: actions.connect,
       disconnectBinance: actions.disconnect,
+    },
+  }));
+}
+
+export function syncRealtimeCoreActions(actions: { refreshRealtimeCoreStatus: () => Promise<unknown> }) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      ...current.actions,
+      refreshRealtimeCoreStatus: actions.refreshRealtimeCoreStatus,
     },
   }));
 }

@@ -33,6 +33,10 @@ const initialSystemDataPlane: SystemDataPlane = {
       healthy: true,
       lastCheckedAt: null,
       targetLabel: "Vercel interno",
+      serviceMode: "serverless-fallback",
+      activeChannels: null,
+      activeSubscribers: null,
+      pollIntervalMs: null,
     },
   },
   actions: {
@@ -46,6 +50,7 @@ const initialSystemDataPlane: SystemDataPlane = {
     setBinanceFormField: () => undefined,
     connectBinance: async () => null,
     disconnectBinance: async () => null,
+    refreshRealtimeCoreStatus: async () => null,
   },
 };
 

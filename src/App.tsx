@@ -14,7 +14,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
 import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
@@ -92,6 +92,12 @@ export function App() {
     return payload;
   }, [binance.portfolioPeriod, market.currentCoin, market.timeframe]);
 
+  const refreshRealtimeCoreStatus = useCallback(async () => {
+    const runtime = await realtimeCoreService.getRuntimeStatus(true);
+    syncRealtimeCoreControl(runtime);
+    return runtime;
+  }, []);
+
   useEffect(() => {
     syncMarketDataPlane(market);
   }, [
@@ -138,6 +144,10 @@ export function App() {
   useEffect(() => {
     syncSystemSignalActions(signalMemory);
   }, [signalMemory.refreshSignals]);
+
+  useEffect(() => {
+    syncRealtimeCoreActions({ refreshRealtimeCoreStatus });
+  }, [refreshRealtimeCoreStatus]);
 
   useEffect(() => {
     if (bootstrappedRef.current) return;

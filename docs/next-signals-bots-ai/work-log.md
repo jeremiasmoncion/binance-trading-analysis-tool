@@ -681,6 +681,40 @@ Hybrid Binance runtime refresh stability
 - Keep treating hybrid runtime comparators as protected infrastructure, not view-level behavior.
 - Require future bot-facing summary/read-model hooks to define semantic equality up front instead of relying on timestamped payload identity.
 
+## 2026-03-19 - Execution Center Semantic Stability
+
+### Area
+
+Shared execution runtime comparator hardening
+
+### Completed
+
+- Hardened `src/hooks/useBinanceData.ts` so `ExecutionCenterPayload` equality is semantic instead of shallow.
+- Added comparator coverage for:
+  - `allowedStrategies`
+  - `allowedTimeframes`
+  - `scopeOverrides`
+  - candidate cohorts
+  - recent-order cohorts
+- Kept equality logic in shared runtime infrastructure instead of letting future template pages decide stability locally.
+- Updated the architecture doc with the protected seam rule.
+
+### Risk Avoided
+
+- The exact template UX will introduce more tabs, cards and tables reading the same execution payload.
+- With the previous shallow comparator, equivalent refreshes could still wake those surfaces simply because arrays were recreated or because only the first order was inspected.
+- That would scale poorly as bots, signals and AI surfaces reuse the same execution runtime.
+
+### Pending
+
+- Continue auditing other hybrid comparators for array/object recreation outside the realtime core.
+- Revisit whether scanner and validation payload equality needs the same deeper cohort-level treatment as the new UX expands.
+
+### Recommendation To Director
+
+- Keep execution-runtime comparators in protected shared infrastructure.
+- Forbid page-level custom equality/memoization as a substitute for missing runtime stability in new template surfaces.
+
 ## 2026-03-19 - User-Facing Signals And Bots Navigation Reform
 
 ### Phase

@@ -315,6 +315,43 @@ What implementers should avoid:
 - align before any future hydration from runtime, realtime, signal memory, or execution eligibility flows
 - review any future overlap between bot summaries and adaptive governance snapshots
 
+## Refinador Runtime - 2026-03-19 - Execution Center Semantic Stability
+
+### What Was Done
+
+- Hardened `useBinanceData` so `ExecutionCenterPayload` equality is semantic rather than shallow.
+- Added cohort-level comparison for execution candidates and recent orders.
+- Added semantic comparison for execution profile policy arrays and scope overrides.
+- Kept this stability logic in shared runtime infrastructure instead of leaving it to future template components.
+
+### Files Touched
+
+- `src/hooks/useBinanceData.ts`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- The shared execution runtime is better prepared for the exact template UX expansion, where more pages and tabs will observe the same payload.
+- The next likely stability seam is any remaining hybrid runtime path that still uses shallow equality for larger cohorts outside execution.
+
+### What Remains Pending
+
+- Continue auditing shared hooks for semantic-no-op gaps outside `ExecutionCenterPayload`.
+- Check whether scanner or validation cohorts need the same deeper equality guarantees before template expansion reaches them.
+
+### What The Director Should Review
+
+- This round directly protects the upcoming UX migration by moving equality where it belongs: infrastructure, not pages.
+- No product-layer feature work was introduced.
+
+### What The Implementer Should Avoid
+
+- Do not solve execution-surface churn with component-level memoization alone.
+- Do not add page-local equality logic in new template tabs/cards/tables for execution payloads; reuse the shared runtime seam.
+
 ## Warning For Future Contributors
 
 If you skip the explicit domain model and jump straight into feature work, the redesign is likely to become another layer of hidden coupling on top of the existing pipeline.

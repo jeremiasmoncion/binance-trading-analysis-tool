@@ -49,3 +49,16 @@ That means:
 - if possible, use PRs or clear commit messages so GitHub notifies the project owner on mobile
 
 The AI threads do not send direct phone notifications. GitHub is the human-visible completion signal.
+
+## User-Facing Review Rule
+
+Meaningful UI progress must be reviewable from a real end-user perspective, not only from an internal developer/lab perspective.
+
+That means:
+
+- a hidden or hard-to-find lab is not enough for final review value
+- if a new surface is still hosted temporarily, it must still be easy for the human operator to find and inspect
+- implementation threads should think in terms of eventual end-user delivery from the beginning, not only technical validation
+- directors should not announce a UI lot as "ready to review" unless it is actually discoverable and understandable through a realistic product flow
+
+Temporary hosts are allowed during phased delivery, but they should be treated as stepping stones toward user-visible product surfaces, not as the final measure of success.

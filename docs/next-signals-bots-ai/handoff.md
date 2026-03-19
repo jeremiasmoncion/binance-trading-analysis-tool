@@ -153,6 +153,21 @@ This makes GitHub the practical notification path to the owner mobile device.
 - do not allow unrestricted AI mode to break accounting/execution isolation
 - do not implement the entire redesign in one step
 
+## End-User Review Constraint
+
+Future contributors and directors must evaluate UI progress from an end-user review perspective.
+
+This means:
+
+- it is not enough for a surface to exist only as a hidden lab or buried temporary host
+- if a UI round is declared review-worthy, the human operator should be able to reach it through a realistic product path
+- temporary validation hosts are acceptable during phased delivery, but they should remain easy to find and should move progressively toward real product surfaces
+- implementation should always assume that the eventual audience is the final user, not only an internal reviewer who already knows where the experimental host is
+
+Practical consequence:
+
+- do not count a UI round as truly ready for final UX review unless it is discoverable, understandable, and coherent from a normal user flow
+
 ## Runtime Refinement Note
 
 The shared realtime event path was further hardened so identical operational overlays do not recreate the `system plane`.

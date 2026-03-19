@@ -34,7 +34,7 @@ export const APP_DATA_ARCHITECTURE_PHASES: AppDataArchitecturePhase[] = [
   {
     id: "phase-6",
     title: "Realtime core persistente",
-    status: "pending",
-    description: "El hot path live todavía no sale por completo de serverless. Falta el servicio persistente.",
+    status: "in_progress",
+    description: "Ya existe bootstrap y contratos compartidos para el realtime core, pero el hot path live todavía no sale por completo de serverless.",
   },
 ];

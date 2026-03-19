@@ -15,7 +15,8 @@ import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
 import { syncMarketDataPlane, syncSystemDataPlane, syncSystemDataPlaneActions } from "./data-platform/syncAppDataPlanes";
-import { strategyEngineService } from "./services/api";
+import { strategyEngineService, realtimeCoreService } from "./services/api";
+import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
 import type { StrategyRecommendationRecord } from "./types";
 
 function isMobileViewport() {
@@ -76,6 +77,16 @@ export function App() {
     return getOperationPlan(market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis);
   }, [market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis]);
 
+  const hydrateRealtimeBootstrap = useCallback(async (
+    coin = market.currentCoin,
+    timeframe = market.timeframe,
+    period = binance.portfolioPeriod,
+  ) => {
+    const payload = await realtimeCoreService.getBootstrap(coin, timeframe, period);
+    applyRealtimeCoreBootstrap(payload);
+    return payload;
+  }, [binance.portfolioPeriod, market.currentCoin, market.timeframe]);
+
   useEffect(() => {
     syncMarketDataPlane(market);
   }, [
@@ -127,10 +138,11 @@ export function App() {
     void (async () => {
       const session = await auth.bootstrapSession();
       if (session) {
+        await hydrateRealtimeBootstrap("BTC/USDT", "1h", binance.portfolioPeriod).catch(() => null);
         await market.fetchData("BTC/USDT", "1h");
       }
     })();
-  }, [auth, market]);
+  }, [auth, binance.portfolioPeriod, hydrateRealtimeBootstrap, market]);
 
   useEffect(() => {
     if (!auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;
@@ -404,9 +416,11 @@ export function App() {
         onLoginChange={auth.setLoginField}
         onRegisterChange={auth.setRegisterField}
         onLoginSubmit={(event) => auth.handleLogin(event, async () => {
+          await hydrateRealtimeBootstrap(market.currentCoin, market.timeframe, binance.portfolioPeriod).catch(() => null);
           await market.fetchData(market.currentCoin, market.timeframe);
         })}
         onRegisterSubmit={(event) => auth.handleRegister(event, async () => {
+          await hydrateRealtimeBootstrap(market.currentCoin, market.timeframe, binance.portfolioPeriod).catch(() => null);
           await market.fetchData(market.currentCoin, market.timeframe);
         })}
       />

@@ -69,6 +69,27 @@ Lifecycle:
 4. Vercel APIs are for cold/admin/reporting and temporary summary composition.
 5. Realtime-sensitive UI should prefer overlays and diffs over full payload replacement.
 
+## Realtime Bootstrap Flow
+
+Current bootstrap path:
+
+1. `App` requests `/api/realtime/bootstrap`
+2. the route composes a cold bootstrap for:
+   - market snapshot
+   - portfolio snapshot
+   - execution overlay
+   - dashboard overlay
+   - signal memory
+   - watchlists
+3. frontend applies the payload to `market` and `system` planes through `applyRealtimeCoreBootstrap`
+4. existing hooks continue refreshing snapshots and overlays until the persistent realtime core replaces this hot path
+
+This means the app already has:
+
+- one standard bootstrap contract
+- one standard hydration path
+- one explicit bridge between cold snapshot loading and future event streams
+
 ## Migration Phases
 
 ### Completed
@@ -89,6 +110,8 @@ Lifecycle:
 
 - migrate remaining views to selector-first shared consumption
 - move local logic that still polls by screen toward plane-owned policies
+- bootstrap route for realtime core foundation (`/api/realtime/bootstrap`)
+- shared realtime contracts and bootstrap hydration for market/system planes
 - prepare the bridge from snapshots to event-driven overlays
 
 ### Pending

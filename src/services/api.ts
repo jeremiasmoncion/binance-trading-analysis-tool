@@ -25,6 +25,7 @@ import type {
   WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
+import type { RealtimeCoreBootstrapPayload } from "../realtime-core/contracts";
 
 interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -643,6 +644,19 @@ export const marketService = {
         ? `${rawSymbol.slice(0, -4)}/USDT`
         : rawSymbol;
       onMessage(symbol, payload);
+    });
+  },
+};
+
+export const realtimeCoreService = {
+  getBootstrap(coin: string, timeframe: string, period = "1d") {
+    const params = new URLSearchParams({
+      coin,
+      timeframe,
+      period,
+    });
+    return apiRequest<RealtimeCoreBootstrapPayload>(`/api/realtime/bootstrap?${params.toString()}`, {
+      timeoutMs: 15_000,
     });
   },
 };

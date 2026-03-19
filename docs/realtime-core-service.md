@@ -51,6 +51,7 @@ Preflight before cutover:
 ```bash
 npm run realtime-core:preflight
 npm run realtime-core:preflight -- --url=https://your-realtime-core-domain
+npm run realtime-core:cutover -- --core-url=https://your-realtime-core-domain --app-url=https://binance-trading-analysis-tool.vercel.app
 ```
 
 Smoke test after deploy:
@@ -180,6 +181,31 @@ This validates end-to-end:
 - first SSE frame from `/events`
 
 Only after this should you set `VITE_REALTIME_CORE_URL` in Vercel and redeploy the frontend.
+
+## Render + Vercel Cutover Runbook
+
+Use this exact sequence:
+
+1. Deploy the service from the repo `render.yaml` as `crype-realtime-core`.
+2. Set these Render envs:
+   - `SESSION_SECRET`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `REALTIME_CORE_ALLOWED_ORIGIN=https://binance-trading-analysis-tool.vercel.app`
+3. Wait until Render shows the service healthy on `/health`.
+4. Run:
+   - `npm run realtime-core:cutover -- --core-url=https://your-realtime-core-domain --app-url=https://binance-trading-analysis-tool.vercel.app`
+   - `npm run realtime-core:preflight -- --url=https://your-realtime-core-domain`
+   - `npm run realtime-core:smoke -- --app-url=https://binance-trading-analysis-tool.vercel.app --core-url=https://your-realtime-core-domain --username=jeremias --password=1212`
+5. In Vercel, set:
+   - `VITE_REALTIME_CORE_URL=https://your-realtime-core-domain`
+6. Redeploy the frontend.
+7. Verify inside CRYPE:
+   - topbar badge switches from `Fallback` to `Core`
+   - `Perfil > Runtime realtime` shows active external mode
+   - manual `Revalidar runtime` succeeds
+
+The new `realtime-core:cutover` command gives a quick readiness report before you run the stricter `preflight` and `smoke` commands.
 
 ## Migration Path
 

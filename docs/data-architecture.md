@@ -162,8 +162,22 @@ Current reduction already applied:
 - bridge auth from the app domain to the external realtime core
 - persistent-memory per-user overlay channels in the external realtime core
 - deployment assets for a persistent containerized realtime core
+- cutover readiness command for external realtime activation
 - preflight validation for realtime-core cutover
 - smoke validation for bridge token, bootstrap and SSE after deploy
+
+## External Core Cutover Sequence
+
+The cutover sequence is now:
+
+1. Deploy the persistent realtime core on a host like Render using the repo deployment assets.
+2. Set `REALTIME_CORE_ALLOWED_ORIGIN=https://binance-trading-analysis-tool.vercel.app` on that service.
+3. Run `npm run realtime-core:cutover -- --core-url=https://your-realtime-core-domain --app-url=https://binance-trading-analysis-tool.vercel.app`.
+4. Run `npm run realtime-core:preflight -- --url=https://your-realtime-core-domain`.
+5. Run `npm run realtime-core:smoke -- --app-url=https://binance-trading-analysis-tool.vercel.app --core-url=https://your-realtime-core-domain --username=... --password=...`.
+6. Set `VITE_REALTIME_CORE_URL` in Vercel.
+7. Redeploy the frontend.
+8. Verify that CRYPE switches from `Fallback` to `Core` in the topbar and in `Perfil > Runtime realtime`.
 
 ### Pending
 

@@ -138,6 +138,7 @@ Current protections:
 - frontend applies the same principle again before letting a degraded overlay replace a good one
 - bootstrap no longer replaces a full portfolio snapshot with a lighter live overlay payload
 - bootstrap and overlay composition now resolve account data from the bridge-authenticated username, so the external core does not depend on same-origin app cookies to produce the first useful payload
+- frontend no longer trusts the external bootstrap blindly: if the payload is technically valid but operationally degraded, it falls back to the internal bootstrap path for first paint
 
 This makes the external realtime core safer during Binance/API instability and reduces visible KPI jumps on the dashboard.
 

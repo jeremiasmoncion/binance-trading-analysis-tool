@@ -175,6 +175,7 @@ This means:
 - `overlay.dashboardSummary` should survive degraded overlay frames
 - `snapshot.signalMemory` should survive transient list failures
 - external realtime bootstrap and overlays must resolve system data from the already-authenticated username/session, not from same-origin request cookies
+- frontend bootstrap fallback is now quality-aware: if the external realtime core answers but the first payload is degraded by upstream exchange issues, CRYPE falls back to the internal bootstrap before rendering the authenticated workspace
 
 ## Transitional Legacy Boundaries
 

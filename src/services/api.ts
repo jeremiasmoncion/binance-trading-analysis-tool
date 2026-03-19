@@ -223,6 +223,28 @@ function buildRealtimeCoreRuntimeStateFromHealth(payload: RealtimeCoreHealthPayl
   };
 }
 
+function hasUsefulRealtimeBootstrap(payload: RealtimeCoreBootstrapPayload | null) {
+  if (!payload?.system) return false;
+
+  const portfolioPayload = payload.system.portfolio as (PortfolioPayload & { connectionIssue?: string }) | null;
+  const connectionConnected = Boolean(payload.system.connection?.connected);
+  const portfolioTotal = Number(portfolioPayload?.portfolio?.totalValue || 0);
+  const topAssetsCount = Array.isArray(payload.system.dashboardSummary?.topAssets)
+    ? payload.system.dashboardSummary.topAssets.length
+    : 0;
+  const recentOrdersCount = Array.isArray(payload.system.dashboardSummary?.execution?.recentOrders)
+    ? payload.system.dashboardSummary.execution.recentOrders.length
+    : 0;
+  const hasUpstreamIssue = Boolean(
+    portfolioPayload?.connectionIssue
+    || payload.system.dashboardSummary?.connectionIssue,
+  );
+
+  // The external core is only valid for first paint when it can produce actual
+  // account state, not just a technically healthy response envelope.
+  return !hasUpstreamIssue && (portfolioTotal > 0 || topAssetsCount > 0 || recentOrdersCount > 0 || connectionConnected);
+}
+
 async function resolveRealtimeCoreMode(forceFresh = false): Promise<RealtimeCoreRuntimeMode> {
   if (!realtimeCoreBaseUrl) return "serverless";
 
@@ -917,9 +939,13 @@ export const realtimeCoreService = {
     }
 
     try {
-      return await apiRequest<RealtimeCoreBootstrapPayload>(bootstrapPath, {
+      const payload = await apiRequest<RealtimeCoreBootstrapPayload>(bootstrapPath, {
         timeoutMs: 15_000,
       });
+      if (mode === "external" && !hasUsefulRealtimeBootstrap(payload)) {
+        throw new Error("Realtime core bootstrap degradado");
+      }
+      return payload;
     } catch (error) {
       if (mode !== "external") throw error;
       realtimeCoreModeCache = {

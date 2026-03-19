@@ -69,6 +69,43 @@ function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: Port
   const openPositions = mergedAssets.filter((asset) => asset.asset !== "USDT" && Number(asset.quantity || 0) > 0);
   const hiddenLockedAssets = live.hiddenLockedAssets || previous.hiddenLockedAssets || [];
   const hiddenLockedValue = hiddenLockedAssets.reduce((sum: number, asset) => sum + Number(asset.marketValue || 0), 0);
+  const previousPositionsValue = Number(previous.portfolio?.positionsValue || 0);
+  const livePositionsValue = Number(live.portfolio?.positionsValue || 0);
+  const liveNonCashAssets = mergedAssets.filter((asset) => asset.asset !== "USDT" && Number(asset.marketValue || 0) > 0);
+
+  // Live portfolio mode is intentionally lighter than a full snapshot. If a
+  // transient upstream miss suddenly collapses the asset universe down to cash
+  // only, preserve the last good snapshot instead of accepting a fake drawdown
+  // where totalValue momentarily becomes just the USDT balance.
+  if (previousPositionsValue > 0 && liveNonCashAssets.length === 0 && livePositionsValue <= 0) {
+    return {
+      ...previous,
+      ...live,
+      snapshotMode: "live",
+      assets: previous.assets,
+      hiddenLockedAssets,
+      portfolio: {
+        ...(previous.portfolio || {}),
+        ...(live.portfolio || {}),
+        period,
+        totalValue: Number(previous.portfolio?.totalValue || 0),
+        investedValue: Number(previous.portfolio?.investedValue || 0),
+        realizedPnl: Number(previous.portfolio?.realizedPnl || 0),
+        unrealizedPnl: Number(previous.portfolio?.unrealizedPnl || 0),
+        unrealizedPnlPct: Number(previous.portfolio?.unrealizedPnlPct || 0),
+        totalPnl: Number(previous.portfolio?.totalPnl || 0),
+        periodChangeValue: Number(previous.portfolio?.periodChangeValue || 0),
+        periodChangePct: Number(previous.portfolio?.periodChangePct || 0),
+        cashValue: Number(live.portfolio?.cashValue || previous.portfolio?.cashValue || 0),
+        positionsValue: Number(previous.portfolio?.positionsValue || 0),
+        openPositionsCount: Number(previous.portfolio?.openPositionsCount || 0),
+        winnersCount: Number(previous.portfolio?.winnersCount || 0),
+        hiddenLockedValue,
+        hiddenLockedAssetsCount: hiddenLockedAssets.length,
+        updatedAt: live.portfolio?.updatedAt || new Date().toISOString(),
+      },
+    };
+  }
 
   return {
     ...previous,

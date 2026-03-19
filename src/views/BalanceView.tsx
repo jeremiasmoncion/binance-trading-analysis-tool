@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpDownIcon, CoinsIcon, DownloadIcon, RepeatIcon, SearchIcon, SendIcon, SlidersHorizontalIcon, TrendDownIcon, TrendUpIcon, UploadIcon, WalletIcon } from "../components/Icons";
 import { EmptyState } from "../components/ui/EmptyState";
 import { formatAmount, formatPct, formatPrice, formatSignedPct, formatSignedPrice } from "../lib/format";
+import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 import type { BinanceAccountMovement, PortfolioAsset, PortfolioPayload } from "../types";
 
 interface BalanceViewProps {
-  payload: PortfolioPayload | null;
+  payload?: PortfolioPayload | null;
   period: string;
   hideSmallAssets: boolean;
   onPeriodChange: (period: string) => void;
@@ -175,7 +176,12 @@ function AssetLogo({
   );
 }
 
-export function BalanceView(props: BalanceViewProps) {
+export function BalanceView(incomingProps: BalanceViewProps) {
+  const systemData = useSystemDataPlane((state) => state);
+  const props: BalanceViewProps = {
+    ...incomingProps,
+    payload: incomingProps.payload ?? systemData.portfolio,
+  };
   const [activeTab, setActiveTab] = useState<WalletTab>("holdings");
   const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
   const [movementFilter, setMovementFilter] = useState<MovementFilter>("all");
@@ -183,8 +189,9 @@ export function BalanceView(props: BalanceViewProps) {
   const [assetSortDirection, setAssetSortDirection] = useState<AssetSortDirection>("desc");
   const [assetPage, setAssetPage] = useState(1);
   const [historyBootstrapped, setHistoryBootstrapped] = useState(false);
-  const portfolio = props.payload?.portfolio;
-  const visibleAssets = getVisibleAssets(props.payload, props.hideSmallAssets);
+  const payload = props.payload || null;
+  const portfolio = payload?.portfolio;
+  const visibleAssets = getVisibleAssets(payload, props.hideSmallAssets);
   const periodLabel = props.period === "30d" ? "30D" : props.period === "7d" ? "7D" : "24H";
   const positiveAssets = visibleAssets.filter((asset) => asset.pnlValue > 0);
   const negativeAssets = visibleAssets.filter((asset) => asset.pnlValue < 0);
@@ -192,7 +199,7 @@ export function BalanceView(props: BalanceViewProps) {
   const selectedWindowLabel = props.period === "30d" ? "30D P&L" : props.period === "7d" ? "7D P&L" : "24H P&L";
   const allocation = useMemo(() => buildAllocation(visibleAssets), [visibleAssets]);
   const allocationGradient = useMemo(() => buildAllocationGradient(allocation), [allocation]);
-  const accountMovements = props.payload?.accountMovements || [];
+  const accountMovements = payload?.accountMovements || [];
   const filteredAssets = useMemo(() => {
     const matches = visibleAssets.filter((asset) => {
       const matchesFilter = assetFilter === "all" ? true : classifyAsset(asset) === assetFilter;
@@ -307,7 +314,7 @@ export function BalanceView(props: BalanceViewProps) {
               <div className="wallet-quick-copy ui-summary-card-copy">
                 <div className="wallet-quick-label ui-summary-card-label">Total Assets</div>
                 <div className="wallet-quick-value ui-summary-card-value">{visibleAssets.length}</div>
-                <div className="wallet-quick-chip wallet-quick-chip-info ui-pill">{props.payload?.summary?.accountType || "SPOT"} Account</div>
+                <div className="wallet-quick-chip wallet-quick-chip-info ui-pill">{payload?.summary?.accountType || "SPOT"} Account</div>
               </div>
               <div className="wallet-quick-icon wallet-quick-icon-info ui-summary-card-icon">
                 <CoinsIcon />

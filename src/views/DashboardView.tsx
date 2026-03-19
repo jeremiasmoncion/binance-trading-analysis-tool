@@ -28,34 +28,72 @@ import type {
 } from "../types";
 import { openHelp } from "../lib/ui-events";
 import { drawBotComparisonChart, drawPerformanceChart } from "../lib/chart";
+import { useMarketDataPlane } from "../data-platform/marketDataPlane";
+import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 
 interface DashboardViewProps {
   theme: "light" | "dark";
-  currentCoin: string;
-  timeframe: string;
-  currentPrice: number;
-  signal: Signal | null;
-  plan: OperationPlan | null;
-  analysis: DashboardAnalysis | null;
-  strategy: StrategyDescriptor;
-  strategyCandidates: StrategyCandidate[];
-  strategyRefreshIntervalMs: number;
-  multiTimeframes: TimeframeSignal[];
-  candles: Candle[];
+  currentCoin?: string;
+  timeframe?: string;
+  currentPrice?: number;
+  signal?: Signal | null;
+  plan?: OperationPlan | null;
+  analysis?: DashboardAnalysis | null;
+  strategy?: StrategyDescriptor;
+  strategyCandidates?: StrategyCandidate[];
+  strategyRefreshIntervalMs?: number;
+  multiTimeframes?: TimeframeSignal[];
+  candles?: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
-  portfolioData: PortfolioPayload | null;
-  executionCenter: ExecutionCenterPayload | null;
-  dashboardSummary: DashboardSummaryPayload | null;
+  portfolioData?: PortfolioPayload | null;
+  executionCenter?: ExecutionCenterPayload | null;
+  dashboardSummary?: DashboardSummaryPayload | null;
   onSaveSignal: () => void;
 }
 
 type DashboardTab = "overview" | "bot-performance" | "recent-trades";
 type DashboardRange = "24h" | "7d" | "30d" | "90d" | "all";
 
-export function DashboardView(props: DashboardViewProps) {
+export function DashboardView(incomingProps: DashboardViewProps) {
+  const marketData = useMarketDataPlane((state) => state);
+  const systemData = useSystemDataPlane((state) => state);
+  const props: DashboardViewProps = {
+    ...incomingProps,
+    currentCoin: incomingProps.currentCoin ?? marketData.currentCoin,
+    timeframe: incomingProps.timeframe ?? marketData.timeframe,
+    currentPrice: incomingProps.currentPrice ?? marketData.currentPrice,
+    signal: incomingProps.signal ?? marketData.signal,
+    plan: incomingProps.plan ?? null,
+    analysis: incomingProps.analysis ?? marketData.analysis,
+    strategy: incomingProps.strategy ?? marketData.strategy ?? undefined,
+    strategyCandidates: incomingProps.strategyCandidates ?? marketData.strategyCandidates,
+    strategyRefreshIntervalMs: incomingProps.strategyRefreshIntervalMs ?? 0,
+    multiTimeframes: incomingProps.multiTimeframes ?? marketData.multiTimeframes,
+    candles: incomingProps.candles ?? marketData.candles,
+    portfolioData: incomingProps.portfolioData ?? systemData.portfolio,
+    executionCenter: incomingProps.executionCenter ?? systemData.execution,
+    dashboardSummary: incomingProps.dashboardSummary ?? systemData.dashboardSummary,
+  };
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [activeRange, setActiveRange] = useState<DashboardRange>("24h");
   const [tradeSearch, setTradeSearch] = useState("");
+  const currentCoin = props.currentCoin || "BTC/USDT";
+  const timeframe = props.timeframe || "1h";
+  const candles = props.candles || [];
+  const strategy = props.strategy || {
+    id: "signal-bot",
+    version: "v1",
+    label: "Signal Bot",
+    description: "Default dashboard strategy fallback.",
+    preferredTimeframes: [timeframe],
+    tradingStyle: "adaptive",
+    idealMarketConditions: ["mixed"],
+    parameters: {},
+  };
+  const strategyCandidates = props.strategyCandidates || [];
+  const multiTimeframes = props.multiTimeframes || [];
+  const portfolioData = props.portfolioData || null;
+  const executionCenter = props.executionCenter || null;
   const signal = props.signal;
   const analysis = props.analysis;
   const hasUsefulDashboardSummary = useMemo(() => {
@@ -68,7 +106,7 @@ export function DashboardView(props: DashboardViewProps) {
     return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
   }, [props.dashboardSummary]);
   const summary = hasUsefulDashboardSummary ? props.dashboardSummary : null;
-  const portfolio = props.portfolioData?.portfolio || summary?.portfolio;
+  const portfolio = portfolioData?.portfolio || summary?.portfolio;
   const executionAccount = summary
     ? {
         connected: summary.connection.connected,
@@ -81,12 +119,12 @@ export function DashboardView(props: DashboardViewProps) {
         recentLossStreak: summary.execution.recentLossStreak,
         autoExecutionRemaining: summary.execution.autoExecutionRemaining,
       }
-    : props.executionCenter?.account;
+    : executionCenter?.account;
   const executionProfileEnabled = summary
     ? summary.execution.profileEnabled
-    : props.executionCenter?.profile?.enabled;
-  const currentPrice = props.currentPrice || props.candles.at(-1)?.close || 0;
-  const firstClose = props.candles[0]?.close ?? currentPrice;
+    : executionCenter?.profile?.enabled;
+  const currentPrice = props.currentPrice || candles.at(-1)?.close || 0;
+  const firstClose = candles[0]?.close ?? currentPrice;
   const marketDriftPct = firstClose > 0 ? ((currentPrice - firstClose) / firstClose) * 100 : 0;
   const portfolioTotal = portfolio?.totalValue ?? executionAccount?.totalValue ?? 0;
   const portfolioChangeValue = portfolio?.periodChangeValue ?? 0;
@@ -96,7 +134,7 @@ export function DashboardView(props: DashboardViewProps) {
   const activeBotsLabel = `${activeBots} / ${totalBots}`;
   const last24hCutoff = Date.now() - 24 * 60 * 60 * 1000;
 
-  const executionRecentOrders = summary?.execution.recentOrders || props.executionCenter?.recentOrders || [];
+  const executionRecentOrders = summary?.execution.recentOrders || executionCenter?.recentOrders || [];
   const recentExecuteOrders = executionRecentOrders.filter((item) => item.mode === "execute");
   const botClosedOrders24h = recentExecuteOrders.filter((item) => {
     const closedAt = item.closed_at ? new Date(item.closed_at).getTime() : 0;
@@ -112,14 +150,14 @@ export function DashboardView(props: DashboardViewProps) {
   const botsPnlTone = botGeneratedPnl24h > 0 ? "positive" : botGeneratedPnl24h < 0 ? "negative" : "neutral";
   const eligibleCandidates = summary
     ? Array.from({ length: summary.execution.eligibleCount }, (_, index) => ({ status: "eligible", id: index }))
-    : (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible");
+    : (executionCenter?.candidates || []).filter((item) => item.status === "eligible");
   const blockedCandidates = summary
     ? Array.from({ length: summary.execution.blockedCount }, (_, index) => ({ status: "blocked", id: index }))
-    : (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked");
+    : (executionCenter?.candidates || []).filter((item) => item.status === "blocked");
   const recentOrders = recentExecuteOrders.slice(0, 5);
   const recentTrades = useMemo(
-    () => buildRecentTradesRows(props.portfolioData?.recentTrades || [], recentExecuteOrders),
-    [props.portfolioData?.recentTrades, recentExecuteOrders],
+    () => buildRecentTradesRows(portfolioData?.recentTrades || [], recentExecuteOrders),
+    [portfolioData?.recentTrades, recentExecuteOrders],
   );
   const filteredRecentTrades = useMemo(() => {
     const needle = tradeSearch.trim().toLowerCase();
@@ -136,8 +174,8 @@ export function DashboardView(props: DashboardViewProps) {
   const cashPct = portfolioTotal > 0 ? (((portfolio?.cashValue || 0) / portfolioTotal) * 100) : 0;
   const botSystemCards = useMemo(
     () => buildBotSystemCards({
-      currentCoin: props.currentCoin,
-      timeframe: props.timeframe,
+      currentCoin,
+      timeframe,
       activeBotsLabel,
       botGeneratedPnl24h,
       botWinRate24h,
@@ -148,7 +186,7 @@ export function DashboardView(props: DashboardViewProps) {
       eligibleCount: eligibleCandidates.length,
       blockedCount: blockedCandidates.length,
       alignmentCount: analysis?.alignmentCount ?? 0,
-      alignmentTotal: analysis?.alignmentTotal ?? props.multiTimeframes.length,
+      alignmentTotal: analysis?.alignmentTotal ?? multiTimeframes.length,
       dailyLossPct: Number(executionAccount?.dailyLossPct || 0),
       recentLossStreak: executionAccount?.recentLossStreak ?? 0,
       deploymentPct,
@@ -169,18 +207,18 @@ export function DashboardView(props: DashboardViewProps) {
       executionAccount?.dailyAutoExecutions,
       executionAccount?.dailyLossPct,
       executionAccount?.recentLossStreak,
-      props.currentCoin,
-      props.timeframe,
-      props.multiTimeframes.length,
+      currentCoin,
+      timeframe,
+      multiTimeframes.length,
     ],
   );
   const topAssets = useMemo(
-    () => buildTopAssets(props.portfolioData?.assets || summary?.topAssets || []),
-    [props.portfolioData?.assets, summary?.topAssets],
+    () => buildTopAssets(portfolioData?.assets || summary?.topAssets || []),
+    [portfolioData?.assets, summary?.topAssets],
   );
   const recentActivity = useMemo(
-    () => buildRecentActivity(props.portfolioData, recentExecuteOrders),
-    [props.portfolioData, recentExecuteOrders],
+    () => buildRecentActivity(portfolioData, recentExecuteOrders),
+    [portfolioData, recentExecuteOrders],
   );
   const tabSummary = getDashboardTabSummary(activeTab, {
     portfolioTotal,
@@ -189,22 +227,22 @@ export function DashboardView(props: DashboardViewProps) {
     deployedCapitalValue,
     cashPct,
     executionAccount,
-    executionProfile: executionProfileEnabled ? props.executionCenter?.profile || null : null,
+    executionProfile: executionProfileEnabled ? executionCenter?.profile || null : null,
     eligibleCount: eligibleCandidates.length,
     blockedCount: blockedCandidates.length,
     recentOrdersCount: recentOrders.length,
-    currentCoin: props.currentCoin,
-    timeframe: props.timeframe,
+    currentCoin,
+    timeframe,
     botGeneratedPnl24h,
     botWinRate24h,
   });
   const performancePoints = useMemo(
-    () => buildPerformanceSeries(props.candles, portfolio, activeRange),
-    [activeRange, portfolio, props.candles],
+    () => buildPerformanceSeries(candles, portfolio, activeRange),
+    [activeRange, portfolio, candles],
   );
   const botComparisonBars = useMemo(
-    () => buildBotComparisonBars(recentExecuteOrders, props.strategy, props.strategyCandidates, activeRange),
-    [activeRange, props.strategy, props.strategyCandidates, recentExecuteOrders],
+    () => buildBotComparisonBars(recentExecuteOrders, strategy, strategyCandidates, activeRange),
+    [activeRange, strategy, strategyCandidates, recentExecuteOrders],
   );
   useEffect(() => {
     if (activeTab === "recent-trades") return;
@@ -549,8 +587,8 @@ export function DashboardView(props: DashboardViewProps) {
                           <div className="timeframe-map-score">{analysis ? `${analysis.alignmentCount}/${analysis.alignmentTotal}` : "--/--"}</div>
                         </div>
                         <div className="timeframe-map-grid">
-                          {props.multiTimeframes.length ? (
-                            props.multiTimeframes.map((item) => {
+                          {multiTimeframes.length ? (
+                            multiTimeframes.map((item) => {
                               const itemTone = item.label === "Comprar" ? "buy" : item.label === "Vender" ? "sell" : "wait";
                               return (
                                 <div className={`timeframe-chip ${itemTone}`} key={item.timeframe}>

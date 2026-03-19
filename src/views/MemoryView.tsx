@@ -7,6 +7,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
 import { openHelp, showToast, startLoading, stopLoading } from "../lib/ui-events";
 import { binanceService, strategyEngineService, watchlistService } from "../services/api";
+import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 import type {
   ExecutionCenterPayload,
   ExecutionCandidate,
@@ -25,9 +26,9 @@ import type {
 } from "../types";
 
 interface MemoryViewProps {
-  signals: SignalSnapshot[];
-  watchlist: string[];
-  executionCenter: ExecutionCenterPayload | null;
+  signals?: SignalSnapshot[];
+  watchlist?: string[];
+  executionCenter?: ExecutionCenterPayload | null;
   onRefreshExecutionCenter: () => Promise<unknown>;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
@@ -224,7 +225,17 @@ function buildScannerStatusFromExecution(
   };
 }
 
-export function MemoryView(props: MemoryViewProps) {
+export function MemoryView(incomingProps: MemoryViewProps) {
+  const systemData = useSystemDataPlane((state) => state);
+  const props: MemoryViewProps = {
+    ...incomingProps,
+    signals: incomingProps.signals ?? systemData.signalMemory,
+    watchlist: incomingProps.watchlist ?? (systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || []),
+    executionCenter: incomingProps.executionCenter ?? systemData.execution,
+  };
+  const signals = props.signals || [];
+  const watchlist = props.watchlist || [];
+  const executionCenter = props.executionCenter || null;
   const [activeTab, setActiveTab] = useState<SignalsTab>("overview");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
@@ -307,8 +318,8 @@ export function MemoryView(props: MemoryViewProps) {
   }, []);
 
   useEffect(() => {
-    setExecutionProfileForm(props.executionCenter?.profile || null);
-  }, [props.executionCenter]);
+    setExecutionProfileForm(executionCenter?.profile || null);
+  }, [executionCenter]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -345,31 +356,31 @@ export function MemoryView(props: MemoryViewProps) {
   }, []);
 
   const timeframes = useMemo(
-    () => Array.from(new Set(props.signals.map((item) => item.timeframe))).sort(),
-    [props.signals],
+    () => Array.from(new Set(signals.map((item) => item.timeframe))).sort(),
+    [signals],
   );
   const setups = useMemo(
-    () => Array.from(new Set(props.signals.map((item) => item.setup_type).filter((item): item is string => Boolean(item)))).sort(),
-    [props.signals],
+    () => Array.from(new Set(signals.map((item) => item.setup_type).filter((item): item is string => Boolean(item)))).sort(),
+    [signals],
   );
   const coins = useMemo(
-    () => Array.from(new Set(props.signals.map((item) => item.coin).filter(Boolean))).sort(),
-    [props.signals],
+    () => Array.from(new Set(signals.map((item) => item.coin).filter(Boolean))).sort(),
+    [signals],
   );
   const strategies = useMemo(
-    () => Array.from(new Set(props.signals.map((item) => getStrategyDisplay(item)).filter(Boolean))).sort(),
-    [props.signals],
+    () => Array.from(new Set(signals.map((item) => getStrategyDisplay(item)).filter(Boolean))).sort(),
+    [signals],
   );
 
   const periodSignals = useMemo(() => {
-    if (periodFilter === "all") return props.signals;
+    if (periodFilter === "all") return signals;
     const days = periodFilter === "30d" ? 30 : periodFilter === "7d" ? 7 : 1;
     const minDate = Date.now() - days * 24 * 60 * 60 * 1000;
-    return props.signals.filter((item) => {
+    return signals.filter((item) => {
       const baseDate = item.outcome_status === "pending" ? item.created_at : (item.updated_at || item.created_at);
       return new Date(baseDate).getTime() >= minDate;
     });
-  }, [periodFilter, props.signals]);
+  }, [periodFilter, signals]);
 
   const filteredSignals = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -389,11 +400,11 @@ export function MemoryView(props: MemoryViewProps) {
     });
   }, [coinFilter, periodSignals, search, setupFilter, statusFilter, strategyFilter, timeframeFilter]);
 
-  const completedSignals = props.signals.filter((item) => item.outcome_status !== "pending");
-  const wins = props.signals.filter((item) => item.outcome_status === "win").length;
-  const losses = props.signals.filter((item) => item.outcome_status === "loss").length;
-  const invalidated = props.signals.filter((item) => item.outcome_status === "invalidated").length;
-  const totalPnl = props.signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
+  const completedSignals = signals.filter((item) => item.outcome_status !== "pending");
+  const wins = signals.filter((item) => item.outcome_status === "win").length;
+  const losses = signals.filter((item) => item.outcome_status === "loss").length;
+  const invalidated = signals.filter((item) => item.outcome_status === "invalidated").length;
+  const totalPnl = signals.reduce((sum, item) => sum + Number(item.outcome_pnl || 0), 0);
   const winRate = completedSignals.length ? (wins / completedSignals.length) * 100 : 0;
 
   const periodCompletedSignals = periodSignals.filter((item) => item.outcome_status !== "pending");
@@ -424,7 +435,7 @@ export function MemoryView(props: MemoryViewProps) {
 
   const bestSetup = useMemo(() => {
     const bySetup = new Map<string, { wins: number; total: number }>();
-    props.signals.forEach((item) => {
+    signals.forEach((item) => {
       if (!item.setup_type || item.outcome_status === "pending") return;
       const bucket = bySetup.get(item.setup_type) || { wins: 0, total: 0 };
       bucket.total += 1;
@@ -434,11 +445,11 @@ export function MemoryView(props: MemoryViewProps) {
     return Array.from(bySetup.entries())
       .map(([setup, stats]) => ({ setup, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
-  }, [props.signals]);
+  }, [signals]);
 
   const bestContext = useMemo(() => {
     const byContext = new Map<string, { wins: number; total: number }>();
-    props.signals.forEach((item) => {
+    signals.forEach((item) => {
       const signature = item.signal_payload?.context?.contextSignature;
       if (!signature || item.outcome_status === "pending") return;
       const bucket = byContext.get(signature) || { wins: 0, total: 0 };
@@ -449,11 +460,11 @@ export function MemoryView(props: MemoryViewProps) {
     return Array.from(byContext.entries())
       .map(([signature, stats]) => ({ signature, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
-  }, [props.signals]);
+  }, [signals]);
 
   const strongestTimeframe = useMemo(() => {
     const byTimeframe = new Map<string, { wins: number; total: number }>();
-    props.signals.forEach((item) => {
+    signals.forEach((item) => {
       if (item.outcome_status === "pending") return;
       const bucket = byTimeframe.get(item.timeframe) || { wins: 0, total: 0 };
       bucket.total += 1;
@@ -463,11 +474,11 @@ export function MemoryView(props: MemoryViewProps) {
     return Array.from(byTimeframe.entries())
       .map(([timeframe, stats]) => ({ timeframe, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
-  }, [props.signals]);
+  }, [signals]);
 
   const strongestStrategy = useMemo(() => {
     const byStrategy = new Map<string, { wins: number; total: number }>();
-    props.signals.forEach((item) => {
+    signals.forEach((item) => {
       if (item.outcome_status === "pending") return;
       const key = getStrategyDisplay(item);
       const bucket = byStrategy.get(key) || { wins: 0, total: 0 };
@@ -478,7 +489,7 @@ export function MemoryView(props: MemoryViewProps) {
     return Array.from(byStrategy.entries())
       .map(([strategy, stats]) => ({ strategy, rate: stats.total ? (stats.wins / stats.total) * 100 : 0, total: stats.total }))
       .sort((a, b) => b.rate - a.rate || b.total - a.total)[0];
-  }, [props.signals]);
+  }, [signals]);
 
   const periodAnalytics = useMemo(() => {
     const closed = periodSignals.filter((item) => item.outcome_status !== "pending");
@@ -555,19 +566,19 @@ export function MemoryView(props: MemoryViewProps) {
   );
 
   const sandboxStats = useMemo(
-    () => sandboxExperiments.map((item) => buildExperimentPaperStats(item, periodSignals, props.watchlist)),
-    [periodSignals, props.watchlist, sandboxExperiments],
+    () => sandboxExperiments.map((item) => buildExperimentPaperStats(item, periodSignals, watchlist)),
+    [periodSignals, watchlist, sandboxExperiments],
   );
 
   const pagedExperiments = useMemo(() => paginateRows(experiments, experimentsPage), [experiments, experimentsPage]);
   const pagedSandboxStats = useMemo(() => paginateRows(sandboxStats, sandboxPage), [sandboxStats, sandboxPage]);
   const pagedRecommendations = useMemo(() => paginateRows(recommendations, recommendationsPage), [recommendations, recommendationsPage]);
-  const pagedCandidates = useMemo(() => paginateRows(props.executionCenter?.candidates || [], candidatesPage), [candidatesPage, props.executionCenter?.candidates]);
-  const pagedRecentOrders = useMemo(() => paginateRows(props.executionCenter?.recentOrders || [], recentOrdersPage), [props.executionCenter?.recentOrders, recentOrdersPage]);
+  const pagedCandidates = useMemo(() => paginateRows(executionCenter?.candidates || [], candidatesPage), [candidatesPage, executionCenter?.candidates]);
+  const pagedRecentOrders = useMemo(() => paginateRows(executionCenter?.recentOrders || [], recentOrdersPage), [executionCenter?.recentOrders, recentOrdersPage]);
   const pagedSignals = useMemo(() => paginateRows(filteredSignals, historyPage), [filteredSignals, historyPage]);
   const openSignals = useMemo(
-    () => props.signals.filter((item) => item.outcome_status === "pending"),
-    [props.signals],
+    () => signals.filter((item) => item.outcome_status === "pending"),
+    [signals],
   );
   const operationalOpenSignals = useMemo(
     () => openSignals.filter((item) => item.signal_payload?.decision?.executionEligible === true),
@@ -578,24 +589,24 @@ export function MemoryView(props: MemoryViewProps) {
     [openSignals],
   );
   const eligibleExecutionCandidates = useMemo(
-    () => (props.executionCenter?.candidates || []).filter((item) => item.status === "eligible"),
-    [props.executionCenter?.candidates],
+    () => (executionCenter?.candidates || []).filter((item) => item.status === "eligible"),
+    [executionCenter?.candidates],
   );
   const blockedExecutionCandidates = useMemo(
-    () => (props.executionCenter?.candidates || []).filter((item) => item.status === "blocked"),
-    [props.executionCenter?.candidates],
+    () => (executionCenter?.candidates || []).filter((item) => item.status === "blocked"),
+    [executionCenter?.candidates],
   );
   const executionPlacedOrders = useMemo(
-    () => (props.executionCenter?.recentOrders || []).filter((item) => item.mode === "execute" && item.status === "placed"),
-    [props.executionCenter?.recentOrders],
+    () => (executionCenter?.recentOrders || []).filter((item) => item.mode === "execute" && item.status === "placed"),
+    [executionCenter?.recentOrders],
   );
   const unprotectedExecutionOrders = useMemo(
-    () => (props.executionCenter?.recentOrders || []).filter((item) => (
+    () => (executionCenter?.recentOrders || []).filter((item) => (
       item.mode === "execute"
       && String(item.lifecycle_status || "") === "filled_unprotected"
       && String(item.side || "").toUpperCase() === "BUY"
     )),
-    [props.executionCenter?.recentOrders],
+    [executionCenter?.recentOrders],
   );
   const topBlockedReason = useMemo(() => {
     const counts = new Map<string, number>();
@@ -646,8 +657,8 @@ export function MemoryView(props: MemoryViewProps) {
     topBlockedReason,
   ]);
   const closedSignals = useMemo(
-    () => props.signals.filter((item) => item.outcome_status !== "pending"),
-    [props.signals],
+    () => signals.filter((item) => item.outcome_status !== "pending"),
+    [signals],
   );
   const executedClosedSignals = useMemo(
     () => closedSignals.filter((item) => item.execution_mode === "execute" || Boolean(item.execution_order_id)),
@@ -974,7 +985,7 @@ export function MemoryView(props: MemoryViewProps) {
       const closedScopedSignals = closedSignals.filter((item) =>
         item.strategy_name === override.strategyId && item.timeframe === override.timeframe,
       );
-      const candidateScopedSignals = (props.executionCenter?.candidates || []).filter((item) =>
+      const candidateScopedSignals = (executionCenter?.candidates || []).filter((item) =>
         item.strategyName === override.strategyId && item.timeframe === override.timeframe,
       );
       const eligibleScoped = candidateScopedSignals.filter((item) => item.status === "eligible");
@@ -1057,7 +1068,7 @@ export function MemoryView(props: MemoryViewProps) {
     executionProfileForm?.minRrRatio,
     executionProfileForm?.minSignalScore,
     executionProfileForm?.scopeOverrides,
-    props.executionCenter?.candidates,
+    executionCenter?.candidates,
     recommendations,
   ]);
 
@@ -1076,7 +1087,7 @@ export function MemoryView(props: MemoryViewProps) {
     const ranked = Array.from(groups.values())
       .map((group) => {
         const stats = summarizeSignalCohort(group.signals);
-        const scopedCandidates = (props.executionCenter?.candidates || []).filter(
+        const scopedCandidates = (executionCenter?.candidates || []).filter(
           (item) => item.strategyName === group.strategyId && item.timeframe === group.timeframe,
         );
         const eligibleCount = scopedCandidates.filter((item) => item.status === "eligible").length;
@@ -1147,7 +1158,7 @@ export function MemoryView(props: MemoryViewProps) {
         .sort((left, right) => left.rankScore - right.rankScore)
         .slice(0, 3),
     };
-  }, [closedSignals, executionProfileForm?.scopeOverrides, props.executionCenter?.candidates, recommendations]);
+  }, [closedSignals, executionProfileForm?.scopeOverrides, executionCenter?.candidates, recommendations]);
 
   const automationMasterBoard = useMemo(() => {
     const strongestScope = scopeEdgeRanking.strongest[0] || null;
@@ -1366,8 +1377,8 @@ export function MemoryView(props: MemoryViewProps) {
   useEffect(() => setExperimentsPage(1), [experiments.length]);
   useEffect(() => setSandboxPage(1), [sandboxStats.length]);
   useEffect(() => setRecommendationsPage(1), [recommendations.length]);
-  useEffect(() => setCandidatesPage(1), [props.executionCenter?.candidates?.length]);
-  useEffect(() => setRecentOrdersPage(1), [props.executionCenter?.recentOrders?.length]);
+  useEffect(() => setCandidatesPage(1), [executionCenter?.candidates?.length]);
+  useEffect(() => setRecentOrdersPage(1), [executionCenter?.recentOrders?.length]);
   useEffect(() => setHistoryPage(1), [filteredSignals.length, periodFilter, coinFilter, statusFilter, timeframeFilter, setupFilter, strategyFilter, search]);
 
   const availableCandidateVersions = useMemo(
@@ -1380,14 +1391,14 @@ export function MemoryView(props: MemoryViewProps) {
     registry.forEach((item) => {
       if (!byId.has(item.strategy_id)) byId.set(item.strategy_id, item.label || item.strategy_id);
     });
-    props.signals.forEach((item) => {
+    signals.forEach((item) => {
       if (!item.strategy_name) return;
       if (!byId.has(item.strategy_name)) byId.set(item.strategy_name, item.strategy_label || item.strategy_name);
     });
     return Array.from(byId.entries())
       .map(([id, label]) => ({ id, label }))
       .sort((a, b) => a.label.localeCompare(b.label));
-  }, [props.signals, registry]);
+  }, [signals, registry]);
 
   const executionTimeframeOptions = useMemo(
     () => Array.from(new Set([...EXECUTION_BASE_TIMEFRAMES, ...timeframes, ...(executionProfileForm?.allowedTimeframes || [])])),
@@ -1801,10 +1812,10 @@ export function MemoryView(props: MemoryViewProps) {
       {activeTab === "overview" ? (
         <>
           <div className="stats-grid">
-            <StatCard label="Señales guardadas" value={String(props.signals.length)} sub="Historial técnico registrado" accentClass="accent-blue" />
+            <StatCard label="Señales guardadas" value={String(signals.length)} sub="Historial técnico registrado" accentClass="accent-blue" />
             <StatCard label="Porcentaje de acierto" value={`${winRate.toFixed(0)}%`} sub={`${wins} ganadas de ${completedSignals.length} cerradas`} accentClass="accent-green" />
             <StatCard label="Resultado neto" value={formatPrice(totalPnl)} sub={`${losses} pérdidas · ${invalidated} invalidadas`} toneClass={totalPnl > 0 ? "portfolio-positive" : totalPnl < 0 ? "portfolio-negative" : ""} accentClass="accent-emerald" />
-            <StatCard label="Abiertas" value={String(props.signals.filter((item) => item.outcome_status === "pending").length)} sub="Señales todavía activas" accentClass="accent-amber" />
+            <StatCard label="Abiertas" value={String(signals.filter((item) => item.outcome_status === "pending").length)} sub="Señales todavía activas" accentClass="accent-amber" />
           </div>
 
           <SectionCard
@@ -2869,37 +2880,37 @@ export function MemoryView(props: MemoryViewProps) {
             <div className="stats-grid">
               <StatCard
                 label="Cuenta demo"
-                value={props.executionCenter?.account.connected ? "Conectada" : "Sin conexión"}
-                sub={props.executionCenter?.account.alias || "Conecta Binance Demo Spot en Perfil"}
+                value={executionCenter?.account.connected ? "Conectada" : "Sin conexión"}
+                sub={executionCenter?.account.alias || "Conecta Binance Demo Spot en Perfil"}
                 accentClass="accent-blue"
               />
               <StatCard
                 label="Liquidez"
-                value={formatPrice(props.executionCenter?.account.cashValue || 0)}
-                sub={`Capital total ${formatPrice(props.executionCenter?.account.totalValue || 0)}`}
+                value={formatPrice(executionCenter?.account.cashValue || 0)}
+                sub={`Capital total ${formatPrice(executionCenter?.account.totalValue || 0)}`}
                 accentClass="accent-emerald"
               />
               <StatCard
                 label="Órdenes abiertas"
-                value={String(props.executionCenter?.account.openOrdersCount || 0)}
+                value={String(executionCenter?.account.openOrdersCount || 0)}
                 sub="Órdenes demo ya activas en Binance"
                 accentClass="accent-amber"
               />
               <StatCard
                 label="Pérdida diaria"
-                value={`${Number(props.executionCenter?.account.dailyLossPct || 0).toFixed(2)}%`}
+                value={`${Number(executionCenter?.account.dailyLossPct || 0).toFixed(2)}%`}
                 sub="Se usa para bloquear nuevas ejecuciones si hace falta"
                 accentClass="accent-blue"
               />
               <StatCard
                 label="Autos de hoy"
-                value={String(props.executionCenter?.account.dailyAutoExecutions || 0)}
-                sub={`Restantes ${String(props.executionCenter?.account.autoExecutionRemaining || 0)}`}
+                value={String(executionCenter?.account.dailyAutoExecutions || 0)}
+                sub={`Restantes ${String(executionCenter?.account.autoExecutionRemaining || 0)}`}
                 accentClass="accent-emerald"
               />
               <StatCard
                 label="Racha negativa"
-                value={String(props.executionCenter?.account.recentLossStreak || 0)}
+                value={String(executionCenter?.account.recentLossStreak || 0)}
                 sub="Si sube demasiado, entra en enfriamiento"
                 accentClass="accent-amber"
               />
@@ -3167,7 +3178,7 @@ export function MemoryView(props: MemoryViewProps) {
             <p className="section-note with-bottom-gap">
               Demo no toma todas las abiertas. Solo mira las operativas y luego aplica el perfil de ejecución para decidir cuáles sí pueden enviarse.
             </p>
-            {!props.executionCenter?.candidates?.length ? (
+            {!executionCenter?.candidates?.length ? (
               <EmptyState message="Todavía no hay señales abiertas listas para evaluar en ejecución demo." />
             ) : (
               <div className="execution-candidate-grid">
@@ -3185,7 +3196,7 @@ export function MemoryView(props: MemoryViewProps) {
             <PaginationControls
               currentPage={pagedCandidates.safePage}
               totalPages={pagedCandidates.totalPages}
-              totalItems={props.executionCenter?.candidates?.length || 0}
+              totalItems={executionCenter?.candidates?.length || 0}
               label="candidatos"
               onPageChange={setCandidatesPage}
             />
@@ -3313,7 +3324,7 @@ export function MemoryView(props: MemoryViewProps) {
             helpTitle="Intentos y ordenes demo"
             helpBody="Este historial deja evidencia de cada preview, bloqueo o intento real de orden para que puedas auditar la capa de ejecucion."
           >
-            {!props.executionCenter?.recentOrders?.length ? (
+            {!executionCenter?.recentOrders?.length ? (
               <EmptyState message="Aún no hay intentos de ejecución demo guardados." />
             ) : (
               <div className="experiment-record-grid">
@@ -3332,7 +3343,7 @@ export function MemoryView(props: MemoryViewProps) {
             <PaginationControls
               currentPage={pagedRecentOrders.safePage}
               totalPages={pagedRecentOrders.totalPages}
-              totalItems={props.executionCenter?.recentOrders?.length || 0}
+              totalItems={executionCenter?.recentOrders?.length || 0}
               label="ordenes"
               onPageChange={setRecentOrdersPage}
             />
@@ -3415,7 +3426,7 @@ export function MemoryView(props: MemoryViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {!props.signals.length ? (
+                  {!signals.length ? (
                     <tr>
                       <td colSpan={7}>
                         <EmptyState message="Todavía no hay señales guardadas. Puedes empezar desde Inicio con el botón Guardar señal." />

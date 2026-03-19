@@ -90,21 +90,7 @@ export function AppView(props: AppViewProps) {
       content = (
         <DashboardView
           theme={props.theme}
-          currentCoin={props.currentCoin}
-          timeframe={props.timeframe}
-          currentPrice={props.currentPrice}
-          signal={props.signal}
-          plan={props.plan}
-          analysis={props.analysis}
-          strategy={props.strategy}
-          strategyCandidates={props.strategyCandidates}
-          strategyRefreshIntervalMs={props.strategyRefreshIntervalMs}
-          multiTimeframes={props.multiTimeframes}
-          candles={props.candles}
           chartRef={props.chartRef}
-          portfolioData={props.portfolioData}
-          executionCenter={props.executionCenter}
-          dashboardSummary={props.dashboardSummary}
           onSaveSignal={props.onSaveSignal}
         />
       );
@@ -112,9 +98,6 @@ export function AppView(props: AppViewProps) {
     case "memory":
       content = (
         <MemoryView
-          signals={props.signalMemory}
-          watchlist={props.watchlist}
-          executionCenter={props.executionCenter}
           onRefreshExecutionCenter={props.onRefreshExecutionCenter}
           onUpdateSignal={props.onUpdateSignal}
         />
@@ -184,7 +167,6 @@ export function AppView(props: AppViewProps) {
     case "balance":
       content = (
         <BalanceView
-          payload={props.portfolioData}
           period={props.portfolioPeriod}
           hideSmallAssets={props.hideSmallAssets}
           onPeriodChange={props.onPortfolioPeriodChange}

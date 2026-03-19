@@ -17,6 +17,7 @@
   - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
   - persistent realtime-core overlay emit dedup is now semantic, so freshness-only timestamps do not republish equivalent overlays
   - hybrid dashboard/runtime refreshes now ignore freshness-only summary metadata, reducing selector churn outside the realtime core too
+  - shared execution runtime equality now compares policy arrays, candidate cohorts and recent-order cohorts semantically, reducing churn before template-scale execution surfaces expand
 - `in progress`
   - validate the first dedicated user-facing `Signals` and `Bots` pages
   - replace the old `Signal Bot` journey with the new page structure over time

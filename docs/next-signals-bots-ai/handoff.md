@@ -243,6 +243,7 @@ Future directors should assume the following without reopening the discussion:
 - page nesting should match the template
 - user-facing page composition should match the template
 - the migrated CRYPE graphic line in `Dashboard` and `My Wallet` remains the visual baseline
+- `Dashboard` and `My Wallet` are also the implementation reference for how template-faithful visuals should be built using CRYPE's shared CSS architecture
 - user-facing modules should show only the minimum useful information first
 - technical detail belongs in translated form or in future admin/technical surfaces
 

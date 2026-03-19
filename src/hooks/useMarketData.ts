@@ -95,7 +95,7 @@ function updateLiveTimeframes(items: TimeframeSignal[], activeTimeframe: string,
 }
 
 function viewNeedsMarketComparison(view: ViewName) {
-  return view === "market" || view === "compare";
+  return view === "compare";
 }
 
 function viewNeedsSymbolUniverse(view: ViewName) {

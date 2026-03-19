@@ -205,6 +205,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - market derivation should have one canonical helper path; fetches and live streams can enter through different sources, but they should build signal/analysis/strategy state with the same snapshot pipeline
 - market derivation should also reuse any indicator pass that already happened in the active path; the hot kline/ticker loop should not recalculate the same candle indicators twice before running the strategy engine
 - market comparison should behave like shared 24h context, not like a per-timeframe dependency; market refreshes can reuse a short-lived comparison snapshot and live comparison frames should no-op when price/change data did not actually move
+- market comparison is now scoped to the dedicated comparison surface; `Market` should not keep a comparison fetch/stream alive when only `Compare` consumes that context
 - market symbol-universe hydration should also behave like shared context; changing between market-oriented views should reuse a short-lived universe cache instead of refetching the same symbol list on every navigation
 - multi-timeframe market context should refresh the active timeframe from fresh candles while reusing a short-lived cache for the surrounding timeframes; one market refresh should not fan out a full non-active timeframe batch every time
 

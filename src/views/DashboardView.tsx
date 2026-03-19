@@ -212,7 +212,7 @@ export function DashboardView(incomingProps: DashboardViewProps) {
     ],
   );
   const topAssets = useMemo(
-    () => buildTopAssets(portfolioData?.assets || summary?.topAssets || []),
+    () => buildTopAssets(summary?.topAssets || portfolioData?.assets || []),
     [portfolioData?.assets, summary?.topAssets],
   );
   const recentActivity = useMemo(

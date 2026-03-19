@@ -394,7 +394,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
     if (currentView === "dashboard") {
-      void refreshPortfolio(portfolioPeriod, "full");
+      void refreshPortfolio(portfolioPeriod, refreshPolicy.portfolioMode);
       if (!refreshPolicy.systemOverlayStreamEnabled) {
         void Promise.all([
           refreshExecutionCenter(),
@@ -403,7 +403,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       }
     }
     lastViewRef.current = currentView;
-  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.portfolioMode, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;

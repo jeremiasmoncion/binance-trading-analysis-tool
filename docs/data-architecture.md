@@ -199,6 +199,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - manual signal-memory mutations used by `MemoryView` should also resolve through shared `system plane actions`; the view should not depend on a separate prop callback for closing or annotating saved signals
 - market-plane sync should be no-op aware; if the market hook re-renders without a meaningful payload change, the plane should keep the same object so selectors do not wake up for identical state
 - market hooks should prefer a compact derived snapshot over many sibling state setters; fetch and stream updates can still be frequent, but they should fan into one market payload instead of a long list of local writes
+- high-frequency market paths should be no-op aware locally too; symbol-universe hydration and live ticker frames should not write React state again when the effective payload is unchanged
 
 ## Migration Phases
 
@@ -228,6 +229,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - memory saved-signal updates now resolve through shared `system plane` actions instead of a direct callback prop from `App`
 - market-plane sync now skips no-op writes and tracks support/resistance changes explicitly so market selectors only wake up on real payload changes
 - market derived state now travels through a compact local snapshot inside `useMarketData`, reducing setter fan-out before the plane sync even runs
+- symbol-universe hydration and live ticker updates inside `useMarketData` now skip identical writes, trimming more invisible render work before sync reaches the plane
 
 ### In Progress
 

@@ -98,6 +98,10 @@ function viewNeedsSymbolUniverse(view: ViewName) {
   return view === "market" || view === "compare" || view === "trading";
 }
 
+function isSameStringArray(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 async function buildMultiTimeframePayloads(
   coin: string,
   activeTimeframe: string,
@@ -284,7 +288,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       if (!active || !symbols.length) return;
 
       const merged = Array.from(new Set([...POPULAR_COINS.filter((coin) => symbols.includes(coin)), ...symbols]));
-      setAvailableCoins(merged);
+      setAvailableCoins((current) => (isSameStringArray(current, merged) ? current : merged));
     })();
 
     return () => {
@@ -325,17 +329,34 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           if (!snapshot) return;
 
           if (snapshot.price > 0 || snapshot.high > 0 || snapshot.low > 0 || snapshot.volume > 0) {
-            setSnapshot((current) => ({
-              ...current,
-              currentPrice: snapshot.price > 0 ? snapshot.price : current.currentPrice,
-              market24h: {
+            setSnapshot((current) => {
+              // Live ticker frames arrive frequently, so keep this path no-op
+              // aware and only wake React when price or 24h stats actually move.
+              const nextPrice = snapshot.price > 0 ? snapshot.price : current.currentPrice;
+              const nextMarket24h = {
                 change: snapshot.change || 0,
                 high: snapshot.high || 0,
                 low: snapshot.low || 0,
                 volume: `${(snapshot.volume / 1000).toFixed(1)} BTC`,
                 updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-              },
-            }));
+              };
+              const market24hChanged = (
+                current.market24h.change !== nextMarket24h.change
+                || current.market24h.high !== nextMarket24h.high
+                || current.market24h.low !== nextMarket24h.low
+                || current.market24h.volume !== nextMarket24h.volume
+              );
+              if (!market24hChanged && current.currentPrice === nextPrice) {
+                return current;
+              }
+              return {
+                ...current,
+                currentPrice: nextPrice,
+                market24h: market24hChanged
+                  ? nextMarket24h
+                  : current.market24h,
+              };
+            });
           }
         });
       }

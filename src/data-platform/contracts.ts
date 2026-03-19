@@ -19,6 +19,7 @@ import type {
   StrategyVersionRecord,
   TimeframeSignal,
   WatchlistGroup,
+  WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
 
@@ -105,6 +106,7 @@ export interface SystemDataPlane {
     refreshProfileDataWithFeedback: () => Promise<unknown>;
     refreshStrategyEngine: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
     refreshScannerStatus: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
+    runScannerNow: () => Promise<WatchlistScanExecution | null>;
     setHideSmallAssets: (value: boolean) => void;
     setBinanceFormField: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
     connectBinance: () => Promise<unknown>;

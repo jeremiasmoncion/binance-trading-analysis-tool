@@ -40,6 +40,7 @@ export function useMemorySystemSelector() {
     refreshExecutionCenter: state.actions.refreshExecutionCenter,
     refreshStrategyEngine: state.actions.refreshStrategyEngine,
     refreshScannerStatus: state.actions.refreshScannerStatus,
+    runScannerNow: state.actions.runScannerNow,
   }), shallowEqualSelection);
 }
 
@@ -91,6 +92,7 @@ export function useWatchlistSelector() {
 export function useProfileSystemSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     connection: state.snapshot.connection,
+    scannerStatus: state.snapshot.scannerStatus,
     availableUsers: state.controls.availableUsers,
     binanceForm: state.controls.binanceForm,
     realtimeCore: state.controls.realtimeCore,
@@ -99,6 +101,8 @@ export function useProfileSystemSelector() {
     disconnectBinance: state.actions.disconnectBinance,
     refreshProfileDataWithFeedback: state.actions.refreshProfileDataWithFeedback,
     refreshRealtimeCoreStatus: state.actions.refreshRealtimeCoreStatus,
+    refreshScannerStatus: state.actions.refreshScannerStatus,
+    runScannerNow: state.actions.runScannerNow,
   }), shallowEqualSelection);
 }
 

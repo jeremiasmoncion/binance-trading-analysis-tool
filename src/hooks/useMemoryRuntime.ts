@@ -87,6 +87,21 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
     }
   }, [currentUser?.username]);
 
+  const runScannerNow = useCallback(async () => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      const execution = await watchlistService.runScan();
+      await refreshScannerStatus({ forceFresh: true });
+      return execution;
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshScannerStatus]);
+
   useEffect(() => {
     if (!currentUser) {
       setStrategyRegistry([]);
@@ -113,5 +128,6 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
     scannerStatus,
     refreshStrategyEngine,
     refreshScannerStatus,
+    runScannerNow,
   };
 }

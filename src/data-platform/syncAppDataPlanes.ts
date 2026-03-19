@@ -165,6 +165,7 @@ export function syncSystemMemoryActions(actions: ReturnTypeUseMemoryRuntime) {
       ...current.actions,
       refreshStrategyEngine: actions.refreshStrategyEngine,
       refreshScannerStatus: actions.refreshScannerStatus,
+      runScannerNow: actions.runScannerNow,
     },
   }));
 }

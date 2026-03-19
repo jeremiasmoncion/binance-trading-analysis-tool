@@ -6,7 +6,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
 import { openHelp, showToast, startLoading, stopLoading } from "../lib/ui-events";
-import { binanceService, strategyEngineService, watchlistService } from "../services/api";
+import { binanceService, strategyEngineService } from "../services/api";
 import { useMemorySystemSelector } from "../data-platform/selectors";
 import type {
   ExecutionCenterPayload,
@@ -236,6 +236,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const watchlist = props.watchlist || [];
   const executionCenter = props.executionCenter || null;
   const onRefreshExecutionCenter = props.onRefreshExecutionCenter ?? (async () => null);
+  const runScannerNow = systemData.runScannerNow || (async () => null);
   const [activeTab, setActiveTab] = useState<SignalsTab>("overview");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
@@ -1505,7 +1506,10 @@ export function MemoryView(incomingProps: MemoryViewProps) {
         : "Escaneando monedas, marcos y reglas de automatización.",
     });
     try {
-      const execution = await watchlistService.runScan();
+      const execution = await runScannerNow();
+      if (!execution) {
+        throw new Error("No se pudo ejecutar el vigilante ahora mismo.");
+      }
       const refreshed = await loadScannerStatus({ forceFresh: true }).catch(() => null);
       const errorMessage = execution.summary.runPersistErrors?.[0]
         || execution.targets.find((item) => item.runPersistError)?.runPersistError
@@ -1553,7 +1557,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       setScannerBusy(false);
       stopLoading(loaderId);
     }
-  }, [scannerStatus]);
+  }, [loadScannerStatus, runScannerNow, scannerStatus]);
 
   async function handleSaveExecutionProfile() {
     if (!executionProfileForm) return;

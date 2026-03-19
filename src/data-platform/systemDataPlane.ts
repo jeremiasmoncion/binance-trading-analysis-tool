@@ -54,6 +54,7 @@ const initialSystemDataPlane: SystemDataPlane = {
     refreshProfileDataWithFeedback: async () => null,
     refreshStrategyEngine: async () => null,
     refreshScannerStatus: async () => null,
+    runScannerNow: async () => null,
     setHideSmallAssets: () => undefined,
     setBinanceFormField: () => undefined,
     connectBinance: async () => null,

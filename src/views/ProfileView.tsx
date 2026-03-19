@@ -4,8 +4,8 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useProfileSystemSelector } from "../data-platform/selectors";
-import { strategyEngineService, watchlistService } from "../services/api";
-import type { BinanceConnection, StrategyBacktestRun, StrategyValidationReport, UserSession, WatchlistScanExecution, WatchlistScannerStatus } from "../types";
+import { strategyEngineService } from "../services/api";
+import type { BinanceConnection, StrategyBacktestRun, StrategyValidationReport, UserSession, WatchlistScanExecution } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
@@ -35,7 +35,6 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const [validationReport, setValidationReport] = useState<StrategyValidationReport | null>(null);
   const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>([]);
   const [backtestQueue, setBacktestQueue] = useState<{ pending: number; running: number }>({ pending: 0, running: 0 });
-  const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
   const [backtestRunning, setBacktestRunning] = useState(false);
@@ -55,6 +54,9 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const onRefresh = props.onRefresh || (() => undefined);
   const onDisconnect = props.onDisconnect || (() => undefined);
   const onRefreshRealtimeRuntime = systemData.refreshRealtimeCoreStatus || (async () => null);
+  const onRefreshScannerStatus = systemData.refreshScannerStatus || (async () => null);
+  const onRunScannerNow = systemData.runScannerNow || (async () => null);
+  const scannerStatus = systemData.scannerStatus;
   const summary = connection?.summary || {};
   const users = props.users || [];
   const pagedUsers = paginateRows(users, usersPage);
@@ -117,11 +119,9 @@ export function ProfileView(incomingProps: ProfileViewProps) {
     let cancelled = false;
     setScannerLoading(true);
     setScannerError(null);
-    watchlistService
-      .scanStatus()
-      .then((payload) => {
+    onRefreshScannerStatus()
+      .then(() => {
         if (!cancelled) {
-          setScannerStatus(payload);
           setScannerExecution(null);
         }
       })
@@ -136,7 +136,7 @@ export function ProfileView(incomingProps: ProfileViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, props.user.role]);
+  }, [activeTab, onRefreshScannerStatus, props.user.role]);
 
   const scannerSummary = scannerStatus?.summary;
   const latestScannerRun = scannerStatus?.latestRun || null;
@@ -383,16 +383,15 @@ export function ProfileView(incomingProps: ProfileViewProps) {
               helpTitle="Qué mirar aquí"
               helpBody="Esta vista no evalúa la IA del motor, sino la salud operativa del vigilante que debe escanear watchlists, crear señales y cerrar pendientes aunque nadie tenga la app abierta."
             >
-              <div className="premium-action-row">
+      <div className="premium-action-row">
                 <button
                   className="premium-action-button is-secondary"
                   type="button"
                   onClick={() => {
                     setScannerLoading(true);
                     setScannerError(null);
-                    watchlistService
-                      .scanStatus({ forceFresh: true })
-                      .then((payload) => setScannerStatus(payload))
+                    onRefreshScannerStatus({ forceFresh: true })
+                      .then(() => undefined)
                       .catch((error) => setScannerError(error instanceof Error ? error.message : "No se pudo actualizar el vigilante"))
                       .finally(() => setScannerLoading(false));
                   }}
@@ -405,13 +404,10 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                   onClick={() => {
                     setScannerRunning(true);
                     setScannerError(null);
-                    watchlistService
-                      .runScan()
+                    onRunScannerNow()
                       .then((payload) => {
                         setScannerExecution(payload);
-                        return watchlistService.scanStatus({ forceFresh: true });
                       })
-                      .then((payload) => setScannerStatus(payload))
                       .catch((error) => setScannerError(error instanceof Error ? error.message : "No se pudo ejecutar el vigilante"))
                       .finally(() => setScannerRunning(false));
                   }}

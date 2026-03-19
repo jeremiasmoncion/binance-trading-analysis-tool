@@ -1,5 +1,5 @@
 import { getBinanceConnectionState, getPortfolioSnapshot } from "./binance.js";
-import { getExecutionCenter } from "./executionEngine.js";
+import { getExecutionCenter, getExecutionDashboardSummary } from "./executionEngine.js";
 import { buildMarketSnapshot } from "./marketRuntime.js";
 import { listSignalSnapshotsForUser } from "./signals.js";
 import { resolveRealtimeCoreSession } from "./auth.js";

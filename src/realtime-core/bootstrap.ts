@@ -42,6 +42,7 @@ export function applyRealtimeCoreBootstrap(bootstrap: RealtimeCoreBootstrapPaylo
       lastError: null,
     },
     snapshot: {
+      ...current.snapshot,
       connection: bootstrap.system.connection,
       portfolio: bootstrap.system.portfolio,
       signalMemory: bootstrap.system.signalMemory,

@@ -1,4 +1,4 @@
-import type { ReturnTypeUseBinanceData, ReturnTypeUseMarketData, ReturnTypeUseSignalMemory, ReturnTypeUseWatchlist } from "./syncTypes";
+import type { ReturnTypeUseBinanceData, ReturnTypeUseMarketData, ReturnTypeUseMemoryRuntime, ReturnTypeUseSignalMemory, ReturnTypeUseWatchlist } from "./syncTypes";
 import { marketDataPlaneStore } from "./marketDataPlane";
 import { systemDataPlaneStore } from "./systemDataPlane";
 
@@ -40,6 +40,7 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
 
 export function syncSystemDataPlane(
   binance: ReturnTypeUseBinanceData,
+  memoryRuntime: ReturnTypeUseMemoryRuntime,
   watchlist: ReturnTypeUseWatchlist,
   isAuthenticated: boolean,
 ) {
@@ -52,6 +53,10 @@ export function syncSystemDataPlane(
           binance.portfolioData
           || binance.executionCenter
           || binance.dashboardSummary
+          || memoryRuntime.strategyRegistry.length
+          || memoryRuntime.strategyExperiments.length
+          || memoryRuntime.strategyRecommendations.length
+          || memoryRuntime.scannerStatus
           || current.snapshot.portfolio
           || current.overlay.execution
           || current.overlay.dashboardSummary
@@ -79,6 +84,12 @@ export function syncSystemDataPlane(
       signalMemory: current.snapshot.signalMemory,
       watchlists: isAuthenticated ? watchlist.lists : [],
       activeWatchlistName: isAuthenticated ? watchlist.activeListName : "Principal",
+      strategyRegistry: isAuthenticated ? memoryRuntime.strategyRegistry : [],
+      strategyVersions: isAuthenticated ? memoryRuntime.strategyVersions : [],
+      strategyExperiments: isAuthenticated ? memoryRuntime.strategyExperiments : [],
+      strategyRecommendations: isAuthenticated ? memoryRuntime.strategyRecommendations : [],
+      strategyDecision: isAuthenticated ? memoryRuntime.strategyDecision : null,
+      scannerStatus: isAuthenticated ? memoryRuntime.scannerStatus : null,
     },
     overlay: {
       execution: isAuthenticated
@@ -143,6 +154,17 @@ export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
       setBinanceFormField: actions.setBinanceFormField,
       connectBinance: actions.connect,
       disconnectBinance: actions.disconnect,
+    },
+  }));
+}
+
+export function syncSystemMemoryActions(actions: ReturnTypeUseMemoryRuntime) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      ...current.actions,
+      refreshStrategyEngine: actions.refreshStrategyEngine,
+      refreshScannerStatus: actions.refreshScannerStatus,
     },
   }));
 }

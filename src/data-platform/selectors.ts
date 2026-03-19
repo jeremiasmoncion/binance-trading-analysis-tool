@@ -30,8 +30,16 @@ export function useMemorySystemSelector() {
     execution: state.overlay.execution,
     watchlists: state.snapshot.watchlists,
     activeWatchlistName: state.snapshot.activeWatchlistName,
+    strategyRegistry: state.snapshot.strategyRegistry,
+    strategyVersions: state.snapshot.strategyVersions,
+    strategyExperiments: state.snapshot.strategyExperiments,
+    strategyRecommendations: state.snapshot.strategyRecommendations,
+    strategyDecision: state.snapshot.strategyDecision,
+    scannerStatus: state.snapshot.scannerStatus,
     refreshSignals: state.actions.refreshSignals,
     refreshExecutionCenter: state.actions.refreshExecutionCenter,
+    refreshStrategyEngine: state.actions.refreshStrategyEngine,
+    refreshScannerStatus: state.actions.refreshScannerStatus,
   }), shallowEqualSelection);
 }
 

@@ -16,9 +16,7 @@ import type {
   RecommendationActivationResult,
   SignalOutcomeStatus,
   SignalSnapshot,
-  StrategyDecisionState,
   StrategyExperimentRecord,
-  StrategyRegistryEntry,
   StrategyRecommendationRecord,
   StrategyVersionRecord,
   WatchlistScanExecution,
@@ -246,11 +244,11 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const [timeframeFilter, setTimeframeFilter] = useState("all");
   const [setupFilter, setSetupFilter] = useState("all");
   const [strategyFilter, setStrategyFilter] = useState("all");
-  const [registry, setRegistry] = useState<StrategyRegistryEntry[]>([]);
-  const [versions, setVersions] = useState<StrategyVersionRecord[]>([]);
-  const [experiments, setExperiments] = useState<StrategyExperimentRecord[]>([]);
-  const [recommendations, setRecommendations] = useState<StrategyRecommendationRecord[]>([]);
-  const [decisionState, setDecisionState] = useState<StrategyDecisionState | null>(null);
+  const registry = systemData.strategyRegistry;
+  const versions = systemData.strategyVersions;
+  const experiments = systemData.strategyExperiments;
+  const recommendations = systemData.strategyRecommendations;
+  const decisionState = systemData.strategyDecision;
   const [experimentBase, setExperimentBase] = useState("trend-alignment");
   const [experimentCandidate, setExperimentCandidate] = useState("breakout");
   const [experimentVersion, setExperimentVersion] = useState("v1");
@@ -259,7 +257,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const [experimentSummary, setExperimentSummary] = useState("");
   const [activatingRecommendationKey, setActivatingRecommendationKey] = useState("");
   const [promotingExperimentId, setPromotingExperimentId] = useState(0);
-  const [scannerStatus, setScannerStatus] = useState<WatchlistScannerStatus | null>(null);
+  const scannerStatus = systemData.scannerStatus;
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerNotice, setScannerNotice] = useState("");
   const [executionProfileForm, setExecutionProfileForm] = useState<ExecutionCenterPayload["profile"] | null>(null);
@@ -280,47 +278,8 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const needsStrategyEngineHeartbeat = activeTab === "overview" || activeTab === "adaptive" || activeTab === "experiments";
   const needsScannerHeartbeat = activeTab === "overview" || activeTab === "execution";
 
-  const loadStrategyEngineState = useCallback(async (options?: { forceFresh?: boolean; clearOnError?: boolean }) => {
-    try {
-      const payload = await strategyEngineService.list({ forceFresh: options?.forceFresh });
-      setRegistry(payload.registry || []);
-      setVersions(payload.versions || []);
-      setExperiments(payload.experiments || []);
-      setRecommendations(payload.recommendations || []);
-      setDecisionState(payload.decision || null);
-      return payload;
-    } catch {
-      if (options?.clearOnError) {
-        setRegistry([]);
-        setVersions([]);
-        setExperiments([]);
-        setRecommendations([]);
-        setDecisionState(null);
-      }
-      return null;
-    }
-  }, []);
-
-  const loadScannerStatus = useCallback(async (options?: { forceFresh?: boolean; clearOnError?: boolean }) => {
-    try {
-      const payload = await watchlistService.scanStatus({ forceFresh: options?.forceFresh });
-      setScannerStatus(payload);
-      return payload;
-    } catch {
-      if (options?.clearOnError) {
-        setScannerStatus(null);
-      }
-      return null;
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadStrategyEngineState({ clearOnError: true });
-  }, [loadStrategyEngineState]);
-
-  useEffect(() => {
-    void loadScannerStatus({ clearOnError: true });
-  }, [loadScannerStatus]);
+  const loadStrategyEngineState = systemData.refreshStrategyEngine;
+  const loadScannerStatus = systemData.refreshScannerStatus;
 
   useEffect(() => {
     setExecutionProfileForm(executionCenter?.profile || null);
@@ -329,6 +288,9 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   useEffect(() => {
     if (!needsStrategyEngineHeartbeat) return undefined;
 
+    // Tab-level heartbeats stay local for now because only Memory knows which
+    // subsection is visible, but the fetched data and refresh actions already
+    // live in the shared system plane.
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void loadStrategyEngineState();
@@ -1422,7 +1384,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
 
   async function handleCreateExperiment() {
     try {
-      const payload = await strategyEngineService.createExperiment({
+      await strategyEngineService.createExperiment({
         baseStrategyId: experimentBase,
         candidateStrategyId: experimentCandidate,
         candidateVersion: experimentVersion,
@@ -1430,7 +1392,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
         timeframeScope: experimentTimeframeScope,
         summary: experimentSummary,
       });
-      setExperiments((current) => [payload.experiment, ...current]);
+      await loadStrategyEngineState({ forceFresh: true });
       setExperimentSummary("");
     } catch {
       // keep UI steady if API fails
@@ -1439,7 +1401,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
 
   async function handleCreateRecommendedExperiment() {
     try {
-      const payload = await strategyEngineService.createExperiment({
+      await strategyEngineService.createExperiment({
         baseStrategyId: "trend-alignment",
         candidateStrategyId: "trend-alignment",
         candidateVersion: "v2",
@@ -1455,7 +1417,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
           recommendationReason: trendPromotionRecommendation.reason,
         },
       });
-      setExperiments((current) => [payload.experiment, ...current.filter((item) => item.id !== payload.experiment.id)]);
+      await loadStrategyEngineState({ forceFresh: true });
     } catch {
       // keep UI steady if API fails
     }
@@ -1464,7 +1426,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   async function handleSendRecommendedToSandbox() {
     if (!recommendedExperiment) return;
     try {
-      const payload = await strategyEngineService.updateExperiment(recommendedExperiment.id, {
+      await strategyEngineService.updateExperiment(recommendedExperiment.id, {
         status: "sandbox",
         metadata: {
           ...(recommendedExperiment.metadata || {}),
@@ -1474,7 +1436,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
           promotedAt: new Date().toISOString(),
         },
       });
-      setExperiments((current) => current.map((item) => (item.id === payload.experiment.id ? payload.experiment : item)));
+      await loadStrategyEngineState({ forceFresh: true });
     } catch {
       // keep UI steady if API fails
     }
@@ -1482,8 +1444,8 @@ export function MemoryView(incomingProps: MemoryViewProps) {
 
   async function handleGenerateRecommendations() {
     try {
-      const payload = await strategyEngineService.generateRecommendations();
-      setRecommendations(payload.recommendations || []);
+      await strategyEngineService.generateRecommendations();
+      await loadStrategyEngineState({ forceFresh: true });
     } catch {
       // keep UI steady if API fails
     }
@@ -1493,25 +1455,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
     setActivatingRecommendationKey(item.recommendation_key);
     try {
       const payload: RecommendationActivationResult = await strategyEngineService.activateRecommendation(item.id);
-      setRecommendations((current) =>
-        current.map((entry) => (entry.id === payload.recommendation.id ? payload.recommendation : entry)),
-      );
-      if (payload.version) {
-        setVersions((current) => {
-          const exists = current.some(
-            (entry) => entry.strategy_id === payload.version?.strategy_id && entry.version === payload.version?.version,
-          );
-          return exists ? current : [...current, payload.version as typeof current[number]];
-        });
-      }
-      if (payload.experiment) {
-        setExperiments((current) => {
-          const exists = current.some((entry) => entry.id === payload.experiment?.id);
-          return exists
-            ? current.map((entry) => (entry.id === payload.experiment?.id ? payload.experiment as typeof entry : entry))
-            : [payload.experiment as typeof current[number], ...current];
-        });
-      }
+      await loadStrategyEngineState({ forceFresh: true });
       if (payload.profile) {
         setExecutionProfileForm(payload.profile);
         await onRefreshExecutionCenter();
@@ -1531,14 +1475,8 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       detail: "Actualizando el motor activo para que watcher y demo usen la variante ganadora.",
     });
     try {
-      const payload = await strategyEngineService.promoteExperiment(item.experiment.id);
-      setExperiments((current) => current.map((entry) => (entry.id === payload.experiment.id ? payload.experiment : entry)));
-      const refreshed = await strategyEngineService.list({ forceFresh: true });
-      setRegistry(refreshed.registry || []);
-      setVersions(refreshed.versions || []);
-      setExperiments(refreshed.experiments || []);
-      setRecommendations(refreshed.recommendations || []);
-      setDecisionState(refreshed.decision || null);
+      await strategyEngineService.promoteExperiment(item.experiment.id);
+      await loadStrategyEngineState({ forceFresh: true });
       showToast({
         tone: "success",
         title: "Motor promovido",
@@ -1568,8 +1506,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
     });
     try {
       const execution = await watchlistService.runScan();
-      const refreshed = await watchlistService.scanStatus({ forceFresh: true }).catch(() => null);
-      setScannerStatus(refreshed || buildScannerStatusFromExecution(execution, scannerStatus));
+      const refreshed = await loadScannerStatus({ forceFresh: true }).catch(() => null);
       const errorMessage = execution.summary.runPersistErrors?.[0]
         || execution.targets.find((item) => item.runPersistError)?.runPersistError
         || "";
@@ -1579,6 +1516,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
         `${execution.summary.autoOrdersBlocked || 0} bloqueadas`,
       ].join(" · ");
       setScannerNotice(errorMessage || `Vigilante ejecutado correctamente. ${successSummary}.`);
+      const nextScannerStatus = refreshed || buildScannerStatusFromExecution(execution, scannerStatus);
       if (errorMessage) {
         if (!silent) {
           showToast({
@@ -1587,6 +1525,12 @@ export function MemoryView(incomingProps: MemoryViewProps) {
             message: `El vigilante sí escaneó, pero no pudo guardar todo el resumen: ${errorMessage}`,
           });
         }
+      } else if (!refreshed && nextScannerStatus && !silent) {
+        showToast({
+          tone: "success",
+          title: "Vigilante actualizado",
+          message: `Se crearon ${execution.summary.signalsCreated} señales y ${execution.summary.autoOrdersPlaced || 0} órdenes demo automáticas.`,
+        });
       } else {
         if (!silent) {
           showToast({

@@ -9,13 +9,14 @@ import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
 import { useCalculator } from "./hooks/useCalculator";
 import { useMarketData } from "./hooks/useMarketData";
+import { useMemoryRuntime } from "./hooks/useMemoryRuntime";
 import { useSignalMemory } from "./hooks/useSignalMemory";
 import { useTheme } from "./hooks/useTheme";
 import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
 import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
@@ -62,6 +63,7 @@ export function App() {
     }
   }, [view]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
+  const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {
     saveSignal,
@@ -129,13 +131,19 @@ export function App() {
   ]);
 
   useEffect(() => {
-    syncSystemDataPlane(binance, watchlist, Boolean(auth.currentUser));
+    syncSystemDataPlane(binance, memoryRuntime, watchlist, Boolean(auth.currentUser));
   }, [
     auth.currentUser,
     binance.binanceConnection,
     binance.dashboardSummary,
     binance.executionCenter,
     binance.portfolioData,
+    memoryRuntime.scannerStatus,
+    memoryRuntime.strategyDecision,
+    memoryRuntime.strategyExperiments,
+    memoryRuntime.strategyRecommendations,
+    memoryRuntime.strategyRegistry,
+    memoryRuntime.strategyVersions,
     watchlist.activeListName,
     watchlist.lists,
   ]);
@@ -157,6 +165,10 @@ export function App() {
   useEffect(() => {
     syncSystemSignalActions(signalMemory);
   }, [signalMemory.refreshSignals]);
+
+  useEffect(() => {
+    syncSystemMemoryActions(memoryRuntime);
+  }, [memoryRuntime.refreshScannerStatus, memoryRuntime.refreshStrategyEngine]);
 
   useEffect(() => {
     syncSystemWatchlistActions(watchlist);

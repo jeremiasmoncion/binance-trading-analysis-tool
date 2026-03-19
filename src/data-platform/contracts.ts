@@ -11,9 +11,15 @@ import type {
   Signal,
   SignalSnapshot,
   StrategyCandidate,
+  StrategyDecisionState,
   StrategyDescriptor,
+  StrategyExperimentRecord,
+  StrategyRecommendationRecord,
+  StrategyRegistryEntry,
+  StrategyVersionRecord,
   TimeframeSignal,
   WatchlistGroup,
+  WatchlistScannerStatus,
 } from "../types";
 
 export type DataPlaneStatus = "idle" | "loading" | "ready" | "degraded" | "error";
@@ -61,6 +67,12 @@ export interface SystemDataPlane {
     signalMemory: SignalSnapshot[];
     watchlists: WatchlistGroup[];
     activeWatchlistName: string;
+    strategyRegistry: StrategyRegistryEntry[];
+    strategyVersions: StrategyVersionRecord[];
+    strategyExperiments: StrategyExperimentRecord[];
+    strategyRecommendations: StrategyRecommendationRecord[];
+    strategyDecision: StrategyDecisionState | null;
+    scannerStatus: WatchlistScannerStatus | null;
   };
   overlay: {
     execution: ExecutionCenterPayload | null;
@@ -91,6 +103,8 @@ export interface SystemDataPlane {
     refreshExecutionCenter: () => Promise<unknown>;
     refreshDashboardSummary: (forceFresh?: boolean) => Promise<unknown>;
     refreshProfileDataWithFeedback: () => Promise<unknown>;
+    refreshStrategyEngine: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
+    refreshScannerStatus: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
     setHideSmallAssets: (value: boolean) => void;
     setBinanceFormField: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
     connectBinance: () => Promise<unknown>;

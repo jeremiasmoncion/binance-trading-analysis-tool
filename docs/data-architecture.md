@@ -189,6 +189,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - watchlist mutations should flow through `system plane actions`, not through screen-specific prop chains
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors
 - `MemoryView` now scopes its strategy/scanner polling to tabs that actually use that data instead of polling unconditionally in the background
+- `MemoryView` strategy-engine and scanner data now hydrate through the shared `system plane`; only the tab-aware heartbeat remains local while that screen still decides which subsection is visible
 
 ## Migration Phases
 
@@ -209,6 +210,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - system plane split into `snapshot + overlay + controls + actions`
 - balance, memory and profile actions can now resolve from the shared plane
 - market watchlist editing now resolves through `system plane actions`, so `MarketView` no longer needs a dedicated watchlist mutation prop path from `App`
+- memory tooling reads now resolve through `system plane snapshot + actions`, so `MemoryView` no longer owns separate local copies of strategy-engine and scanner state
 
 ### In Progress
 

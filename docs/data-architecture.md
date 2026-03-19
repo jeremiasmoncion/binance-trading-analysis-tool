@@ -191,6 +191,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - global chrome such as `TopBar` should also read hot market/runtime state from shared selectors when possible; `App` should forward local UI actions, not rebroadcast the same market payload tree through props
 - selector-first market views should not depend on `AppView` props just to change the active coin; once a market action lives in the shared plane, views like `Market` and `Compare` should consume it there
 - selector-first screen modules should also drop compatibility wrappers once `AppView` no longer passes those props; `Dashboard` and `Profile` should read operational state directly from shared selectors and keep props only for truly local concerns like user identity or a chart ref
+- selector-first screens should also delete dead prop-compatibility layers once `AppView` stops wiring them; `Market`, `Stats`, `Trading` and `Memory` should not keep `incomingProps ?? selector` wrappers for state that now only comes from the shared planes
 - watchlist mutations should flow through `system plane actions`, not through screen-specific prop chains
 - watchlists should treat `localStorage` as a startup cache and last-good fallback only; once a user has a remote session, the remote payload remains canonical and optimistic local edits should reconcile back through that same remote path
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors

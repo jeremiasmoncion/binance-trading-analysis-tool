@@ -1,17 +1,11 @@
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useStatsSelector } from "../data-platform/selectors";
-import type { ExecutionCenterPayload, PortfolioPayload } from "../types";
 
-interface StatsViewProps {
-  portfolioData?: PortfolioPayload | null;
-  executionCenter?: ExecutionCenterPayload | null;
-}
-
-export function StatsView(incomingProps: StatsViewProps) {
+export function StatsView() {
   const systemData = useStatsSelector();
-  const portfolioData = incomingProps.portfolioData ?? systemData.portfolio;
-  const executionCenter = incomingProps.executionCenter ?? systemData.execution;
+  const portfolioData = systemData.portfolio;
+  const executionCenter = systemData.execution;
   const portfolio = portfolioData?.portfolio;
   const recentOrders = executionCenter?.recentOrders || [];
   const candidates = executionCenter?.candidates || [];

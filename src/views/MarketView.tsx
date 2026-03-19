@@ -5,64 +5,21 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useMarketSummarySelector, useWatchlistSelector } from "../data-platform/selectors";
 import { formatPrice } from "../lib/format";
-import type { Indicators, Signal, WatchlistGroup } from "../types";
 
-interface MarketViewProps {
-  currentCoin?: string;
-  watchlists?: WatchlistGroup[];
-  watchlist?: string[];
-  activeWatchlistName?: string;
-  signal?: Signal | null;
-  indicators?: Indicators | null;
-  market24h?: {
-    change: number;
-    high: number;
-    low: number;
-    volume: string;
-    updatedAt: string;
-  };
-  support?: number;
-  resistance?: number;
-  onSelectCoin?: (coin: string) => void;
-  onToggleWatchlist?: (coin: string) => Promise<void> | void;
-  onReplaceWatchlistCoins?: (name: string, coins: string[]) => Promise<void>;
-  onCreateWatchlist?: (name: string) => Promise<void>;
-  onRenameWatchlist?: (name: string, nextName: string) => Promise<void>;
-  onDeleteWatchlist?: (name: string) => Promise<void>;
-  onSetActiveWatchlist?: (name: string) => Promise<void>;
-}
-
-export function MarketView(incomingProps: MarketViewProps) {
+export function MarketView() {
   const marketData = useMarketSummarySelector();
   const systemData = useWatchlistSelector();
-  const props: MarketViewProps = {
-    ...incomingProps,
-    currentCoin: incomingProps.currentCoin ?? marketData.currentCoin,
-    watchlists: incomingProps.watchlists ?? systemData.watchlists,
-    watchlist: incomingProps.watchlist ?? (systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || []),
-    activeWatchlistName: incomingProps.activeWatchlistName ?? systemData.activeWatchlistName,
-    signal: incomingProps.signal ?? marketData.signal,
-    indicators: incomingProps.indicators ?? marketData.indicators,
-    market24h: incomingProps.market24h ?? marketData.market24h,
-    support: incomingProps.support ?? marketData.support,
-    resistance: incomingProps.resistance ?? marketData.resistance,
-    onSelectCoin: incomingProps.onSelectCoin ?? marketData.selectCoin,
-    onToggleWatchlist: incomingProps.onToggleWatchlist ?? systemData.toggleWatchlist,
-    onReplaceWatchlistCoins: incomingProps.onReplaceWatchlistCoins ?? systemData.replaceWatchlistCoins,
-    onCreateWatchlist: incomingProps.onCreateWatchlist ?? systemData.createWatchlist,
-    onRenameWatchlist: incomingProps.onRenameWatchlist ?? systemData.renameWatchlist,
-    onDeleteWatchlist: incomingProps.onDeleteWatchlist ?? systemData.deleteWatchlist,
-    onSetActiveWatchlist: incomingProps.onSetActiveWatchlist ?? systemData.setActiveWatchlist,
-  };
   const [activeTab, setActiveTab] = useState<"summary" | "watchlist">("summary");
-  const watchlists = props.watchlists || [];
-  const activeWatchlistName = props.activeWatchlistName || systemData.activeWatchlistName;
-  const currentCoin = props.currentCoin || marketData.currentCoin;
-  const signal = props.signal || null;
-  const indicators = props.indicators || null;
-  const market24h = props.market24h || marketData.market24h;
-  const support = props.support || 0;
-  const resistance = props.resistance || 0;
+  // Market is selector-first now, so this screen should not carry a second
+  // compatibility layer fed by App props for the same market/watchlist state.
+  const watchlists = systemData.watchlists;
+  const activeWatchlistName = systemData.activeWatchlistName;
+  const currentCoin = marketData.currentCoin;
+  const signal = marketData.signal || null;
+  const indicators = marketData.indicators || null;
+  const market24h = marketData.market24h;
+  const support = marketData.support || 0;
+  const resistance = marketData.resistance || 0;
   const [selectedListName, setSelectedListName] = useState(activeWatchlistName);
   const [watchlistPage, setWatchlistPage] = useState(1);
   const selectedList = useMemo(
@@ -271,7 +228,7 @@ export function MarketView(incomingProps: MarketViewProps) {
               selectedIsActive ? (
                 <span className="watchlist-status-chip active">Activa para señales</span>
               ) : (
-                <button type="button" className="btn-primary btn-small" onClick={() => void props.onSetActiveWatchlist?.(selectedList.name)}>
+                <button type="button" className="btn-primary btn-small" onClick={() => void systemData.setActiveWatchlist?.(selectedList.name)}>
                   Usar esta lista para señales
                 </button>
               )
@@ -298,7 +255,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                 className="btn-primary btn-small"
                 onClick={() => {
                   const name = window.prompt("Nombre de la nueva lista", "");
-                  if (name) void props.onCreateWatchlist?.(name);
+                  if (name) void systemData.createWatchlist?.(name);
                 }}
               >
                 Nueva lista
@@ -309,7 +266,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                 onClick={() => {
                   const currentName = selectedList?.name || activeWatchlistName;
                   const name = window.prompt("Renombrar lista", currentName);
-                  if (name) void props.onRenameWatchlist?.(currentName, name);
+                  if (name) void systemData.renameWatchlist?.(currentName, name);
                 }}
               >
                 Renombrar
@@ -321,7 +278,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                 onClick={() => {
                   const currentName = selectedList?.name || activeWatchlistName;
                   if (window.confirm(`Eliminar la lista ${currentName}?`)) {
-                    void props.onDeleteWatchlist?.(currentName);
+                    void systemData.deleteWatchlist?.(currentName);
                   }
                 }}
               >
@@ -334,7 +291,7 @@ export function MarketView(incomingProps: MarketViewProps) {
               <div className="watchlist-grid">
               {pagedSelectedCoins.rows.map((coin) => (
                 <div className={`watchlist-chip${coin === currentCoin ? " active" : ""}`} key={coin}>
-                  <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin?.(coin)}>
+                  <button type="button" className="watchlist-chip-main" onClick={() => marketData.selectCoin?.(coin)}>
                     <span className="watchlist-chip-symbol">{coin}</span>
                     <span className="watchlist-chip-note">{coin === currentCoin ? "Par activo" : "Abrir en el análisis"}</span>
                   </button>
@@ -342,7 +299,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                     type="button"
                     className="watchlist-chip-remove"
                     aria-label={`Quitar ${coin} del watchlist`}
-                    onClick={() => void props.onReplaceWatchlistCoins?.(selectedList?.name || activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
+                    onClick={() => void systemData.replaceWatchlistCoins?.(selectedList?.name || activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
                   >
                     ×
                   </button>

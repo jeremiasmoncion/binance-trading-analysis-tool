@@ -1,17 +1,11 @@
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useStatsSelector } from "../data-platform/selectors";
-import type { ExecutionCenterPayload, SignalSnapshot } from "../types";
 
-interface TradingViewProps {
-  executionCenter?: ExecutionCenterPayload | null;
-  signals?: SignalSnapshot[];
-}
-
-export function TradingView(incomingProps: TradingViewProps) {
+export function TradingView() {
   const systemData = useStatsSelector();
-  const executionCenter = incomingProps.executionCenter ?? systemData.execution;
-  const signals = incomingProps.signals ?? systemData.signalMemory;
+  const executionCenter = systemData.execution;
+  const signals = systemData.signalMemory;
   const pendingSignals = signals.filter((signal) => signal.outcome_status === "pending").length;
   const candidateOrders = executionCenter?.candidates?.length || 0;
   const recentOrders = executionCenter?.recentOrders || [];

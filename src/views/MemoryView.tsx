@@ -22,13 +22,6 @@ import type {
   WatchlistScannerStatus,
 } from "../types";
 
-interface MemoryViewProps {
-  signals?: SignalSnapshot[];
-  watchlist?: string[];
-  executionCenter?: ExecutionCenterPayload | null;
-  onRefreshExecutionCenter?: () => Promise<unknown>;
-}
-
 type SignalsTab = "overview" | "performance" | "strategies" | "adaptive" | "experiments" | "execution" | "history";
 
 interface AggregateRow {
@@ -221,19 +214,15 @@ function buildScannerStatusFromExecution(
   };
 }
 
-export function MemoryView(incomingProps: MemoryViewProps) {
+export function MemoryView() {
   const systemData = useMemorySystemSelector();
-  const props: MemoryViewProps = {
-    ...incomingProps,
-    signals: incomingProps.signals ?? systemData.signalMemory,
-    watchlist: incomingProps.watchlist ?? (systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || []),
-    executionCenter: incomingProps.executionCenter ?? systemData.execution,
-    onRefreshExecutionCenter: incomingProps.onRefreshExecutionCenter ?? systemData.refreshExecutionCenter,
-  };
-  const signals = props.signals || [];
-  const watchlist = props.watchlist || [];
-  const executionCenter = props.executionCenter || null;
-  const onRefreshExecutionCenter = props.onRefreshExecutionCenter ?? (async () => null);
+  const signals = systemData.signalMemory;
+  const watchlist = systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || [];
+  const executionCenter = systemData.execution || null;
+  // Memory now uses the shared system plane for execution refreshes too. The
+  // view can still decide when to call it, but it should not keep an App-level
+  // compatibility prop path for the same operational payload.
+  const onRefreshExecutionCenter = systemData.refreshExecutionCenter ?? (async () => null);
   const runScannerNow = systemData.runScannerNow || (async () => null);
   const updateSignalMemoryEntry = systemData.updateSignalMemoryEntry || (async () => null);
   const updateExecutionProfile = systemData.updateExecutionProfile || (async () => null);

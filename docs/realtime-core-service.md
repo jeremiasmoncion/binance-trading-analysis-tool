@@ -30,10 +30,10 @@ Today it:
 - serves the same system overlay stream as the serverless fallback
 - allows the frontend to switch to an external realtime core by setting `VITE_REALTIME_CORE_URL`
 - supports a bridge-token auth flow via `GET /api/realtime/session` so the external service does not depend on same-origin cookies
+- keeps per-user overlay channels hot in memory, so multiple tabs share one polling loop and one cached overlay state
 
 It does **not** yet:
 
-- keep state hot in memory across domains
 - aggregate exchange streams once and fan out diffs
 - replace the watcher/scanner runtime
 - fully remove serverless from the hot path
@@ -52,6 +52,8 @@ Default envs:
 - `REALTIME_CORE_HOST=0.0.0.0`
 - `REALTIME_CORE_ALLOWED_ORIGIN=http://localhost:5173`
 - `REALTIME_CORE_BRIDGE_TTL_SECONDS=1800`
+- `REALTIME_CORE_POLL_INTERVAL_MS=8000`
+- `REALTIME_CORE_MAX_CHANNEL_IDLE_MS=90000`
 
 To make the frontend consume it:
 
@@ -69,6 +71,20 @@ That route issues a short-lived bridge token derived from the current CRYPE sess
 - `GET {VITE_REALTIME_CORE_URL}/events`
 
 This keeps Vercel session cookies on the app domain while still allowing the external realtime core to authenticate requests cross-origin.
+
+## Current Runtime Model
+
+The service now keeps a hot in-memory channel per authenticated user.
+
+Each channel:
+
+- caches the latest `system overlay`
+- reuses one polling loop for all subscribers of that user
+- emits `system.overlay.updated` only when the overlay actually changes
+- still emits `system.heartbeat` on each cycle
+- self-cleans after an idle window with no subscribers
+
+This is the first real step from `request composition` toward `persistent orchestration`.
 
 ## Recommended Next Infra Step
 

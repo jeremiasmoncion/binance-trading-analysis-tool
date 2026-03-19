@@ -10,6 +10,10 @@ import { resolveRealtimeCoreSession } from "../api/_lib/auth.js";
 const PORT = Number(process.env.REALTIME_CORE_PORT || 8787);
 const HOST = process.env.REALTIME_CORE_HOST || "0.0.0.0";
 const ALLOWED_ORIGIN = String(process.env.REALTIME_CORE_ALLOWED_ORIGIN || "").trim();
+const DEFAULT_POLL_INTERVAL_MS = Math.max(4_000, Number(process.env.REALTIME_CORE_POLL_INTERVAL_MS || 8_000));
+const MAX_CHANNEL_IDLE_MS = Math.max(30_000, Number(process.env.REALTIME_CORE_MAX_CHANNEL_IDLE_MS || 90_000));
+
+const overlayChannels = new Map();
 
 function setCorsHeaders(req, res) {
   const origin = String(req.headers.origin || "");
@@ -49,6 +53,165 @@ function writeEvent(res, event) {
   res.write(`data: ${JSON.stringify(event)}\n\n`);
 }
 
+function getChannelKey(session) {
+  return String(session?.username || "").trim().toLowerCase();
+}
+
+function isSessionExpired(session) {
+  return !session?.exp || Date.now() > Number(session.exp);
+}
+
+function getSubscriberCount() {
+  return Array.from(overlayChannels.values()).reduce((total, channel) => total + channel.subscribers.size, 0);
+}
+
+function getChannelStats() {
+  return Array.from(overlayChannels.values()).map((channel) => ({
+    key: channel.key,
+    subscribers: channel.subscribers.size,
+    active: channel.active,
+    lastPublishedAt: channel.lastPublishedAt,
+    lastAccessedAt: channel.lastAccessedAt,
+    lastError: channel.lastError,
+  }));
+}
+
+function createChannelState(session) {
+  return {
+    key: getChannelKey(session),
+    session,
+    subscribers: new Map(),
+    lastOverlay: null,
+    lastOverlayHash: "",
+    lastPublishedAt: "",
+    lastAccessedAt: new Date().toISOString(),
+    lastError: null,
+    active: false,
+    intervalId: null,
+    inFlight: null,
+  };
+}
+
+function ensureChannel(session) {
+  const key = getChannelKey(session);
+  let channel = overlayChannels.get(key);
+  if (!channel) {
+    channel = createChannelState(session);
+    overlayChannels.set(key, channel);
+  } else if (session?.exp && Number(session.exp) > Number(channel.session?.exp || 0)) {
+    channel.session = session;
+  }
+  channel.lastAccessedAt = new Date().toISOString();
+  return channel;
+}
+
+function removeSubscriber(channel, subscriberId) {
+  channel.subscribers.delete(subscriberId);
+  channel.lastAccessedAt = new Date().toISOString();
+}
+
+function stopChannel(channel) {
+  if (channel.intervalId) {
+    clearInterval(channel.intervalId);
+    channel.intervalId = null;
+  }
+  channel.active = false;
+  channel.inFlight = null;
+  if (!channel.subscribers.size) {
+    overlayChannels.delete(channel.key);
+  }
+}
+
+function createSystemRequest(channel) {
+  return {
+    headers: {},
+    query: {},
+  };
+}
+
+function publishEvent(channel, event) {
+  channel.subscribers.forEach((subscriber) => {
+    try {
+      writeEvent(subscriber.res, event);
+    } catch {
+      subscriber.close();
+    }
+  });
+}
+
+async function publishOverlay(channel, { force = false } = {}) {
+  if (!channel || !channel.subscribers.size) {
+    stopChannel(channel);
+    return;
+  }
+
+  if (isSessionExpired(channel.session)) {
+    const heartbeat = createEvent("system.heartbeat", "system", {
+      connected: false,
+      generatedAt: new Date().toISOString(),
+      message: "La sesión del realtime core expiró y debe renovarse",
+    });
+    publishEvent(channel, heartbeat);
+    channel.subscribers.forEach((subscriber) => subscriber.close());
+    stopChannel(channel);
+    return;
+  }
+
+  if (channel.inFlight) {
+    return channel.inFlight;
+  }
+
+  channel.inFlight = (async () => {
+    try {
+      const overlay = await buildRealtimeCoreSystemOverlay(createSystemRequest(channel), {
+        session: channel.session,
+      });
+      const overlayHash = JSON.stringify(overlay);
+      const changed = force || overlayHash !== channel.lastOverlayHash;
+
+      channel.lastOverlay = overlay;
+      channel.lastOverlayHash = overlayHash;
+      channel.lastPublishedAt = new Date().toISOString();
+      channel.lastError = null;
+      channel.lastAccessedAt = channel.lastPublishedAt;
+
+      if (changed) {
+        publishEvent(channel, createEvent("system.overlay.updated", "system", overlay));
+      }
+      publishEvent(channel, createEvent("system.heartbeat", "system", buildRealtimeCoreHeartbeat(overlay)));
+    } catch (error) {
+      channel.lastError = error instanceof Error ? error.message : "No se pudo emitir overlay";
+      publishEvent(channel, createEvent("system.heartbeat", "system", {
+        connected: false,
+        generatedAt: new Date().toISOString(),
+        message: channel.lastError,
+      }));
+    } finally {
+      channel.inFlight = null;
+    }
+  })();
+
+  return channel.inFlight;
+}
+
+function startChannel(channel) {
+  if (channel.active) return;
+  channel.active = true;
+
+  void publishOverlay(channel, { force: true });
+
+  channel.intervalId = setInterval(() => {
+    if (!channel.subscribers.size) {
+      const idleMs = Date.now() - new Date(channel.lastAccessedAt || 0).getTime();
+      if (idleMs >= MAX_CHANNEL_IDLE_MS) {
+        stopChannel(channel);
+      }
+      return;
+    }
+    void publishOverlay(channel);
+  }, DEFAULT_POLL_INTERVAL_MS);
+}
+
 async function handleBootstrap(req, res, url) {
   const normalizedReq = normalizeRequest(req, url);
   const session = resolveRealtimeCoreSession(normalizedReq);
@@ -56,7 +219,23 @@ async function handleBootstrap(req, res, url) {
     sendJson(req, res, 401, { message: "Sesión no válida o vencida" });
     return;
   }
-  const payload = await buildRealtimeCoreBootstrap(normalizedReq);
+
+  const channel = overlayChannels.get(getChannelKey(session)) || null;
+  if (channel && session?.exp && Number(session.exp) > Number(channel.session?.exp || 0)) {
+    channel.session = session;
+  }
+  const payload = await buildRealtimeCoreBootstrap(normalizedReq, { session });
+
+  if (channel.lastOverlay) {
+    payload.system = {
+      ...payload.system,
+      connection: channel.lastOverlay.connection,
+      portfolio: channel.lastOverlay.portfolio,
+      execution: channel.lastOverlay.execution,
+      dashboardSummary: channel.lastOverlay.dashboardSummary,
+    };
+  }
+
   sendJson(req, res, 200, payload);
 }
 
@@ -68,8 +247,8 @@ async function handleEvents(req, res, url) {
     return;
   }
 
-  const intervalMs = Math.max(8_000, Math.min(15_000, Number(url.searchParams.get("intervalMs") || 10_000) || 10_000));
-  const closeAfterMs = Math.max(intervalMs * 2, 25_000);
+  const channel = ensureChannel(session);
+  const subscriberId = `${channel.key}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
 
   setCorsHeaders(req, res);
   res.writeHead(200, {
@@ -81,39 +260,33 @@ async function handleEvents(req, res, url) {
   res.write("retry: 1500\n\n");
 
   let closed = false;
-  let intervalId = null;
-  let timeoutId = null;
 
   const closeStream = () => {
     if (closed) return;
     closed = true;
-    if (intervalId) clearInterval(intervalId);
-    if (timeoutId) clearTimeout(timeoutId);
-    res.end();
+    removeSubscriber(channel, subscriberId);
+    try {
+      res.end();
+    } catch {
+      // ignore close errors
+    }
   };
+
+  channel.subscribers.set(subscriberId, {
+    id: subscriberId,
+    res,
+    close: closeStream,
+  });
 
   req.on("close", closeStream);
   req.on("aborted", closeStream);
 
-  const emitOverlay = async () => {
-    try {
-      const overlay = await buildRealtimeCoreSystemOverlay(normalizedReq);
-      writeEvent(res, createEvent("system.overlay.updated", "system", overlay));
-      writeEvent(res, createEvent("system.heartbeat", "system", buildRealtimeCoreHeartbeat(overlay)));
-    } catch (error) {
-      writeEvent(res, createEvent("system.heartbeat", "system", {
-        connected: false,
-        generatedAt: new Date().toISOString(),
-        message: error instanceof Error ? error.message : "No se pudo emitir overlay",
-      }));
-    }
-  };
+  if (channel.lastOverlay) {
+    writeEvent(res, createEvent("system.overlay.updated", "system", channel.lastOverlay));
+    writeEvent(res, createEvent("system.heartbeat", "system", buildRealtimeCoreHeartbeat(channel.lastOverlay)));
+  }
 
-  await emitOverlay();
-  intervalId = setInterval(() => {
-    void emitOverlay();
-  }, intervalMs);
-  timeoutId = setTimeout(closeStream, closeAfterMs);
+  startChannel(channel);
 }
 
 const server = http.createServer(async (req, res) => {
@@ -123,7 +296,7 @@ const server = http.createServer(async (req, res) => {
     setCorsHeaders(req, res);
     res.writeHead(204, {
       "Access-Control-Allow-Methods": "GET,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization",
     });
     res.end();
     return;
@@ -134,7 +307,12 @@ const server = http.createServer(async (req, res) => {
       sendJson(req, res, 200, {
         ok: true,
         service: "realtime-core",
+        mode: "persistent-memory",
         now: new Date().toISOString(),
+        activeChannels: overlayChannels.size,
+        activeSubscribers: getSubscriberCount(),
+        pollIntervalMs: DEFAULT_POLL_INTERVAL_MS,
+        channels: getChannelStats(),
       });
       return;
     }

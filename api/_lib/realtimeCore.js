@@ -51,7 +51,7 @@ function normalizeMarketBootstrapSnapshot(snapshot) {
 }
 
 export async function buildRealtimeCoreBootstrap(req, options = {}) {
-  const session = resolveRealtimeCoreSession(req);
+  const session = options.session || resolveRealtimeCoreSession(req);
   if (!session) {
     throw new Error("Sesión no válida o vencida");
   }
@@ -91,8 +91,8 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
   };
 }
 
-export async function buildRealtimeCoreSystemOverlay(req) {
-  const session = resolveRealtimeCoreSession(req);
+export async function buildRealtimeCoreSystemOverlay(req, options = {}) {
+  const session = options.session || resolveRealtimeCoreSession(req);
   if (!session) {
     throw new Error("Sesión no válida o vencida");
   }

@@ -102,9 +102,10 @@ Current live overlay path:
 
 This is still transitional:
 
-- it still runs on serverless
+- the Vercel route still exists as fallback
+- the external realtime core now supports hot in-memory per-user channels
 - it still coexists with polling
-- it exists to lock the contract and frontend flow before moving to the persistent realtime core
+- it exists to lock the contract and frontend flow before moving all hot runtime ownership to the persistent realtime core
 
 ## External Realtime Core Mode
 
@@ -154,7 +155,8 @@ Current reduction already applied:
 - move local logic that still polls by screen toward plane-owned policies
 - bootstrap route for realtime core foundation (`/api/realtime/bootstrap`)
 - shared realtime contracts and bootstrap hydration for market/system planes
-- prepare the bridge from snapshots to event-driven overlays
+- bridge auth from the app domain to the external realtime core
+- persistent-memory per-user overlay channels in the external realtime core
 
 ### Pending
 

@@ -103,6 +103,30 @@ function stabilizeOverlay(nextOverlay, previousOverlay) {
   return nextOverlay;
 }
 
+function stripVolatileOverlayMetadata(value) {
+  if (Array.isArray(value)) {
+    return value.map(stripVolatileOverlayMetadata);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.entries(value).reduce((acc, [key, nextValue]) => {
+    if (key === "generatedAt" || key === "updatedAt") {
+      return acc;
+    }
+    acc[key] = stripVolatileOverlayMetadata(nextValue);
+    return acc;
+  }, {});
+}
+
+function getOverlaySemanticHash(overlay) {
+  // Runtime timestamps help operators inspect freshness, but they should not
+  // fan out new overlay events when the actual operational state is unchanged.
+  return JSON.stringify(stripVolatileOverlayMetadata(overlay));
+}
+
 function setCorsHeaders(req, res) {
   const origin = String(req.headers.origin || "");
   if (!ALLOWED_ORIGIN || !origin || origin !== ALLOWED_ORIGIN) return;
@@ -255,7 +279,7 @@ async function publishOverlay(channel, { force = false } = {}) {
         session: channel.session,
       });
       const overlay = stabilizeOverlay(rawOverlay, channel.lastOverlay);
-      const overlayHash = JSON.stringify(overlay);
+      const overlayHash = getOverlaySemanticHash(overlay);
       const changed = force || overlayHash !== channel.lastOverlayHash;
 
       channel.lastOverlay = overlay;

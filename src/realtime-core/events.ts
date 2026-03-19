@@ -42,6 +42,19 @@ function hasUsefulExecutionCenter(execution: unknown) {
   return totalValue > 0 || cashValue > 0 || openOrdersCount > 0 || candidatesCount > 0 || recentOrdersCount > 0;
 }
 
+function hasRealtimeOverlayChanged(
+  current: ReturnType<typeof systemDataPlaneStore.getState>,
+  nextConnection: ReturnType<typeof systemDataPlaneStore.getState>["snapshot"]["connection"],
+  nextExecution: ReturnType<typeof systemDataPlaneStore.getState>["overlay"]["execution"],
+  nextDashboardSummary: ReturnType<typeof systemDataPlaneStore.getState>["overlay"]["dashboardSummary"],
+) {
+  return !(
+    current.snapshot.connection === nextConnection
+    && current.overlay.execution === nextExecution
+    && current.overlay.dashboardSummary === nextDashboardSummary
+  );
+}
+
 function mergeDashboardSummaryPreservingCollections(
   currentSummary: DashboardSummaryPayload | null,
   nextSummary: DashboardSummaryPayload | null | undefined,
@@ -92,42 +105,67 @@ function mergeDashboardSummaryPreservingCollections(
 export function applyRealtimeCoreEvent(event: RealtimeCoreEventEnvelope) {
   if (event.type === "system.overlay.updated" && isSystemOverlayPayload(event.payload)) {
     const payload = event.payload;
-    systemDataPlaneStore.setState((current) => ({
-      ...current,
-      meta: {
-        ...current.meta,
-        status: "ready",
-        source: "overlay",
-        lastOverlayAt: Date.now(),
-        lastStreamAt: Date.now(),
-        lastError: null,
-      },
-      snapshot: {
-        ...current.snapshot,
-        connection: payload.connection ?? current.snapshot.connection,
-      },
-      overlay: {
-        execution: hasUsefulExecutionCenter(payload.execution)
-          ? payload.execution
-          : current.overlay.execution,
-        dashboardSummary: hasUsefulDashboardSummary(payload.dashboardSummary)
-          ? mergeDashboardSummaryPreservingCollections(current.overlay.dashboardSummary, payload.dashboardSummary)
-          : current.overlay.dashboardSummary,
-      },
-    }));
+    systemDataPlaneStore.setState((current) => {
+      const nextConnection = payload.connection ?? current.snapshot.connection;
+      const nextExecution = hasUsefulExecutionCenter(payload.execution)
+        ? payload.execution
+        : current.overlay.execution;
+      const nextDashboardSummary = hasUsefulDashboardSummary(payload.dashboardSummary)
+        ? mergeDashboardSummaryPreservingCollections(current.overlay.dashboardSummary, payload.dashboardSummary)
+        : current.overlay.dashboardSummary;
+
+      // Realtime overlays are the hottest shared path in the app. Ignore
+      // semantically identical frames so future bot/live expansions do not
+      // keep waking the whole system plane on heartbeat-like overlay noise.
+      if (!hasRealtimeOverlayChanged(current, nextConnection, nextExecution, nextDashboardSummary)) {
+        return current;
+      }
+
+      return {
+        ...current,
+        meta: {
+          ...current.meta,
+          status: "ready",
+          source: "overlay",
+          lastOverlayAt: Date.now(),
+          lastStreamAt: Date.now(),
+          lastError: null,
+        },
+        snapshot: {
+          ...current.snapshot,
+          connection: nextConnection,
+        },
+        overlay: {
+          execution: nextExecution,
+          dashboardSummary: nextDashboardSummary,
+        },
+      };
+    });
     return;
   }
 
   if (event.type === "system.heartbeat" && isHeartbeatPayload(event.payload)) {
-    systemDataPlaneStore.setState((current) => ({
-      ...current,
-      meta: {
-        ...current.meta,
-        status: "ready",
-        source: "stream",
-        lastStreamAt: Date.now(),
-        lastError: null,
-      },
-    }));
+    systemDataPlaneStore.setState((current) => {
+      if (current.meta.status === "ready" && current.meta.source === "stream" && current.meta.lastError === null) {
+        return {
+          ...current,
+          meta: {
+            ...current.meta,
+            lastStreamAt: Date.now(),
+          },
+        };
+      }
+
+      return {
+        ...current,
+        meta: {
+          ...current.meta,
+          status: "ready",
+          source: "stream",
+          lastStreamAt: Date.now(),
+          lastError: null,
+        },
+      };
+    });
   }
 }

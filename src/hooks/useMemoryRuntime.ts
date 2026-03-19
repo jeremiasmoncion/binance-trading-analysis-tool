@@ -63,6 +63,88 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
     }
   }, [currentUser?.username]);
 
+  const createStrategyExperiment = useCallback(async (payload: {
+    baseStrategyId: string;
+    candidateStrategyId: string;
+    candidateVersion: string;
+    marketScope?: string;
+    timeframeScope?: string;
+    summary?: string;
+    status?: string;
+    metadata?: Record<string, unknown>;
+  }) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      await strategyEngineService.createExperiment(payload);
+      return await refreshStrategyEngine({ forceFresh: true });
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshStrategyEngine]);
+
+  const updateStrategyExperiment = useCallback(async (id: number, payload: { status?: string; summary?: string; metadata?: Record<string, unknown> }) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      await strategyEngineService.updateExperiment(id, payload);
+      return await refreshStrategyEngine({ forceFresh: true });
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshStrategyEngine]);
+
+  const promoteStrategyExperiment = useCallback(async (id: number) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      await strategyEngineService.promoteExperiment(id);
+      return await refreshStrategyEngine({ forceFresh: true });
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshStrategyEngine]);
+
+  const generateStrategyRecommendations = useCallback(async () => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      // Recommendation generation is a shared engine mutation, so the plane
+      // immediately refreshes the canonical strategy snapshot after it runs.
+      await strategyEngineService.generateRecommendations();
+      return await refreshStrategyEngine({ forceFresh: true });
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshStrategyEngine]);
+
+  const activateStrategyRecommendation = useCallback(async (recommendationId: number) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      const result = await strategyEngineService.activateRecommendation(recommendationId);
+      await refreshStrategyEngine({ forceFresh: true });
+      return result;
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshStrategyEngine]);
+
   const refreshScannerStatus = useCallback(async (options?: { forceFresh?: boolean; clearOnError?: boolean }) => {
     const username = currentUser?.username || "";
     if (!username) {
@@ -127,6 +209,11 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
     strategyDecision,
     scannerStatus,
     refreshStrategyEngine,
+    createStrategyExperiment,
+    updateStrategyExperiment,
+    promoteStrategyExperiment,
+    generateStrategyRecommendations,
+    activateStrategyRecommendation,
     refreshScannerStatus,
     runScannerNow,
   };

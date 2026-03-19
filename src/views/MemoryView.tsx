@@ -6,7 +6,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
 import { openHelp, showToast, startLoading, stopLoading } from "../lib/ui-events";
-import { binanceService, strategyEngineService } from "../services/api";
+import { binanceService } from "../services/api";
 import { useMemorySystemSelector } from "../data-platform/selectors";
 import type {
   ExecutionCenterPayload,
@@ -280,6 +280,11 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const needsScannerHeartbeat = activeTab === "overview" || activeTab === "execution";
 
   const loadStrategyEngineState = systemData.refreshStrategyEngine;
+  const createStrategyExperiment = systemData.createStrategyExperiment || (async () => null);
+  const updateStrategyExperiment = systemData.updateStrategyExperiment || (async () => null);
+  const promoteStrategyExperiment = systemData.promoteStrategyExperiment || (async () => null);
+  const generateStrategyRecommendations = systemData.generateStrategyRecommendations || (async () => null);
+  const activateStrategyRecommendation = systemData.activateStrategyRecommendation || (async () => null);
   const loadScannerStatus = systemData.refreshScannerStatus;
 
   useEffect(() => {
@@ -1385,7 +1390,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
 
   async function handleCreateExperiment() {
     try {
-      await strategyEngineService.createExperiment({
+      await createStrategyExperiment({
         baseStrategyId: experimentBase,
         candidateStrategyId: experimentCandidate,
         candidateVersion: experimentVersion,
@@ -1393,7 +1398,6 @@ export function MemoryView(incomingProps: MemoryViewProps) {
         timeframeScope: experimentTimeframeScope,
         summary: experimentSummary,
       });
-      await loadStrategyEngineState({ forceFresh: true });
       setExperimentSummary("");
     } catch {
       // keep UI steady if API fails
@@ -1402,7 +1406,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
 
   async function handleCreateRecommendedExperiment() {
     try {
-      await strategyEngineService.createExperiment({
+      await createStrategyExperiment({
         baseStrategyId: "trend-alignment",
         candidateStrategyId: "trend-alignment",
         candidateVersion: "v2",
@@ -1418,7 +1422,6 @@ export function MemoryView(incomingProps: MemoryViewProps) {
           recommendationReason: trendPromotionRecommendation.reason,
         },
       });
-      await loadStrategyEngineState({ forceFresh: true });
     } catch {
       // keep UI steady if API fails
     }
@@ -1427,7 +1430,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   async function handleSendRecommendedToSandbox() {
     if (!recommendedExperiment) return;
     try {
-      await strategyEngineService.updateExperiment(recommendedExperiment.id, {
+      await updateStrategyExperiment(recommendedExperiment.id, {
         status: "sandbox",
         metadata: {
           ...(recommendedExperiment.metadata || {}),
@@ -1437,7 +1440,6 @@ export function MemoryView(incomingProps: MemoryViewProps) {
           promotedAt: new Date().toISOString(),
         },
       });
-      await loadStrategyEngineState({ forceFresh: true });
     } catch {
       // keep UI steady if API fails
     }
@@ -1445,8 +1447,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
 
   async function handleGenerateRecommendations() {
     try {
-      await strategyEngineService.generateRecommendations();
-      await loadStrategyEngineState({ forceFresh: true });
+      await generateStrategyRecommendations();
     } catch {
       // keep UI steady if API fails
     }
@@ -1455,9 +1456,8 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   async function handleActivateRecommendation(item: StrategyRecommendationRecord) {
     setActivatingRecommendationKey(item.recommendation_key);
     try {
-      const payload: RecommendationActivationResult = await strategyEngineService.activateRecommendation(item.id);
-      await loadStrategyEngineState({ forceFresh: true });
-      if (payload.profile) {
+      const payload = await activateStrategyRecommendation(item.id) as RecommendationActivationResult | null;
+      if (payload?.profile) {
         setExecutionProfileForm(payload.profile);
         await onRefreshExecutionCenter();
       }
@@ -1476,8 +1476,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       detail: "Actualizando el motor activo para que watcher y demo usen la variante ganadora.",
     });
     try {
-      await strategyEngineService.promoteExperiment(item.experiment.id);
-      await loadStrategyEngineState({ forceFresh: true });
+      await promoteStrategyExperiment(item.experiment.id);
       showToast({
         tone: "success",
         title: "Motor promovido",

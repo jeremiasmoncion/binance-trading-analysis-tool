@@ -114,6 +114,20 @@ export interface SystemDataPlane {
     refreshDashboardSummary: (forceFresh?: boolean) => Promise<unknown>;
     refreshProfileDataWithFeedback: () => Promise<unknown>;
     refreshStrategyEngine: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
+    createStrategyExperiment: (payload: {
+      baseStrategyId: string;
+      candidateStrategyId: string;
+      candidateVersion: string;
+      marketScope?: string;
+      timeframeScope?: string;
+      summary?: string;
+      status?: string;
+      metadata?: Record<string, unknown>;
+    }) => Promise<unknown>;
+    updateStrategyExperiment: (id: number, payload: { status?: string; summary?: string; metadata?: Record<string, unknown> }) => Promise<unknown>;
+    promoteStrategyExperiment: (id: number) => Promise<unknown>;
+    generateStrategyRecommendations: () => Promise<unknown>;
+    activateStrategyRecommendation: (recommendationId: number) => Promise<unknown>;
     refreshScannerStatus: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
     runScannerNow: () => Promise<WatchlistScanExecution | null>;
     refreshValidationLab: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<StrategyValidationLabPayload | null>;

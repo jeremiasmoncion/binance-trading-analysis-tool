@@ -194,6 +194,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - scanner admin refresh/run actions should resolve through shared `system plane actions`, even when the final execution summary is rendered only in admin screens like `Perfil` or `Memory`
 - `useBinanceData` should keep any remaining per-view warm-up logic behind a single load-plan helper; if that behavior needs to change, it should be updated in one place instead of reintroducing screen-specific refresh branches across multiple effects
 - profile backtesting controls should resolve through shared `system plane` state/actions; `ProfileView` should not own a second validation-lab fetch cycle
+- strategy engine mutations used by `MemoryView` should resolve through shared `system plane actions`; the view can keep local form state, but it should not own the canonical mutation pipeline
 
 ## Migration Phases
 
@@ -218,6 +219,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - signal-memory evaluation now reuses shared market state instead of calling market APIs per pending coin from the browser
 - profile scanner controls now consume shared scanner state/actions instead of calling the watchlist service directly from the view
 - profile backtesting now consumes shared validation-lab state/actions instead of calling the strategy engine directly from the view
+- memory strategy experiments and recommendation actions now resolve through shared `system plane` actions instead of calling the strategy engine directly from the view
 
 ### In Progress
 

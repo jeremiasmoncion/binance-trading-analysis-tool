@@ -39,6 +39,11 @@ export function useMemorySystemSelector() {
     refreshSignals: state.actions.refreshSignals,
     refreshExecutionCenter: state.actions.refreshExecutionCenter,
     refreshStrategyEngine: state.actions.refreshStrategyEngine,
+    createStrategyExperiment: state.actions.createStrategyExperiment,
+    updateStrategyExperiment: state.actions.updateStrategyExperiment,
+    promoteStrategyExperiment: state.actions.promoteStrategyExperiment,
+    generateStrategyRecommendations: state.actions.generateStrategyRecommendations,
+    activateStrategyRecommendation: state.actions.activateStrategyRecommendation,
     refreshScannerStatus: state.actions.refreshScannerStatus,
     runScannerNow: state.actions.runScannerNow,
   }), shallowEqualSelection);

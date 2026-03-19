@@ -170,6 +170,11 @@ export function syncSystemMemoryActions(actions: ReturnTypeUseMemoryRuntime) {
     actions: {
       ...current.actions,
       refreshStrategyEngine: actions.refreshStrategyEngine,
+      createStrategyExperiment: actions.createStrategyExperiment,
+      updateStrategyExperiment: actions.updateStrategyExperiment,
+      promoteStrategyExperiment: actions.promoteStrategyExperiment,
+      generateStrategyRecommendations: actions.generateStrategyRecommendations,
+      activateStrategyRecommendation: actions.activateStrategyRecommendation,
       refreshScannerStatus: actions.refreshScannerStatus,
       runScannerNow: actions.runScannerNow,
     },

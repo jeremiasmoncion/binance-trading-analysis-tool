@@ -43,6 +43,8 @@ const SMART_REFRESH_BY_STYLE: Record<string, number> = {
   "swing corto": 900_000,
 };
 
+const COMPARISON_SNAPSHOT_TTL_MS = 60_000;
+
 function getSmartRefreshInterval(timeframe: string, tradingStyle?: string) {
   const timeframeBase = SMART_REFRESH_BY_TIMEFRAME[timeframe] || 300_000;
   const styleBase = SMART_REFRESH_BY_STYLE[tradingStyle || ""] || timeframeBase;
@@ -186,6 +188,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const snapshotRef = useRef(snapshot);
   const activeTimeframeRef = useRef(timeframe);
   const marketRequestSeqRef = useRef(0);
+  const comparisonFetchedAtRef = useRef(0);
   const tickerFrameRef = useRef<number | null>(null);
   const klineFrameRef = useRef<number | null>(null);
   const latestTickerRef = useRef<{ price: number; change: number; high: number; low: number; volume: number } | null>(null);
@@ -232,11 +235,18 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     setStatus("loading");
     try {
       const shouldLoadComparison = viewNeedsMarketComparison(currentView);
+      // Comparison is a shared 24h context, not a per-timeframe snapshot. Keep
+      // it on a short TTL so coin/timeframe changes do not fan out a second
+      // full 24h batch request on every market refresh.
+      const shouldRefreshComparison = shouldLoadComparison && (
+        !snapshotRef.current.comparison.length
+        || Date.now() - comparisonFetchedAtRef.current >= COMPARISON_SNAPSHOT_TTL_MS
+      );
       const fetchedCandles = (await marketService.fetchCandles(coin, nextTimeframe)) || generateFallbackCandles(nextTimeframe);
       const [multiTfPayloads, ticker, nextComparison] = await Promise.all([
         buildMultiTimeframePayloads(coin, nextTimeframe, fetchedCandles),
         marketService.fetch24h(coin),
-        shouldLoadComparison
+        shouldRefreshComparison
           ? Promise.all(
             POPULAR_COINS.slice(0, 4).map(async (symbol) => {
               const data = await marketService.fetch24h(symbol);
@@ -249,7 +259,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
               };
             }),
           )
-          : Promise.resolve<ComparisonCoin[]>([]),
+          : Promise.resolve<ComparisonCoin[] | null>(null),
       ]);
 
       const derived = buildDerivedMarketSnapshot(
@@ -265,6 +275,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         return;
       }
 
+      if (nextComparison) {
+        comparisonFetchedAtRef.current = Date.now();
+      }
+
       setCurrentCoin(coin);
       setTimeframe(nextTimeframe);
       setSnapshot((current) => ({
@@ -277,7 +291,9 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         strategy: derived.strategy,
         strategyCandidates: derived.strategyCandidates,
         multiTimeframes: derived.multiTimeframes,
-        comparison: shouldLoadComparison ? nextComparison : current.comparison,
+        comparison: shouldLoadComparison
+          ? (nextComparison || current.comparison)
+          : current.comparison,
         market24h: {
           change: Number(ticker.priceChangePercent || 0),
           high: Number(ticker.highPrice || 0),
@@ -453,14 +469,27 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         let changed = false;
         const next = prev.map((item) => {
           if (item.symbol !== symbol) return item;
+          const resolvedPrice = nextPrice > 0 ? nextPrice : item.price;
+          const resolvedChange = Number.isFinite(nextChange) ? nextChange : item.change;
+          const resolvedImpulse = resolvedChange > 2 ? "Fuerte" : resolvedChange > 0 ? "Moderado" : "Débil";
+          if (
+            item.price === resolvedPrice
+            && item.change === resolvedChange
+            && item.impulse === resolvedImpulse
+          ) {
+            return item;
+          }
           changed = true;
           return {
             ...item,
-            price: nextPrice > 0 ? nextPrice : item.price,
-            change: Number.isFinite(nextChange) ? nextChange : item.change,
-            impulse: nextChange > 2 ? "Fuerte" : nextChange > 0 ? "Moderado" : "Débil",
+            price: resolvedPrice,
+            change: resolvedChange,
+            impulse: resolvedImpulse,
           };
         });
+        if (changed) {
+          comparisonFetchedAtRef.current = Date.now();
+        }
         return changed ? { ...current, comparison: next } : current;
       });
     });

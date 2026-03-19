@@ -204,6 +204,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - market snapshots should follow a latest-request-wins rule; if the user changes coin or timeframe quickly, older responses must be ignored instead of snapping the plane back to stale context
 - market derivation should have one canonical helper path; fetches and live streams can enter through different sources, but they should build signal/analysis/strategy state with the same snapshot pipeline
 - market derivation should also reuse any indicator pass that already happened in the active path; the hot kline/ticker loop should not recalculate the same candle indicators twice before running the strategy engine
+- market comparison should behave like shared 24h context, not like a per-timeframe dependency; market refreshes can reuse a short-lived comparison snapshot and live comparison frames should no-op when price/change data did not actually move
 
 ## Migration Phases
 

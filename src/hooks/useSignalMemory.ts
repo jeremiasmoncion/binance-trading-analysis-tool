@@ -286,8 +286,11 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       return;
     }
 
+    // Signal memory is a shared domain mounted at App level, so navigation
+    // alone should not trigger a full refetch. Periodic policy-driven refresh
+    // and explicit mutations already keep the snapshot current.
     void refreshSignals();
-  }, [currentUser, currentView, publishSignalsToPlane, refreshSignals]);
+  }, [currentUser, publishSignalsToPlane, refreshSignals]);
 
   useEffect(() => {
     if (!currentUser) return undefined;

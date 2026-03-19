@@ -180,6 +180,7 @@ This means:
 - `overlay.dashboardSummary` should survive degraded overlay frames
 - `snapshot.signalMemory` should survive transient list failures
 - `signal memory` refresh should be no-op aware too; repeated shared refreshes must not republish the same signal list just because the backend returned a new array reference
+- shared signal-memory hydration should not refetch on every screen navigation; because the hook lives at App level, navigation-only changes must defer to refresh policy and explicit mutations instead of reopening the same list fetch
 - shared `memory runtime` refreshes should be no-op aware as well; strategy/scanner polling can remain centralized, but equivalent payloads must not recreate the canonical engine snapshot on every interval
 - `useBinanceData` refreshes should also be no-op aware for connection, execution and dashboard summary payloads; shared runtime hooks may poll or refresh for safety, but they should not wake the `system plane` when those operational payloads are semantically unchanged
 - external realtime bootstrap and overlays must resolve system data from the already-authenticated username/session, not from same-origin request cookies

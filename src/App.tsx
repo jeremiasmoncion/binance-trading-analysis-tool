@@ -19,7 +19,7 @@ import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
 import { syncMarketDataPlane, syncMarketDataPlaneActions, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemValidationLabActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
 import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
-import { strategyEngineService, realtimeCoreService } from "./services/api";
+import { realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
 import { applyRealtimeCoreEvent } from "./realtime-core/events";
 import type { StrategyRecommendationRecord } from "./types";
@@ -461,8 +461,6 @@ export function App() {
       return;
     }
 
-    let cancelled = false;
-
     const emitAutomationToasts = (recommendations: StrategyRecommendationRecord[]) => {
       const automatedItems = recommendations.filter((item) => {
         const evidence = item.evidence;
@@ -518,28 +516,11 @@ export function App() {
       });
     };
 
-    const refreshAutomationNotifications = async () => {
-      try {
-        const payload = await strategyEngineService.listRecommendations();
-        if (!cancelled) {
-          emitAutomationToasts(payload.recommendations || []);
-        }
-      } catch {
-        // silent: this runs as a background notifier
-      }
-    };
-
-    void refreshAutomationNotifications();
-    const intervalId = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void refreshAutomationNotifications();
-    }, 60_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [auth.currentUser]);
+    // App only reacts to the canonical recommendation snapshot now. Polling is
+    // owned by useMemoryRuntime so the engine state is refreshed once and then
+    // shared across Memory, admin panels and global automation notifications.
+    emitAutomationToasts(memoryRuntime.strategyRecommendations);
+  }, [auth.currentUser, memoryRuntime.strategyRecommendations]);
 
   const handleLogout = useCallback(async () => {
     await auth.handleLogout(async () => {

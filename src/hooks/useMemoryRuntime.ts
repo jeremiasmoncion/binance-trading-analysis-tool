@@ -201,6 +201,22 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
     void refreshScannerStatus({ clearOnError: true });
   }, [currentUser, refreshScannerStatus, refreshStrategyEngine]);
 
+  useEffect(() => {
+    if (!currentUser) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      // Strategy recommendations now refresh through the shared memory runtime
+      // instead of App-level one-off polling, so recommendations, Memory and
+      // automation notifications all observe the same canonical engine snapshot.
+      void refreshStrategyEngine();
+    }, 60_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [currentUser, refreshStrategyEngine]);
+
   return {
     strategyRegistry,
     strategyVersions,

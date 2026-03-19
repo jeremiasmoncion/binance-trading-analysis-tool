@@ -23,6 +23,17 @@ function hasUsefulDashboardSummary(summary) {
   return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
 }
 
+function hasUsefulExecutionCenter(execution) {
+  if (!execution || typeof execution !== "object") return false;
+  const account = execution.account && typeof execution.account === "object" ? execution.account : {};
+  const candidatesCount = Array.isArray(execution.candidates) ? execution.candidates.length : 0;
+  const recentOrdersCount = Array.isArray(execution.recentOrders) ? execution.recentOrders.length : 0;
+  const totalValue = Number(account.totalValue || 0);
+  const cashValue = Number(account.cashValue || 0);
+  const openOrdersCount = Number(account.openOrdersCount || 0);
+  return totalValue > 0 || cashValue > 0 || openOrdersCount > 0 || candidatesCount > 0 || recentOrdersCount > 0;
+}
+
 function stabilizeOverlay(nextOverlay, previousOverlay) {
   if (!previousOverlay) return nextOverlay;
 
@@ -33,9 +44,21 @@ function stabilizeOverlay(nextOverlay, previousOverlay) {
   const nextHasIssue = Boolean(nextSummary?.connectionIssue);
 
   if (previousIsUseful && (!nextIsUseful || nextHasIssue)) {
-    return {
+    nextOverlay = {
       ...nextOverlay,
       dashboardSummary: previousSummary,
+    };
+  }
+
+  const nextExecution = nextOverlay?.execution ?? null;
+  const previousExecution = previousOverlay?.execution ?? null;
+  const nextExecutionUseful = hasUsefulExecutionCenter(nextExecution);
+  const previousExecutionUseful = hasUsefulExecutionCenter(previousExecution);
+
+  if (previousExecutionUseful && !nextExecutionUseful) {
+    nextOverlay = {
+      ...nextOverlay,
+      execution: previousExecution,
     };
   }
 

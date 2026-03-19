@@ -72,7 +72,7 @@ export function App() {
     }
   }, [setCurrentView, sidebarCollapsed, toggleSidebar]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView });
-  const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser });
+  const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser, currentView });
   const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {

@@ -7,11 +7,21 @@ import type {
   StrategyRegistryEntry,
   StrategyVersionRecord,
   UserSession,
+  ViewName,
   WatchlistScannerStatus,
 } from "../types";
 
 interface UseMemoryRuntimeOptions {
   currentUser: UserSession | null;
+  currentView: ViewName;
+}
+
+function getMemoryRuntimeStrategyIntervalMs(currentView: ViewName) {
+  if (currentView === "memory" || currentView === "profile") {
+    return 60_000;
+  }
+
+  return 180_000;
 }
 
 function hasRecordArrayChanged<T extends { id: number; updated_at?: string | null }>(current: T[], next: T[]) {
@@ -64,7 +74,7 @@ function hasScannerStatusChanged(current: WatchlistScannerStatus | null, next: W
   );
 }
 
-export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
+export function useMemoryRuntime({ currentUser, currentView }: UseMemoryRuntimeOptions) {
   const [strategyRegistry, setStrategyRegistry] = useState<StrategyRegistryEntry[]>([]);
   const [strategyVersions, setStrategyVersions] = useState<StrategyVersionRecord[]>([]);
   const [strategyExperiments, setStrategyExperiments] = useState<StrategyExperimentRecord[]>([]);
@@ -263,18 +273,22 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
   useEffect(() => {
     if (!currentUser) return undefined;
 
+    const intervalMs = getMemoryRuntimeStrategyIntervalMs(currentView);
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       // Strategy recommendations now refresh through the shared memory runtime
       // instead of App-level one-off polling, so recommendations, Memory and
       // automation notifications all observe the same canonical engine snapshot.
+      // Views that actively inspect memory keep a tighter cadence, while the
+      // rest of the shell uses a slower heartbeat to keep shared automation
+      // state fresh without paying the same global cost on every screen.
       void refreshStrategyEngine();
-    }, 60_000);
+    }, intervalMs);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [currentUser, refreshStrategyEngine]);
+  }, [currentUser, currentView, refreshStrategyEngine]);
 
   return {
     strategyRegistry,

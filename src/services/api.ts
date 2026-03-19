@@ -40,6 +40,7 @@ interface CachedApiRequestOptions extends ApiRequestOptions {
 
 const hotApiCache = new Map<string, { expiresAt: number; value: unknown }>();
 const hotApiInFlight = new Map<string, Promise<unknown>>();
+const realtimeCoreBaseUrl = String(import.meta.env.VITE_REALTIME_CORE_URL || "").trim().replace(/\/$/, "");
 
 async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { timeoutMs, ...requestOptions } = options;
@@ -656,7 +657,10 @@ export const realtimeCoreService = {
       timeframe,
       period,
     });
-    return apiRequest<RealtimeCoreBootstrapPayload>(`/api/realtime/bootstrap?${params.toString()}`, {
+    const bootstrapPath = realtimeCoreBaseUrl
+      ? `${realtimeCoreBaseUrl}/bootstrap?${params.toString()}`
+      : `/api/realtime/bootstrap?${params.toString()}`;
+    return apiRequest<RealtimeCoreBootstrapPayload>(bootstrapPath, {
       timeoutMs: 15_000,
     });
   },
@@ -670,7 +674,11 @@ export const realtimeCoreService = {
       params.set("intervalMs", String(options.intervalMs));
     }
 
-    const source = new EventSource(`/api/realtime/events${params.toString() ? `?${params.toString()}` : ""}`, {
+    const eventsPath = realtimeCoreBaseUrl
+      ? `${realtimeCoreBaseUrl}/events${params.toString() ? `?${params.toString()}` : ""}`
+      : `/api/realtime/events${params.toString() ? `?${params.toString()}` : ""}`;
+
+    const source = new EventSource(eventsPath, {
       withCredentials: true,
     });
 

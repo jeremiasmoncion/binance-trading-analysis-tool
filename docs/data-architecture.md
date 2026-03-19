@@ -106,6 +106,20 @@ This is still transitional:
 - it still coexists with polling
 - it exists to lock the contract and frontend flow before moving to the persistent realtime core
 
+## External Realtime Core Mode
+
+The frontend can now consume an external persistent realtime core service through:
+
+- `VITE_REALTIME_CORE_URL`
+
+When this env is present:
+
+- bootstrap requests go to the external realtime core service
+- event stream requests go to the external realtime core service
+- frontend contracts stay the same
+
+This allows infrastructure migration without rewriting view logic.
+
 Current reduction already applied:
 
 - `Dashboard` no longer polls `execution` and `dashboard summary` on an interval while the overlay stream is active

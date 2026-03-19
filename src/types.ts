@@ -2,6 +2,8 @@ export type ViewName =
   | "dashboard"
   | "balance"
   | "stats"
+  | "signals"
+  | "bots"
   | "trading"
   | "control-overview"
   | "control-bots"

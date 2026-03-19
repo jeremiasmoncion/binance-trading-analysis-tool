@@ -641,3 +641,62 @@ Hybrid Binance runtime refresh stability
 
 - Keep treating hybrid runtime comparators as protected infrastructure, not view-level behavior.
 - Require future bot-facing summary/read-model hooks to define semantic equality up front instead of relying on timestamped payload identity.
+
+## 2026-03-19 - User-Facing Signals And Bots Navigation Reform
+
+### Phase
+
+Phase 3 - UX architecture reform
+
+### Completed
+
+- Stopped treating the legacy `Signal Bot` page as the main visual home for the redesign.
+- Added two new user-facing pages:
+  - `Signals`
+  - `Bots`
+- Wired those pages directly into the main sidebar so the new work is no longer buried inside the old `MemoryView` flow.
+- Updated the dashboard actions so the user can jump into:
+  - `Signals`
+  - `Bots`
+- Built a first dedicated `Signals` surface for end users:
+  - overview
+  - watchlist-first
+  - market discovery
+  - high confidence
+  - history
+- Built a first dedicated `Bots` surface for end users:
+  - bot list
+  - simple bot performance summary
+  - simplified "how it works" explanation
+- Kept the underlying new domain logic reusable instead of rebuilding signal logic inside the old legacy page.
+
+### Why This Matters
+
+- The redesign can no longer be judged from a buried internal lab only.
+- The user now has visible first-class destinations for signals and bots, closer to the `TradeBotX` navigation model.
+- The old page may remain in code temporarily, but it is no longer the only discoverable path for the new product direction.
+
+### Files Added
+
+- `src/views/SignalsView.tsx`
+- `src/views/BotsView.tsx`
+
+### Files Updated
+
+- `src/types.ts`
+- `src/components/AppView.tsx`
+- `src/components/Sidebar.tsx`
+- `src/views/DashboardView.tsx`
+- `src/styles/content.css`
+
+### Pending
+
+- Continue refining these new pages so they fully replace the legacy `Signal Bot` user experience.
+- Decide whether the legacy `memory` route should later become an admin/technical surface only.
+- Move more of the new signals/bots experience out of temporary/internal hosts and into these dedicated user pages.
+
+### Recommended Next Step
+
+- keep refining the new `Signals` and `Bots` pages as the primary user flow
+- stop investing product UX effort into the old `Signal Bot` page
+- let technical/admin detail live elsewhere later if needed

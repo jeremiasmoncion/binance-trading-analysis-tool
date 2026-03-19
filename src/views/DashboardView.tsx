@@ -29,6 +29,7 @@ interface DashboardViewProps {
   theme: "light" | "dark";
   chartRef: React.RefObject<HTMLCanvasElement | null>;
   onSaveSignal: () => void;
+  onNavigateView: (view: "signals" | "bots") => void;
 }
 
 type DashboardTab = "overview" | "bot-performance" | "recent-trades";
@@ -246,17 +247,18 @@ export function DashboardView(props: DashboardViewProps) {
               <button
                 type="button"
                 className="ui-button ui-button-primary"
-                onClick={() => openHelp({
-                  title: "Separacion Dashboard vs Senales y bots",
-                  body: "Dashboard resume el estado de la plataforma. Senales y bots es donde vive la lectura mas operativa del bot, su edge, ejecucion y memoria.",
-                  bullets: [
-                    "Dashboard: comando, salud del sistema, capital y actividad.",
-                    "Senales y bots: setups, validacion, aprendizaje y control fino.",
-                  ],
-                })}
+                onClick={() => props.onNavigateView("signals")}
               >
                 <SparklesIcon />
-                Senales y bots
+                Senales
+              </button>
+              <button
+                type="button"
+                className="ui-button"
+                onClick={() => props.onNavigateView("bots")}
+              >
+                <CoinsIcon />
+                Bots
               </button>
             </div>
           </div>

@@ -3,6 +3,8 @@ import type { UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
+const SignalsView = lazy(() => import("../views/SignalsView").then((module) => ({ default: module.SignalsView })));
+const BotsView = lazy(() => import("../views/BotsView").then((module) => ({ default: module.BotsView })));
 const MemoryView = lazy(() => import("../views/MemoryView").then((module) => ({ default: module.MemoryView })));
 const StatsView = lazy(() => import("../views/StatsView").then((module) => ({ default: module.StatsView })));
 const TradingView = lazy(() => import("../views/TradingView").then((module) => ({ default: module.TradingView })));
@@ -47,8 +49,15 @@ export function AppView(props: AppViewProps) {
           theme={props.theme}
           chartRef={props.chartRef}
           onSaveSignal={props.onSaveSignal}
+          onNavigateView={props.onNavigateView}
         />
       );
+      break;
+    case "signals":
+      content = <SignalsView />;
+      break;
+    case "bots":
+      content = <BotsView />;
       break;
     case "memory":
       content = <MemoryView />;

@@ -75,6 +75,11 @@ The project also now has an orchestration base for multi-thread execution under:
   - market discovery
   - high-confidence
   - bot-consumable
+- added first dedicated end-user navigation surfaces for:
+  - `Signals`
+  - `Bots`
+- removed the redesign from depending only on the legacy `Signal Bot` page for discoverability
+- aligned navigation and dashboard entry points with a more template-like page distribution
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -82,7 +87,7 @@ The project also now has an orchestration base for multi-thread execution under:
 - no persistence or shared store has been attached to the new bot registry yet
 - no persistence has been attached to the new bot registry yet
 - no global shell wiring has been added for the domain module
-- no signal feed has been wired into the existing market/runtime pipeline beyond a read-only host in `MemoryView`
+- no signal feed has been wired into the existing market/runtime pipeline beyond read-only/domain-driven surfaces
 - no AI conversational layer has been implemented yet
 
 ## Files Added
@@ -116,10 +121,12 @@ The project also now has an orchestration base for multi-thread execution under:
 
 ## Recommended Next Implementation Step
 
-Bridge the new contracts into a safe read-only Phase 3 seam:
+Continue replacing the legacy product flow with the new user-facing page structure:
 
 - the first registry/store location is now established in `src/domain/bots/registry.ts`
-- a first read-only UI host now exists in `MemoryView`
+- the first visible user-facing pages now exist for:
+  - `Signals`
+  - `Bots`
 - feed ranking/prioritization is now in place as a read-only layer over published feed
 - current hydration source is intentionally:
   - `signal memory snapshots`
@@ -128,9 +135,12 @@ Bridge the new contracts into a safe read-only Phase 3 seam:
   - -> `published signal feed`
   - -> `ranked published feed`
   - -> `bot-consumable feed`
-  - -> read-only UI
-- next step should stay focused on threshold tuning, watchlist-vs-market noise split, and explainability before registry persistence
-- next step should likely continue on explainability language and discovery pruning before any persistence work
+  - -> user-facing `Signals` surface
+- next step should stay focused on:
+  - improving the new `Signals` page
+  - improving the new `Bots` page
+  - phasing the old `Signal Bot` page out of the main user journey
+  - keeping registry persistence deferred until the UX structure is clearer
 
 ## GitHub Notification Practice
 
@@ -167,6 +177,10 @@ This means:
 Practical consequence:
 
 - do not count a UI round as truly ready for final UX review unless it is discoverable, understandable, and coherent from a normal user flow
+
+The new `Signals` and `Bots` pages are now the correct surfaces to iterate on for end-user review.
+
+The old `Signal Bot` page should no longer be treated as the primary delivery target for product UX.
 
 ## Delivery Expectation For Future Directors
 

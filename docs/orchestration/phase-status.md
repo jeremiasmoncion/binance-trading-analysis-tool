@@ -18,13 +18,14 @@
   - persistent realtime-core overlay emit dedup is now semantic, so freshness-only timestamps do not republish equivalent overlays
   - hybrid dashboard/runtime refreshes now ignore freshness-only summary metadata, reducing selector churn outside the realtime core too
 - `in progress`
-  - review integration lot on `codex/level-4-adaptive`
-  - validate the new read-only signals+bots lab against the hardened runtime baseline
+  - validate the first dedicated user-facing `Signals` and `Bots` pages
+  - replace the old `Signal Bot` journey with the new page structure over time
 - `next`
-  - deeper explainability tuning and discovery pruning for published signals
+  - deeper explainability tuning and discovery pruning inside the new `Signals` page
   - deeper threshold tuning for `high-confidence`
+  - bot-list-first UX refinement inside the new `Bots` page
   - execution-center and shared runtime comparator audit for denser bot/signal payloads
-  - deeper UI composition backed by domain selectors if the current lab becomes too dense
+  - reduce the legacy `Signal Bot` page to technical/admin duty later if still needed
   - optional persistence seam for the local bot registry later
   - director review of the next Phase 3 integration boundary after preview feedback
 

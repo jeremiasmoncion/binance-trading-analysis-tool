@@ -29,7 +29,7 @@ interface MemoryViewProps {
   signals?: SignalSnapshot[];
   watchlist?: string[];
   executionCenter?: ExecutionCenterPayload | null;
-  onRefreshExecutionCenter: () => Promise<unknown>;
+  onRefreshExecutionCenter?: () => Promise<unknown>;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
@@ -232,10 +232,12 @@ export function MemoryView(incomingProps: MemoryViewProps) {
     signals: incomingProps.signals ?? systemData.signalMemory,
     watchlist: incomingProps.watchlist ?? (systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || []),
     executionCenter: incomingProps.executionCenter ?? systemData.execution,
+    onRefreshExecutionCenter: incomingProps.onRefreshExecutionCenter ?? systemData.refreshExecutionCenter,
   };
   const signals = props.signals || [];
   const watchlist = props.watchlist || [];
   const executionCenter = props.executionCenter || null;
+  const onRefreshExecutionCenter = props.onRefreshExecutionCenter ?? (async () => null);
   const [activeTab, setActiveTab] = useState<SignalsTab>("overview");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
@@ -1521,7 +1523,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       }
       if (payload.profile) {
         setExecutionProfileForm(payload.profile);
-        await props.onRefreshExecutionCenter();
+        await onRefreshExecutionCenter();
       }
     } catch {
       // keep UI steady if API fails
@@ -1628,7 +1630,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
     try {
       const payload = await binanceService.updateExecutionProfile(executionProfileForm);
       setExecutionProfileForm(payload.profile);
-      await props.onRefreshExecutionCenter();
+      await onRefreshExecutionCenter();
       showToast({
         tone: "success",
         title: "Perfil actualizado",
@@ -1660,7 +1662,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
           protectionNote?: string;
         };
       };
-      await props.onRefreshExecutionCenter();
+      await onRefreshExecutionCenter();
       showToast({
         tone: "success",
         title: mode === "execute" ? "Trade demo enviado" : "Trade preparado",
@@ -1701,7 +1703,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
           protectionNote?: string;
         };
       };
-      await props.onRefreshExecutionCenter();
+      await onRefreshExecutionCenter();
       showToast({
         tone: "success",
         title: "Protección añadida",

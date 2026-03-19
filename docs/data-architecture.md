@@ -37,17 +37,28 @@ Lifecycle:
 
 Source of truth for:
 
-- binance connection
-- portfolio snapshot
-- execution center
-- dashboard summary overlays
-- signal memory
-- watchlists
+- `snapshot`
+  - binance connection
+  - portfolio snapshot
+  - signal memory
+  - watchlists
+- `overlay`
+  - execution center
+  - dashboard summary overlays
+- `controls`
+  - portfolio period
+  - hide-small-assets state
+  - available users
+  - binance form state
+- `actions`
+  - refresh / connect / disconnect / control handlers exposed to views
 
 Lifecycle:
 
 - full snapshot from backend
 - lightweight operational overlays
+- UI control state synchronized centrally
+- user actions exposed through the plane instead of ad-hoc prop chains
 - later: live events from persistent realtime core
 
 ## Rules
@@ -71,6 +82,8 @@ Lifecycle:
 - reduced prop-driven live state in `AppView`
 - shared selectors for primary view domains
 - centralized refresh policy for market/system/signal planes
+- system plane split into `snapshot + overlay + controls + actions`
+- balance, memory and profile actions can now resolve from the shared plane
 
 ### In Progress
 

@@ -98,7 +98,6 @@ export function AppView(props: AppViewProps) {
     case "memory":
       content = (
         <MemoryView
-          onRefreshExecutionCenter={props.onRefreshExecutionCenter}
           onUpdateSignal={props.onUpdateSignal}
         />
       );
@@ -157,27 +156,13 @@ export function AppView(props: AppViewProps) {
       break;
     case "balance":
       content = (
-        <BalanceView
-          period={props.portfolioPeriod}
-          hideSmallAssets={props.hideSmallAssets}
-          onPeriodChange={props.onPortfolioPeriodChange}
-          onRefresh={props.onRefreshPortfolio}
-          onRefreshFull={props.onRefreshPortfolioFull}
-          onToggleHideSmall={props.onToggleHideSmallAssets}
-        />
+        <BalanceView />
       );
       break;
     case "profile":
       content = (
         <ProfileView
           user={props.user}
-          users={props.users}
-          connection={props.connection}
-          binanceForm={props.binanceForm}
-          onBinanceFormChange={props.onBinanceFormChange}
-          onConnect={props.onConnectBinance}
-          onRefresh={props.onRefreshBinance}
-          onDisconnect={props.onDisconnectBinance}
         />
       );
       break;

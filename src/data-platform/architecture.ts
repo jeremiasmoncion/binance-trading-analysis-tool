@@ -27,6 +27,12 @@ export const APP_DATA_ARCHITECTURE_PHASES: AppDataArchitecturePhase[] = [
   },
   {
     id: "phase-5",
+    title: "System plane por capas",
+    status: "completed",
+    description: "System data ya distingue snapshot, overlay, controls y actions para preparar el salto al realtime core.",
+  },
+  {
+    id: "phase-6",
     title: "Realtime core persistente",
     status: "pending",
     description: "El hot path live todavía no sale por completo de serverless. Falta el servicio persistente.",

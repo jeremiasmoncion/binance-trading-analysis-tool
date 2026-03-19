@@ -10,13 +10,34 @@ const initialSystemDataPlane: SystemDataPlane = {
     lastStreamAt: null,
     lastError: null,
   },
-  connection: null,
-  portfolio: null,
-  execution: null,
-  dashboardSummary: null,
-  signalMemory: [],
-  watchlists: [],
-  activeWatchlistName: "Principal",
+  snapshot: {
+    connection: null,
+    portfolio: null,
+    signalMemory: [],
+    watchlists: [],
+    activeWatchlistName: "Principal",
+  },
+  overlay: {
+    execution: null,
+    dashboardSummary: null,
+  },
+  controls: {
+    portfolioPeriod: "1d",
+    hideSmallAssets: true,
+    availableUsers: [],
+    binanceForm: { alias: "", apiKey: "", apiSecret: "" },
+  },
+  actions: {
+    refreshPortfolio: async () => null,
+    refreshPortfolioWithFeedback: async () => null,
+    refreshExecutionCenter: async () => null,
+    refreshDashboardSummary: async () => null,
+    refreshProfileDataWithFeedback: async () => null,
+    setHideSmallAssets: () => undefined,
+    setBinanceFormField: () => undefined,
+    connectBinance: async () => null,
+    disconnectBinance: async () => null,
+  },
 };
 
 export const systemDataPlaneStore = createDataPlaneStore(initialSystemDataPlane);

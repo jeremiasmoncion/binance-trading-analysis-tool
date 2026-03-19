@@ -3,21 +3,33 @@ import { ModuleTabs } from "../components/ModuleTabs";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { useProfileSystemSelector } from "../data-platform/selectors";
 import { strategyEngineService, watchlistService } from "../services/api";
 import type { BinanceConnection, StrategyBacktestRun, StrategyValidationReport, UserSession, WatchlistScanExecution, WatchlistScannerStatus } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
-  users: UserSession[];
-  connection: BinanceConnection | null;
-  binanceForm: { alias: string; apiKey: string; apiSecret: string };
-  onBinanceFormChange: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
-  onConnect: () => void;
-  onRefresh: () => void;
-  onDisconnect: () => void;
+  users?: UserSession[];
+  connection?: BinanceConnection | null;
+  binanceForm?: { alias: string; apiKey: string; apiSecret: string };
+  onBinanceFormChange?: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
+  onConnect?: () => void;
+  onRefresh?: () => void;
+  onDisconnect?: () => void;
 }
 
-export function ProfileView(props: ProfileViewProps) {
+export function ProfileView(incomingProps: ProfileViewProps) {
+  const systemData = useProfileSystemSelector();
+  const props: ProfileViewProps = {
+    ...incomingProps,
+    users: incomingProps.users ?? systemData.availableUsers,
+    connection: incomingProps.connection ?? systemData.connection,
+    binanceForm: incomingProps.binanceForm ?? systemData.binanceForm,
+    onBinanceFormChange: incomingProps.onBinanceFormChange ?? systemData.setBinanceFormField,
+    onConnect: incomingProps.onConnect ?? (() => { void systemData.connectBinance(); }),
+    onRefresh: incomingProps.onRefresh ?? (() => { void systemData.refreshProfileDataWithFeedback(); }),
+    onDisconnect: incomingProps.onDisconnect ?? (() => { void systemData.disconnectBinance(); }),
+  };
   const [activeTab, setActiveTab] = useState<"account" | "binance" | "users" | "backtesting" | "scanner">("account");
   const [usersPage, setUsersPage] = useState(1);
   const [validationReport, setValidationReport] = useState<StrategyValidationReport | null>(null);
@@ -34,9 +46,15 @@ export function ProfileView(props: ProfileViewProps) {
   const [lastBackfillSummary, setLastBackfillSummary] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
-  const connection = props.connection;
+  const connection = props.connection || null;
+  const binanceForm = props.binanceForm || { alias: "", apiKey: "", apiSecret: "" };
+  const onBinanceFormChange = props.onBinanceFormChange || (() => undefined);
+  const onConnect = props.onConnect || (() => undefined);
+  const onRefresh = props.onRefresh || (() => undefined);
+  const onDisconnect = props.onDisconnect || (() => undefined);
   const summary = connection?.summary || {};
-  const pagedUsers = paginateRows(props.users, usersPage);
+  const users = props.users || [];
+  const pagedUsers = paginateRows(users, usersPage);
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
@@ -138,7 +156,7 @@ export function ProfileView(props: ProfileViewProps) {
         <StatCard label="Usuario activo" value={props.user.displayName || props.user.username} detail={props.user.role === "admin" ? "Administrador" : "Usuario"} tone="accent" />
         <StatCard label="Conexion Binance" value={connection?.connected ? "Activa" : "Sin conectar"} detail={connection?.maskedApiKey || "Todavia no enlazada"} tone={connection?.connected ? "profit" : "warning"} />
         <StatCard label="Ordenes abiertas" value={String(summary.openOrdersCount || 0)} detail={connection?.connected ? "Leidas desde Binance Demo" : "Sin lectura activa"} tone="neutral" />
-        <StatCard label="Usuarios visibles" value={String(props.users.length)} detail={props.user.role === "admin" ? "Panel administrativo" : "Solo lectura"} tone="accent" />
+        <StatCard label="Usuarios visibles" value={String(users.length)} detail={props.user.role === "admin" ? "Panel administrativo" : "Solo lectura"} tone="accent" />
       </div>
 
       <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "users" | "backtesting" | "scanner")} />
@@ -209,25 +227,25 @@ export function ProfileView(props: ProfileViewProps) {
               <div className="premium-panel-grid">
                 <div className="premium-field premium-field-wide">
                   <label>Alias de la cuenta</label>
-                  <input type="text" value={props.binanceForm.alias} onChange={(e) => props.onBinanceFormChange("alias", e.target.value)} placeholder="Ej: Demo principal Jeremias" />
+                  <input type="text" value={binanceForm.alias} onChange={(e) => onBinanceFormChange("alias", e.target.value)} placeholder="Ej: Demo principal Jeremias" />
                   <span>Nombre interno para reconocer esta conexion.</span>
                 </div>
                 <div className="premium-field">
                   <label>API Key Demo Spot</label>
-                  <input type="text" value={props.binanceForm.apiKey} onChange={(e) => props.onBinanceFormChange("apiKey", e.target.value)} placeholder="Pega tu API Key de Binance Demo Spot" />
+                  <input type="text" value={binanceForm.apiKey} onChange={(e) => onBinanceFormChange("apiKey", e.target.value)} placeholder="Pega tu API Key de Binance Demo Spot" />
                   <span>Llave publica que Binance Demo te entrega para acceso.</span>
                 </div>
                 <div className="premium-field">
                   <label>API Secret Demo Spot</label>
-                  <input type="password" value={props.binanceForm.apiSecret} onChange={(e) => props.onBinanceFormChange("apiSecret", e.target.value)} placeholder="Pega tu API Secret de Binance Demo Spot" />
+                  <input type="password" value={binanceForm.apiSecret} onChange={(e) => onBinanceFormChange("apiSecret", e.target.value)} placeholder="Pega tu API Secret de Binance Demo Spot" />
                   <span>Secreto privado cifrado en backend.</span>
                 </div>
               </div>
 
               <div className="premium-action-row">
-                <button className="premium-action-button is-primary" onClick={props.onConnect}>Conectar Binance Demo</button>
-                <button className="premium-action-button is-secondary" type="button" onClick={props.onRefresh}>Actualizar resumen</button>
-                <button className="premium-action-button is-ghost" type="button" onClick={props.onDisconnect}>Desconectar</button>
+                <button className="premium-action-button is-primary" onClick={onConnect}>Conectar Binance Demo</button>
+                <button className="premium-action-button is-secondary" type="button" onClick={onRefresh}>Actualizar resumen</button>
+                <button className="premium-action-button is-ghost" type="button" onClick={onDisconnect}>Desconectar</button>
               </div>
             </SectionCard>
 
@@ -420,7 +438,7 @@ export function ProfileView(props: ProfileViewProps) {
               <PaginationControls
                 currentPage={pagedUsers.safePage}
                 totalPages={pagedUsers.totalPages}
-                totalItems={props.users.length}
+                totalItems={users.length}
                 label="usuarios"
                 onPageChange={setUsersPage}
               />

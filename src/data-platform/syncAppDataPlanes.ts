@@ -61,12 +61,39 @@ export function syncSystemDataPlane(
       lastOverlayAt: binance.dashboardSummary ? Date.now() : current.meta.lastOverlayAt,
       lastError: null,
     },
-    connection: binance.binanceConnection,
-    portfolio: binance.portfolioData,
-    execution: binance.executionCenter,
-    dashboardSummary: binance.dashboardSummary,
-    signalMemory: signalMemory.signals,
-    watchlists: watchlist.lists,
-    activeWatchlistName: watchlist.activeListName,
+    snapshot: {
+      connection: binance.binanceConnection,
+      portfolio: binance.portfolioData,
+      signalMemory: signalMemory.signals,
+      watchlists: watchlist.lists,
+      activeWatchlistName: watchlist.activeListName,
+    },
+    overlay: {
+      execution: binance.executionCenter,
+      dashboardSummary: binance.dashboardSummary,
+    },
+    controls: {
+      portfolioPeriod: binance.portfolioPeriod,
+      hideSmallAssets: binance.hideSmallAssets,
+      availableUsers: binance.availableUsers,
+      binanceForm: binance.binanceForm,
+    },
+  }));
+}
+
+export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      refreshPortfolio: actions.refreshPortfolio,
+      refreshPortfolioWithFeedback: actions.refreshPortfolioWithFeedback,
+      refreshExecutionCenter: actions.refreshExecutionCenter,
+      refreshDashboardSummary: actions.refreshDashboardSummary,
+      refreshProfileDataWithFeedback: actions.refreshProfileDataWithFeedback,
+      setHideSmallAssets: actions.setHideSmallAssets,
+      setBinanceFormField: actions.setBinanceFormField,
+      connectBinance: actions.connect,
+      disconnectBinance: actions.disconnect,
+    },
   }));
 }

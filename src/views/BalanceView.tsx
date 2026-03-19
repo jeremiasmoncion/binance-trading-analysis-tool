@@ -7,12 +7,12 @@ import type { BinanceAccountMovement, PortfolioAsset, PortfolioPayload } from ".
 
 interface BalanceViewProps {
   payload?: PortfolioPayload | null;
-  period: string;
-  hideSmallAssets: boolean;
-  onPeriodChange: (period: string) => void;
-  onRefresh: () => void;
-  onRefreshFull: () => void;
-  onToggleHideSmall: (value: boolean) => void;
+  period?: string;
+  hideSmallAssets?: boolean;
+  onPeriodChange?: (period: string) => void;
+  onRefresh?: () => void;
+  onRefreshFull?: () => void;
+  onToggleHideSmall?: (value: boolean) => void;
 }
 
 type WalletTab = "holdings" | "nfts" | "staking" | "history";
@@ -181,6 +181,12 @@ export function BalanceView(incomingProps: BalanceViewProps) {
   const props: BalanceViewProps = {
     ...incomingProps,
     payload: incomingProps.payload ?? systemData.portfolio,
+    period: incomingProps.period ?? systemData.portfolioPeriod,
+    hideSmallAssets: incomingProps.hideSmallAssets ?? systemData.hideSmallAssets,
+    onPeriodChange: incomingProps.onPeriodChange ?? ((period) => { void systemData.refreshPortfolio(period, "full"); }),
+    onRefresh: incomingProps.onRefresh ?? (() => { void systemData.refreshPortfolio(systemData.portfolioPeriod, "live"); }),
+    onRefreshFull: incomingProps.onRefreshFull ?? (() => { void systemData.refreshPortfolioFull(systemData.portfolioPeriod, "full"); }),
+    onToggleHideSmall: incomingProps.onToggleHideSmall ?? systemData.setHideSmallAssets,
   };
   const [activeTab, setActiveTab] = useState<WalletTab>("holdings");
   const [assetFilter, setAssetFilter] = useState<AssetFilter>("all");
@@ -189,9 +195,13 @@ export function BalanceView(incomingProps: BalanceViewProps) {
   const [assetSortDirection, setAssetSortDirection] = useState<AssetSortDirection>("desc");
   const [assetPage, setAssetPage] = useState(1);
   const [historyBootstrapped, setHistoryBootstrapped] = useState(false);
+  const hideSmallAssets = props.hideSmallAssets ?? true;
+  const onRefresh = props.onRefresh ?? (() => undefined);
+  const onRefreshFull = props.onRefreshFull ?? (() => undefined);
+  const onToggleHideSmall = props.onToggleHideSmall ?? (() => undefined);
   const payload = props.payload || null;
   const portfolio = payload?.portfolio;
-  const visibleAssets = getVisibleAssets(payload, props.hideSmallAssets);
+  const visibleAssets = getVisibleAssets(payload, hideSmallAssets);
   const periodLabel = props.period === "30d" ? "30D" : props.period === "7d" ? "7D" : "24H";
   const positiveAssets = visibleAssets.filter((asset) => asset.pnlValue > 0);
   const negativeAssets = visibleAssets.filter((asset) => asset.pnlValue < 0);
@@ -230,13 +240,13 @@ export function BalanceView(incomingProps: BalanceViewProps) {
 
   useEffect(() => {
     if (activeTab === "history" && !historyBootstrapped) {
-      props.onRefreshFull();
+      onRefreshFull();
       setHistoryBootstrapped(true);
     }
     if (activeTab !== "history" && historyBootstrapped) {
       setHistoryBootstrapped(false);
     }
-  }, [activeTab, historyBootstrapped, props.onRefreshFull]);
+  }, [activeTab, historyBootstrapped, onRefreshFull]);
 
   useEffect(() => {
     setAssetPage(1);
@@ -296,11 +306,11 @@ export function BalanceView(incomingProps: BalanceViewProps) {
         </div>
 
         <div className="wallet-toolbar-actions ui-toolbar-actions">
-          <button className="wallet-secondary-button ui-button" onClick={() => props.onToggleHideSmall(!props.hideSmallAssets)}>
+          <button className="wallet-secondary-button ui-button" onClick={() => onToggleHideSmall(!hideSmallAssets)}>
             <SlidersHorizontalIcon />
             Filters
           </button>
-          <button className="wallet-secondary-button ui-button" onClick={props.onRefresh}>
+          <button className="wallet-secondary-button ui-button" onClick={onRefresh}>
             <RepeatIcon />
             Actualizar saldo
           </button>

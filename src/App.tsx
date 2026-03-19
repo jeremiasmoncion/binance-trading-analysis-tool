@@ -14,7 +14,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncSystemDataPlane } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncSystemDataPlane, syncSystemDataPlaneActions } from "./data-platform/syncAppDataPlanes";
 import { strategyEngineService } from "./services/api";
 import type { StrategyRecommendationRecord } from "./types";
 
@@ -104,6 +104,20 @@ export function App() {
     signalMemory.signals,
     watchlist.activeListName,
     watchlist.lists,
+  ]);
+
+  useEffect(() => {
+    syncSystemDataPlaneActions(binance);
+  }, [
+    binance.connect,
+    binance.disconnect,
+    binance.refreshDashboardSummary,
+    binance.refreshExecutionCenter,
+    binance.refreshPortfolio,
+    binance.refreshPortfolioWithFeedback,
+    binance.refreshProfileDataWithFeedback,
+    binance.setBinanceFormField,
+    binance.setHideSmallAssets,
   ]);
 
   useEffect(() => {

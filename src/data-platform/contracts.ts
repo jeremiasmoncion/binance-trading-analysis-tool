@@ -7,6 +7,7 @@ import type {
   ExecutionCenterPayload,
   Indicators,
   PortfolioPayload,
+  UserSession,
   Signal,
   SignalSnapshot,
   StrategyCandidate,
@@ -54,13 +55,34 @@ export interface MarketDataPlane {
 
 export interface SystemDataPlane {
   meta: DataPlaneMeta;
-  connection: BinanceConnection | null;
-  portfolio: PortfolioPayload | null;
-  execution: ExecutionCenterPayload | null;
-  dashboardSummary: DashboardSummaryPayload | null;
-  signalMemory: SignalSnapshot[];
-  watchlists: WatchlistGroup[];
-  activeWatchlistName: string;
+  snapshot: {
+    connection: BinanceConnection | null;
+    portfolio: PortfolioPayload | null;
+    signalMemory: SignalSnapshot[];
+    watchlists: WatchlistGroup[];
+    activeWatchlistName: string;
+  };
+  overlay: {
+    execution: ExecutionCenterPayload | null;
+    dashboardSummary: DashboardSummaryPayload | null;
+  };
+  controls: {
+    portfolioPeriod: string;
+    hideSmallAssets: boolean;
+    availableUsers: UserSession[];
+    binanceForm: { alias: string; apiKey: string; apiSecret: string };
+  };
+  actions: {
+    refreshPortfolio: (period?: string, mode?: "full" | "live") => Promise<unknown>;
+    refreshPortfolioWithFeedback: (period?: string, mode?: "full" | "live") => Promise<unknown>;
+    refreshExecutionCenter: () => Promise<unknown>;
+    refreshDashboardSummary: (forceFresh?: boolean) => Promise<unknown>;
+    refreshProfileDataWithFeedback: () => Promise<unknown>;
+    setHideSmallAssets: (value: boolean) => void;
+    setBinanceFormField: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
+    connectBinance: () => Promise<unknown>;
+    disconnectBinance: () => Promise<unknown>;
+  };
 }
 
 export interface AppDataArchitecturePhase {

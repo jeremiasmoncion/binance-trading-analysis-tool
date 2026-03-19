@@ -122,6 +122,7 @@ When this env is present:
 - if the external service is unhealthy or fails, frontend falls back to Vercel routes
 - frontend contracts stay the same
 - the active runtime mode is synchronized into the shared `system plane`, so any view can inspect whether CRYPE is currently on `external` or `serverless`
+- `App` now supervises runtime health centrally and can notify when the app switches between `external core` and `serverless fallback`
 
 This allows infrastructure migration without rewriting view logic.
 

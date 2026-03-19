@@ -33,6 +33,10 @@ export function App() {
     bootstrapped: false,
     lastConnected: null,
   });
+  const realtimeRuntimeToastStateRef = useRef<{ bootstrapped: boolean; lastActiveMode: "external" | "serverless" | null }>({
+    bootstrapped: false,
+    lastActiveMode: null,
+  });
   const seenExecutionEventsRef = useRef<Set<string>>(new Set());
   const executionEventsBootstrappedRef = useRef(false);
   const seenAutomationEventsRef = useRef<Set<string>>(new Set());
@@ -187,6 +191,31 @@ export function App() {
   }, [auth.currentUser]);
 
   useEffect(() => {
+    if (!auth.currentUser) {
+      realtimeRuntimeToastStateRef.current = { bootstrapped: false, lastActiveMode: null };
+      return undefined;
+    }
+
+    let intervalId: number | null = null;
+
+    const tick = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+      void refreshRealtimeCoreStatus().catch(() => undefined);
+    };
+
+    tick();
+    intervalId = window.setInterval(tick, 30_000);
+
+    return () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [auth.currentUser, refreshRealtimeCoreStatus]);
+
+  useEffect(() => {
     if (!auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;
     void maybeAutoSaveSignal({
       coin: market.currentCoin,
@@ -256,6 +285,43 @@ export function App() {
       message: "La conexión cayó y el sistema dejó de leer balance y ejecución hasta que vuelva.",
     });
   }, [auth.currentUser, binance.binanceConnection?.connected]);
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      realtimeRuntimeToastStateRef.current = { bootstrapped: false, lastActiveMode: null };
+      return;
+    }
+
+    const currentMode = realtimeCore.activeMode;
+    if (!realtimeRuntimeToastStateRef.current.bootstrapped) {
+      realtimeRuntimeToastStateRef.current = {
+        bootstrapped: true,
+        lastActiveMode: currentMode,
+      };
+      return;
+    }
+
+    if (realtimeRuntimeToastStateRef.current.lastActiveMode === currentMode) {
+      return;
+    }
+
+    realtimeRuntimeToastStateRef.current.lastActiveMode = currentMode;
+
+    if (currentMode === "external") {
+      showToast({
+        tone: "success",
+        title: "Realtime core externo activo",
+        message: `CRYPE volvió a usar ${realtimeCore.targetLabel} como hot path realtime.`,
+      });
+      return;
+    }
+
+    showToast({
+      tone: "warning",
+      title: "Realtime degradado a fallback",
+      message: "La app volvió al camino interno de Vercel mientras el core externo no esté saludable.",
+    });
+  }, [auth.currentUser, realtimeCore.activeMode, realtimeCore.targetLabel]);
 
   useEffect(() => {
     if (!auth.currentUser) {

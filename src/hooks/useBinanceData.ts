@@ -15,6 +15,12 @@ interface UseBinanceDataOptions {
   currentView: ViewName;
 }
 
+interface ConnectedViewLoadPlan {
+  portfolioMode: "full" | "live" | null;
+  refreshExecution: boolean;
+  refreshDashboard: boolean;
+}
+
 function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: PortfolioPayload, period: string): PortfolioPayload {
   if (!previous || !previous.assets?.length) {
     return live;
@@ -85,6 +91,41 @@ function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: Port
       hiddenLockedAssetsCount: hiddenLockedAssets.length,
       updatedAt: live.portfolio?.updatedAt || new Date().toISOString(),
     },
+  };
+}
+
+function buildConnectedViewLoadPlan(view: ViewName, previousView: ViewName, streamEnabled: boolean, portfolioMode: "full" | "live"): ConnectedViewLoadPlan {
+  // Keep the remaining view-specific warm-up behavior centralized so the hook
+  // can keep shrinking toward refresh-policy-driven orchestration instead of
+  // scattering one-off branches across multiple effects.
+  if (view === "balance") {
+    return {
+      portfolioMode: previousView === "balance" ? "live" : "full",
+      refreshExecution: false,
+      refreshDashboard: false,
+    };
+  }
+
+  if (view === "memory") {
+    return {
+      portfolioMode: null,
+      refreshExecution: !streamEnabled,
+      refreshDashboard: false,
+    };
+  }
+
+  if (view === "dashboard") {
+    return {
+      portfolioMode: streamEnabled ? null : portfolioMode,
+      refreshExecution: !streamEnabled,
+      refreshDashboard: !streamEnabled,
+    };
+  }
+
+  return {
+    portfolioMode: null,
+    refreshExecution: false,
+    refreshDashboard: false,
   };
 }
 
@@ -380,30 +421,25 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return;
-    if (currentView === "memory") {
-      if (!refreshPolicy.systemOverlayStreamEnabled) {
-        void refreshExecutionCenter();
-      }
-      lastViewRef.current = currentView;
-      return;
+
+    const loadPlan = buildConnectedViewLoadPlan(
+      currentView,
+      lastViewRef.current,
+      refreshPolicy.systemOverlayStreamEnabled,
+      refreshPolicy.portfolioMode,
+    );
+
+    if (loadPlan.portfolioMode) {
+      void refreshPortfolio(portfolioPeriod, loadPlan.portfolioMode);
     }
-    if (currentView === "balance") {
-      const enteringBalance = lastViewRef.current !== "balance";
-      void refreshPortfolio(portfolioPeriod, enteringBalance ? "full" : "live");
-      lastViewRef.current = currentView;
-      return;
+
+    if (loadPlan.refreshExecution || loadPlan.refreshDashboard) {
+      void Promise.all([
+        loadPlan.refreshExecution ? refreshExecutionCenter() : Promise.resolve(null),
+        loadPlan.refreshDashboard ? refreshDashboardSummary(true) : Promise.resolve(null),
+      ]);
     }
-    if (currentView === "dashboard") {
-      if (!refreshPolicy.systemOverlayStreamEnabled) {
-        void refreshPortfolio(portfolioPeriod, refreshPolicy.portfolioMode);
-      }
-      if (!refreshPolicy.systemOverlayStreamEnabled) {
-        void Promise.all([
-          refreshExecutionCenter(),
-          refreshDashboardSummary(true),
-        ]);
-      }
-    }
+
     lastViewRef.current = currentView;
   }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.portfolioMode, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio]);
 

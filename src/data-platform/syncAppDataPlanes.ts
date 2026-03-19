@@ -41,34 +41,52 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
 export function syncSystemDataPlane(
   binance: ReturnTypeUseBinanceData,
   watchlist: ReturnTypeUseWatchlist,
+  isAuthenticated: boolean,
 ) {
-  const hasSystemPayload = Boolean(
-    binance.portfolioData
-    || binance.executionCenter
-    || binance.dashboardSummary
-    || watchlist.lists.length,
-  );
-
   systemDataPlaneStore.setState((current) => ({
     ...current,
     meta: {
       ...current.meta,
-      status: hasSystemPayload ? "ready" : "idle",
+      status: isAuthenticated
+        ? (
+          binance.portfolioData
+          || binance.executionCenter
+          || binance.dashboardSummary
+          || current.snapshot.portfolio
+          || current.overlay.execution
+          || current.overlay.dashboardSummary
+          || watchlist.lists.length
+            ? "ready"
+            : current.meta.status
+        )
+        : "idle",
       source: "snapshot",
-      lastFullSyncAt: hasSystemPayload ? Date.now() : current.meta.lastFullSyncAt,
-      lastOverlayAt: binance.dashboardSummary ? Date.now() : current.meta.lastOverlayAt,
+      lastFullSyncAt: isAuthenticated && (binance.portfolioData || watchlist.lists.length)
+        ? Date.now()
+        : current.meta.lastFullSyncAt,
+      lastOverlayAt: isAuthenticated && (binance.executionCenter || binance.dashboardSummary)
+        ? Date.now()
+        : current.meta.lastOverlayAt,
       lastError: null,
     },
     snapshot: {
-      connection: binance.binanceConnection,
-      portfolio: binance.portfolioData,
+      connection: isAuthenticated
+        ? (binance.binanceConnection ?? current.snapshot.connection)
+        : null,
+      portfolio: isAuthenticated
+        ? (binance.portfolioData ?? current.snapshot.portfolio)
+        : null,
       signalMemory: current.snapshot.signalMemory,
-      watchlists: watchlist.lists,
-      activeWatchlistName: watchlist.activeListName,
+      watchlists: isAuthenticated ? watchlist.lists : [],
+      activeWatchlistName: isAuthenticated ? watchlist.activeListName : "Principal",
     },
     overlay: {
-      execution: binance.executionCenter,
-      dashboardSummary: binance.dashboardSummary,
+      execution: isAuthenticated
+        ? (binance.executionCenter ?? current.overlay.execution)
+        : null,
+      dashboardSummary: isAuthenticated
+        ? (binance.dashboardSummary ?? current.overlay.dashboardSummary)
+        : null,
     },
     controls: {
       ...current.controls,

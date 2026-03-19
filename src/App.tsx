@@ -140,8 +140,9 @@ export function App() {
   ]);
 
   useEffect(() => {
-    syncSystemDataPlane(binance, watchlist);
+    syncSystemDataPlane(binance, watchlist, Boolean(auth.currentUser));
   }, [
+    auth.currentUser,
     binance.binanceConnection,
     binance.dashboardSummary,
     binance.executionCenter,
@@ -537,6 +538,15 @@ export function App() {
       <StartupOverlay
         title="Restaurando sesión"
         detail="Validando acceso y preparando el workspace inicial."
+      />
+    );
+  }
+
+  if (auth.authPending) {
+    return (
+      <StartupOverlay
+        title="Preparando acceso"
+        detail="Validando sesión y cargando el workspace inicial antes de abrir la app."
       />
     );
   }

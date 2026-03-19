@@ -18,6 +18,7 @@ type AuthCallback = () => Promise<void> | void;
 export function useAuth() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [authPending, setAuthPending] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginForm, setLoginForm] = useState<LoginFormState>({ username: "", password: "" });
   const [registerForm, setRegisterForm] = useState<RegisterFormState>({ displayName: "", email: "", password: "" });
@@ -36,15 +37,18 @@ export function useAuth() {
   ) => {
     event.preventDefault();
     setLoginError("");
+    setAuthPending(true);
     try {
       await authService.login(loginForm.username.trim(), loginForm.password);
       const session = await authService.getSession();
       if (!session) return;
+      await onAuthenticated?.();
       setCurrentUser(session);
       setLoginForm({ username: "", password: "" });
-      await onAuthenticated?.();
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "No se pudo iniciar sesión");
+    } finally {
+      setAuthPending(false);
     }
   }, [loginForm]);
 
@@ -54,15 +58,18 @@ export function useAuth() {
   ) => {
     event.preventDefault();
     setLoginError("");
+    setAuthPending(true);
     try {
       await authService.register(registerForm.displayName.trim(), registerForm.email.trim(), registerForm.password);
       const session = await authService.getSession();
       if (!session) return;
+      await onAuthenticated?.();
       setCurrentUser(session);
       setRegisterForm({ displayName: "", email: "", password: "" });
-      await onAuthenticated?.();
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "No se pudo crear la cuenta");
+    } finally {
+      setAuthPending(false);
     }
   }, [registerForm]);
 
@@ -77,6 +84,7 @@ export function useAuth() {
   return {
     currentUser,
     authMode,
+    authPending,
     loginError,
     loginForm,
     registerForm,

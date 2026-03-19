@@ -41,8 +41,14 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       setSignals(nextSignals);
       publishSignalsToPlane(nextSignals);
     } catch {
-      setSignals([]);
-      publishSignalsToPlane([]);
+      systemDataPlaneStore.setState((current) => ({
+        ...current,
+        meta: {
+          ...current.meta,
+          status: current.snapshot.signalMemory.length ? "degraded" : current.meta.status,
+          lastError: "No se pudo refrescar la memoria de señales.",
+        },
+      }));
     }
   }, [currentUser, publishSignalsToPlane]);
 

@@ -277,85 +277,76 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const [candidatesPage, setCandidatesPage] = useState(1);
   const [recentOrdersPage, setRecentOrdersPage] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
-  useEffect(() => {
-    let ignore = false;
+  const needsStrategyEngineHeartbeat = activeTab === "overview" || activeTab === "adaptive" || activeTab === "experiments";
+  const needsScannerHeartbeat = activeTab === "overview" || activeTab === "execution";
 
-    void strategyEngineService.list()
-      .then((payload) => {
-        if (ignore) return;
-        setRegistry(payload.registry || []);
-        setVersions(payload.versions || []);
-        setExperiments(payload.experiments || []);
-        setRecommendations(payload.recommendations || []);
-        setDecisionState(payload.decision || null);
-      })
-      .catch(() => {
-        if (ignore) return;
+  const loadStrategyEngineState = useCallback(async (options?: { forceFresh?: boolean; clearOnError?: boolean }) => {
+    try {
+      const payload = await strategyEngineService.list({ forceFresh: options?.forceFresh });
+      setRegistry(payload.registry || []);
+      setVersions(payload.versions || []);
+      setExperiments(payload.experiments || []);
+      setRecommendations(payload.recommendations || []);
+      setDecisionState(payload.decision || null);
+      return payload;
+    } catch {
+      if (options?.clearOnError) {
         setRegistry([]);
         setVersions([]);
         setExperiments([]);
         setRecommendations([]);
         setDecisionState(null);
-      });
+      }
+      return null;
+    }
+  }, []);
 
-    return () => {
-      ignore = true;
-    };
+  const loadScannerStatus = useCallback(async (options?: { forceFresh?: boolean; clearOnError?: boolean }) => {
+    try {
+      const payload = await watchlistService.scanStatus({ forceFresh: options?.forceFresh });
+      setScannerStatus(payload);
+      return payload;
+    } catch {
+      if (options?.clearOnError) {
+        setScannerStatus(null);
+      }
+      return null;
+    }
   }, []);
 
   useEffect(() => {
-    let ignore = false;
+    void loadStrategyEngineState({ clearOnError: true });
+  }, [loadStrategyEngineState]);
 
-    void watchlistService.scanStatus()
-      .then((payload) => {
-        if (!ignore) setScannerStatus(payload);
-      })
-      .catch(() => {
-        if (!ignore) setScannerStatus(null);
-      });
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  useEffect(() => {
+    void loadScannerStatus({ clearOnError: true });
+  }, [loadScannerStatus]);
 
   useEffect(() => {
     setExecutionProfileForm(executionCenter?.profile || null);
   }, [executionCenter]);
 
   useEffect(() => {
+    if (!needsStrategyEngineHeartbeat) return undefined;
+
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
-      void strategyEngineService.list()
-        .then((payload) => {
-          setRegistry(payload.registry || []);
-          setVersions(payload.versions || []);
-          setExperiments(payload.experiments || []);
-          setRecommendations(payload.recommendations || []);
-          setDecisionState(payload.decision || null);
-        })
-        .catch(() => {
-          // keep last known state to avoid flicker
-        });
+      void loadStrategyEngineState();
     }, 60_000);
 
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [loadStrategyEngineState, needsStrategyEngineHeartbeat]);
 
   useEffect(() => {
+    if (!needsScannerHeartbeat) return undefined;
+
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
-      void watchlistService.scanStatus()
-        .then((payload) => {
-          setScannerStatus(payload);
-        })
-        .catch(() => {
-          // keep last known state to avoid flicker
-        });
+      void loadScannerStatus();
     }, 20_000);
 
     return () => window.clearInterval(intervalId);
-  }, []);
+  }, [loadScannerStatus, needsScannerHeartbeat]);
 
   const timeframes = useMemo(
     () => Array.from(new Set(signals.map((item) => item.timeframe))).sort(),

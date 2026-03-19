@@ -429,3 +429,91 @@ Phase 3 - feed ranking / prioritization
 - keep iterating on ranking defensibility and noise reduction
 - refine high-confidence thresholds using real signal-memory evidence
 - only consider a bigger dedicated signals/bots surface after ranking behavior feels stable
+
+## 2026-03-19 - Ranking Thresholds And Noise Split Round
+
+### Phase
+
+Phase 3 - feed ranking refinement
+
+### Completed
+
+- Tightened `high-confidence` thresholds so the subset is no longer driven mainly by a single composite cutoff.
+- Split the ranked feed into explicit lanes:
+  - `watchlist-first`
+  - `market-discovery`
+- Made `market-discovery` stricter than `watchlist-first` by design:
+  - higher thresholds
+  - extra penalty for noisy discovery contexts
+  - stronger gating before signals can reach `high-confidence`
+- Added lane-aware selectors for:
+  - watchlist-first ranked signals
+  - market-discovery ranked signals
+- Kept `raw published feed`, `ranked feed`, and `high-confidence subset` separate.
+- Updated the read-only lab to show:
+  - a clearer hero/header section
+  - more hierarchical quick stats
+  - lane segmentation
+  - explicit promoted vs degraded ranking moves
+  - a clearer split between:
+    - overview
+    - ranked feed
+    - strong subset
+    - bot derivation
+- Used `TradeBotX` only as a UX/layout reference for:
+  - stronger page hierarchy
+  - dense quick stats
+  - visible segmentation
+  - more distinct operational blocks
+- Did not copy template HTML or move this layer into a final dedicated module yet.
+
+### Threshold Changes
+
+- `watchlist-first`
+  - `high-confidence` now requires a higher score plus:
+    - zero major penalties
+    - a minimum boost count
+- `market-discovery`
+  - requires even higher thresholds than watchlist-first
+  - gets a discovery penalty by default because the feed is more prone to noise
+  - 15m market discovery is penalized further to avoid low-quality promotion
+
+### Signals That Now Stop Rising
+
+- market-wide signals with:
+  - incomplete market context
+  - neutral direction
+  - noisy intraday discovery context
+  - weak explainability
+- these signals still remain visible in the raw feed, but are now more likely to stay in:
+  - `standard`
+  - or `low-visibility`
+  instead of rising into priority or high-confidence too early
+
+### Files Updated
+
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/ranking.ts`
+- `src/domain/signals/selectors.ts`
+- `src/components/domain/SignalsBotsReadOnlyLab.tsx`
+- `src/styles/content.css`
+
+### Sensitive Areas Avoided
+
+- Still avoided:
+  - `src/App.tsx`
+  - `src/types.ts`
+  - `src/data-platform/*`
+  - `src/realtime-core/*`
+  - protected hooks
+  - `api/_lib/*`
+
+### Visual Direction Note
+
+- The lab remains sufficient for one more refinement round.
+- It now starts to move toward the intended future pattern:
+  - clearer top hierarchy
+  - stronger quick stats
+  - visible segmentation
+  - stronger operational blocks
+- A dedicated surface still feels premature until ranking thresholds stabilize further.

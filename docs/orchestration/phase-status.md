@@ -16,9 +16,10 @@
   - signal feed taxonomy contracts added
   - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
 - `in progress`
-  - validating ranked feed behavior from `signal memory snapshots`
+  - validating threshold behavior and watchlist-vs-market noise split from `signal memory snapshots`
 - `next`
-  - threshold tuning and ranking defensibility for published signals
+  - deeper threshold tuning and ranking defensibility for published signals
+  - richer ranking explanation in the temporary lab host
   - deeper UI composition backed by domain selectors if the current lab becomes too dense
   - optional persistence seam for the local bot registry later
   - director review for Phase 3 integration boundary

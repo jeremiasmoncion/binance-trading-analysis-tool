@@ -1246,6 +1246,72 @@
   margin-top: 16px;
 }
 
+.domain-lab-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 18px;
+  margin-top: 16px;
+  margin-bottom: 4px;
+}
+
+.domain-lab-hero-copy {
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.94) 100%);
+  display: grid;
+  gap: 8px;
+}
+
+.domain-lab-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+
+.domain-lab-hero-copy h3 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.1;
+  font-weight: 900;
+  color: #f8fafc;
+}
+
+.domain-lab-hero-copy p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.domain-lab-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.domain-segment-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.domain-segment-chip {
+  border-radius: 999px;
+  padding: 7px 11px;
+  background: rgba(15, 23, 42, 0.05);
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.domain-segment-chip.is-active {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
 .domain-readonly-card {
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 18px;
@@ -1378,7 +1444,12 @@
 }
 
 @media (max-width: 1024px) {
+  .domain-lab-hero,
   .domain-readonly-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .domain-lab-quick-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -1412,6 +1483,16 @@ body.dark-theme .domain-readonly-item-meta {
 body.dark-theme .domain-policy-pill {
   background: rgba(148, 163, 184, 0.12);
   color: #e2e8f0;
+}
+
+body.dark-theme .domain-segment-chip {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+}
+
+body.dark-theme .domain-segment-chip.is-active {
+  background: rgba(37, 99, 235, 0.16);
+  color: #bfdbfe;
 }
 
 body.dark-theme .domain-policy-pill.is-boost {

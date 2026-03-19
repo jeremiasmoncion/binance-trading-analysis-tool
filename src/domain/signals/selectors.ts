@@ -34,6 +34,14 @@ export function selectDemotedRankedSignals(feed: SignalFeed<RankedPublishedSigna
   return feed.items.filter((signal) => signal.ranking.tier === "low-visibility");
 }
 
+export function selectWatchlistFirstRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => signal.ranking.lane === "watchlist-first");
+}
+
+export function selectMarketDiscoveryRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => signal.ranking.lane === "market-discovery");
+}
+
 export function selectBotConsumableSignals(feed: SignalFeed<BotConsumableSignal>): BotConsumableSignal[] {
   return feed.items;
 }

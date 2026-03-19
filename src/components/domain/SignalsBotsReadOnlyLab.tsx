@@ -14,9 +14,11 @@ import {
   selectBots,
   selectDemotedRankedSignals,
   selectHighConfidenceRankedSignals,
+  selectMarketDiscoveryRankedSignals,
   selectPriorityRankedSignals,
   selectPublishedSignals,
   selectRankedPublishedSignals,
+  selectWatchlistFirstRankedSignals,
 } from "../../domain";
 
 interface SignalsBotsReadOnlyLabProps {
@@ -35,6 +37,8 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
     const highConfidenceSignals = selectHighConfidenceRankedSignals(rankedPublishedFeed);
     const prioritySignals = selectPriorityRankedSignals(rankedPublishedFeed);
     const demotedSignals = selectDemotedRankedSignals(rankedPublishedFeed);
+    const watchlistFirstSignals = selectWatchlistFirstRankedSignals(rankedPublishedFeed);
+    const marketDiscoverySignals = selectMarketDiscoveryRankedSignals(rankedPublishedFeed);
     const botFeeds = bots.map((bot) => {
       const feed = createBotConsumableFeed(bot, rankedPublishedSignals, rankedPublishedFeed.generatedAt);
       return {
@@ -54,6 +58,8 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
       highConfidenceSignals,
       prioritySignals,
       demotedSignals,
+      watchlistFirstSignals,
+      marketDiscoverySignals,
       botFeeds,
     };
   }, [signals, watchlistSymbols]);
@@ -72,31 +78,46 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
   return (
     <SectionCard
       title="Signals + Bots Lab"
-      subtitle="Lectura read-only del dominio nuevo montada sobre signal memory snapshots, sin tocar el hot path operativo."
+      subtitle="Lectura read-only del dominio nuevo montada sobre signal memory snapshots, con ranking más estricto para discovery y prioridad clara para watchlist-first."
       helpTitle="Signals + Bots Lab"
       helpBody="Esta superficie valida el rediseño nuevo leyendo snapshots ya existentes y derivando feeds publicados y consumibles por bots dentro del dominio nuevo."
       helpBullets={[
         "La fuente base es signal memory, no execution runtime.",
-        "Published feed y bot-consumable feed se derivan por adapters de dominio.",
+        "Raw feed, ranked feed y bot-consumable feed se derivan por adapters de dominio.",
         "No hay persistencia nueva ni runtime paralelo en esta ronda.",
       ]}
     >
-      <div className="stats-grid compact-stats-grid">
-        <StatCard label="Snapshots base" value={String(signals.length)} sub="Fuente compartida desde signal memory" accentClass="accent-blue" />
-        <StatCard label="Raw published feed" value={String(readModel.publishedSignals.length)} sub={`${readModel.publishedFeeds.watchlist.items.length} watchlist · ${readModel.publishedFeeds.marketWide.items.length} market-wide`} accentClass="accent-emerald" />
-        <StatCard label="Ranked priority" value={String(readModel.prioritySignals.length)} sub={`${readModel.demotedSignals.length} bajan por ruido o poca claridad`} accentClass="accent-amber" />
-        <StatCard label="High confidence" value={String(readModel.highConfidenceSignals.length)} sub="Subset defendible tras ranking compuesto" accentClass="accent-green" />
-        <StatCard label="Bots en registry" value={String(readModel.registry.state.bots.length)} sub={`${readModel.botFeeds.filter((item) => item.bot.status === "active").length} activos · ${readModel.botFeeds.filter((item) => item.bot.aiPolicy.isolationScope === "isolated").length} aislados`} accentClass="accent-green" />
+      <div className="domain-lab-hero">
+        <div className="domain-lab-hero-copy">
+          <span className="domain-lab-kicker">Signals Intelligence</span>
+          <h3>Watchlist-first arriba, discovery más estricto abajo</h3>
+          <p>
+            Esta ronda endurece thresholds, separa mejor discovery de mercado frente a señales cercanas a la watchlist,
+            y hace más visible por qué unas señales suben y otras dejan de escalar.
+          </p>
+        </div>
+        <div className="domain-lab-quick-grid">
+          <StatCard label="Snapshots base" value={String(signals.length)} sub="Fuente compartida desde signal memory" accentClass="accent-blue" />
+          <StatCard label="Watchlist-first" value={String(readModel.watchlistFirstSignals.filter((signal) => signal.ranking.tier !== "low-visibility").length)} sub="Carril principal para señales más cercanas al operador" accentClass="accent-emerald" />
+          <StatCard label="Market discovery" value={String(readModel.marketDiscoverySignals.filter((signal) => signal.ranking.tier !== "low-visibility").length)} sub={`${readModel.marketDiscoverySignals.filter((signal) => signal.ranking.tier === "low-visibility").length} quedan abajo por ruido`} accentClass="accent-amber" />
+          <StatCard label="High confidence" value={String(readModel.highConfidenceSignals.length)} sub="Subset defendible tras threshold más duro" accentClass="accent-green" />
+          <StatCard label="Bots en registry" value={String(readModel.registry.state.bots.length)} sub={`${readModel.botFeeds.filter((item) => item.bot.status === "active").length} activos · ${readModel.botFeeds.filter((item) => item.bot.aiPolicy.isolationScope === "isolated").length} aislados`} accentClass="accent-green" />
+        </div>
       </div>
 
       <div className="domain-readonly-grid">
         <article className="domain-readonly-card">
           <div className="domain-readonly-head">
-            <strong>Raw published feed</strong>
-            <span>Salida directa desde signal memory antes del ranking</span>
+            <strong>Overview del feed</strong>
+            <span>Materia prima, discovery y subset fuerte en una lectura rápida</span>
+          </div>
+          <div className="domain-segment-row">
+            <span className="domain-segment-chip is-active">Raw {readModel.publishedSignals.length}</span>
+            <span className="domain-segment-chip">Ranked {readModel.rankedPublishedSignals.length}</span>
+            <span className="domain-segment-chip">High confidence {readModel.highConfidenceSignals.length}</span>
           </div>
           <div className="domain-readonly-list">
-            {readModel.publishedSignals.slice(0, 6).map((signal) => (
+            {readModel.publishedSignals.slice(0, 4).map((signal) => (
               <div key={signal.id} className="domain-readonly-item">
                 <div className="domain-readonly-item-top">
                   <strong>{signal.context.symbol} · {signal.context.timeframe}</strong>
@@ -115,8 +136,8 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
 
         <article className="domain-readonly-card">
           <div className="domain-readonly-head">
-            <strong>Ranked published feed</strong>
-            <span>Orden final después de reducir ruido y promover claridad</span>
+            <strong>Ranked feed</strong>
+            <span>Orden final después del filtro de ruido y claridad</span>
           </div>
           <div className="domain-readonly-list">
             {readModel.rankedPublishedSignals.slice(0, 6).map((signal) => (
@@ -150,8 +171,57 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
       <div className="domain-readonly-grid">
         <article className="domain-readonly-card">
           <div className="domain-readonly-head">
+            <strong>Watchlist-first lane</strong>
+            <span>Señales más cercanas a operación visible y seguimiento directo</span>
+          </div>
+          <div className="domain-readonly-list">
+            {readModel.watchlistFirstSignals
+              .filter((signal) => signal.ranking.tier !== "low-visibility")
+              .slice(0, 4)
+              .map((signal) => (
+                <div key={`watchlist-${signal.id}`} className="domain-readonly-item">
+                  <div className="domain-readonly-item-top">
+                    <strong>{signal.context.symbol} · {signal.context.timeframe}</strong>
+                    <span className={`domain-readonly-badge ${getTierClassName(signal.ranking.tier)}`}>{signal.ranking.tier}</span>
+                  </div>
+                  <div className="domain-readonly-item-meta">
+                    <span>Lane watchlist-first</span>
+                    <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                  </div>
+                  <p>{signal.ranking.boosts.join(" · ")}</p>
+                </div>
+              ))}
+          </div>
+        </article>
+
+        <article className="domain-readonly-card">
+          <div className="domain-readonly-head">
+            <strong>Market-wide discovery</strong>
+            <span>Descubrimiento más exigente para no contaminar el feed principal</span>
+          </div>
+          <div className="domain-readonly-list">
+            {readModel.marketDiscoverySignals.slice(0, 4).map((signal) => (
+              <div key={`market-${signal.id}`} className="domain-readonly-item">
+                <div className="domain-readonly-item-top">
+                  <strong>{signal.context.symbol} · {signal.context.timeframe}</strong>
+                  <span className={`domain-readonly-badge ${getTierClassName(signal.ranking.tier)}`}>{signal.ranking.tier}</span>
+                </div>
+                <div className="domain-readonly-item-meta">
+                  <span>Lane market-discovery</span>
+                  <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                </div>
+                <p>{(signal.ranking.penalties[0] || signal.ranking.rationale[0])}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <div className="domain-readonly-grid">
+        <article className="domain-readonly-card">
+          <div className="domain-readonly-head">
             <strong>Policy fit por bot</strong>
-            <span>Cómo el feed rankeado se transforma en consumo por bot</span>
+            <span>Cómo el ranked feed se transforma en consumo por bot</span>
           </div>
           <div className="domain-bot-policy-grid">
             {readModel.botFeeds.map(({ bot, accepted, blocked, feed }) => (
@@ -205,6 +275,11 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                   <span>{signal.ranking.compositeScore.toFixed(0)}</span>
                 </div>
                 <p>{signal.ranking.rationale.join(" · ")}</p>
+                <div className="domain-policy-notes">
+                  {signal.ranking.boosts.slice(0, 2).map((note) => (
+                    <span key={`${signal.id}-hc-${note}`} className="domain-policy-pill is-boost">{note}</span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -225,6 +300,7 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                 <div className="domain-readonly-item-meta">
                   <span>Raw {signal.visibilityScore.toFixed(0)}</span>
                   <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                  <span>{signal.ranking.lane}</span>
                 </div>
                 <p>{signal.ranking.boosts.join(" · ") || "Sin boosts visibles."}</p>
               </div>
@@ -238,6 +314,7 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                 <div className="domain-readonly-item-meta">
                   <span>Raw {signal.visibilityScore.toFixed(0)}</span>
                   <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                  <span>{signal.ranking.lane}</span>
                 </div>
                 <p>{signal.ranking.penalties.join(" · ") || "Sin penalidades visibles."}</p>
               </div>

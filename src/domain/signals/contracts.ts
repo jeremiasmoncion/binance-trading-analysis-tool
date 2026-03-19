@@ -11,6 +11,7 @@ export type SignalLayer =
 export type SignalFeedKind = "watchlist" | "market-wide" | "bot-specific" | "high-confidence" | "style-specific";
 
 export type SignalRankTier = "high-confidence" | "priority" | "standard" | "low-visibility";
+export type SignalRankLane = "watchlist-first" | "market-discovery";
 
 export interface SignalContextSnapshot {
   symbol: string;
@@ -46,6 +47,7 @@ export interface RankedPublishedSignal extends PublishedSignal {
   ranking: {
     compositeScore: number;
     tier: SignalRankTier;
+    lane: SignalRankLane;
     boosts: string[];
     penalties: string[];
     rationale: string[];

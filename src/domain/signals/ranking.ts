@@ -1,15 +1,42 @@
-import type { PublishedSignal, RankedPublishedSignal, SignalFeed, SignalRankTier } from "./contracts";
+import type { PublishedSignal, RankedPublishedSignal, SignalFeed, SignalRankLane, SignalRankTier } from "./contracts";
 
-function rankTierFromScore(score: number): SignalRankTier {
-  if (score >= 85) {
+function getLane(signal: PublishedSignal): SignalRankLane {
+  return signal.audience === "watchlist" ? "watchlist-first" : "market-discovery";
+}
+
+function rankTierFromScore(input: {
+  score: number;
+  lane: SignalRankLane;
+  majorPenaltyCount: number;
+  boostCount: number;
+}): SignalRankTier {
+  const { score, lane, majorPenaltyCount, boostCount } = input;
+
+  if (lane === "watchlist-first") {
+    if (score >= 88 && majorPenaltyCount === 0 && boostCount >= 4) {
+      return "high-confidence";
+    }
+
+    if (score >= 72) {
+      return "priority";
+    }
+
+    if (score >= 52) {
+      return "standard";
+    }
+
+    return "low-visibility";
+  }
+
+  if (score >= 94 && majorPenaltyCount === 0 && boostCount >= 5) {
     return "high-confidence";
   }
 
-  if (score >= 70) {
+  if (score >= 80) {
     return "priority";
   }
 
-  if (score >= 50) {
+  if (score >= 60) {
     return "standard";
   }
 
@@ -22,15 +49,18 @@ function dedupeNotes(notes: string[]): string[] {
 
 export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSignal {
   let compositeScore = signal.visibilityScore;
+  const lane = getLane(signal);
   const boosts: string[] = [];
   const penalties: string[] = [];
   const rationale: string[] = [];
 
-  if (signal.audience === "watchlist") {
+  if (lane === "watchlist-first") {
     compositeScore += 8;
     boosts.push("Watchlist activa");
   } else {
-    rationale.push("Señal de mercado general");
+    compositeScore -= 4;
+    rationale.push("Descubrimiento de mercado general");
+    penalties.push("Exige umbral más alto para discovery");
   }
 
   if (signal.context.score >= 70) {
@@ -77,7 +107,24 @@ export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSig
     boosts.push("Dirección operativa visible");
   }
 
-  const tier = rankTierFromScore(compositeScore);
+  if (lane === "market-discovery" && signal.context.timeframe === "15m") {
+    compositeScore -= 3;
+    penalties.push("Discovery intradía más propenso a ruido");
+  }
+
+  const majorPenaltyCount = penalties.filter((note) => (
+    note === "Score base bajo"
+    || note === "Timeframe ruidoso"
+    || note === "Dirección poco definida"
+    || note === "Contexto de mercado incompleto"
+  )).length;
+
+  const tier = rankTierFromScore({
+    score: compositeScore,
+    lane,
+    majorPenaltyCount,
+    boostCount: boosts.length,
+  });
 
   rationale.push(
     tier === "high-confidence"
@@ -94,6 +141,7 @@ export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSig
     ranking: {
       compositeScore,
       tier,
+      lane,
       boosts: dedupeNotes(boosts),
       penalties: dedupeNotes(penalties),
       rationale: dedupeNotes(rationale),

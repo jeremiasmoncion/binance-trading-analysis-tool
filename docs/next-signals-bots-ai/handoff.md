@@ -59,6 +59,14 @@ The project also now has an orchestration base for multi-thread execution under:
   - promotions
   - degradations
   - high-confidence subset membership
+- tightened ranking thresholds and split ranked signals into:
+  - `watchlist-first`
+  - `market-discovery`
+- made market discovery intentionally stricter to reduce feed noise before future product expansion
+- moved the read-only lab one step closer to the intended future UX pattern with:
+  - stronger header hierarchy
+  - denser quick stats
+  - clearer feed segmentation
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -113,7 +121,7 @@ Bridge the new contracts into a safe read-only Phase 3 seam:
   - -> `ranked published feed`
   - -> `bot-consumable feed`
   - -> read-only UI
-- next step should stay focused on ranking defensibility before registry persistence
+- next step should stay focused on threshold tuning, watchlist-vs-market noise split, and explainability before registry persistence
 
 ## GitHub Notification Practice
 
@@ -175,9 +183,9 @@ What implementers should avoid:
 ## Director Review Needed
 
 - confirm whether the next priority should be:
-  - stronger ranking defensibility
-  - threshold tuning for `high-confidence`
-  - deeper UI composition only if the lab becomes too crowded
+  - stronger threshold defensibility for `high-confidence`
+  - better separation between watchlist-first and market discovery
+  - richer ranking explanation before opening a dedicated surface
 - review whether `MemoryView` is the right temporary inspection host until a dedicated signals/bots workspace surface is approved
 
 ## Warning For Director

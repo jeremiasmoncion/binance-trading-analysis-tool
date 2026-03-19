@@ -467,6 +467,36 @@
   font-size: 0.92rem;
 }
 
+.profile-runtime-checklist {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.profile-runtime-check {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0.95rem 1rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.profile-runtime-check strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.profile-runtime-check p {
+  margin: 0.22rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .binance-connection-banner {
   display: flex;
   justify-content: space-between;

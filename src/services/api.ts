@@ -33,6 +33,7 @@ export interface RealtimeCoreRuntimeState {
   preferredMode: RealtimeCoreRuntimeMode;
   activeMode: RealtimeCoreRuntimeMode;
   healthy: boolean;
+  targetLabel: string;
 }
 
 interface ApiRequestOptions extends RequestInit {
@@ -186,11 +187,20 @@ async function requestExternalRealtimeCoreHealth() {
 }
 
 function buildRealtimeCoreRuntimeState(activeMode: RealtimeCoreRuntimeMode, healthy: boolean): RealtimeCoreRuntimeState {
+  let targetLabel = "Vercel interno";
+  if (realtimeCoreBaseUrl) {
+    try {
+      targetLabel = new URL(realtimeCoreBaseUrl).host || realtimeCoreBaseUrl;
+    } catch {
+      targetLabel = realtimeCoreBaseUrl;
+    }
+  }
   return {
     configured: Boolean(realtimeCoreBaseUrl),
     preferredMode: realtimeCoreBaseUrl ? "external" : "serverless",
     activeMode,
     healthy,
+    targetLabel,
   };
 }
 

@@ -77,6 +77,7 @@ export interface SystemDataPlane {
       activeMode: "external" | "serverless";
       healthy: boolean;
       lastCheckedAt: number | null;
+      targetLabel: string;
     };
   };
   actions: {

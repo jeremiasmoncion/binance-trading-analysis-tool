@@ -32,6 +32,7 @@ const initialSystemDataPlane: SystemDataPlane = {
       activeMode: "serverless",
       healthy: true,
       lastCheckedAt: null,
+      targetLabel: "Vercel interno",
     },
   },
   actions: {

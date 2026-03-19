@@ -56,6 +56,23 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const users = props.users || [];
   const pagedUsers = paginateRows(users, usersPage);
   const realtimeCore = systemData.realtimeCore;
+  const realtimeReadiness = [
+    {
+      label: "URL externa configurada",
+      ok: realtimeCore.configured,
+      note: realtimeCore.configured ? realtimeCore.targetLabel : "Todavía no hay un host realtime externo configurado",
+    },
+    {
+      label: "Servicio saludable",
+      ok: realtimeCore.healthy,
+      note: realtimeCore.healthy ? "El runtime respondió saludable en la última verificación" : "La app degradó al fallback porque el core externo no respondió bien",
+    },
+    {
+      label: "Modo activo externo",
+      ok: realtimeCore.activeMode === "external",
+      note: realtimeCore.activeMode === "external" ? "Producción ya está entrando por el core persistente" : "La app sigue usando el fallback interno de Vercel",
+    },
+  ];
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
@@ -214,6 +231,10 @@ export function ProfileView(incomingProps: ProfileViewProps) {
               >
                 <div className="profile-data-list">
                   <div className="profile-data-row">
+                    <span>Destino configurado</span>
+                    <strong>{realtimeCore.targetLabel}</strong>
+                  </div>
+                  <div className="profile-data-row">
                     <span>Modo preferido</span>
                     <strong>{realtimeCore.preferredMode === "external" ? "Realtime core externo" : "Fallback interno"}</strong>
                   </div>
@@ -233,6 +254,18 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                     <span>Última verificación</span>
                     <strong>{realtimeCore.lastCheckedAt ? new Date(realtimeCore.lastCheckedAt).toLocaleString("es-DO") : "--"}</strong>
                   </div>
+                </div>
+
+                <div className="profile-runtime-checklist">
+                  {realtimeReadiness.map((item) => (
+                    <div key={item.label} className="profile-runtime-check">
+                      <span className={`profile-validation-chip ${item.ok ? "is-pass" : "is-warn"}`}>{item.ok ? "OK" : "Pendiente"}</span>
+                      <div>
+                        <strong>{item.label}</strong>
+                        <p>{item.note}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </SectionCard>
             ) : null}

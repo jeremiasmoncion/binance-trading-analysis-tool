@@ -85,6 +85,7 @@ export function syncRealtimeCoreControl(nextState: {
   preferredMode: "external" | "serverless";
   activeMode: "external" | "serverless";
   healthy: boolean;
+  targetLabel: string;
 }) {
   systemDataPlaneStore.setState((current) => ({
     ...current,
@@ -96,6 +97,7 @@ export function syncRealtimeCoreControl(nextState: {
         activeMode: nextState.activeMode,
         healthy: nextState.healthy,
         lastCheckedAt: Date.now(),
+        targetLabel: nextState.targetLabel,
       },
     },
   }));

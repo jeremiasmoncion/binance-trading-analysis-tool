@@ -96,7 +96,6 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
   const [lists, setLists] = useState<WatchlistGroup[]>([{ name: "Principal", coins: [], isActive: true }]);
   const [activeListName, setActiveListName] = useState("Principal");
   const [hydrated, setHydrated] = useState(false);
-  const [remoteReady, setRemoteReady] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -130,7 +129,6 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
           setLists(seedState.lists);
           setActiveListName(seedState.activeListName);
           setHydrated(true);
-          setRemoteReady(!currentUser);
         }
 
         if (!currentUser) return;
@@ -160,17 +158,12 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
             setLists(seedState.lists);
             setActiveListName(seedState.activeListName);
           }
-        } finally {
-          if (active) {
-            setRemoteReady(true);
-          }
         }
       } catch {
         if (active) {
           setLists([{ name: "Principal", coins: [], isActive: true }]);
           setActiveListName("Principal");
           setHydrated(true);
-          setRemoteReady(!currentUser);
         }
       }
     }
@@ -202,18 +195,22 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
     setLists(nextLists.map((item) => ({ ...item, isActive: item.name === nextActiveListName })));
     setActiveListName(nextActiveListName);
 
-    if (!currentUser || !remoteReady || !remoteAction) return;
+    if (!currentUser || !remoteAction) return;
 
     try {
+      // Watchlists treat localStorage as a warm cache only. Once a user has a
+      // session, the remote payload stays canonical even if the first hydrate
+      // came from cache to avoid keeping a parallel source of truth alive.
       const payload = await remoteAction();
       const normalized = normalizeLists(payload.lists || []);
       const activeName = normalizeListName(payload.activeListName) || normalized.find((item) => item.isActive)?.name || "Principal";
       setLists(normalized.map((item) => ({ ...item, isActive: item.name === activeName })));
       setActiveListName(activeName);
+      window.localStorage.setItem(GLOBAL_WATCHLIST_STATE_KEY, serializeState(normalized, activeName));
     } catch {
       // keep optimistic local state if remote sync fails
     }
-  }, [currentUser, remoteReady]);
+  }, [currentUser]);
 
   // Keep watchlist actions referentially stable so the shared data plane can
   // expose them without re-publishing handlers on every render.

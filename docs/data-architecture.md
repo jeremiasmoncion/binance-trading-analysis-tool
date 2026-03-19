@@ -187,6 +187,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 
 - `AppView` should keep shrinking its prop surface as views move to selector-first consumption
 - watchlist mutations should flow through `system plane actions`, not through screen-specific prop chains
+- watchlists should treat `localStorage` as a startup cache and last-good fallback only; once a user has a remote session, the remote payload remains canonical and optimistic local edits should reconcile back through that same remote path
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors
 - `MemoryView` now scopes its strategy/scanner polling to tabs that actually use that data instead of polling unconditionally in the background
 - `MemoryView` strategy-engine and scanner data now hydrate through the shared `system plane`; only the tab-aware heartbeat remains local while that screen still decides which subsection is visible

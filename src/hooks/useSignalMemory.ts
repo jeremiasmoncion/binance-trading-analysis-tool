@@ -10,6 +10,27 @@ interface UseSignalMemoryOptions {
   currentView: ViewName;
 }
 
+function hasSignalMemoryChanged(current: SignalSnapshot[], next: SignalSnapshot[]) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (
+      currentItem.id !== nextItem.id
+      || currentItem.updated_at !== nextItem.updated_at
+      || currentItem.outcome_status !== nextItem.outcome_status
+      || Number(currentItem.outcome_pnl || 0) !== Number(nextItem.outcome_pnl || 0)
+      || (currentItem.note || "") !== (nextItem.note || "")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOptions) {
   const refreshPolicy = getViewRefreshPolicy(currentView);
   const [signals, setSignals] = useState<SignalSnapshot[]>([]);
@@ -60,8 +81,16 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     try {
       const payload = await signalService.list();
       const nextSignals = payload.signals || [];
-      setSignals(nextSignals);
-      publishSignalsToPlane(nextSignals);
+      setSignals((currentSignals) => {
+        // Signal memory refresh can happen from more than one shared surface.
+        // Keep the current array when the effective signal state did not
+        // change so the plane and its selector consumers stay quiet.
+        if (!hasSignalMemoryChanged(currentSignals, nextSignals)) {
+          return currentSignals;
+        }
+        publishSignalsToPlane(nextSignals);
+        return nextSignals;
+      });
     } catch {
       systemDataPlaneStore.setState((current) => ({
         ...current,

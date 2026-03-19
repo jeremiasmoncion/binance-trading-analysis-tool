@@ -327,6 +327,11 @@ Phase 2 / Phase 3 bridge
 - The working branch currently contains a prior realtime refinement commit (`390d0aa`) that does not belong to the implementer scope originally assigned.
 - This round did not touch that area, but the director should take the branch contamination into account during later integration review.
 
+### Publication Note
+
+- This round was published from a clean branch derived from `origin/codex/implementador-bots-signals` to avoid carrying realtime refinement commits outside implementer scope.
+- The functional content of the round did not change during cleanup; only the publication path changed.
+
 ### Recommended Next Step
 
 - move to ranking/prioritization on top of the published feed

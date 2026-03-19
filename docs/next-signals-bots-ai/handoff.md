@@ -176,6 +176,7 @@ What implementers should avoid:
 
 - The branch `codex/implementador-bots-signals` currently includes a prior realtime refinement commit (`390d0aa`) outside the intended implementer scope.
 - This round did not extend that cross-scope work, but the integration review should account for it.
+- Clean publication for the read-only lab round is being done from a separate branch derived from `origin/codex/implementador-bots-signals`, so the published implementer lot stays free of those realtime commits.
 
 ## Refiner Coordination Needed
 

@@ -230,7 +230,6 @@ async function handleBootstrap(req, res, url) {
     payload.system = {
       ...payload.system,
       connection: channel.lastOverlay.connection,
-      portfolio: channel.lastOverlay.portfolio,
       execution: channel.lastOverlay.execution,
       dashboardSummary: channel.lastOverlay.dashboardSummary,
     };

@@ -34,7 +34,6 @@ export function applyRealtimeCoreEvent(event: RealtimeCoreEventEnvelope) {
       snapshot: {
         ...current.snapshot,
         connection: payload.connection ?? current.snapshot.connection,
-        portfolio: payload.portfolio ?? current.snapshot.portfolio,
       },
       overlay: {
         execution: payload.execution ?? current.overlay.execution,

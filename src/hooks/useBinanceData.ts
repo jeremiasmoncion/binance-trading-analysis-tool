@@ -414,11 +414,13 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     const executionRefreshInterval = refreshPolicy.executionIntervalMs;
     const dashboardRefreshInterval = refreshPolicy.dashboardSummaryIntervalMs;
 
-    const portfolioIntervalId = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      const mode = refreshPolicy.portfolioMode;
-      void refreshPortfolio(portfolioPeriod, mode);
-    }, portfolioRefreshInterval);
+    const portfolioIntervalId = portfolioRefreshInterval > 0
+      ? window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        const mode = refreshPolicy.portfolioMode;
+        void refreshPortfolio(portfolioPeriod, mode);
+      }, portfolioRefreshInterval)
+      : null;
 
     const executionIntervalId = executionRefreshInterval > 0
       ? window.setInterval(() => {

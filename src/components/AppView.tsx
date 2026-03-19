@@ -1,16 +1,18 @@
-import type { RefObject } from "react";
+import { Suspense, lazy, type ReactNode, type RefObject } from "react";
 import type { BinanceConnection, Candle, ComparisonCoin, DashboardAnalysis, DashboardSummaryPayload, ExecutionCenterPayload, Indicators, OperationPlan, PortfolioPayload, Signal, SignalOutcomeStatus, SignalSnapshot, StrategyCandidate, StrategyDescriptor, TimeframeSignal, UserSession, ViewName, WatchlistGroup } from "../types";
-import { BalanceView } from "../views/BalanceView";
-import { CalculatorView } from "../views/CalculatorView";
-import { CompareView } from "../views/CompareView";
-import { ControlPanelView } from "../views/ControlPanelView";
-import { DashboardView } from "../views/DashboardView";
-import { LearnView } from "../views/LearnView";
-import { MemoryView } from "../views/MemoryView";
-import { MarketView } from "../views/MarketView";
-import { ProfileView } from "../views/ProfileView";
-import { StatsView } from "../views/StatsView";
-import { TradingView } from "../views/TradingView";
+import { EmptyState } from "./ui/EmptyState";
+
+const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
+const MemoryView = lazy(() => import("../views/MemoryView").then((module) => ({ default: module.MemoryView })));
+const StatsView = lazy(() => import("../views/StatsView").then((module) => ({ default: module.StatsView })));
+const TradingView = lazy(() => import("../views/TradingView").then((module) => ({ default: module.TradingView })));
+const ControlPanelView = lazy(() => import("../views/ControlPanelView").then((module) => ({ default: module.ControlPanelView })));
+const MarketView = lazy(() => import("../views/MarketView").then((module) => ({ default: module.MarketView })));
+const CalculatorView = lazy(() => import("../views/CalculatorView").then((module) => ({ default: module.CalculatorView })));
+const CompareView = lazy(() => import("../views/CompareView").then((module) => ({ default: module.CompareView })));
+const LearnView = lazy(() => import("../views/LearnView").then((module) => ({ default: module.LearnView })));
+const BalanceView = lazy(() => import("../views/BalanceView").then((module) => ({ default: module.BalanceView })));
+const ProfileView = lazy(() => import("../views/ProfileView").then((module) => ({ default: module.ProfileView })));
 
 interface AppViewProps {
   currentView: ViewName;
@@ -81,9 +83,11 @@ interface AppViewProps {
 }
 
 export function AppView(props: AppViewProps) {
+  let content: ReactNode = null;
+
   switch (props.currentView) {
     case "dashboard":
-      return (
+      content = (
         <DashboardView
           theme={props.theme}
           currentCoin={props.currentCoin}
@@ -104,8 +108,9 @@ export function AppView(props: AppViewProps) {
           onSaveSignal={props.onSaveSignal}
         />
       );
+      break;
     case "memory":
-      return (
+      content = (
         <MemoryView
           signals={props.signalMemory}
           watchlist={props.watchlist}
@@ -114,21 +119,25 @@ export function AppView(props: AppViewProps) {
           onUpdateSignal={props.onUpdateSignal}
         />
       );
+      break;
     case "stats":
-      return <StatsView portfolioData={props.portfolioData} executionCenter={props.executionCenter} />;
+      content = <StatsView portfolioData={props.portfolioData} executionCenter={props.executionCenter} />;
+      break;
     case "trading":
-      return <TradingView executionCenter={props.executionCenter} signals={props.signalMemory} />;
+      content = <TradingView executionCenter={props.executionCenter} signals={props.signalMemory} />;
+      break;
     case "control-overview":
     case "control-bots":
     case "control-history":
-      return (
+      content = (
         <ControlPanelView
           currentTab={props.currentView}
           onTabChange={(tab) => props.onNavigateView(tab)}
         />
       );
+      break;
     case "market":
-      return (
+      content = (
         <MarketView
           currentCoin={props.currentCoin}
           watchlists={props.watchlists}
@@ -148,8 +157,9 @@ export function AppView(props: AppViewProps) {
           onSetActiveWatchlist={props.onSetActiveWatchlist}
         />
       );
+      break;
     case "calculator":
-      return (
+      content = (
         <CalculatorView
           values={props.calculatorValues}
           result={props.calculatorResult}
@@ -158,18 +168,21 @@ export function AppView(props: AppViewProps) {
           onCurrentPrice={props.onUseCurrentPrice}
         />
       );
+      break;
     case "compare":
-      return (
+      content = (
         <CompareView
           comparison={props.comparison}
           currentCoin={props.currentCoin}
           onSelectCoin={props.onSelectCoin}
         />
       );
+      break;
     case "learn":
-      return <LearnView />;
+      content = <LearnView />;
+      break;
     case "balance":
-      return (
+      content = (
         <BalanceView
           payload={props.portfolioData}
           period={props.portfolioPeriod}
@@ -180,8 +193,9 @@ export function AppView(props: AppViewProps) {
           onToggleHideSmall={props.onToggleHideSmallAssets}
         />
       );
+      break;
     case "profile":
-      return (
+      content = (
         <ProfileView
           user={props.user}
           users={props.users}
@@ -193,7 +207,14 @@ export function AppView(props: AppViewProps) {
           onDisconnect={props.onDisconnectBinance}
         />
       );
+      break;
     default:
-      return null;
+      content = null;
   }
+
+  return (
+    <Suspense fallback={<EmptyState message="Cargando vista..." className="portfolio-empty" />}>
+      {content}
+    </Suspense>
+  );
 }

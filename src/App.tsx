@@ -14,6 +14,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
+import { syncMarketDataPlane, syncSystemDataPlane } from "./data-platform/syncAppDataPlanes";
 import { strategyEngineService } from "./services/api";
 import type { StrategyRecommendationRecord } from "./types";
 
@@ -74,6 +75,36 @@ export function App() {
     if (!market.indicators || !market.signal) return null;
     return getOperationPlan(market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis);
   }, [market.indicators, market.signal, calculatorState.capitalValue, market.timeframe, market.analysis]);
+
+  useEffect(() => {
+    syncMarketDataPlane(market);
+  }, [
+    market.analysis,
+    market.candles,
+    market.comparison,
+    market.currentCoin,
+    market.currentPrice,
+    market.indicators,
+    market.market24h,
+    market.multiTimeframes,
+    market.signal,
+    market.status,
+    market.strategy,
+    market.strategyCandidates,
+    market.timeframe,
+  ]);
+
+  useEffect(() => {
+    syncSystemDataPlane(binance, signalMemory, watchlist);
+  }, [
+    binance.binanceConnection,
+    binance.dashboardSummary,
+    binance.executionCenter,
+    binance.portfolioData,
+    signalMemory.signals,
+    watchlist.activeListName,
+    watchlist.lists,
+  ]);
 
   useEffect(() => {
     if (bootstrappedRef.current) return;

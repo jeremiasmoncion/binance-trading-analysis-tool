@@ -55,6 +55,7 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const summary = connection?.summary || {};
   const users = props.users || [];
   const pagedUsers = paginateRows(users, usersPage);
+  const realtimeCore = systemData.realtimeCore;
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
@@ -203,6 +204,38 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                 </div>
               </div>
             </SectionCard>
+
+            {props.user.role === "admin" ? (
+              <SectionCard
+                title="Runtime realtime"
+                subtitle="Lectura operativa del camino realtime que está usando CRYPE ahora mismo."
+                helpTitle="Realtime runtime"
+                helpBody="Este bloque confirma si la app está entrando por el realtime core externo o por el fallback interno de Vercel. Sirve para validar el cutover sin abrir la red del navegador."
+              >
+                <div className="profile-data-list">
+                  <div className="profile-data-row">
+                    <span>Modo preferido</span>
+                    <strong>{realtimeCore.preferredMode === "external" ? "Realtime core externo" : "Fallback interno"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Modo activo</span>
+                    <strong>{realtimeCore.activeMode === "external" ? "External core" : "Serverless fallback"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Servicio saludable</span>
+                    <strong>{realtimeCore.healthy ? "Sí" : "No"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Core configurado</span>
+                    <strong>{realtimeCore.configured ? "Sí" : "No"}</strong>
+                  </div>
+                  <div className="profile-data-row">
+                    <span>Última verificación</span>
+                    <strong>{realtimeCore.lastCheckedAt ? new Date(realtimeCore.lastCheckedAt).toLocaleString("es-DO") : "--"}</strong>
+                  </div>
+                </div>
+              </SectionCard>
+            ) : null}
           </>
         ) : null}
 

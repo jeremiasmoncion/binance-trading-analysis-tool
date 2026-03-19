@@ -77,6 +77,7 @@ export function useProfileSystemSelector() {
     connection: state.snapshot.connection,
     availableUsers: state.controls.availableUsers,
     binanceForm: state.controls.binanceForm,
+    realtimeCore: state.controls.realtimeCore,
     setBinanceFormField: state.actions.setBinanceFormField,
     connectBinance: state.actions.connectBinance,
     disconnectBinance: state.actions.disconnectBinance,

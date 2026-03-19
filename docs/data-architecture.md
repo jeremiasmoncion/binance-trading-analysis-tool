@@ -190,6 +190,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - market navigation actions should live in the shared `market plane`; views like `Compare` and `Market` should not depend on direct prop wiring just to switch coin/timeframe
 - global chrome such as `TopBar` should also read hot market/runtime state from shared selectors when possible; `App` should forward local UI actions, not rebroadcast the same market payload tree through props
 - shell-level view controls should keep stable callback identities; the top tree (`App`, `Sidebar`, `TopBar`, `AppView`) should not rebroadcast new navigation handlers on every unrelated market/system update
+- top-level action props should follow the same rule; commands like `onSaveSignal` should be stabilized in `App` instead of being recreated inline on every render
 - selector-first market views should not depend on `AppView` props just to change the active coin; once a market action lives in the shared plane, views like `Market` and `Compare` should consume it there
 - selector-first screen modules should also drop compatibility wrappers once `AppView` no longer passes those props; `Dashboard` and `Profile` should read operational state directly from shared selectors and keep props only for truly local concerns like user identity or a chart ref
 - selector-first screens should also delete dead prop-compatibility layers once `AppView` stops wiring them; `Market`, `Stats`, `Trading` and `Memory` should not keep `incomingProps ?? selector` wrappers for state that now only comes from the shared planes

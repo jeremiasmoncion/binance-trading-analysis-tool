@@ -70,7 +70,7 @@ export function App() {
     if (isMobileViewport() && !sidebarCollapsed) {
       toggleSidebar();
     }
-  }, [currentView, setCurrentView, sidebarCollapsed, toggleSidebar]);
+  }, [setCurrentView, sidebarCollapsed, toggleSidebar]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView });
   const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser });
   const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
@@ -541,11 +541,71 @@ export function App() {
     };
   }, [auth.currentUser]);
 
-  async function handleLogout() {
+  const handleLogout = useCallback(async () => {
     await auth.handleLogout(async () => {
       resetToDashboard();
     });
-  }
+  }, [auth, resetToDashboard]);
+
+  const handleSaveSignal = useCallback(() => {
+    if (!market.signal) {
+      showToast({
+        tone: "warning",
+        title: "Todavia no hay señal para guardar",
+        message: "Espera a que el analisis termine de generar una lectura valida.",
+      });
+      return;
+    }
+    if (!isCurrentCoinWatched) {
+      watchlist.toggleWatchlist(market.currentCoin);
+    }
+    // Saving a signal is a top-level action passed into Dashboard. Keep the
+    // handler stable so AppView does not receive a fresh callback on every
+    // unrelated realtime tick from market/system planes.
+    void (async () => {
+      const loaderId = startLoading({
+        label: "Guardando señal",
+        detail: `${market.currentCoin} · ${market.timeframe}`,
+      });
+      try {
+        await saveSignal({
+          coin: market.currentCoin,
+          timeframe: market.timeframe,
+          signal: market.signal,
+          analysis: market.analysis,
+          plan,
+          multiTimeframes: market.multiTimeframes,
+          strategy: market.strategy,
+          strategyCandidates: market.strategyCandidates,
+        });
+        showToast({
+          tone: "success",
+          title: "Señal guardada",
+          message: `${market.currentCoin} se añadió al historial para seguir su resultado.`,
+        });
+      } catch (error) {
+        showToast({
+          tone: "error",
+          title: "No se pudo guardar la señal",
+          message: error instanceof Error ? error.message : "Intentalo otra vez en unos segundos.",
+        });
+      } finally {
+        stopLoading(loaderId);
+      }
+    })();
+  }, [
+    isCurrentCoinWatched,
+    market.analysis,
+    market.currentCoin,
+    market.multiTimeframes,
+    market.signal,
+    market.strategy,
+    market.strategyCandidates,
+    market.timeframe,
+    plan,
+    saveSignal,
+    watchlist.toggleWatchlist,
+  ]);
 
   if (!auth.currentUser && !sessionChecked) {
     return (
@@ -627,50 +687,7 @@ export function App() {
           theme={theme}
           onNavigateView={handleNavigateView}
           chartRef={chartRef}
-          onSaveSignal={() => {
-            if (!market.signal) {
-              showToast({
-                tone: "warning",
-                title: "Todavia no hay señal para guardar",
-                message: "Espera a que el analisis termine de generar una lectura valida.",
-              });
-              return;
-            }
-            if (!isCurrentCoinWatched) {
-              watchlist.toggleWatchlist(market.currentCoin);
-            }
-            void (async () => {
-              const loaderId = startLoading({
-                label: "Guardando señal",
-                detail: `${market.currentCoin} · ${market.timeframe}`,
-              });
-              try {
-                await saveSignal({
-                  coin: market.currentCoin,
-                  timeframe: market.timeframe,
-                  signal: market.signal,
-                  analysis: market.analysis,
-                  plan,
-                  multiTimeframes: market.multiTimeframes,
-                  strategy: market.strategy,
-                  strategyCandidates: market.strategyCandidates,
-                });
-                showToast({
-                  tone: "success",
-                  title: "Señal guardada",
-                  message: `${market.currentCoin} se añadió al historial para seguir su resultado.`,
-                });
-              } catch (error) {
-                showToast({
-                  tone: "error",
-                  title: "No se pudo guardar la señal",
-                  message: error instanceof Error ? error.message : "Intentalo otra vez en unos segundos.",
-                });
-              } finally {
-                stopLoading(loaderId);
-              }
-            })();
-          }}
+          onSaveSignal={handleSaveSignal}
           calculatorValues={calculatorState.calculator}
           calculatorResult={calculatorState.result}
           onCalculatorChange={calculatorState.setField}

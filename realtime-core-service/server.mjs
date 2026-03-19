@@ -5,7 +5,7 @@ import {
   buildRealtimeCoreHeartbeat,
   buildRealtimeCoreSystemOverlay,
 } from "../api/_lib/realtimeCore.js";
-import { getSession } from "../api/_lib/auth.js";
+import { resolveRealtimeCoreSession } from "../api/_lib/auth.js";
 
 const PORT = Number(process.env.REALTIME_CORE_PORT || 8787);
 const HOST = process.env.REALTIME_CORE_HOST || "0.0.0.0";
@@ -51,13 +51,18 @@ function writeEvent(res, event) {
 
 async function handleBootstrap(req, res, url) {
   const normalizedReq = normalizeRequest(req, url);
+  const session = resolveRealtimeCoreSession(normalizedReq);
+  if (!session) {
+    sendJson(req, res, 401, { message: "Sesión no válida o vencida" });
+    return;
+  }
   const payload = await buildRealtimeCoreBootstrap(normalizedReq);
   sendJson(req, res, 200, payload);
 }
 
 async function handleEvents(req, res, url) {
   const normalizedReq = normalizeRequest(req, url);
-  const session = getSession(normalizedReq);
+  const session = resolveRealtimeCoreSession(normalizedReq);
   if (!session) {
     sendJson(req, res, 401, { message: "Sesión no válida o vencida" });
     return;

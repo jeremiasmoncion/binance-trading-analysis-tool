@@ -97,7 +97,7 @@ Current live overlay path:
 1. frontend opens `/api/realtime/events`
 2. the route emits `system.overlay.updated`
 3. frontend applies the event through `applyRealtimeCoreEvent`
-4. shared `system` plane updates `connection + execution + dashboard summary`
+4. shared `system` plane updates `connection + portfolio live + execution + dashboard summary`
 5. selector-based views receive the overlay without rebuilding the whole app state
 
 This is still transitional:
@@ -114,8 +114,9 @@ The frontend can now consume an external persistent realtime core service throug
 
 When this env is present:
 
-- bootstrap requests go to the external realtime core service
-- event stream requests go to the external realtime core service
+- frontend first requests `/api/realtime/session` on the app domain
+- bootstrap requests go to the external realtime core service with a bridge token
+- event stream requests go to the external realtime core service with the same bridge token
 - frontend contracts stay the same
 
 This allows infrastructure migration without rewriting view logic.

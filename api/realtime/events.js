@@ -1,4 +1,4 @@
-import { getSession } from "../_lib/auth.js";
+import { resolveRealtimeCoreSession } from "../_lib/auth.js";
 import { buildRealtimeCoreHeartbeat, buildRealtimeCoreSystemOverlay } from "../_lib/realtimeCore.js";
 
 function sendEvent(res, event) {
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const session = getSession(req);
+  const session = resolveRealtimeCoreSession(req);
   if (!session) {
     res.statusCode = 401;
     res.setHeader("Content-Type", "application/json");

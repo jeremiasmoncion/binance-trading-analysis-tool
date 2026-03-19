@@ -3,6 +3,7 @@ import { createHmac, pbkdf2Sync, randomBytes, timingSafeEqual } from "node:crypt
 const SESSION_COOKIE = "crype_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 const SESSION_SECRET = process.env.SESSION_SECRET || "crype-dev-session-secret";
+const REALTIME_CORE_BRIDGE_TTL_SECONDS = Number(process.env.REALTIME_CORE_BRIDGE_TTL_SECONDS || 60 * 30);
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const SUPABASE_USERS_TABLE = process.env.SUPABASE_USERS_TABLE || "app_users";
@@ -160,8 +161,8 @@ async function createUser({ displayName, email, password }) {
   return created?.[0] || null;
 }
 
-function sign(value) {
-  return createHmac("sha256", SESSION_SECRET).update(value).digest("hex");
+function sign(value, scope = "session") {
+  return createHmac("sha256", SESSION_SECRET).update(`${scope}:${value}`).digest("hex");
 }
 
 function encodeSession(user) {
@@ -177,10 +178,10 @@ function encodeSession(user) {
   return `${payload}.${sign(payload)}`;
 }
 
-function decodeSession(token) {
+function decodeSession(token, scope = "session") {
   if (!token || !token.includes(".")) return null;
   const [payload, signature] = token.split(".");
-  if (sign(payload) !== signature) return null;
+  if (sign(payload, scope) !== signature) return null;
   try {
     const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     if (!session.exp || Date.now() > session.exp) return null;
@@ -210,6 +211,52 @@ function getSession(req) {
   return decodeSession(cookies[SESSION_COOKIE]);
 }
 
+function parseBearerToken(req) {
+  const authorizationHeader = String(req?.headers?.authorization || req?.headers?.Authorization || "").trim();
+  if (!authorizationHeader.toLowerCase().startsWith("bearer ")) return "";
+  return authorizationHeader.slice(7).trim();
+}
+
+function createRealtimeCoreBridgeToken(session, ttlSeconds = REALTIME_CORE_BRIDGE_TTL_SECONDS) {
+  const normalizedSession = sessionUser(session);
+  const expiresAt = Date.now() + Math.max(60, Number(ttlSeconds) || REALTIME_CORE_BRIDGE_TTL_SECONDS) * 1000;
+  const payload = Buffer.from(
+    JSON.stringify({
+      username: normalizedSession.username,
+      role: normalizedSession.role,
+      displayName: normalizedSession.displayName,
+      exp: expiresAt,
+      scope: "realtime-core-bridge",
+    }),
+  ).toString("base64url");
+  return {
+    token: `${payload}.${sign(payload, "realtime-core-bridge")}`,
+    expiresAt: new Date(expiresAt).toISOString(),
+  };
+}
+
+function decodeRealtimeCoreBridgeToken(token) {
+  const payload = decodeSession(token, "realtime-core-bridge");
+  if (!payload || payload.scope !== "realtime-core-bridge") return null;
+  return payload;
+}
+
+function getRealtimeCoreBridgeSession(reqOrToken) {
+  const token = typeof reqOrToken === "string"
+    ? reqOrToken
+    : String(
+      parseBearerToken(reqOrToken)
+        || reqOrToken?.query?.token
+        || reqOrToken?.url?.searchParams?.get?.("token")
+        || "",
+    ).trim();
+  return decodeRealtimeCoreBridgeToken(token);
+}
+
+function resolveRealtimeCoreSession(req) {
+  return getRealtimeCoreBridgeSession(req) || getSession(req);
+}
+
 function setSessionCookie(res, user) {
   const token = encodeSession(user);
   const cookie = `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_SECONDS}; Secure`;
@@ -226,13 +273,16 @@ function sendJson(res, status, body) {
 
 export {
   clearSessionCookie,
+  createRealtimeCoreBridgeToken,
   createUser,
   getSession,
   getStorageMode,
+  getRealtimeCoreBridgeSession,
   getUser,
   listUsers,
   parseJsonBody,
   publicUser,
+  resolveRealtimeCoreSession,
   sendJson,
   setSessionCookie,
 };

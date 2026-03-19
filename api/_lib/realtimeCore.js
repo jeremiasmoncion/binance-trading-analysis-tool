@@ -2,7 +2,7 @@ import { getBinanceConnectionState, getPortfolioSnapshot } from "./binance.js";
 import { getExecutionCenter } from "./executionEngine.js";
 import { buildMarketSnapshot } from "./marketRuntime.js";
 import { listSignalSnapshotsForUser } from "./signals.js";
-import { getSession } from "./auth.js";
+import { resolveRealtimeCoreSession } from "./auth.js";
 import { listWatchlists } from "./watchlist.js";
 
 function getSupportResistance(candles) {
@@ -51,7 +51,7 @@ function normalizeMarketBootstrapSnapshot(snapshot) {
 }
 
 export async function buildRealtimeCoreBootstrap(req, options = {}) {
-  const session = getSession(req);
+  const session = resolveRealtimeCoreSession(req);
   if (!session) {
     throw new Error("Sesión no válida o vencida");
   }
@@ -92,7 +92,7 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
 }
 
 export async function buildRealtimeCoreSystemOverlay(req) {
-  const session = getSession(req);
+  const session = resolveRealtimeCoreSession(req);
   if (!session) {
     throw new Error("Sesión no válida o vencida");
   }

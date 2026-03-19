@@ -29,6 +29,7 @@ Today it:
 - serves the same bootstrap contract as the serverless fallback
 - serves the same system overlay stream as the serverless fallback
 - allows the frontend to switch to an external realtime core by setting `VITE_REALTIME_CORE_URL`
+- supports a bridge-token auth flow via `GET /api/realtime/session` so the external service does not depend on same-origin cookies
 
 It does **not** yet:
 
@@ -50,10 +51,24 @@ Default envs:
 - `REALTIME_CORE_PORT=8787`
 - `REALTIME_CORE_HOST=0.0.0.0`
 - `REALTIME_CORE_ALLOWED_ORIGIN=http://localhost:5173`
+- `REALTIME_CORE_BRIDGE_TTL_SECONDS=1800`
 
 To make the frontend consume it:
 
 - set `VITE_REALTIME_CORE_URL=http://localhost:8787`
+
+## Auth Bridge
+
+When `VITE_REALTIME_CORE_URL` is defined, the frontend first requests:
+
+- `GET /api/realtime/session`
+
+That route issues a short-lived bridge token derived from the current CRYPE session. The frontend appends that token to:
+
+- `GET {VITE_REALTIME_CORE_URL}/bootstrap`
+- `GET {VITE_REALTIME_CORE_URL}/events`
+
+This keeps Vercel session cookies on the app domain while still allowing the external realtime core to authenticate requests cross-origin.
 
 ## Recommended Next Infra Step
 

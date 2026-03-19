@@ -41,6 +41,8 @@ interface CachedApiRequestOptions extends ApiRequestOptions {
 const hotApiCache = new Map<string, { expiresAt: number; value: unknown }>();
 const hotApiInFlight = new Map<string, Promise<unknown>>();
 const realtimeCoreBaseUrl = String(import.meta.env.VITE_REALTIME_CORE_URL || "").trim().replace(/\/$/, "");
+let realtimeCoreBridgeTokenCache: { token: string; expiresAt: number } | null = null;
+let realtimeCoreBridgeTokenInFlight: Promise<string> | null = null;
 
 async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { timeoutMs, ...requestOptions } = options;
@@ -116,6 +118,38 @@ function invalidateHotApiCache(...keys: string[]) {
     hotApiCache.delete(key);
     hotApiInFlight.delete(key);
   });
+}
+
+async function getRealtimeCoreBridgeToken() {
+  if (!realtimeCoreBaseUrl) return "";
+
+  const now = Date.now();
+  if (realtimeCoreBridgeTokenCache && realtimeCoreBridgeTokenCache.expiresAt - now > 30_000) {
+    return realtimeCoreBridgeTokenCache.token;
+  }
+
+  if (realtimeCoreBridgeTokenInFlight) {
+    return realtimeCoreBridgeTokenInFlight;
+  }
+
+  realtimeCoreBridgeTokenInFlight = apiRequest<{ token: string; expiresAt: string }>("/api/realtime/session", {
+    timeoutMs: 10_000,
+  })
+    .then((payload) => {
+      const expiresAt = new Date(payload.expiresAt).getTime();
+      realtimeCoreBridgeTokenCache = {
+        token: payload.token,
+        expiresAt: Number.isFinite(expiresAt) ? expiresAt : Date.now() + 10 * 60_000,
+      };
+      realtimeCoreBridgeTokenInFlight = null;
+      return payload.token;
+    })
+    .catch((error) => {
+      realtimeCoreBridgeTokenInFlight = null;
+      throw error;
+    });
+
+  return realtimeCoreBridgeTokenInFlight;
 }
 
 const marketCache = {
@@ -651,12 +685,16 @@ export const marketService = {
 };
 
 export const realtimeCoreService = {
-  getBootstrap(coin: string, timeframe: string, period = "1d") {
+  async getBootstrap(coin: string, timeframe: string, period = "1d") {
     const params = new URLSearchParams({
       coin,
       timeframe,
       period,
     });
+    if (realtimeCoreBaseUrl) {
+      const token = await getRealtimeCoreBridgeToken();
+      params.set("token", token);
+    }
     const bootstrapPath = realtimeCoreBaseUrl
       ? `${realtimeCoreBaseUrl}/bootstrap?${params.toString()}`
       : `/api/realtime/bootstrap?${params.toString()}`;
@@ -664,7 +702,7 @@ export const realtimeCoreService = {
       timeoutMs: 15_000,
     });
   },
-  openSystemEvents(onEvent: (event: RealtimeCoreEventEnvelope) => void, options: { intervalMs?: number } = {}) {
+  async openSystemEvents(onEvent: (event: RealtimeCoreEventEnvelope) => void, options: { intervalMs?: number } = {}) {
     if (typeof window === "undefined" || typeof EventSource === "undefined") {
       return () => undefined;
     }
@@ -672,6 +710,10 @@ export const realtimeCoreService = {
     const params = new URLSearchParams();
     if (options.intervalMs) {
       params.set("intervalMs", String(options.intervalMs));
+    }
+    if (realtimeCoreBaseUrl) {
+      const token = await getRealtimeCoreBridgeToken();
+      params.set("token", token);
     }
 
     const eventsPath = realtimeCoreBaseUrl

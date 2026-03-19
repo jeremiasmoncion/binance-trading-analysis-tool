@@ -151,12 +151,22 @@ export function App() {
   useEffect(() => {
     if (!auth.currentUser) return undefined;
 
-    const close = realtimeCoreService.openSystemEvents((event) => {
+    let cancelled = false;
+    let closeStream: () => void = () => {};
+
+    void realtimeCoreService.openSystemEvents((event) => {
       applyRealtimeCoreEvent(event);
-    });
+    }).then((close) => {
+      if (cancelled) {
+        close();
+        return;
+      }
+      closeStream = close;
+    }).catch(() => undefined);
 
     return () => {
-      close();
+      cancelled = true;
+      closeStream();
     };
   }, [auth.currentUser]);
 

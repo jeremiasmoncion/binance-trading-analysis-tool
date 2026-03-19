@@ -23,7 +23,7 @@ interface MarketViewProps {
   };
   support?: number;
   resistance?: number;
-  onSelectCoin: (coin: string) => void;
+  onSelectCoin?: (coin: string) => void;
   onToggleWatchlist?: (coin: string) => Promise<void> | void;
   onReplaceWatchlistCoins?: (name: string, coins: string[]) => Promise<void>;
   onCreateWatchlist?: (name: string) => Promise<void>;
@@ -334,7 +334,7 @@ export function MarketView(incomingProps: MarketViewProps) {
               <div className="watchlist-grid">
               {pagedSelectedCoins.rows.map((coin) => (
                 <div className={`watchlist-chip${coin === currentCoin ? " active" : ""}`} key={coin}>
-                  <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin(coin)}>
+                  <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin?.(coin)}>
                     <span className="watchlist-chip-symbol">{coin}</span>
                     <span className="watchlist-chip-note">{coin === currentCoin ? "Par activo" : "Abrir en el análisis"}</span>
                   </button>

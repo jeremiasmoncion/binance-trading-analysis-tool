@@ -35,7 +35,6 @@ interface AppViewProps {
   onUseCurrentPrice: () => void;
   onSaveSignal: () => void;
   user: UserSession;
-  onSelectCoin: (coin: string) => void;
 }
 
 export function AppView(props: AppViewProps) {
@@ -71,11 +70,7 @@ export function AppView(props: AppViewProps) {
       );
       break;
     case "market":
-      content = (
-        <MarketView
-          onSelectCoin={props.onSelectCoin}
-        />
-      );
+      content = <MarketView />;
       break;
     case "calculator":
       content = (

@@ -668,7 +668,6 @@ export function App() {
           onCalculatorChange={calculatorState.setField}
           onSuggestPlan={() => calculatorState.applySuggestedPlan()}
           onUseCurrentPrice={calculatorState.useCurrentPrice}
-          onSelectCoin={market.selectCoin}
           user={auth.currentUser}
         />
       </main>

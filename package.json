@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "realtime-core": "node realtime-core-service/server.mjs"
+    "realtime-core": "node realtime-core-service/server.mjs",
+    "realtime-core:preflight": "node realtime-core-service/preflight.mjs"
   },
   "dependencies": {
     "clsx": "2.1.1",

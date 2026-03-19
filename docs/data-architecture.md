@@ -162,6 +162,7 @@ Current reduction already applied:
 - bridge auth from the app domain to the external realtime core
 - persistent-memory per-user overlay channels in the external realtime core
 - deployment assets for a persistent containerized realtime core
+- preflight validation for realtime-core cutover
 
 ### Pending
 

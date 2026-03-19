@@ -46,6 +46,13 @@ Use:
 npm run realtime-core
 ```
 
+Preflight before cutover:
+
+```bash
+npm run realtime-core:preflight
+npm run realtime-core:preflight -- --url=https://your-realtime-core-domain
+```
+
 Container build:
 
 ```bash
@@ -132,6 +139,21 @@ The repo now includes:
 - [render.yaml](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/render.yaml)
 
 That means the service is ready to be deployed as a persistent container without inventing new runtime wiring.
+
+## Cutover Preflight
+
+Before setting `VITE_REALTIME_CORE_URL` in Vercel, run:
+
+1. `npm run realtime-core:preflight`
+2. `npm run realtime-core:preflight -- --url=https://your-realtime-core-domain`
+
+This validates:
+
+- required envs for the persistent service
+- optional runtime knobs
+- remote `/health` response when a URL is provided
+
+If the command exits with non-zero status, fix that first and do not cut production over yet.
 
 ## Migration Path
 

@@ -14,6 +14,56 @@ interface UseMemoryRuntimeOptions {
   currentUser: UserSession | null;
 }
 
+function hasRecordArrayChanged<T extends { id: number; updated_at?: string | null }>(current: T[], next: T[]) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (currentItem.id !== nextItem.id || (currentItem.updated_at || "") !== (nextItem.updated_at || "")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasDecisionChanged(current: StrategyDecisionState | null, next: StrategyDecisionState | null) {
+  if (current === next) return false;
+  if (!current || !next) return current !== next;
+
+  return !(
+    (current.username || "") === (next.username || "")
+    && (current.scorerPolicy?.activeScorer || "") === (next.scorerPolicy?.activeScorer || "")
+    && (current.scorerPolicy?.promotedAt || "") === (next.scorerPolicy?.promotedAt || "")
+    && (current.scorerPolicy?.source || "") === (next.scorerPolicy?.source || "")
+    && Number(current.scorerPolicy?.confidence || 0) === Number(next.scorerPolicy?.confidence || 0)
+    && current.activeStrategyByScope.length === next.activeStrategyByScope.length
+    && current.executionEligibleScopes.length === next.executionEligibleScopes.length
+    && current.sandboxExperimentsByScope.length === next.sandboxExperimentsByScope.length
+  );
+}
+
+function hasScannerStatusChanged(current: WatchlistScannerStatus | null, next: WatchlistScannerStatus | null) {
+  if (current === next) return false;
+  if (!current || !next) return current !== next;
+
+  return !(
+    Number(current.summary?.watchedUsers || 0) === Number(next.summary?.watchedUsers || 0)
+    && Number(current.summary?.watchedCoins || 0) === Number(next.summary?.watchedCoins || 0)
+    && Number(current.summary?.schedulerRuns || 0) === Number(next.summary?.schedulerRuns || 0)
+    && Boolean(current.summary?.autoExecutionCooldownActive) === Boolean(next.summary?.autoExecutionCooldownActive)
+    && (current.summary?.autoExecutionCooldownUntil || "") === (next.summary?.autoExecutionCooldownUntil || "")
+    && current.targets.length === next.targets.length
+    && current.runs.length === next.runs.length
+    && (current.latestRun?.id || 0) === (next.latestRun?.id || 0)
+    && (current.latestRun?.created_at || "") === (next.latestRun?.created_at || "")
+    && (current.latestSchedulerRun?.id || 0) === (next.latestSchedulerRun?.id || 0)
+    && (current.latestSchedulerRun?.created_at || "") === (next.latestSchedulerRun?.created_at || "")
+  );
+}
+
 export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
   const [strategyRegistry, setStrategyRegistry] = useState<StrategyRegistryEntry[]>([]);
   const [strategyVersions, setStrategyVersions] = useState<StrategyVersionRecord[]>([]);
@@ -45,11 +95,20 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
       if (activeUsernameRef.current !== username) {
         return null;
       }
-      setStrategyRegistry(payload.registry || []);
-      setStrategyVersions(payload.versions || []);
-      setStrategyExperiments(payload.experiments || []);
-      setStrategyRecommendations(payload.recommendations || []);
-      setStrategyDecision(payload.decision || null);
+      const nextRegistry = payload.registry || [];
+      const nextVersions = payload.versions || [];
+      const nextExperiments = payload.experiments || [];
+      const nextRecommendations = payload.recommendations || [];
+      const nextDecision = payload.decision || null;
+
+      // Strategy runtime is shared across Memory, admin panels and automation
+      // notifications. Ignore refreshes that only recreate equivalent arrays so
+      // shared selectors do not rerender on every periodic poll.
+      setStrategyRegistry((current) => (hasRecordArrayChanged(current, nextRegistry) ? nextRegistry : current));
+      setStrategyVersions((current) => (hasRecordArrayChanged(current, nextVersions) ? nextVersions : current));
+      setStrategyExperiments((current) => (hasRecordArrayChanged(current, nextExperiments) ? nextExperiments : current));
+      setStrategyRecommendations((current) => (hasRecordArrayChanged(current, nextRecommendations) ? nextRecommendations : current));
+      setStrategyDecision((current) => (hasDecisionChanged(current, nextDecision) ? nextDecision : current));
       return payload;
     } catch {
       if (options?.clearOnError) {
@@ -159,7 +218,7 @@ export function useMemoryRuntime({ currentUser }: UseMemoryRuntimeOptions) {
       if (activeUsernameRef.current !== username) {
         return null;
       }
-      setScannerStatus(payload);
+      setScannerStatus((current) => (hasScannerStatusChanged(current, payload) ? payload : current));
       return payload;
     } catch {
       if (options?.clearOnError) {

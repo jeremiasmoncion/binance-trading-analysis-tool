@@ -4,6 +4,8 @@
 
 The project now has a dedicated documentation base for the redesign of CRYPE into a `signals + bots + AI` platform.
 
+The first code-level Phase 2 foundation now exists in an isolated domain module under `src/domain/`.
+
 This documentation is the source of truth for:
 
 - redesign intent
@@ -27,12 +29,29 @@ The project also now has an orchestration base for multi-thread execution under:
 - defined target conceptual architecture
 - documented closed product decisions
 - established a phased work structure
+- introduced code-level contracts for:
+  - bot entity
+  - universe policy
+  - execution environment
+  - automation mode
+  - overlap policy
+  - AI policy
+  - memory summary
+  - performance summary
+- introduced signal taxonomy contracts for:
+  - `system-signal`
+  - `published-signal`
+  - `bot-consumable-signal`
+  - `execution-candidate`
+- added pure adapters to bridge future integration from existing `ExecutionCandidate` and `ExecutionOrderRecord` data
+- added initial registry scaffolding with a standard bot and an isolated unrestricted AI bot definition
+- verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
 
-- no new bot domain code has been introduced yet
-- no signal feed separation code has been introduced yet
-- no new persistence or selectors for bots exist yet
+- no persistence or shared store has been attached to the new bot registry yet
+- no UI surface consumes the new domain module yet
+- no signal feed has been wired into the existing market/runtime pipeline yet
 - no AI conversational layer has been implemented yet
 
 ## Files Added
@@ -50,21 +69,26 @@ The project also now has an orchestration base for multi-thread execution under:
 - `docs/orchestration/phase-status.md`
 - `docs/orchestration/ownership.md`
 - `docs/orchestration/task-template.md`
+- `src/domain/bots/contracts.ts`
+- `src/domain/bots/defaults.ts`
+- `src/domain/bots/adapters.ts`
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/classification.ts`
+- `src/domain/index.ts`
 
 ## Recommended Next Implementation Step
 
-Introduce explicit code-level domain contracts for:
+Bridge the new contracts into a safe read-only Phase 3 seam:
 
-- bot
-- bot universe policy
-- execution environment
-- automation mode
-- overlap policy
-- signal feed taxonomy
-- bot memory summary
-- bot performance summary
-
-This should be done before trying to “convert” current scanner or execution behavior into bot behavior.
+- choose the first registry/store location for bots without altering reserved shared planes yet
+- expose selectors or adapters that let the UI read:
+  - bot registry entries
+  - published signal feeds
+  - bot-consumable signal feeds
+- decide with the director whether the first integration point should start from:
+  - frontend execution candidates
+  - backend execution candidates
+  - signal memory snapshots
 
 ## GitHub Notification Practice
 
@@ -86,6 +110,23 @@ This makes GitHub the practical notification path to the owner mobile device.
 - do not discard adaptive governance logic
 - do not allow unrestricted AI mode to break accounting/execution isolation
 - do not implement the entire redesign in one step
+- do not move the new domain contracts into `src/types.ts` until the director chooses the integration strategy
+
+## Sensitive Areas Touched
+
+- None in this round.
+- The new work stayed isolated under `src/domain/` and documentation files.
+
+## Director Review Needed
+
+- confirm whether `src/domain/` is the accepted landing zone for cross-phase contracts
+- confirm the first storage seam for Phase 3 bot registry work
+- confirm whether the unrestricted AI bot should remain `draft/observe` by default until dedicated accounting isolation lands
+
+## Refiner Coordination Needed
+
+- align before any future hydration from runtime, realtime, signal memory, or execution eligibility flows
+- review any future overlap between bot summaries and adaptive governance snapshots
 
 ## Warning For Future Contributors
 

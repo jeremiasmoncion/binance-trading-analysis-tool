@@ -65,6 +65,7 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
   const coin = typeof req.query?.coin === "string" ? req.query.coin : (options.coin || "BTC/USDT");
   const timeframe = typeof req.query?.timeframe === "string" ? req.query.timeframe : (options.timeframe || "1h");
   const period = typeof req.query?.period === "string" ? req.query.period : (options.period || "1d");
+  const includeMarket = options.includeMarket === true;
 
   // First paint should reuse one canonical account snapshot; otherwise the bootstrap
   // fans out several full account reads and makes degraded startup much more likely.
@@ -73,7 +74,7 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
     getExecutionProfileForUser(session.username).catch(() => null),
     listSignalSnapshotsForUser(session.username, { limit: 200 }).catch(() => []),
     listExecutionOrdersForUser(session.username).catch(() => []),
-    buildMarketSnapshot(coin, timeframe).catch(() => null),
+    includeMarket ? buildMarketSnapshot(coin, timeframe).catch(() => null) : Promise.resolve(null),
     listWatchlists(req).catch(() => ({ lists: [], activeListName: "Principal" })),
   ]);
 

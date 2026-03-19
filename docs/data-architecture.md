@@ -147,6 +147,7 @@ Current rule:
 - the initial gate waits for:
   - realtime bootstrap hydration
   - first market snapshot load
+- bootstrap is now intentionally system-first during startup; market data hydrates through the dedicated market fetch instead of duplicating a second market snapshot inside the same first-paint request
 - this prevents the dashboard from painting with temporary `$0.00` placeholders and then filling one or two seconds later
 
 Auth flow rule:

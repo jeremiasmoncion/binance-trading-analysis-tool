@@ -1,4 +1,4 @@
-import type { ReturnTypeUseBinanceData, ReturnTypeUseMarketData, ReturnTypeUseMemoryRuntime, ReturnTypeUseSignalMemory, ReturnTypeUseWatchlist } from "./syncTypes";
+import type { ReturnTypeUseBinanceData, ReturnTypeUseMarketData, ReturnTypeUseMemoryRuntime, ReturnTypeUseSignalMemory, ReturnTypeUseValidationLabRuntime, ReturnTypeUseWatchlist } from "./syncTypes";
 import { marketDataPlaneStore } from "./marketDataPlane";
 import { systemDataPlaneStore } from "./systemDataPlane";
 
@@ -41,6 +41,7 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
 export function syncSystemDataPlane(
   binance: ReturnTypeUseBinanceData,
   memoryRuntime: ReturnTypeUseMemoryRuntime,
+  validationLabRuntime: ReturnTypeUseValidationLabRuntime,
   watchlist: ReturnTypeUseWatchlist,
   isAuthenticated: boolean,
 ) {
@@ -57,6 +58,8 @@ export function syncSystemDataPlane(
           || memoryRuntime.strategyExperiments.length
           || memoryRuntime.strategyRecommendations.length
           || memoryRuntime.scannerStatus
+          || validationLabRuntime.validationReport
+          || validationLabRuntime.backtestRuns.length
           || current.snapshot.portfolio
           || current.overlay.execution
           || current.overlay.dashboardSummary
@@ -90,6 +93,9 @@ export function syncSystemDataPlane(
       strategyRecommendations: isAuthenticated ? memoryRuntime.strategyRecommendations : [],
       strategyDecision: isAuthenticated ? memoryRuntime.strategyDecision : null,
       scannerStatus: isAuthenticated ? memoryRuntime.scannerStatus : null,
+      validationReport: isAuthenticated ? validationLabRuntime.validationReport : null,
+      backtestRuns: isAuthenticated ? validationLabRuntime.backtestRuns : [],
+      backtestQueue: isAuthenticated ? validationLabRuntime.backtestQueue : { pending: 0, running: 0 },
     },
     overlay: {
       execution: isAuthenticated
@@ -166,6 +172,19 @@ export function syncSystemMemoryActions(actions: ReturnTypeUseMemoryRuntime) {
       refreshStrategyEngine: actions.refreshStrategyEngine,
       refreshScannerStatus: actions.refreshScannerStatus,
       runScannerNow: actions.runScannerNow,
+    },
+  }));
+}
+
+export function syncSystemValidationLabActions(actions: ReturnTypeUseValidationLabRuntime) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      ...current.actions,
+      refreshValidationLab: actions.refreshValidationLab,
+      enqueueValidationBacktest: actions.enqueueValidationBacktest,
+      processValidationBacktestQueue: actions.processValidationBacktestQueue,
+      backfillValidationDataset: actions.backfillValidationDataset,
     },
   }));
 }

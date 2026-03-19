@@ -12,11 +12,12 @@ import { useMarketData } from "./hooks/useMarketData";
 import { useMemoryRuntime } from "./hooks/useMemoryRuntime";
 import { useSignalMemory } from "./hooks/useSignalMemory";
 import { useTheme } from "./hooks/useTheme";
+import { useValidationLabRuntime } from "./hooks/useValidationLabRuntime";
 import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemValidationLabActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
 import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
@@ -64,6 +65,7 @@ export function App() {
   }, [view]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView: view.currentView });
   const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser });
+  const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {
     saveSignal,
@@ -131,7 +133,7 @@ export function App() {
   ]);
 
   useEffect(() => {
-    syncSystemDataPlane(binance, memoryRuntime, watchlist, Boolean(auth.currentUser));
+    syncSystemDataPlane(binance, memoryRuntime, validationLabRuntime, watchlist, Boolean(auth.currentUser));
   }, [
     auth.currentUser,
     binance.binanceConnection,
@@ -144,6 +146,9 @@ export function App() {
     memoryRuntime.strategyRecommendations,
     memoryRuntime.strategyRegistry,
     memoryRuntime.strategyVersions,
+    validationLabRuntime.backtestQueue,
+    validationLabRuntime.backtestRuns,
+    validationLabRuntime.validationReport,
     watchlist.activeListName,
     watchlist.lists,
   ]);
@@ -169,6 +174,15 @@ export function App() {
   useEffect(() => {
     syncSystemMemoryActions(memoryRuntime);
   }, [memoryRuntime.refreshScannerStatus, memoryRuntime.refreshStrategyEngine]);
+
+  useEffect(() => {
+    syncSystemValidationLabActions(validationLabRuntime);
+  }, [
+    validationLabRuntime.backfillValidationDataset,
+    validationLabRuntime.enqueueValidationBacktest,
+    validationLabRuntime.processValidationBacktestQueue,
+    validationLabRuntime.refreshValidationLab,
+  ]);
 
   useEffect(() => {
     syncSystemWatchlistActions(watchlist);

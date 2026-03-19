@@ -4,8 +4,7 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useProfileSystemSelector } from "../data-platform/selectors";
-import { strategyEngineService } from "../services/api";
-import type { BinanceConnection, StrategyBacktestRun, StrategyValidationReport, UserSession, WatchlistScanExecution } from "../types";
+import type { BinanceConnection, UserSession, WatchlistScanExecution } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
@@ -32,9 +31,6 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   };
   const [activeTab, setActiveTab] = useState<"account" | "binance" | "users" | "backtesting" | "scanner">("account");
   const [usersPage, setUsersPage] = useState(1);
-  const [validationReport, setValidationReport] = useState<StrategyValidationReport | null>(null);
-  const [backtestRuns, setBacktestRuns] = useState<StrategyBacktestRun[]>([]);
-  const [backtestQueue, setBacktestQueue] = useState<{ pending: number; running: number }>({ pending: 0, running: 0 });
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
   const [backtestRunning, setBacktestRunning] = useState(false);
@@ -56,7 +52,14 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const onRefreshRealtimeRuntime = systemData.refreshRealtimeCoreStatus || (async () => null);
   const onRefreshScannerStatus = systemData.refreshScannerStatus || (async () => null);
   const onRunScannerNow = systemData.runScannerNow || (async () => null);
+  const onRefreshValidationLab = systemData.refreshValidationLab || (async () => null);
+  const onEnqueueValidationBacktest = systemData.enqueueValidationBacktest || (async () => null);
+  const onProcessValidationBacktestQueue = systemData.processValidationBacktestQueue || (async () => null);
+  const onBackfillValidationDataset = systemData.backfillValidationDataset || (async () => null);
   const scannerStatus = systemData.scannerStatus;
+  const validationReport = systemData.validationReport;
+  const backtestRuns = systemData.backtestRuns;
+  const backtestQueue = systemData.backtestQueue;
   const summary = connection?.summary || {};
   const users = props.users || [];
   const pagedUsers = paginateRows(users, usersPage);
@@ -91,13 +94,12 @@ export function ProfileView(incomingProps: ProfileViewProps) {
     let cancelled = false;
     setValidationLoading(true);
     setValidationError(null);
-    strategyEngineService
-      .getValidationLab()
+    onRefreshValidationLab()
       .then((payload) => {
         if (!cancelled) {
-          setValidationReport(payload.report);
-          setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
-          setBacktestQueue(payload.queue || { pending: 0, running: 0 });
+          if (!payload) {
+            setValidationError("No se pudo cargar el laboratorio de backtesting");
+          }
           setLastBackfillSummary(null);
         }
       })
@@ -112,7 +114,7 @@ export function ProfileView(incomingProps: ProfileViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, props.user.role]);
+  }, [activeTab, onRefreshValidationLab, props.user.role]);
 
   useEffect(() => {
     if (props.user.role !== "admin" || activeTab !== "scanner") return;
@@ -575,17 +577,19 @@ export function ProfileView(incomingProps: ProfileViewProps) {
               helpBody="Esta vista no ejecuta trades ni genera recomendaciones nuevas. Solo reevalúa historial, compara scorers y revisa invariantes para auditar el motor de Señales."
             >
               <div className="premium-action-row">
+                {/* Backtesting commands resolve through the shared system plane so
+                    Profile reads the same lab snapshot that other admin surfaces see. */}
                 <button
                   className="premium-action-button is-secondary"
                   type="button"
                   onClick={() => {
                     setValidationLoading(true);
                     setValidationError(null);
-                    strategyEngineService
-                      .getValidationLab({ forceFresh: true })
+                    onRefreshValidationLab({ forceFresh: true })
                       .then((payload) => {
-                        setValidationReport(payload.report);
-                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
+                        if (!payload) {
+                          setValidationError("No se pudo actualizar el laboratorio");
+                        }
                       })
                       .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo actualizar el laboratorio"))
                       .finally(() => setValidationLoading(false));
@@ -599,12 +603,11 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                   onClick={() => {
                     setBacktestRunning(true);
                     setValidationError(null);
-                    strategyEngineService
-                      .runValidationBacktest({ triggerSource: "admin-ui" })
+                    onEnqueueValidationBacktest({ triggerSource: "admin-ui" })
                       .then((payload) => {
-                        setValidationReport(payload.report);
-                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
-                        setBacktestQueue(payload.queue || { pending: 0, running: 0 });
+                        if (!payload) {
+                          setValidationError("No se pudo encolar la corrida de backtesting");
+                        }
                       })
                       .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo encolar la corrida de backtesting"))
                       .finally(() => setBacktestRunning(false));
@@ -618,12 +621,11 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                   onClick={() => {
                     setBacktestQueueRunning(true);
                     setValidationError(null);
-                    strategyEngineService
-                      .processValidationBacktestQueue({ triggerSource: "admin-ui", limit: 1 })
+                    onProcessValidationBacktestQueue({ triggerSource: "admin-ui", limit: 1 })
                       .then((payload) => {
-                        setValidationReport(payload.report);
-                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
-                        setBacktestQueue(payload.queue || { pending: 0, running: 0 });
+                        if (!payload) {
+                          setValidationError("No se pudo procesar la cola de backtesting");
+                        }
                       })
                       .catch((error) => setValidationError(error instanceof Error ? error.message : "No se pudo procesar la cola de backtesting"))
                       .finally(() => setBacktestQueueRunning(false));
@@ -638,12 +640,12 @@ export function ProfileView(incomingProps: ProfileViewProps) {
                     setDatasetBackfillRunning(true);
                     setValidationError(null);
                     setLastBackfillSummary(null);
-                    strategyEngineService
-                      .backfillValidationDataset({ triggerSource: "admin-backfill", limit: 600 })
+                    onBackfillValidationDataset({ triggerSource: "admin-backfill", limit: 600 })
                       .then((payload) => {
-                        setValidationReport(payload.report);
-                        setBacktestRuns(Array.isArray(payload.runs) ? payload.runs : []);
-                        setBacktestQueue(payload.queue || { pending: 0, running: 0 });
+                        if (!payload) {
+                          setValidationError("No se pudo ejecutar el backfill del dataset");
+                          return;
+                        }
                         if (payload.backfill) {
                           setLastBackfillSummary(
                             `${payload.backfill.executionLearningBackfilled} señales recibieron executionLearning y ${payload.backfill.featureSnapshotsBackfilled} snapshots quedaron reconstruidos sobre ${payload.backfill.scannedClosedSignals} cierres revisados.`,

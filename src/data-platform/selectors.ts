@@ -93,6 +93,9 @@ export function useProfileSystemSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     connection: state.snapshot.connection,
     scannerStatus: state.snapshot.scannerStatus,
+    validationReport: state.snapshot.validationReport,
+    backtestRuns: state.snapshot.backtestRuns,
+    backtestQueue: state.snapshot.backtestQueue,
     availableUsers: state.controls.availableUsers,
     binanceForm: state.controls.binanceForm,
     realtimeCore: state.controls.realtimeCore,
@@ -103,6 +106,10 @@ export function useProfileSystemSelector() {
     refreshRealtimeCoreStatus: state.actions.refreshRealtimeCoreStatus,
     refreshScannerStatus: state.actions.refreshScannerStatus,
     runScannerNow: state.actions.runScannerNow,
+    refreshValidationLab: state.actions.refreshValidationLab,
+    enqueueValidationBacktest: state.actions.enqueueValidationBacktest,
+    processValidationBacktestQueue: state.actions.processValidationBacktestQueue,
+    backfillValidationDataset: state.actions.backfillValidationDataset,
   }), shallowEqualSelection);
 }
 

@@ -22,6 +22,12 @@ const initialSystemDataPlane: SystemDataPlane = {
     strategyRecommendations: [],
     strategyDecision: null,
     scannerStatus: null,
+    validationReport: null,
+    backtestRuns: [],
+    backtestQueue: {
+      pending: 0,
+      running: 0,
+    },
   },
   overlay: {
     execution: null,
@@ -55,6 +61,10 @@ const initialSystemDataPlane: SystemDataPlane = {
     refreshStrategyEngine: async () => null,
     refreshScannerStatus: async () => null,
     runScannerNow: async () => null,
+    refreshValidationLab: async () => null,
+    enqueueValidationBacktest: async () => null,
+    processValidationBacktestQueue: async () => null,
+    backfillValidationDataset: async () => null,
     setHideSmallAssets: () => undefined,
     setBinanceFormField: () => undefined,
     connectBinance: async () => null,

@@ -13,7 +13,10 @@ import type {
   StrategyCandidate,
   StrategyDecisionState,
   StrategyDescriptor,
+  StrategyBacktestRun,
   StrategyExperimentRecord,
+  StrategyValidationLabPayload,
+  StrategyValidationReport,
   StrategyRecommendationRecord,
   StrategyRegistryEntry,
   StrategyVersionRecord,
@@ -74,6 +77,12 @@ export interface SystemDataPlane {
     strategyRecommendations: StrategyRecommendationRecord[];
     strategyDecision: StrategyDecisionState | null;
     scannerStatus: WatchlistScannerStatus | null;
+    validationReport: StrategyValidationReport | null;
+    backtestRuns: StrategyBacktestRun[];
+    backtestQueue: {
+      pending: number;
+      running: number;
+    };
   };
   overlay: {
     execution: ExecutionCenterPayload | null;
@@ -107,6 +116,10 @@ export interface SystemDataPlane {
     refreshStrategyEngine: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
     refreshScannerStatus: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
     runScannerNow: () => Promise<WatchlistScanExecution | null>;
+    refreshValidationLab: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<StrategyValidationLabPayload | null>;
+    enqueueValidationBacktest: (payload?: { label?: string; triggerSource?: string }) => Promise<StrategyValidationLabPayload | null>;
+    processValidationBacktestQueue: (payload?: { limit?: number; triggerSource?: string }) => Promise<StrategyValidationLabPayload | null>;
+    backfillValidationDataset: (payload?: { label?: string; triggerSource?: string; limit?: number }) => Promise<StrategyValidationLabPayload | null>;
     setHideSmallAssets: (value: boolean) => void;
     setBinanceFormField: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
     connectBinance: () => Promise<unknown>;

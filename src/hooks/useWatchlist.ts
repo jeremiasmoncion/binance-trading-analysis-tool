@@ -92,6 +92,31 @@ function serializeState(lists: WatchlistGroup[], activeListName: string) {
   });
 }
 
+function hasWatchlistGroupsChanged(current: WatchlistGroup[], next: WatchlistGroup[]) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentGroup = current[index];
+    const nextGroup = next[index];
+    if (
+      currentGroup.name !== nextGroup.name
+      || currentGroup.isActive !== nextGroup.isActive
+      || currentGroup.coins.length !== nextGroup.coins.length
+    ) {
+      return true;
+    }
+
+    for (let coinIndex = 0; coinIndex < currentGroup.coins.length; coinIndex += 1) {
+      if (currentGroup.coins[coinIndex] !== nextGroup.coins[coinIndex]) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function useWatchlist({ currentUser }: UseWatchlistOptions) {
   const [lists, setLists] = useState<WatchlistGroup[]>([{ name: "Principal", coins: [], isActive: true }]);
   const [activeListName, setActiveListName] = useState("Principal");
@@ -126,8 +151,8 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
             };
 
         if (active) {
-          setLists(seedState.lists);
-          setActiveListName(seedState.activeListName);
+          setLists((current) => (hasWatchlistGroupsChanged(current, seedState.lists) ? seedState.lists : current));
+          setActiveListName((current) => (current !== seedState.activeListName ? seedState.activeListName : current));
           setHydrated(true);
         }
 
@@ -140,8 +165,9 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
 
           if (remoteLists.length) {
             if (active) {
-              setLists(remoteLists.map((item) => ({ ...item, isActive: item.name === remoteActive })));
-              setActiveListName(remoteActive);
+              const nextLists = remoteLists.map((item) => ({ ...item, isActive: item.name === remoteActive }));
+              setLists((current) => (hasWatchlistGroupsChanged(current, nextLists) ? nextLists : current));
+              setActiveListName((current) => (current !== remoteActive ? remoteActive : current));
               window.localStorage.setItem(GLOBAL_WATCHLIST_STATE_KEY, serializeState(remoteLists, remoteActive));
             }
           } else {
@@ -149,20 +175,21 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
             await watchlistService.updateList(seedActiveList, { isActive: true }).catch(() => null);
             await watchlistService.replace(seedActiveList, seedState.lists.find((item) => item.name === seedActiveList)?.coins || []);
             if (active) {
-              setLists(seedState.lists);
-              setActiveListName(seedActiveList);
+              setLists((current) => (hasWatchlistGroupsChanged(current, seedState.lists) ? seedState.lists : current));
+              setActiveListName((current) => (current !== seedActiveList ? seedActiveList : current));
             }
           }
         } catch {
           if (active) {
-            setLists(seedState.lists);
-            setActiveListName(seedState.activeListName);
+            setLists((current) => (hasWatchlistGroupsChanged(current, seedState.lists) ? seedState.lists : current));
+            setActiveListName((current) => (current !== seedState.activeListName ? seedState.activeListName : current));
           }
         }
       } catch {
         if (active) {
-          setLists([{ name: "Principal", coins: [], isActive: true }]);
-          setActiveListName("Principal");
+          const fallbackLists = [{ name: "Principal", coins: [], isActive: true }];
+          setLists((current) => (hasWatchlistGroupsChanged(current, fallbackLists) ? fallbackLists : current));
+          setActiveListName((current) => (current !== "Principal" ? "Principal" : current));
           setHydrated(true);
         }
       }
@@ -192,8 +219,9 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
     nextActiveListName: string,
     remoteAction?: () => Promise<{ lists: WatchlistGroup[]; activeListName: string | null }>,
   ) => {
-    setLists(nextLists.map((item) => ({ ...item, isActive: item.name === nextActiveListName })));
-    setActiveListName(nextActiveListName);
+    const optimisticLists = nextLists.map((item) => ({ ...item, isActive: item.name === nextActiveListName }));
+    setLists((current) => (hasWatchlistGroupsChanged(current, optimisticLists) ? optimisticLists : current));
+    setActiveListName((current) => (current !== nextActiveListName ? nextActiveListName : current));
 
     if (!currentUser || !remoteAction) return;
 
@@ -204,8 +232,12 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
       const payload = await remoteAction();
       const normalized = normalizeLists(payload.lists || []);
       const activeName = normalizeListName(payload.activeListName) || normalized.find((item) => item.isActive)?.name || "Principal";
-      setLists(normalized.map((item) => ({ ...item, isActive: item.name === activeName })));
-      setActiveListName(activeName);
+      const syncedLists = normalized.map((item) => ({ ...item, isActive: item.name === activeName }));
+      // Remote watchlist syncs often echo the optimistic state back verbatim.
+      // Ignore equivalent list payloads so the shared system plane does not
+      // rerender on every successful mutation or hydration round-trip.
+      setLists((current) => (hasWatchlistGroupsChanged(current, syncedLists) ? syncedLists : current));
+      setActiveListName((current) => (current !== activeName ? activeName : current));
       window.localStorage.setItem(GLOBAL_WATCHLIST_STATE_KEY, serializeState(normalized, activeName));
     } catch {
       // keep optimistic local state if remote sync fails

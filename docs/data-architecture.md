@@ -204,6 +204,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - selector-first screens should also delete dead prop-compatibility layers once `AppView` stops wiring them; `Market`, `Stats`, `Trading` and `Memory` should not keep `incomingProps ?? selector` wrappers for state that now only comes from the shared planes
 - watchlist mutations should flow through `system plane actions`, not through screen-specific prop chains
 - watchlists should treat `localStorage` as a startup cache and last-good fallback only; once a user has a remote session, the remote payload remains canonical and optimistic local edits should reconcile back through that same remote path
+- shared watchlist hydration and remote sync should be no-op aware too; cache hydration and remote echoes may recreate the same lists with fresh references, and those equivalent payloads must not churn the `system plane`
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors
 - global automation notifications should observe the shared memory-runtime snapshot, not open a second App-level polling loop straight to the strategy service
 - realtime-core runtime supervision in `App` should be adaptive too; fallback or unhealthy states can keep a tighter health cadence, but a healthy external core should back off to a slower shared probe instead of behaving like a permanent high-frequency poll on every authenticated screen

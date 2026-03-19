@@ -44,6 +44,7 @@ const SMART_REFRESH_BY_STYLE: Record<string, number> = {
 };
 
 const COMPARISON_SNAPSHOT_TTL_MS = 60_000;
+const SYMBOL_UNIVERSE_TTL_MS = 10 * 60_000;
 
 function getSmartRefreshInterval(timeframe: string, tradingStyle?: string) {
   const timeframeBase = SMART_REFRESH_BY_TIMEFRAME[timeframe] || 300_000;
@@ -189,6 +190,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const activeTimeframeRef = useRef(timeframe);
   const marketRequestSeqRef = useRef(0);
   const comparisonFetchedAtRef = useRef(0);
+  const symbolUniverseFetchedAtRef = useRef(0);
   const tickerFrameRef = useRef<number | null>(null);
   const klineFrameRef = useRef<number | null>(null);
   const latestTickerRef = useRef<{ price: number; change: number; high: number; low: number; volume: number } | null>(null);
@@ -328,12 +330,21 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       return undefined;
     }
 
+    const currentAge = Date.now() - symbolUniverseFetchedAtRef.current;
+    if (symbolUniverseFetchedAtRef.current && currentAge < SYMBOL_UNIVERSE_TTL_MS) {
+      return undefined;
+    }
+
     let active = true;
     void (async () => {
       const symbols = await marketService.fetchSymbols();
       if (!active || !symbols.length) return;
 
       const merged = Array.from(new Set([...POPULAR_COINS.filter((coin) => symbols.includes(coin)), ...symbols]));
+      // The symbol universe changes slowly compared with market ticks, so keep
+      // a short-lived cache inside the hook instead of refetching it every
+      // time the user hops between market-oriented views.
+      symbolUniverseFetchedAtRef.current = Date.now();
       setAvailableCoins((current) => (isSameStringArray(current, merged) ? current : merged));
     })();
 

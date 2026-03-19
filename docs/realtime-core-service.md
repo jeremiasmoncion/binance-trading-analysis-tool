@@ -46,6 +46,18 @@ Use:
 npm run realtime-core
 ```
 
+Container build:
+
+```bash
+docker build -t crype-realtime-core .
+docker run --rm -p 8787:8787 \
+  -e SESSION_SECRET=replace-me \
+  -e SUPABASE_URL=https://your-project.supabase.co \
+  -e SUPABASE_SERVICE_ROLE_KEY=replace-me \
+  -e REALTIME_CORE_ALLOWED_ORIGIN=http://localhost:5173 \
+  crype-realtime-core
+```
+
 Default envs:
 
 - `REALTIME_CORE_PORT=8787`
@@ -99,6 +111,16 @@ Run this service on a persistent host:
 Then point the frontend to it with:
 
 - `VITE_REALTIME_CORE_URL=https://your-realtime-core-domain`
+
+## Deployment Assets In Repo
+
+The repo now includes:
+
+- [Dockerfile](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/Dockerfile)
+- [.dockerignore](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/.dockerignore)
+- [render.yaml](/Users/jeremiasmoncion/Documents/New%20project/binance-trading-analysis-tool/render.yaml)
+
+That means the service is ready to be deployed as a persistent container without inventing new runtime wiring.
 
 ## Migration Path
 

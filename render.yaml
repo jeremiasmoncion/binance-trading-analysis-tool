@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: crype-realtime-core
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: REALTIME_CORE_PORT
+        value: 8787
+      - key: REALTIME_CORE_HOST
+        value: 0.0.0.0
+      - key: REALTIME_CORE_ALLOWED_ORIGIN
+        sync: false
+      - key: REALTIME_CORE_BRIDGE_TTL_SECONDS
+        value: 1800
+      - key: REALTIME_CORE_POLL_INTERVAL_MS
+        value: 8000
+      - key: REALTIME_CORE_MAX_CHANNEL_IDLE_MS
+        value: 90000
+      - key: SESSION_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_USERS_TABLE
+        value: app_users
+      - key: SUPABASE_BINANCE_TABLE
+        value: binance_testnet_connections
+      - key: SUPABASE_WATCHLIST_TABLE
+        value: watchlist_items
+      - key: SUPABASE_WATCHLIST_LISTS_TABLE
+        value: watchlist_lists
+      - key: SUPABASE_STRATEGY_REGISTRY_TABLE
+        value: strategy_registry
+      - key: SUPABASE_STRATEGY_VERSIONS_TABLE
+        value: strategy_versions
+      - key: SUPABASE_STRATEGY_EXPERIMENTS_TABLE
+        value: strategy_experiments
+      - key: SUPABASE_STRATEGY_RECOMMENDATIONS_TABLE
+        value: strategy_recommendations
+      - key: SUPABASE_WATCHLIST_SCAN_STATE_TABLE
+        value: watchlist_scan_state
+      - key: SUPABASE_WATCHLIST_SCAN_RUNS_TABLE
+        value: watchlist_scan_runs
+      - key: SUPABASE_EXECUTION_PROFILES_TABLE
+        value: execution_profiles
+      - key: SUPABASE_EXECUTION_ORDERS_TABLE
+        value: execution_orders

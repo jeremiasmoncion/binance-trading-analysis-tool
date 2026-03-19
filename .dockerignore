@@ -1,0 +1,7 @@
+node_modules
+dist
+.git
+.vercel
+tradebotx
+.DS_Store
+.env*.local

@@ -65,15 +65,20 @@ Lifecycle:
 - global contracts for market and system planes
 - central stores for both planes
 - app-level synchronization entrypoint
+- dashboard, memory and balance consuming shared planes
+- stats, trading and market consuming shared planes
+- support/resistance moved into market plane
+- reduced prop-driven live state in `AppView`
 
 ### In Progress
 
-- migrate existing views to read from the shared data planes
-- reduce prop-driven live state
+- migrate remaining views to selector-first shared consumption
+- formalize selector-based consumption for all screens
+- consolidate refresh policy by plane instead of by individual screen
 
 ### Pending
 
 - remove serverless from the hot operational path
 - introduce persistent realtime core service
-- move dashboard, memory and future views to event-driven data flow
-- formalize selector-based consumption for all screens
+- move shared planes from snapshot-heavy updates to event-driven overlays
+- split hot operational data from cold/admin/reporting paths

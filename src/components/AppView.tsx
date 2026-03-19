@@ -104,10 +104,10 @@ export function AppView(props: AppViewProps) {
       );
       break;
     case "stats":
-      content = <StatsView portfolioData={props.portfolioData} executionCenter={props.executionCenter} />;
+      content = <StatsView />;
       break;
     case "trading":
-      content = <TradingView executionCenter={props.executionCenter} signals={props.signalMemory} />;
+      content = <TradingView />;
       break;
     case "control-overview":
     case "control-bots":
@@ -122,15 +122,6 @@ export function AppView(props: AppViewProps) {
     case "market":
       content = (
         <MarketView
-          currentCoin={props.currentCoin}
-          watchlists={props.watchlists}
-          watchlist={props.watchlist}
-          activeWatchlistName={props.activeWatchlistName}
-          signal={props.signal}
-          indicators={props.indicators}
-          market24h={props.market24h}
-          support={props.support}
-          resistance={props.resistance}
           onSelectCoin={props.onSelectCoin}
           onToggleWatchlist={props.onToggleWatchlist}
           onReplaceWatchlistCoins={props.onReplaceWatchlistCoins}

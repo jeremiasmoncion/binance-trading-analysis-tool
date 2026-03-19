@@ -1,13 +1,17 @@
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 import type { ExecutionCenterPayload, SignalSnapshot } from "../types";
 
 interface TradingViewProps {
-  executionCenter: ExecutionCenterPayload | null;
-  signals: SignalSnapshot[];
+  executionCenter?: ExecutionCenterPayload | null;
+  signals?: SignalSnapshot[];
 }
 
-export function TradingView({ executionCenter, signals }: TradingViewProps) {
+export function TradingView(incomingProps: TradingViewProps) {
+  const systemData = useSystemDataPlane((state) => state);
+  const executionCenter = incomingProps.executionCenter ?? systemData.execution;
+  const signals = incomingProps.signals ?? systemData.signalMemory;
   const pendingSignals = signals.filter((signal) => signal.outcome_status === "pending").length;
   const candidateOrders = executionCenter?.candidates?.length || 0;
   const recentOrders = executionCenter?.recentOrders || [];

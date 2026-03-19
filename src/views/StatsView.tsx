@@ -1,13 +1,17 @@
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 import type { ExecutionCenterPayload, PortfolioPayload } from "../types";
 
 interface StatsViewProps {
-  portfolioData: PortfolioPayload | null;
-  executionCenter: ExecutionCenterPayload | null;
+  portfolioData?: PortfolioPayload | null;
+  executionCenter?: ExecutionCenterPayload | null;
 }
 
-export function StatsView({ portfolioData, executionCenter }: StatsViewProps) {
+export function StatsView(incomingProps: StatsViewProps) {
+  const systemData = useSystemDataPlane((state) => state);
+  const portfolioData = incomingProps.portfolioData ?? systemData.portfolio;
+  const executionCenter = incomingProps.executionCenter ?? systemData.execution;
   const portfolio = portfolioData?.portfolio;
   const recentOrders = executionCenter?.recentOrders || [];
   const candidates = executionCenter?.candidates || [];

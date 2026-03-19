@@ -48,6 +48,8 @@ export interface MarketDataPlane {
     volume: string;
     updatedAt: string;
   };
+  support: number;
+  resistance: number;
 }
 
 export interface SystemDataPlane {

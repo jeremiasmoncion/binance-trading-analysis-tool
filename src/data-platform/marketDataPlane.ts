@@ -28,6 +28,8 @@ const initialMarketDataPlane: MarketDataPlane = {
     volume: "0 BTC",
     updatedAt: "--:--",
   },
+  support: 0,
+  resistance: 0,
 };
 
 export const marketDataPlaneStore = createDataPlaneStore(initialMarketDataPlane);

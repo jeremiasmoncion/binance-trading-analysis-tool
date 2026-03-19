@@ -3,25 +3,27 @@ import { ModuleTabs } from "../components/ModuleTabs";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { useMarketDataPlane } from "../data-platform/marketDataPlane";
+import { useSystemDataPlane } from "../data-platform/systemDataPlane";
 import { formatPrice } from "../lib/format";
 import type { Indicators, Signal, WatchlistGroup } from "../types";
 
 interface MarketViewProps {
-  currentCoin: string;
-  watchlists: WatchlistGroup[];
-  watchlist: string[];
-  activeWatchlistName: string;
-  signal: Signal | null;
-  indicators: Indicators | null;
-  market24h: {
+  currentCoin?: string;
+  watchlists?: WatchlistGroup[];
+  watchlist?: string[];
+  activeWatchlistName?: string;
+  signal?: Signal | null;
+  indicators?: Indicators | null;
+  market24h?: {
     change: number;
     high: number;
     low: number;
     volume: string;
     updatedAt: string;
   };
-  support: number;
-  resistance: number;
+  support?: number;
+  resistance?: number;
   onSelectCoin: (coin: string) => void;
   onToggleWatchlist: (coin: string) => void;
   onReplaceWatchlistCoins: (name: string, coins: string[]) => Promise<void>;
@@ -31,25 +33,45 @@ interface MarketViewProps {
   onSetActiveWatchlist: (name: string) => Promise<void>;
 }
 
-export function MarketView(props: MarketViewProps) {
+export function MarketView(incomingProps: MarketViewProps) {
+  const marketData = useMarketDataPlane((state) => state);
+  const systemData = useSystemDataPlane((state) => state);
+  const props: MarketViewProps = {
+    ...incomingProps,
+    currentCoin: incomingProps.currentCoin ?? marketData.currentCoin,
+    watchlists: incomingProps.watchlists ?? systemData.watchlists,
+    watchlist: incomingProps.watchlist ?? (systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || []),
+    activeWatchlistName: incomingProps.activeWatchlistName ?? systemData.activeWatchlistName,
+    signal: incomingProps.signal ?? marketData.signal,
+    indicators: incomingProps.indicators ?? marketData.indicators,
+    market24h: incomingProps.market24h ?? marketData.market24h,
+    support: incomingProps.support ?? marketData.support,
+    resistance: incomingProps.resistance ?? marketData.resistance,
+  };
   const [activeTab, setActiveTab] = useState<"summary" | "watchlist">("summary");
-  const [selectedListName, setSelectedListName] = useState(props.activeWatchlistName);
+  const watchlists = props.watchlists || [];
+  const activeWatchlistName = props.activeWatchlistName || systemData.activeWatchlistName;
+  const currentCoin = props.currentCoin || marketData.currentCoin;
+  const signal = props.signal || null;
+  const indicators = props.indicators || null;
+  const market24h = props.market24h || marketData.market24h;
+  const support = props.support || 0;
+  const resistance = props.resistance || 0;
+  const [selectedListName, setSelectedListName] = useState(activeWatchlistName);
   const [watchlistPage, setWatchlistPage] = useState(1);
-  const signal = props.signal;
-  const indicators = props.indicators;
   const selectedList = useMemo(
-    () => props.watchlists.find((item) => item.name === selectedListName) || props.watchlists.find((item) => item.name === props.activeWatchlistName) || props.watchlists[0] || null,
-    [props.watchlists, selectedListName, props.activeWatchlistName],
+    () => watchlists.find((item) => item.name === selectedListName) || watchlists.find((item) => item.name === activeWatchlistName) || watchlists[0] || null,
+    [watchlists, selectedListName, activeWatchlistName],
   );
   const selectedCoins = selectedList?.coins || [];
-  const selectedIsActive = selectedList?.name === props.activeWatchlistName;
+  const selectedIsActive = selectedList?.name === activeWatchlistName;
   const pagedSelectedCoins = useMemo(() => paginateRows(selectedCoins, watchlistPage), [selectedCoins, watchlistPage]);
 
   useEffect(() => {
-    if (!props.watchlists.some((item) => item.name === selectedListName)) {
-      setSelectedListName(props.activeWatchlistName);
+    if (!watchlists.some((item) => item.name === selectedListName)) {
+      setSelectedListName(activeWatchlistName);
     }
-  }, [props.watchlists, props.activeWatchlistName, selectedListName]);
+  }, [watchlists, activeWatchlistName, selectedListName]);
 
   useEffect(() => {
     setWatchlistPage(1);
@@ -83,29 +105,29 @@ export function MarketView(props: MarketViewProps) {
           <div className="stats-grid">
             <StatCard
               label="Cambio 24h"
-              value={`${props.market24h.change.toFixed(2)}%`}
-              toneClass={props.market24h.change >= 0 ? "positive" : "negative"}
+              value={`${market24h.change.toFixed(2)}%`}
+              toneClass={market24h.change >= 0 ? "positive" : "negative"}
               sub="Variación del día"
               helpTitle="Cambio 24h"
               helpBody="Te dice cuánto ha subido o bajado el precio durante las últimas 24 horas. Sirve para entender el tono general del día, no para tomar una decisión por sí solo."
             />
             <StatCard
               label="Máximo / Mínimo 24h"
-              value={`${formatPrice(props.market24h.high)} / ${formatPrice(props.market24h.low)}`}
+              value={`${formatPrice(market24h.high)} / ${formatPrice(market24h.low)}`}
               sub="Rango donde se ha movido hoy"
               helpTitle="Máximo y mínimo 24h"
               helpBody="Este rango te ayuda a saber si el precio actual está más cerca de la parte alta o baja del día. Es útil para detectar si ya corrió demasiado o si todavía tiene espacio."
             />
             <StatCard
               label="Volumen 24h"
-              value={props.market24h.volume}
+              value={market24h.volume}
               sub="Entre más volumen, más participación"
               helpTitle="Volumen 24h"
               helpBody="El volumen refleja cuánta actividad tuvo el activo. Cuando un movimiento viene acompañado de mejor volumen, normalmente se siente más confiable."
             />
             <StatCard
               label="Última actualización"
-              value={props.market24h.updatedAt}
+              value={market24h.updatedAt}
               sub="Datos en vivo"
               helpTitle="Última actualización"
               helpBody="Te muestra cuándo se refrescaron por última vez estos datos de mercado. Sirve para confirmar que estás leyendo información reciente."
@@ -127,7 +149,7 @@ export function MarketView(props: MarketViewProps) {
             <h3 className="market-title">{signal?.title || "Esperar confirmación"}</h3>
             <p className="market-copy">{signal?.reasons.join(" ") || "Esperando datos."}</p>
             <div className="market-pill-row">
-              <span className="market-pill">{props.currentCoin}</span>
+              <span className="market-pill">{currentCoin}</span>
             </div>
             <div className="market-score">
               <div className="market-score-head">
@@ -202,12 +224,12 @@ export function MarketView(props: MarketViewProps) {
               <div className="stats-grid">
                 <div className="stat-card">
                   <div className="label">Soporte cercano</div>
-                  <div className="value">{formatPrice(props.support || 0)}</div>
+                  <div className="value">{formatPrice(support)}</div>
                   <div className="sub">Nivel donde el precio podría rebotar al alza</div>
                 </div>
                 <div className="stat-card">
                   <div className="label">Resistencia cercana</div>
-                  <div className="value">{formatPrice(props.resistance || 0)}</div>
+                  <div className="value">{formatPrice(resistance)}</div>
                   <div className="sub">Nivel donde el precio podría frenarse</div>
                 </div>
               </div>
@@ -225,7 +247,7 @@ export function MarketView(props: MarketViewProps) {
             </div>
             <div className="watchlist-active-pill">
               <span className="watchlist-active-label">Lista activa para señales</span>
-              <strong>{props.activeWatchlistName}</strong>
+              <strong>{activeWatchlistName}</strong>
             </div>
           </div>
           <div className="watchlist-status-banner">
@@ -251,7 +273,7 @@ export function MarketView(props: MarketViewProps) {
           </div>
           <div className="watchlist-toolbar">
             <div className="watchlist-list-tabs">
-              {props.watchlists.map((list) => (
+              {watchlists.map((list) => (
                 <button
                   key={list.name}
                   type="button"
@@ -260,7 +282,7 @@ export function MarketView(props: MarketViewProps) {
                 >
                   <span>{list.name}</span>
                   <strong>{list.coins.length}</strong>
-                  {list.name === props.activeWatchlistName ? <em>Activa</em> : null}
+                  {list.name === activeWatchlistName ? <em>Activa</em> : null}
                 </button>
               ))}
             </div>
@@ -279,7 +301,7 @@ export function MarketView(props: MarketViewProps) {
                 type="button"
                 className="btn-secondary-soft btn-small"
                 onClick={() => {
-                  const currentName = selectedList?.name || props.activeWatchlistName;
+                  const currentName = selectedList?.name || activeWatchlistName;
                   const name = window.prompt("Renombrar lista", currentName);
                   if (name) void props.onRenameWatchlist(currentName, name);
                 }}
@@ -289,9 +311,9 @@ export function MarketView(props: MarketViewProps) {
               <button
                 type="button"
                 className="btn-secondary-soft btn-small danger"
-                disabled={props.watchlists.length <= 1}
+                disabled={watchlists.length <= 1}
                 onClick={() => {
-                  const currentName = selectedList?.name || props.activeWatchlistName;
+                  const currentName = selectedList?.name || activeWatchlistName;
                   if (window.confirm(`Eliminar la lista ${currentName}?`)) {
                     void props.onDeleteWatchlist(currentName);
                   }
@@ -305,16 +327,16 @@ export function MarketView(props: MarketViewProps) {
             <>
               <div className="watchlist-grid">
               {pagedSelectedCoins.rows.map((coin) => (
-                <div className={`watchlist-chip${coin === props.currentCoin ? " active" : ""}`} key={coin}>
+                <div className={`watchlist-chip${coin === currentCoin ? " active" : ""}`} key={coin}>
                   <button type="button" className="watchlist-chip-main" onClick={() => props.onSelectCoin(coin)}>
                     <span className="watchlist-chip-symbol">{coin}</span>
-                    <span className="watchlist-chip-note">{coin === props.currentCoin ? "Par activo" : "Abrir en el análisis"}</span>
+                    <span className="watchlist-chip-note">{coin === currentCoin ? "Par activo" : "Abrir en el análisis"}</span>
                   </button>
                   <button
                     type="button"
                     className="watchlist-chip-remove"
                     aria-label={`Quitar ${coin} del watchlist`}
-                    onClick={() => void props.onReplaceWatchlistCoins(selectedList?.name || props.activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
+                    onClick={() => void props.onReplaceWatchlistCoins(selectedList?.name || activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
                   >
                     ×
                   </button>

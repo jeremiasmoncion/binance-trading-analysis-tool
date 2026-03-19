@@ -33,6 +33,8 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
     multiTimeframes: market.multiTimeframes,
     comparison: market.comparison,
     market24h: market.market24h,
+    support: market.supportResistance.support,
+    resistance: market.supportResistance.resistance,
   }));
 }
 

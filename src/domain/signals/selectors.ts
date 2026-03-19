@@ -1,4 +1,4 @@
-import type { BotConsumableSignal, PublishedSignal, SignalFeed } from "./contracts";
+import type { BotConsumableSignal, PublishedSignal, RankedPublishedSignal, SignalFeed } from "./contracts";
 
 export function selectPublishedSignals(feed: SignalFeed<PublishedSignal>): PublishedSignal[] {
   return feed.items;
@@ -16,6 +16,22 @@ export function selectHighConfidencePublishedSignals(
   minVisibilityScore = 65,
 ): PublishedSignal[] {
   return feed.items.filter((signal) => signal.visibilityScore >= minVisibilityScore);
+}
+
+export function selectRankedPublishedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items;
+}
+
+export function selectPriorityRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => signal.ranking.tier === "priority" || signal.ranking.tier === "high-confidence");
+}
+
+export function selectHighConfidenceRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => signal.ranking.tier === "high-confidence");
+}
+
+export function selectDemotedRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => signal.ranking.tier === "low-visibility");
 }
 
 export function selectBotConsumableSignals(feed: SignalFeed<BotConsumableSignal>): BotConsumableSignal[] {

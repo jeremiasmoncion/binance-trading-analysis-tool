@@ -10,6 +10,8 @@ export type SignalLayer =
 
 export type SignalFeedKind = "watchlist" | "market-wide" | "bot-specific" | "high-confidence" | "style-specific";
 
+export type SignalRankTier = "high-confidence" | "priority" | "standard" | "low-visibility";
+
 export interface SignalContextSnapshot {
   symbol: string;
   timeframe: string;
@@ -38,6 +40,16 @@ export interface PublishedSignal {
   audience: "watchlist" | "market";
   visibilityScore: number;
   feedKinds: SignalFeedKind[];
+}
+
+export interface RankedPublishedSignal extends PublishedSignal {
+  ranking: {
+    compositeScore: number;
+    tier: SignalRankTier;
+    boosts: string[];
+    penalties: string[];
+    rationale: string[];
+  };
 }
 
 export interface BotConsumableSignal {
@@ -71,7 +83,7 @@ export interface SignalExecutionCandidate {
   reasons: string[];
 }
 
-export interface SignalFeed<TSignal extends PublishedSignal | BotConsumableSignal = PublishedSignal | BotConsumableSignal> {
+export interface SignalFeed<TSignal extends PublishedSignal | RankedPublishedSignal | BotConsumableSignal = PublishedSignal | RankedPublishedSignal | BotConsumableSignal> {
   kind: SignalFeedKind;
   generatedAt: string;
   items: TSignal[];

@@ -54,6 +54,11 @@ The project also now has an orchestration base for multi-thread execution under:
   - `signal memory snapshots` -> `published signal feed`
   - `published signal feed` + bot policy -> `bot-consumable feed`
 - added a first read-only UI validation surface hosted inside `MemoryView`
+- added an explicit ranking/prioritization layer over the published feed
+- added visible ranking explanations for:
+  - promotions
+  - degradations
+  - high-confidence subset membership
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -88,6 +93,7 @@ The project also now has an orchestration base for multi-thread execution under:
 - `src/domain/signals/classification.ts`
 - `src/domain/signals/feedAdapters.ts`
 - `src/domain/signals/memoryAdapters.ts`
+- `src/domain/signals/ranking.ts`
 - `src/domain/signals/selectors.ts`
 - `src/domain/index.ts`
 - `src/components/domain/SignalsBotsReadOnlyLab.tsx`
@@ -98,14 +104,16 @@ Bridge the new contracts into a safe read-only Phase 3 seam:
 
 - the first registry/store location is now established in `src/domain/bots/registry.ts`
 - a first read-only UI host now exists in `MemoryView`
-- next step should likely prioritize feed ranking/prioritization before registry persistence
+- feed ranking/prioritization is now in place as a read-only layer over published feed
 - current hydration source is intentionally:
   - `signal memory snapshots`
 - current validated read path is:
   - `signal memory snapshots`
   - -> `published signal feed`
+  - -> `ranked published feed`
   - -> `bot-consumable feed`
   - -> read-only UI
+- next step should stay focused on ranking defensibility before registry persistence
 
 ## GitHub Notification Practice
 
@@ -167,9 +175,9 @@ What implementers should avoid:
 ## Director Review Needed
 
 - confirm whether the next priority should be:
-  - feed ranking/prioritization
-  - deeper UI composition
-  - registry persistence later
+  - stronger ranking defensibility
+  - threshold tuning for `high-confidence`
+  - deeper UI composition only if the lab becomes too crowded
 - review whether `MemoryView` is the right temporary inspection host until a dedicated signals/bots workspace surface is approved
 
 ## Warning For Director

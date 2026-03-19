@@ -337,3 +337,95 @@ Phase 2 / Phase 3 bridge
 - move to ranking/prioritization on top of the published feed
 - keep persistence deferred
 - keep the next integration read-only until feed quality and visual organization are validated
+
+## 2026-03-19 - Feed Ranking Round
+
+### Phase
+
+Phase 3 - feed ranking / prioritization
+
+### Completed
+
+- Added an explicit ranking layer for `published feed` under `src/domain/signals/ranking.ts`.
+- Kept the original feed separation intact:
+  - raw published feed
+  - ranked published feed
+  - high-confidence subset
+- Defined a readable composite ranking model using:
+  - watchlist bias
+  - base score strength
+  - visibility score carryover
+  - timeframe legibility
+  - market-context completeness
+  - reason/explainability density
+  - directional clarity
+- Added ranking tiers:
+  - `high-confidence`
+  - `priority`
+  - `standard`
+  - `low-visibility`
+- Added ranking selectors so the UI can inspect:
+  - ranked feed
+  - priority feed
+  - high-confidence ranked subset
+  - demoted signals
+- Extended the read-only lab to show:
+  - raw feed
+  - ranked feed
+  - ranking promotions
+  - ranking degradations
+  - ranked high-confidence subset
+  - bot-consumable derivation from the ranked feed
+- Added visible boosts/penalties so the final order is explainable instead of opaque.
+- Verified the round with `npm run typecheck`.
+
+### Ranking Behavior
+
+- signals move up when they have:
+  - active watchlist relevance
+  - strong base score
+  - already strong visibility
+  - clearer timeframes such as `1h` or `4h`
+  - known market context
+  - richer reasons
+  - defined direction
+- signals move down when they have:
+  - weak base score
+  - noisy timeframes such as `5m`
+  - incomplete market context
+  - low explainability
+  - neutral direction
+
+### Files Added
+
+- `src/domain/signals/ranking.ts`
+
+### Files Updated
+
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/selectors.ts`
+- `src/domain/index.ts`
+- `src/components/domain/SignalsBotsReadOnlyLab.tsx`
+- `src/styles/content.css`
+
+### Sensitive Areas Avoided
+
+- Still avoided:
+  - `src/App.tsx`
+  - `src/types.ts`
+  - `src/data-platform/*`
+  - `src/realtime-core/*`
+  - protected hooks
+  - `api/_lib/*`
+
+### What We Learned
+
+- The current read-only lab is still sufficient for this phase.
+- It can hold one more ranking-validation round without needing a dedicated workspace surface yet.
+- A bigger visual split should wait until the ranked feed shape stabilizes.
+
+### Recommended Next Step
+
+- keep iterating on ranking defensibility and noise reduction
+- refine high-confidence thresholds using real signal-memory evidence
+- only consider a bigger dedicated signals/bots surface after ranking behavior feels stable

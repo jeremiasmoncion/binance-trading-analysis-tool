@@ -7,4 +7,5 @@ export * from "./signals/classification";
 export * from "./signals/contracts";
 export * from "./signals/feedAdapters";
 export * from "./signals/memoryAdapters";
+export * from "./signals/ranking";
 export * from "./signals/selectors";

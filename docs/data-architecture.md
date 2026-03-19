@@ -152,6 +152,9 @@ Current rule:
 Auth flow rule:
 
 - `useAuth` must not publish `currentUser` before the startup bootstrap callback completes
+- this now applies to both:
+  - login/register
+  - restored sessions on first load
 - if a future auth flow bypasses that order, it will reintroduce the empty-first-paint bug
 
 ## Snapshot vs Overlay Rules

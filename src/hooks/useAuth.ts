@@ -23,12 +23,18 @@ export function useAuth() {
   const [loginForm, setLoginForm] = useState<LoginFormState>({ username: "", password: "" });
   const [registerForm, setRegisterForm] = useState<RegisterFormState>({ displayName: "", email: "", password: "" });
 
-  const bootstrapSession = useCallback(async () => {
-    const session = await authService.getSession();
-    if (session) {
+  const bootstrapSession = useCallback(async (onAuthenticated?: AuthCallback) => {
+    setAuthPending(true);
+    try {
+      const session = await authService.getSession();
+      if (!session) return null;
+      // Keep the authenticated shell gated until the initial workspace bootstrap finishes.
+      await onAuthenticated?.();
       setCurrentUser(session);
+      return session;
+    } finally {
+      setAuthPending(false);
     }
-    return session;
   }, []);
 
   const handleLogin = useCallback(async (

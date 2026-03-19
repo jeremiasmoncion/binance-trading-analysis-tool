@@ -167,10 +167,9 @@ export function App() {
     bootstrappedRef.current = true;
 
     void (async () => {
-      const session = await auth.bootstrapSession();
-      if (session) {
+      await auth.bootstrapSession(async () => {
         await runInitialWorkspaceLoad("BTC/USDT", "1h", binance.portfolioPeriod);
-      }
+      });
       setSessionChecked(true);
     })();
   }, [auth, binance.portfolioPeriod, market, runInitialWorkspaceLoad]);

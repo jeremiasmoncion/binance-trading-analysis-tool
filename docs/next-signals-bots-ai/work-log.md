@@ -42,3 +42,32 @@ Start Phase 2:
 - introduce explicit domain contracts/types for bots, policies, feeds, and overlap
 - keep implementation incremental and non-destructive
 - if multi-thread execution starts, assign bounded ownership before parallel coding begins
+
+## 2026-03-19 - Realtime Overlay Stability
+
+### Area
+
+Shared realtime overlay application
+
+### Completed
+
+- Made `src/realtime-core/events.ts` no-op aware for `system.overlay.updated`.
+- Stopped identical overlay frames from rewriting `connection`, `execution`, and `dashboardSummary` in the shared `system plane`.
+- Narrowed heartbeat writes so routine liveness frames only touch stream metadata when the plane is already healthy.
+- Updated the architecture doc with the new runtime rule.
+
+### Risk Avoided
+
+- Future bot runtime expansion will increase the density and frequency of operational overlays.
+- Without overlay-level deduplication, selector-driven screens would keep rerendering on semantically identical frames.
+- That would scale poorly once bot-owned runtime state starts sharing the same hot path.
+
+### Pending
+
+- Evaluate whether emit-side deduplication should also happen in `realtime-core-service/server.mjs`.
+- Continue auditing shared runtime paths for equivalent payload writes.
+
+### Recommendation To Director
+
+- Keep `src/realtime-core/events.ts` treated as protected runtime infrastructure.
+- Route future bot/live state through the shared runtime path instead of allowing per-screen event consumers.

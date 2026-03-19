@@ -92,3 +92,40 @@ This makes GitHub the practical notification path to the owner mobile device.
 If you skip the explicit domain model and jump straight into feature work, the redesign is likely to become another layer of hidden coupling on top of the existing pipeline.
 
 Keep the work phased.
+
+## Refinador Runtime - 2026-03-19
+
+### What Was Done
+
+- Hardened the shared realtime event application path in `src/realtime-core/events.ts`.
+- Added no-op awareness for `system.overlay.updated` so identical overlay frames do not recreate shared state.
+- Reduced heartbeat writes to minimal metadata-only updates when the runtime is already healthy.
+
+### Files Touched
+
+- `src/realtime-core/events.ts`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- The frontend side of shared realtime overlay application is now quieter and better prepared for higher-frequency bot/runtime state.
+- Emit-side deduplication inside the external realtime core remains pending.
+
+### What Remains Pending
+
+- Decide whether identical overlays should also be filtered before emit in `realtime-core-service/server.mjs`.
+- Continue auditing shared hot paths before first-class bot runtime state lands.
+
+### What The Director Should Review
+
+- Whether future bot-event work should keep flowing through the shared `system.overlay.updated` contract or evolve into a more granular taxonomy later.
+- The main repo checkout was being switched by another thread, so the refinement round was completed and pushed from a dedicated worktree on `codex/refinador-runtime`.
+
+### What The Implementer Should Avoid
+
+- Do not add screen-level SSE/WebSocket consumers for bot state.
+- Do not bypass `selectors + actions` with direct runtime subscriptions in product-layer work.
+- Do not reshape `src/realtime-core/events.ts` without coordinating with the director/refinador.

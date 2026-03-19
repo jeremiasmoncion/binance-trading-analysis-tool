@@ -10,6 +10,7 @@
 - `done`
   - base redesign documentation created under `docs/next-signals-bots-ai/`
   - orchestration documentation initialized
+  - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
 - `in progress`
   - preparing multi-thread workflow
 - `next`

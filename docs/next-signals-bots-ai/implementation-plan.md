@@ -62,6 +62,8 @@ Suggested deliverables:
 - bot store/domain layer
 - persistence model or structured in-memory contract
 - initial bot lifecycle actions
+- first user-facing bot page architecture
+- bot-list-first UX with create-bot entry point
 
 ## Phase 4 - Signal Core Separation
 
@@ -76,6 +78,8 @@ Suggested deliverables:
 - signal feed contracts
 - classification pipeline
 - feed selectors or service layer
+- first dedicated user-facing signals page architecture
+- watchlist vs market-discovery UX split
 
 ## Phase 5 - AI and Governance Integration
 
@@ -136,6 +140,10 @@ Letting unrestricted AI mode break accounting isolation.
 ### Risk 4
 
 Adding market-wide signal feeds without ranking discipline, creating noise.
+
+### Risk 5
+
+Continuing to grow the legacy `Signal Bot` page instead of replacing it with a clearer end-user page structure modeled on the template UX.
 
 ## Recommended Working Rule
 

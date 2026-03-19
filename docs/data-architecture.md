@@ -202,6 +202,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - high-frequency market paths should be no-op aware locally too; symbol-universe hydration and live ticker frames should not write React state again when the effective payload is unchanged
 - market snapshots should follow a latest-request-wins rule; if the user changes coin or timeframe quickly, older responses must be ignored instead of snapping the plane back to stale context
 - market derivation should have one canonical helper path; fetches and live streams can enter through different sources, but they should build signal/analysis/strategy state with the same snapshot pipeline
+- market derivation should also reuse any indicator pass that already happened in the active path; the hot kline/ticker loop should not recalculate the same candle indicators twice before running the strategy engine
 
 ## Migration Phases
 
@@ -234,6 +235,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - symbol-universe hydration and live ticker updates inside `useMarketData` now skip identical writes, trimming more invisible render work before sync reaches the plane
 - market fetches now ignore stale responses from older coin/timeframe requests, so rapid navigation cannot overwrite the latest market context with a slower previous payload
 - `useMarketData` now derives signal/analysis/strategy state through a single helper shared by fetch and live-stream updates, reducing duplicated logic before future optimizations move more work off the client
+- live market derivation now reuses the already computed active-timeframe indicators before entering the shared derivation helper, trimming duplicate work from the hottest path
 
 ### In Progress
 

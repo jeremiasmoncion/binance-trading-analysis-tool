@@ -106,9 +106,10 @@ function buildDerivedMarketSnapshot(
   candles: Candle[],
   timeframe: string,
   multiTimeframes: TimeframeSignal[],
+  indicatorsOverride?: Indicators,
   livePrice?: number,
 ) {
-  const indicators = calcIndicators(candles);
+  const indicators = indicatorsOverride || calcIndicators(candles);
   const strategyExecution = runStrategyEngine({
     candles,
     indicators,
@@ -205,6 +206,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       nextCandles,
       activeTimeframeRef.current,
       nextMultiTimeframes,
+      nextIndicators,
       livePrice,
     );
 

@@ -14,11 +14,13 @@
   - execution environment / automation mode contracts added
   - overlap policy and AI policy contracts added
   - signal feed taxonomy contracts added
+  - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
 - `in progress`
-  - selecting the first safe integration seam for bot registry and signal feed selectors
+  - selecting the first hydration boundary for the new domain-owned bot registry and signal feed selectors
 - `next`
-  - read-only bot registry/store scaffolding
-  - feed selectors or adapters for published and bot-consumable signals
+  - read-only UI composition backed by domain selectors
+  - feed hydration adapters for published and bot-consumable signals
+  - optional persistence seam for the local bot registry
   - director review for Phase 3 integration boundary
 
 ## Rule For Future Updates

@@ -45,6 +45,11 @@ The project also now has an orchestration base for multi-thread execution under:
   - `execution-candidate`
 - added pure adapters to bridge future integration from existing `ExecutionCandidate` and `ExecutionOrderRecord` data
 - added initial registry scaffolding with a standard bot and an isolated unrestricted AI bot definition
+- added a local domain-owned registry seam for bots with store primitives and read selectors
+- added the first adapter boundary for:
+  - execution candidates -> published feeds
+  - published feeds -> bot-consumable feeds
+- clarified that `AI Unrestricted Lab` is a supported isolated example/profile, not a global default policy for all bots
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -72,16 +77,19 @@ The project also now has an orchestration base for multi-thread execution under:
 - `src/domain/bots/contracts.ts`
 - `src/domain/bots/defaults.ts`
 - `src/domain/bots/adapters.ts`
+- `src/domain/bots/registry.ts`
+- `src/domain/bots/selectors.ts`
 - `src/domain/signals/contracts.ts`
 - `src/domain/signals/classification.ts`
+- `src/domain/signals/feedAdapters.ts`
 - `src/domain/index.ts`
 
 ## Recommended Next Implementation Step
 
 Bridge the new contracts into a safe read-only Phase 3 seam:
 
-- choose the first registry/store location for bots without altering reserved shared planes yet
-- expose selectors or adapters that let the UI read:
+- the first registry/store location is now established in `src/domain/bots/registry.ts`
+- next expose selectors or adapters that let the UI read:
   - bot registry entries
   - published signal feeds
   - bot-consumable signal feeds
@@ -110,6 +118,36 @@ This makes GitHub the practical notification path to the owner mobile device.
 - do not discard adaptive governance logic
 - do not allow unrestricted AI mode to break accounting/execution isolation
 - do not implement the entire redesign in one step
+
+## Runtime Refinement Note
+
+The shared realtime event path was further hardened so identical operational overlays do not recreate the `system plane`.
+
+Files touched in this round:
+
+- `src/realtime-core/events.ts`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+
+Why this matters:
+
+- the future `signals + bots + AI` system will increase overlay frequency
+- duplicated live frames would otherwise scale rerender pressure across dashboard, runtime selectors, and bot-facing surfaces
+- this is a core stability refinement, not a product-layer feature
+
+What remains pending:
+
+- keep auditing whether deduplication should also happen before emit inside the external realtime core
+- continue checking hot shared paths before adding first-class bot runtime state
+
+What the director should review:
+
+- whether future bot/live event work should be forced through the existing `system.overlay.updated` contract or split into a more granular event taxonomy later
+
+What implementers should avoid:
+
+- do not add new parallel live channels for bot state directly into screens
+- do not bypass `selectors + actions` with ad-hoc SSE/WebSocket consumers in feature work
 - do not move the new domain contracts into `src/types.ts` until the director chooses the integration strategy
 
 ## Sensitive Areas Touched
@@ -119,9 +157,14 @@ This makes GitHub the practical notification path to the owner mobile device.
 
 ## Director Review Needed
 
-- confirm whether `src/domain/` is the accepted landing zone for cross-phase contracts
-- confirm the first storage seam for Phase 3 bot registry work
-- confirm whether the unrestricted AI bot should remain `draft/observe` by default until dedicated accounting isolation lands
+- confirm whether the next priority should be:
+  - read-only UI composition using domain selectors
+  - registry persistence seam
+  - feed ranking/prioritization
+- confirm the first hydration boundary for feeds:
+  - frontend execution candidates
+  - signal memory snapshots
+  - backend payload adapters
 
 ## Refiner Coordination Needed
 

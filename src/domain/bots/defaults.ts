@@ -179,7 +179,7 @@ export const INITIAL_BOT_REGISTRY_STATE: BotRegistryState = {
       id: "ai-unrestricted-lab",
       slug: "ai-unrestricted-lab",
       name: "AI Unrestricted Lab",
-      description: "Bot especial sin restricciones estratégicas, pero aislado técnica y contablemente del resto.",
+      description: "Perfil de ejemplo para un bot especial sin restricciones estratégicas, pero aislado técnica y contablemente del resto.",
       status: "draft",
       automationMode: "observe",
       aiPolicy: {

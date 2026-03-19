@@ -146,3 +146,91 @@ Move into the Phase 2 / Phase 3 bridge:
 - wire the new bot registry scaffold into a non-invasive store or selector layer
 - expose first read-only bot and signal feed selectors to the existing UI shell
 - keep execution and realtime orchestration untouched until the director approves the integration seam
+
+## 2026-03-19 - Domain Registry Seam Round
+
+### Phase
+
+Phase 2 / Phase 3 bridge
+
+### Completed
+
+- Consolidated `src/domain/` as the official landing zone for the redesign during this phase.
+- Added a local `bot registry/store seam` inside the new domain layer instead of wiring bot state into shared runtime or app wiring.
+- Added registry primitives in `src/domain/bots/registry.ts`:
+  - `createBotRegistryStore`
+  - `cloneBotRegistryState`
+  - `createBotRegistrySnapshot`
+- Added minimal read selectors in `src/domain/bots/selectors.ts` for:
+  - all bots
+  - selected bot
+  - bot by id
+  - bots by status
+  - bots by style
+  - execution-ready bots
+  - isolated bots
+- Added first signal feed adapter boundary in `src/domain/signals/feedAdapters.ts`:
+  - execution candidates -> published feed
+  - published signals -> bot-consumable feed
+- Adjusted the unrestricted AI bot wording so it is documented as a supported isolated example/profile, not a global default policy for all bots.
+- Re-exported the new registry/selectors/feed adapter surface through `src/domain/index.ts`.
+- Verified the seam with `npm run typecheck`.
+
+### Exact Domain Structure
+
+- `src/domain/bots/contracts.ts`
+- `src/domain/bots/defaults.ts`
+- `src/domain/bots/adapters.ts`
+- `src/domain/bots/registry.ts`
+- `src/domain/bots/selectors.ts`
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/classification.ts`
+- `src/domain/signals/feedAdapters.ts`
+- `src/domain/index.ts`
+
+### Seam Chosen
+
+- The bot registry/store seam now lives entirely in `src/domain/bots/registry.ts`.
+- It is local to the new domain layer.
+- It is intentionally not connected yet to:
+  - `src/App.tsx`
+  - `src/data-platform/*`
+  - `src/realtime-core/*`
+  - shared runtime hooks
+
+### Future Integration Path
+
+- UI should later consume this domain through selectors and adapter outputs, not by reading raw runtime state directly.
+- Shared architecture should connect later at an adapter boundary where current execution/signal outputs are translated into:
+  - published signal feeds
+  - bot-consumable feeds
+  - bot summaries
+- This keeps the first integration read-only and avoids pushing bot state into the hot path before direction approves the exact seam.
+
+### Sensitive Areas Avoided
+
+- Still avoided:
+  - `src/App.tsx`
+  - `src/types.ts`
+  - `src/data-platform/*`
+  - `src/realtime-core/*`
+  - `api/_lib/*` sensitive runtime files
+  - protected hooks
+
+### Pending
+
+- Define whether the next step should be:
+  - a read-only UI surface backed by domain selectors
+  - a persistence adapter for the registry seam
+  - a feed ranking layer above published/bot-consumable feeds
+- Decide the first source-of-truth adapter for feed hydration:
+  - execution candidates
+  - signal memory snapshots
+  - backend payloads
+
+### Director Review Needed
+
+- confirm whether the next round should prioritize:
+  - read-only UI composition for bots/signals
+  - registry persistence seam
+  - feed ranking/prioritization

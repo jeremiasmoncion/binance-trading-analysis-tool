@@ -13,6 +13,9 @@ Responsibilities:
 - prepare prompts for implementation threads
 - update ownership and phase status
 - judge UI readiness from an end-user review perspective, not only a technical/dev-lab perspective
+- report completed rounds in two layers:
+  - a user-facing/product summary
+  - a technical/orchestration summary with next steps and next major milestone
 
 The director may write code, but should prioritize coherence over raw output volume.
 
@@ -47,3 +50,13 @@ UI-specific shared rule:
 
 - a UI change is not considered truly review-ready if it only exists behind an obscure internal path that a normal operator would not reasonably find
 - technical validation hosts are acceptable, but they should not become the default standard for "done"
+
+Delivery-specific shared rule:
+
+- when presenting progress to the human operator, explain both:
+  - what changed in end-user terms
+  - what changed technically on the refiner side and implementer side
+- every substantial delivery should also state:
+  - what comes next for the refiner
+  - what comes next for the implementer
+  - what the next big product/architecture milestone is

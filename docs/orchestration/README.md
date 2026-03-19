@@ -62,3 +62,26 @@ That means:
 - directors should not announce a UI lot as "ready to review" unless it is actually discoverable and understandable through a realistic product flow
 
 Temporary hosts are allowed during phased delivery, but they should be treated as stepping stones toward user-visible product surfaces, not as the final measure of success.
+
+## Delivery Format Rule
+
+When the director reports a meaningful round or integration lot to the human operator, the delivery should include both:
+
+- a user-facing summary
+- a technical/orchestration summary
+
+The user-facing summary should explain, in product terms:
+
+- what changed for an end user
+- where to find it in the UI
+- how to use it
+- what is still temporary or limited
+
+The technical/orchestration summary should explain:
+
+- what the implementer changed
+- what the refiner changed
+- what each side should do next
+- what the next big milestone is
+
+Do not deliver only low-level technical notes when the operator is trying to understand actual product progress.

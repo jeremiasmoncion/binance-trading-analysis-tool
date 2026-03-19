@@ -168,6 +168,33 @@ Practical consequence:
 
 - do not count a UI round as truly ready for final UX review unless it is discoverable, understandable, and coherent from a normal user flow
 
+## Delivery Expectation For Future Directors
+
+When reporting progress or handing off a meaningful integrated lot, future directors should always communicate in two parallel layers:
+
+### 1. User-facing delivery summary
+
+Explain:
+
+- what changed in the app from an end-user point of view
+- where the operator can find it
+- how it is supposed to be used
+- what is still temporary, experimental, or not yet productized
+
+### 2. Technical/orchestration summary
+
+Explain separately:
+
+- what the implementer changed
+- what the refiner changed
+- what the next step is for each side
+- what the next major milestone is for the overall redesign
+
+This rule exists so the project owner can understand both:
+
+- the product value of the current lot
+- the architectural direction and the next work split
+
 ## Runtime Refinement Note
 
 The shared realtime event path was further hardened so identical operational overlays do not recreate the `system plane`.

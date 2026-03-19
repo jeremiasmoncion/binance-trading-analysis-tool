@@ -27,6 +27,14 @@ import type {
 } from "../types";
 import type { RealtimeCoreBootstrapPayload, RealtimeCoreEventEnvelope, RealtimeCoreHealthPayload } from "../realtime-core/contracts";
 
+export type RealtimeCoreRuntimeMode = "external" | "serverless";
+export interface RealtimeCoreRuntimeState {
+  configured: boolean;
+  preferredMode: RealtimeCoreRuntimeMode;
+  activeMode: RealtimeCoreRuntimeMode;
+  healthy: boolean;
+}
+
 interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
 }
@@ -42,8 +50,8 @@ const hotApiInFlight = new Map<string, Promise<unknown>>();
 const realtimeCoreBaseUrl = String(import.meta.env.VITE_REALTIME_CORE_URL || "").trim().replace(/\/$/, "");
 let realtimeCoreBridgeTokenCache: { token: string; expiresAt: number } | null = null;
 let realtimeCoreBridgeTokenInFlight: Promise<string> | null = null;
-let realtimeCoreModeCache: { mode: "external" | "serverless"; expiresAt: number } | null = null;
-let realtimeCoreModeInFlight: Promise<"external" | "serverless"> | null = null;
+let realtimeCoreModeCache: { mode: RealtimeCoreRuntimeMode; expiresAt: number } | null = null;
+let realtimeCoreModeInFlight: Promise<RealtimeCoreRuntimeMode> | null = null;
 
 async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { timeoutMs, ...requestOptions } = options;
@@ -177,7 +185,16 @@ async function requestExternalRealtimeCoreHealth() {
   }
 }
 
-async function resolveRealtimeCoreMode(forceFresh = false): Promise<"external" | "serverless"> {
+function buildRealtimeCoreRuntimeState(activeMode: RealtimeCoreRuntimeMode, healthy: boolean): RealtimeCoreRuntimeState {
+  return {
+    configured: Boolean(realtimeCoreBaseUrl),
+    preferredMode: realtimeCoreBaseUrl ? "external" : "serverless",
+    activeMode,
+    healthy,
+  };
+}
+
+async function resolveRealtimeCoreMode(forceFresh = false): Promise<RealtimeCoreRuntimeMode> {
   if (!realtimeCoreBaseUrl) return "serverless";
 
   const now = Date.now();
@@ -824,8 +841,13 @@ export const marketService = {
 };
 
 export const realtimeCoreService = {
-  async getBootstrap(coin: string, timeframe: string, period = "1d") {
-    let mode: "external" | "serverless" = "serverless";
+  async getBootstrap(
+    coin: string,
+    timeframe: string,
+    period = "1d",
+    options: { onRuntimeState?: (state: RealtimeCoreRuntimeState) => void } = {},
+  ) {
+    let mode: RealtimeCoreRuntimeMode = "serverless";
     let bootstrapPath = `/api/realtime/bootstrap?${new URLSearchParams({
       coin,
       timeframe,
@@ -836,11 +858,13 @@ export const realtimeCoreService = {
       const resolved = await buildRealtimeCoreBootstrapPath(coin, timeframe, period);
       mode = resolved.mode;
       bootstrapPath = resolved.path;
+      options.onRuntimeState?.(buildRealtimeCoreRuntimeState(mode, mode === "external"));
     } catch {
       realtimeCoreModeCache = {
         mode: "serverless",
         expiresAt: Date.now() + 8_000,
       };
+      options.onRuntimeState?.(buildRealtimeCoreRuntimeState("serverless", false));
     }
 
     try {
@@ -853,6 +877,7 @@ export const realtimeCoreService = {
         mode: "serverless",
         expiresAt: Date.now() + 8_000,
       };
+      options.onRuntimeState?.(buildRealtimeCoreRuntimeState("serverless", false));
       return apiRequest<RealtimeCoreBootstrapPayload>(`/api/realtime/bootstrap?${new URLSearchParams({
         coin,
         timeframe,
@@ -862,7 +887,13 @@ export const realtimeCoreService = {
       });
     }
   },
-  async openSystemEvents(onEvent: (event: RealtimeCoreEventEnvelope) => void, options: { intervalMs?: number } = {}) {
+  async openSystemEvents(
+    onEvent: (event: RealtimeCoreEventEnvelope) => void,
+    options: {
+      intervalMs?: number;
+      onRuntimeState?: (state: RealtimeCoreRuntimeState) => void;
+    } = {},
+  ) {
     if (typeof window === "undefined" || typeof EventSource === "undefined") {
       return () => undefined;
     }
@@ -878,24 +909,27 @@ export const realtimeCoreService = {
         mode: "serverless",
         expiresAt: Date.now() + 8_000,
       };
+      options.onRuntimeState?.(buildRealtimeCoreRuntimeState("serverless", false));
       closeCurrent = attachRealtimeCoreEventSource(
         `/api/realtime/events${options.intervalMs ? `?intervalMs=${encodeURIComponent(String(options.intervalMs))}` : ""}`,
         onEvent,
       );
     };
 
-    let mode: "external" | "serverless" = "serverless";
+    let mode: RealtimeCoreRuntimeMode = "serverless";
     let eventsPath = `/api/realtime/events${options.intervalMs ? `?intervalMs=${encodeURIComponent(String(options.intervalMs))}` : ""}`;
 
     try {
       const resolved = await buildRealtimeCoreEventsPath(options);
       mode = resolved.mode;
       eventsPath = resolved.path;
+      options.onRuntimeState?.(buildRealtimeCoreRuntimeState(mode, mode === "external"));
     } catch {
       realtimeCoreModeCache = {
         mode: "serverless",
         expiresAt: Date.now() + 8_000,
       };
+      options.onRuntimeState?.(buildRealtimeCoreRuntimeState("serverless", false));
     }
 
     closeCurrent = attachRealtimeCoreEventSource(eventsPath, onEvent, {

@@ -14,7 +14,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
 import { applyRealtimeCoreEvent } from "./realtime-core/events";
@@ -83,7 +83,9 @@ export function App() {
     timeframe = market.timeframe,
     period = binance.portfolioPeriod,
   ) => {
-    const payload = await realtimeCoreService.getBootstrap(coin, timeframe, period);
+    const payload = await realtimeCoreService.getBootstrap(coin, timeframe, period, {
+      onRuntimeState: syncRealtimeCoreControl,
+    });
     applyRealtimeCoreBootstrap(payload);
     return payload;
   }, [binance.portfolioPeriod, market.currentCoin, market.timeframe]);
@@ -156,6 +158,8 @@ export function App() {
 
     void realtimeCoreService.openSystemEvents((event) => {
       applyRealtimeCoreEvent(event);
+    }, {
+      onRuntimeState: syncRealtimeCoreControl,
     }).then((close) => {
       if (cancelled) {
         close();

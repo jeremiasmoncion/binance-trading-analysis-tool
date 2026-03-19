@@ -121,6 +121,7 @@ When this env is present:
 - event stream requests go to the external realtime core service with the same bridge token
 - if the external service is unhealthy or fails, frontend falls back to Vercel routes
 - frontend contracts stay the same
+- the active runtime mode is synchronized into the shared `system plane`, so any view can inspect whether CRYPE is currently on `external` or `serverless`
 
 This allows infrastructure migration without rewriting view logic.
 

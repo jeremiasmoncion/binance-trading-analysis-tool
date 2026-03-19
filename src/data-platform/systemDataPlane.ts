@@ -26,6 +26,13 @@ const initialSystemDataPlane: SystemDataPlane = {
     hideSmallAssets: true,
     availableUsers: [],
     binanceForm: { alias: "", apiKey: "", apiSecret: "" },
+    realtimeCore: {
+      configured: false,
+      preferredMode: "serverless",
+      activeMode: "serverless",
+      healthy: true,
+      lastCheckedAt: null,
+    },
   },
   actions: {
     refreshSignals: async () => null,

@@ -71,10 +71,32 @@ export function syncSystemDataPlane(
       dashboardSummary: binance.dashboardSummary,
     },
     controls: {
+      ...current.controls,
       portfolioPeriod: binance.portfolioPeriod,
       hideSmallAssets: binance.hideSmallAssets,
       availableUsers: binance.availableUsers,
       binanceForm: binance.binanceForm,
+    },
+  }));
+}
+
+export function syncRealtimeCoreControl(nextState: {
+  configured: boolean;
+  preferredMode: "external" | "serverless";
+  activeMode: "external" | "serverless";
+  healthy: boolean;
+}) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    controls: {
+      ...current.controls,
+      realtimeCore: {
+        configured: nextState.configured,
+        preferredMode: nextState.preferredMode,
+        activeMode: nextState.activeMode,
+        healthy: nextState.healthy,
+        lastCheckedAt: Date.now(),
+      },
     },
   }));
 }

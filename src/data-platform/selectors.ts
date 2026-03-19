@@ -83,3 +83,9 @@ export function useProfileSystemSelector() {
     refreshProfileDataWithFeedback: state.actions.refreshProfileDataWithFeedback,
   }), shallowEqualSelection);
 }
+
+export function useRealtimeCoreStatusSelector() {
+  return useDataPlaneStore(systemDataPlaneStore, (state) => ({
+    realtimeCore: state.controls.realtimeCore,
+  }), shallowEqualSelection);
+}

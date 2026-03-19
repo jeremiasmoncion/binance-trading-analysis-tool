@@ -71,6 +71,13 @@ export interface SystemDataPlane {
     hideSmallAssets: boolean;
     availableUsers: UserSession[];
     binanceForm: { alias: string; apiKey: string; apiSecret: string };
+    realtimeCore: {
+      configured: boolean;
+      preferredMode: "external" | "serverless";
+      activeMode: "external" | "serverless";
+      healthy: boolean;
+      lastCheckedAt: number | null;
+    };
   };
   actions: {
     refreshSignals: () => Promise<unknown>;

@@ -56,6 +56,7 @@ export interface RealtimeCoreSystemBootstrap {
 
 export interface RealtimeCoreSystemOverlayPayload {
   connection: import("../types").BinanceConnection | null;
+  portfolio: PortfolioPayload | null;
   execution: ExecutionCenterPayload | null;
   dashboardSummary: DashboardSummaryPayload | null;
 }

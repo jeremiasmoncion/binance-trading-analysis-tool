@@ -1,5 +1,5 @@
 import { getBinanceConnectionState, getPortfolioSnapshot } from "./binance.js";
-import { getExecutionCenter, getExecutionDashboardSummary } from "./executionEngine.js";
+import { getExecutionCenter } from "./executionEngine.js";
 import { buildMarketSnapshot } from "./marketRuntime.js";
 import { listSignalSnapshotsForUser } from "./signals.js";
 import { getSession } from "./auth.js";
@@ -97,16 +97,17 @@ export async function buildRealtimeCoreSystemOverlay(req) {
     throw new Error("Sesión no válida o vencida");
   }
 
-  const [connection, execution, dashboardSummary] = await Promise.all([
+  const [connection, portfolio, execution] = await Promise.all([
     getBinanceConnectionState(req).catch(() => null),
+    getPortfolioSnapshot(req, "1d", "live").catch(() => null),
     getExecutionCenter(req).catch(() => null),
-    getExecutionDashboardSummary(req).catch(() => null),
   ]);
 
   return {
     connection,
+    portfolio,
     execution,
-    dashboardSummary,
+    dashboardSummary: buildRealtimeDashboardSummary({ connection, portfolio, execution }),
   };
 }
 
@@ -114,5 +115,52 @@ export function buildRealtimeCoreHeartbeat(overlay) {
   return {
     connected: Boolean(overlay?.connection?.connected),
     generatedAt: new Date().toISOString(),
+  };
+}
+
+function buildRealtimeDashboardSummary({ connection, portfolio, execution }) {
+  const recentExecuteOrders = Array.isArray(execution?.recentOrders)
+    ? execution.recentOrders.filter((item) => item.mode === "execute").slice(0, 20)
+    : [];
+  const candidates = Array.isArray(execution?.candidates) ? execution.candidates : [];
+  const eligibleCount = candidates.filter((item) => item.status === "eligible").length;
+  const blockedCount = candidates.filter((item) => item.status === "blocked").length;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    connection: {
+      connected: Boolean(connection?.connected),
+      accountAlias: portfolio?.accountAlias || connection?.accountAlias || "",
+    },
+    connectionIssue: portfolio?.connectionIssue || undefined,
+    portfolio: portfolio?.portfolio || {
+      period: "1d",
+      totalValue: 0,
+      periodChangeValue: 0,
+      periodChangePct: 0,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      unrealizedPnlPct: 0,
+      totalPnl: 0,
+      winnersCount: 0,
+      openPositionsCount: 0,
+      cashValue: 0,
+      positionsValue: 0,
+      investedValue: 0,
+    },
+    topAssets: Array.isArray(portfolio?.assets) ? portfolio.assets.slice(0, 5) : [],
+    execution: {
+      profileEnabled: Boolean(execution?.profile?.enabled),
+      activeBots: execution?.profile?.enabled ? 1 : 0,
+      totalBots: 1,
+      openOrdersCount: Number(execution?.account?.openOrdersCount || portfolio?.openOrders?.length || 0),
+      dailyLossPct: Number(execution?.account?.dailyLossPct || 0),
+      dailyAutoExecutions: Number(execution?.account?.dailyAutoExecutions || 0),
+      recentLossStreak: Number(execution?.account?.recentLossStreak || 0),
+      autoExecutionRemaining: Number(execution?.account?.autoExecutionRemaining || 0),
+      eligibleCount,
+      blockedCount,
+      recentOrders: recentExecuteOrders,
+    },
   };
 }

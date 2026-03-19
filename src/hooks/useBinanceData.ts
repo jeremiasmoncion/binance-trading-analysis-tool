@@ -394,7 +394,9 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
     if (currentView === "dashboard") {
-      void refreshPortfolio(portfolioPeriod, refreshPolicy.portfolioMode);
+      if (!refreshPolicy.systemOverlayStreamEnabled) {
+        void refreshPortfolio(portfolioPeriod, refreshPolicy.portfolioMode);
+      }
       if (!refreshPolicy.systemOverlayStreamEnabled) {
         void Promise.all([
           refreshExecutionCenter(),

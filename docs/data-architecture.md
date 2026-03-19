@@ -114,6 +114,7 @@ Current reduction already applied:
 - `Dashboard` no longer runs periodic `signal memory` refreshes
 - `Memory` keeps a slower `signal memory` refresh cadence while the realtime migration continues
 - `Dashboard` now refreshes portfolio on `live` mode with a slower cadence and leans more on dashboard summary for top assets
+- `Dashboard` portfolio live totals now arrive through the overlay stream, so the view no longer polls portfolio on an interval
 - portfolio snapshots still refresh independently because they are not yet on the overlay stream
 
 ## Migration Phases

@@ -61,7 +61,7 @@ export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
       marketStreamsEnabled: true,
       systemOverlayStreamEnabled: true,
       signalMemoryIntervalMs: 0,
-      portfolioIntervalMs: 120_000,
+      portfolioIntervalMs: 0,
       portfolioMode: "live",
       executionIntervalMs: 0,
       dashboardSummaryIntervalMs: 0,

@@ -24,12 +24,13 @@ import type {
 } from "../types";
 import { openHelp } from "../lib/ui-events";
 import { drawBotComparisonChart, drawPerformanceChart } from "../lib/chart";
+import type { ViewName } from "../types";
 
 interface DashboardViewProps {
   theme: "light" | "dark";
   chartRef: React.RefObject<HTMLCanvasElement | null>;
   onSaveSignal: () => void;
-  onNavigateView: (view: "signals" | "bots") => void;
+  onNavigateView: (view: ViewName) => void;
 }
 
 type DashboardTab = "overview" | "bot-performance" | "recent-trades";
@@ -247,7 +248,7 @@ export function DashboardView(props: DashboardViewProps) {
               <button
                 type="button"
                 className="ui-button ui-button-primary"
-                onClick={() => props.onNavigateView("signals")}
+                onClick={() => props.onNavigateView("ai-signal-bot")}
               >
                 <SparklesIcon />
                 Senales
@@ -255,7 +256,7 @@ export function DashboardView(props: DashboardViewProps) {
               <button
                 type="button"
                 className="ui-button"
-                onClick={() => props.onNavigateView("bots")}
+                onClick={() => props.onNavigateView("control-bot-settings")}
               >
                 <CoinsIcon />
                 Bots

@@ -3,12 +3,14 @@ import type { UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
-const SignalsView = lazy(() => import("../views/SignalsView").then((module) => ({ default: module.SignalsView })));
-const BotsView = lazy(() => import("../views/BotsView").then((module) => ({ default: module.BotsView })));
 const MemoryView = lazy(() => import("../views/MemoryView").then((module) => ({ default: module.MemoryView })));
 const StatsView = lazy(() => import("../views/StatsView").then((module) => ({ default: module.StatsView })));
 const TradingView = lazy(() => import("../views/TradingView").then((module) => ({ default: module.TradingView })));
-const ControlPanelView = lazy(() => import("../views/ControlPanelView").then((module) => ({ default: module.ControlPanelView })));
+const ControlOverviewView = lazy(() => import("../views/ControlOverviewView").then((module) => ({ default: module.ControlOverviewView })));
+const BotSettingsView = lazy(() => import("../views/BotSettingsView").then((module) => ({ default: module.BotSettingsView })));
+const ExecutionLogsView = lazy(() => import("../views/ExecutionLogsView").then((module) => ({ default: module.ExecutionLogsView })));
+const SignalBotView = lazy(() => import("../views/SignalBotView").then((module) => ({ default: module.SignalBotView })));
+const TemplatePlaceholderView = lazy(() => import("../views/TemplatePlaceholderView").then((module) => ({ default: module.TemplatePlaceholderView })));
 const MarketView = lazy(() => import("../views/MarketView").then((module) => ({ default: module.MarketView })));
 const CalculatorView = lazy(() => import("../views/CalculatorView").then((module) => ({ default: module.CalculatorView })));
 const CompareView = lazy(() => import("../views/CompareView").then((module) => ({ default: module.CompareView })));
@@ -53,12 +55,6 @@ export function AppView(props: AppViewProps) {
         />
       );
       break;
-    case "signals":
-      content = <SignalsView />;
-      break;
-    case "bots":
-      content = <BotsView />;
-      break;
     case "memory":
       content = <MemoryView />;
       break;
@@ -69,14 +65,55 @@ export function AppView(props: AppViewProps) {
       content = <TradingView />;
       break;
     case "control-overview":
-    case "control-bots":
-    case "control-history":
-      content = (
-        <ControlPanelView
-          currentTab={props.currentView}
-          onTabChange={(tab) => props.onNavigateView(tab)}
-        />
-      );
+      content = <ControlOverviewView onNavigateView={props.onNavigateView} />;
+      break;
+    case "control-bot-settings":
+      content = <BotSettingsView />;
+      break;
+    case "control-execution-logs":
+      content = <ExecutionLogsView />;
+      break;
+    case "ai-signal-bot":
+      content = <SignalBotView onNavigateView={props.onNavigateView} />;
+      break;
+    case "ai-dca-bot":
+      content = <TemplatePlaceholderView title="DCA Bot" subtitle="Template-aligned AI bot surface reserved for the DCA workflow." />;
+      break;
+    case "ai-arbitrage-bot":
+      content = <TemplatePlaceholderView title="Arbitrage Bot" subtitle="Template-aligned AI bot surface reserved for the arbitrage workflow." />;
+      break;
+    case "ai-pump-screener":
+      content = <TemplatePlaceholderView title="Pump Screener" subtitle="Template-aligned AI bot surface reserved for high-volatility discovery." />;
+      break;
+    case "defi-center":
+      content = <TemplatePlaceholderView title="DeFi Center" subtitle="Section reserved for the DeFi Center flow defined in the template." />;
+      break;
+    case "yield-farming":
+      content = <TemplatePlaceholderView title="Yield Farming" subtitle="Section reserved for the Yield Farming flow defined in the template." />;
+      break;
+    case "staking-pools":
+      content = <TemplatePlaceholderView title="Staking Pools" subtitle="Section reserved for the Staking Pools flow defined in the template." />;
+      break;
+    case "liquidity-tracker":
+      content = <TemplatePlaceholderView title="Liquidity Tracker" subtitle="Section reserved for the Liquidity Tracker flow defined in the template." />;
+      break;
+    case "portfolio-tracker":
+      content = <TemplatePlaceholderView title="Portfolio Tracker" subtitle="Section reserved for the Portfolio Tracker flow defined in the template." />;
+      break;
+    case "wallets":
+      content = <TemplatePlaceholderView title="Wallets" subtitle="Section reserved for the Wallets flow defined in the template." />;
+      break;
+    case "defi-protocols":
+      content = <TemplatePlaceholderView title="DeFi Protocols" subtitle="Section reserved for the DeFi Protocols flow defined in the template." />;
+      break;
+    case "strategies-marketplace":
+      content = <TemplatePlaceholderView title="Strategies Marketplace" subtitle="Section reserved for the marketplace flow defined in the template." />;
+      break;
+    case "signals":
+      content = <SignalBotView onNavigateView={props.onNavigateView} />;
+      break;
+    case "bots":
+      content = <BotSettingsView />;
       break;
     case "market":
       content = <MarketView />;

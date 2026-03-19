@@ -226,7 +226,7 @@ async function handleBootstrap(req, res, url) {
   }
   const payload = await buildRealtimeCoreBootstrap(normalizedReq, { session });
 
-  if (channel.lastOverlay) {
+  if (channel?.lastOverlay) {
     payload.system = {
       ...payload.system,
       connection: channel.lastOverlay.connection,

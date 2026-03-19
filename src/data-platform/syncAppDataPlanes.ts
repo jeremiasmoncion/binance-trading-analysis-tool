@@ -166,3 +166,18 @@ export function syncSystemSignalActions(actions: ReturnTypeUseSignalMemory) {
     },
   }));
 }
+
+export function syncSystemWatchlistActions(actions: ReturnTypeUseWatchlist) {
+  systemDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      ...current.actions,
+      toggleWatchlist: actions.toggleWatchlist,
+      replaceWatchlistCoins: actions.replaceListCoins,
+      createWatchlist: actions.createList,
+      renameWatchlist: actions.renameList,
+      deleteWatchlist: actions.deleteList,
+      setActiveWatchlist: actions.setActiveList,
+    },
+  }));
+}

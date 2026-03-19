@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { watchlistService } from "../services/api";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { UserSession, WatchlistGroup } from "../types";
@@ -194,7 +194,11 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
   const watchlist = activeList?.coins || [];
   const watchlistSet = useMemo(() => new Set(watchlist.map((item) => normalizeCoin(item))), [watchlist]);
 
-  async function syncLists(nextLists: WatchlistGroup[], nextActiveListName: string, remoteAction?: () => Promise<{ lists: WatchlistGroup[]; activeListName: string | null }>) {
+  const syncLists = useCallback(async (
+    nextLists: WatchlistGroup[],
+    nextActiveListName: string,
+    remoteAction?: () => Promise<{ lists: WatchlistGroup[]; activeListName: string | null }>,
+  ) => {
     setLists(nextLists.map((item) => ({ ...item, isActive: item.name === nextActiveListName })));
     setActiveListName(nextActiveListName);
 
@@ -209,7 +213,125 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
     } catch {
       // keep optimistic local state if remote sync fails
     }
-  }
+  }, [currentUser, remoteReady]);
+
+  // Keep watchlist actions referentially stable so the shared data plane can
+  // expose them without re-publishing handlers on every render.
+  const isWatched = useCallback((coin: string) => (
+    watchlistSet.has(normalizeCoin(coin))
+  ), [watchlistSet]);
+
+  const setActiveList = useCallback(async (name: string) => {
+    const normalizedName = normalizeListName(name);
+    if (!lists.some((item) => item.name === normalizedName)) return;
+    const loaderId = startLoading({ label: "Cambiando lista activa", detail: normalizedName });
+    try {
+      await syncLists(
+        lists.map((item) => ({ ...item, isActive: item.name === normalizedName })),
+        normalizedName,
+        () => watchlistService.updateList(normalizedName, { isActive: true }),
+      );
+      showToast({
+        tone: "success",
+        title: "Lista activa actualizada",
+        message: `${normalizedName} ahora alimenta las señales automáticas.`,
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [lists, syncLists]);
+
+  const toggleWatchlist = useCallback(async (coin: string) => {
+    const normalizedCoin = normalizeCoin(coin);
+    const nextCoins = watchlist.includes(normalizedCoin)
+      ? watchlist.filter((item) => item !== normalizedCoin)
+      : [normalizedCoin, ...watchlist];
+    const nextLists = lists.map((item) => (item.name === activeListName ? { ...item, coins: nextCoins } : item));
+    const loaderId = startLoading({ label: "Actualizando watchlist", detail: normalizedCoin });
+    try {
+      await syncLists(nextLists, activeListName, () => watchlistService.replace(activeListName, nextCoins));
+      showToast({
+        tone: watchlist.includes(normalizedCoin) ? "info" : "success",
+        title: watchlist.includes(normalizedCoin) ? "Moneda removida" : "Moneda agregada",
+        message: watchlist.includes(normalizedCoin)
+          ? `${normalizedCoin} salió de ${activeListName}.`
+          : `${normalizedCoin} ya quedó vigilada en ${activeListName}.`,
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [activeListName, lists, syncLists, watchlist]);
+
+  const createList = useCallback(async (name: string) => {
+    const normalizedName = normalizeListName(name);
+    if (lists.some((item) => item.name === normalizedName)) return;
+    const nextLists = [...lists.map((item) => ({ ...item, isActive: false })), { name: normalizedName, coins: [], isActive: true }];
+    const loaderId = startLoading({ label: "Creando lista", detail: normalizedName });
+    try {
+      await syncLists(nextLists, normalizedName, () => watchlistService.createList(normalizedName));
+      showToast({
+        tone: "success",
+        title: "Lista creada",
+        message: `${normalizedName} ya está lista para organizar monedas.`,
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [lists, syncLists]);
+
+  const renameList = useCallback(async (name: string, nextName: string) => {
+    const normalizedName = normalizeListName(name);
+    const normalizedNext = normalizeListName(nextName);
+    if (normalizedName === normalizedNext || lists.some((item) => item.name === normalizedNext)) return;
+    const nextLists = lists.map((item) => (item.name === normalizedName ? { ...item, name: normalizedNext } : item));
+    const loaderId = startLoading({ label: "Renombrando lista", detail: `${normalizedName} → ${normalizedNext}` });
+    try {
+      await syncLists(nextLists, activeListName === normalizedName ? normalizedNext : activeListName, () => watchlistService.updateList(normalizedName, { nextName: normalizedNext }));
+      showToast({
+        tone: "success",
+        title: "Lista renombrada",
+        message: `${normalizedName} ahora se llama ${normalizedNext}.`,
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [activeListName, lists, syncLists]);
+
+  const deleteList = useCallback(async (name: string) => {
+    const normalizedName = normalizeListName(name);
+    if (lists.length <= 1 || !lists.some((item) => item.name === normalizedName)) return;
+    const remaining = lists.filter((item) => item.name !== normalizedName);
+    const nextActive = activeListName === normalizedName ? remaining[0].name : activeListName;
+    const loaderId = startLoading({ label: "Eliminando lista", detail: normalizedName });
+    try {
+      await syncLists(remaining, nextActive, () => watchlistService.deleteList(normalizedName));
+      showToast({
+        tone: "warning",
+        title: "Lista eliminada",
+        message: `${normalizedName} salió del sistema. ${nextActive} queda activa.`,
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [activeListName, lists, syncLists]);
+
+  const replaceListCoins = useCallback(async (name: string, coins: string[]) => {
+    const normalizedName = normalizeListName(name);
+    const nextCoins = normalizeWatchlist(coins);
+    if (!lists.some((item) => item.name === normalizedName)) return;
+    const nextLists = lists.map((item) => (item.name === normalizedName ? { ...item, coins: nextCoins } : item));
+    const loaderId = startLoading({ label: "Reordenando lista", detail: normalizedName });
+    try {
+      await syncLists(nextLists, activeListName, () => watchlistService.replace(normalizedName, nextCoins));
+      showToast({
+        tone: "success",
+        title: "Lista actualizada",
+        message: `${normalizedName} ya refleja tu nueva selección de monedas.`,
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  }, [activeListName, lists, syncLists]);
 
   return {
     lists,
@@ -217,114 +339,12 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
     activeList,
     watchlist,
     watchlistSet,
-    isWatched(coin: string) {
-      return watchlistSet.has(normalizeCoin(coin));
-    },
-    async setActiveList(name: string) {
-      const normalizedName = normalizeListName(name);
-      if (!lists.some((item) => item.name === normalizedName)) return;
-      const loaderId = startLoading({ label: "Cambiando lista activa", detail: normalizedName });
-      try {
-        await syncLists(
-          lists.map((item) => ({ ...item, isActive: item.name === normalizedName })),
-          normalizedName,
-          () => watchlistService.updateList(normalizedName, { isActive: true }),
-        );
-        showToast({
-          tone: "success",
-          title: "Lista activa actualizada",
-          message: `${normalizedName} ahora alimenta las señales automáticas.`,
-        });
-      } finally {
-        stopLoading(loaderId);
-      }
-    },
-    async toggleWatchlist(coin: string) {
-      const normalizedCoin = normalizeCoin(coin);
-      const nextCoins = watchlist.includes(normalizedCoin)
-        ? watchlist.filter((item) => item !== normalizedCoin)
-        : [normalizedCoin, ...watchlist];
-      const nextLists = lists.map((item) => (item.name === activeListName ? { ...item, coins: nextCoins } : item));
-      const loaderId = startLoading({ label: "Actualizando watchlist", detail: normalizedCoin });
-      try {
-        await syncLists(nextLists, activeListName, () => watchlistService.replace(activeListName, nextCoins));
-        showToast({
-          tone: watchlist.includes(normalizedCoin) ? "info" : "success",
-          title: watchlist.includes(normalizedCoin) ? "Moneda removida" : "Moneda agregada",
-          message: watchlist.includes(normalizedCoin)
-            ? `${normalizedCoin} salió de ${activeListName}.`
-            : `${normalizedCoin} ya quedó vigilada en ${activeListName}.`,
-        });
-      } finally {
-        stopLoading(loaderId);
-      }
-    },
-    async createList(name: string) {
-      const normalizedName = normalizeListName(name);
-      if (lists.some((item) => item.name === normalizedName)) return;
-      const nextLists = [...lists.map((item) => ({ ...item, isActive: false })), { name: normalizedName, coins: [], isActive: true }];
-      const loaderId = startLoading({ label: "Creando lista", detail: normalizedName });
-      try {
-        await syncLists(nextLists, normalizedName, () => watchlistService.createList(normalizedName));
-        showToast({
-          tone: "success",
-          title: "Lista creada",
-          message: `${normalizedName} ya está lista para organizar monedas.`,
-        });
-      } finally {
-        stopLoading(loaderId);
-      }
-    },
-    async renameList(name: string, nextName: string) {
-      const normalizedName = normalizeListName(name);
-      const normalizedNext = normalizeListName(nextName);
-      if (normalizedName === normalizedNext || lists.some((item) => item.name === normalizedNext)) return;
-      const nextLists = lists.map((item) => (item.name === normalizedName ? { ...item, name: normalizedNext } : item));
-      const loaderId = startLoading({ label: "Renombrando lista", detail: `${normalizedName} → ${normalizedNext}` });
-      try {
-        await syncLists(nextLists, activeListName === normalizedName ? normalizedNext : activeListName, () => watchlistService.updateList(normalizedName, { nextName: normalizedNext }));
-        showToast({
-          tone: "success",
-          title: "Lista renombrada",
-          message: `${normalizedName} ahora se llama ${normalizedNext}.`,
-        });
-      } finally {
-        stopLoading(loaderId);
-      }
-    },
-    async deleteList(name: string) {
-      const normalizedName = normalizeListName(name);
-      if (lists.length <= 1 || !lists.some((item) => item.name === normalizedName)) return;
-      const remaining = lists.filter((item) => item.name !== normalizedName);
-      const nextActive = activeListName === normalizedName ? remaining[0].name : activeListName;
-      const loaderId = startLoading({ label: "Eliminando lista", detail: normalizedName });
-      try {
-        await syncLists(remaining, nextActive, () => watchlistService.deleteList(normalizedName));
-        showToast({
-          tone: "warning",
-          title: "Lista eliminada",
-          message: `${normalizedName} salió del sistema. ${nextActive} queda activa.`,
-        });
-      } finally {
-        stopLoading(loaderId);
-      }
-    },
-    async replaceListCoins(name: string, coins: string[]) {
-      const normalizedName = normalizeListName(name);
-      const nextCoins = normalizeWatchlist(coins);
-      if (!lists.some((item) => item.name === normalizedName)) return;
-      const nextLists = lists.map((item) => (item.name === normalizedName ? { ...item, coins: nextCoins } : item));
-      const loaderId = startLoading({ label: "Reordenando lista", detail: normalizedName });
-      try {
-        await syncLists(nextLists, activeListName, () => watchlistService.replace(normalizedName, nextCoins));
-        showToast({
-          tone: "success",
-          title: "Lista actualizada",
-          message: `${normalizedName} ya refleja tu nueva selección de monedas.`,
-        });
-      } finally {
-        stopLoading(loaderId);
-      }
-    },
+    isWatched,
+    setActiveList,
+    toggleWatchlist,
+    createList,
+    renameList,
+    deleteList,
+    replaceListCoins,
   };
 }

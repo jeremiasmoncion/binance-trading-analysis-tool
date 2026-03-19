@@ -24,12 +24,12 @@ interface MarketViewProps {
   support?: number;
   resistance?: number;
   onSelectCoin: (coin: string) => void;
-  onToggleWatchlist: (coin: string) => void;
-  onReplaceWatchlistCoins: (name: string, coins: string[]) => Promise<void>;
-  onCreateWatchlist: (name: string) => Promise<void>;
-  onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
-  onDeleteWatchlist: (name: string) => Promise<void>;
-  onSetActiveWatchlist: (name: string) => Promise<void>;
+  onToggleWatchlist?: (coin: string) => Promise<void> | void;
+  onReplaceWatchlistCoins?: (name: string, coins: string[]) => Promise<void>;
+  onCreateWatchlist?: (name: string) => Promise<void>;
+  onRenameWatchlist?: (name: string, nextName: string) => Promise<void>;
+  onDeleteWatchlist?: (name: string) => Promise<void>;
+  onSetActiveWatchlist?: (name: string) => Promise<void>;
 }
 
 export function MarketView(incomingProps: MarketViewProps) {
@@ -46,6 +46,12 @@ export function MarketView(incomingProps: MarketViewProps) {
     market24h: incomingProps.market24h ?? marketData.market24h,
     support: incomingProps.support ?? marketData.support,
     resistance: incomingProps.resistance ?? marketData.resistance,
+    onToggleWatchlist: incomingProps.onToggleWatchlist ?? systemData.toggleWatchlist,
+    onReplaceWatchlistCoins: incomingProps.onReplaceWatchlistCoins ?? systemData.replaceWatchlistCoins,
+    onCreateWatchlist: incomingProps.onCreateWatchlist ?? systemData.createWatchlist,
+    onRenameWatchlist: incomingProps.onRenameWatchlist ?? systemData.renameWatchlist,
+    onDeleteWatchlist: incomingProps.onDeleteWatchlist ?? systemData.deleteWatchlist,
+    onSetActiveWatchlist: incomingProps.onSetActiveWatchlist ?? systemData.setActiveWatchlist,
   };
   const [activeTab, setActiveTab] = useState<"summary" | "watchlist">("summary");
   const watchlists = props.watchlists || [];
@@ -264,7 +270,7 @@ export function MarketView(incomingProps: MarketViewProps) {
               selectedIsActive ? (
                 <span className="watchlist-status-chip active">Activa para señales</span>
               ) : (
-                <button type="button" className="btn-primary btn-small" onClick={() => void props.onSetActiveWatchlist(selectedList.name)}>
+                <button type="button" className="btn-primary btn-small" onClick={() => void props.onSetActiveWatchlist?.(selectedList.name)}>
                   Usar esta lista para señales
                 </button>
               )
@@ -291,7 +297,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                 className="btn-primary btn-small"
                 onClick={() => {
                   const name = window.prompt("Nombre de la nueva lista", "");
-                  if (name) void props.onCreateWatchlist(name);
+                  if (name) void props.onCreateWatchlist?.(name);
                 }}
               >
                 Nueva lista
@@ -302,7 +308,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                 onClick={() => {
                   const currentName = selectedList?.name || activeWatchlistName;
                   const name = window.prompt("Renombrar lista", currentName);
-                  if (name) void props.onRenameWatchlist(currentName, name);
+                  if (name) void props.onRenameWatchlist?.(currentName, name);
                 }}
               >
                 Renombrar
@@ -314,7 +320,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                 onClick={() => {
                   const currentName = selectedList?.name || activeWatchlistName;
                   if (window.confirm(`Eliminar la lista ${currentName}?`)) {
-                    void props.onDeleteWatchlist(currentName);
+                    void props.onDeleteWatchlist?.(currentName);
                   }
                 }}
               >
@@ -335,7 +341,7 @@ export function MarketView(incomingProps: MarketViewProps) {
                     type="button"
                     className="watchlist-chip-remove"
                     aria-label={`Quitar ${coin} del watchlist`}
-                    onClick={() => void props.onReplaceWatchlistCoins(selectedList?.name || activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
+                    onClick={() => void props.onReplaceWatchlistCoins?.(selectedList?.name || activeWatchlistName, selectedCoins.filter((item) => item !== coin))}
                   >
                     ×
                   </button>

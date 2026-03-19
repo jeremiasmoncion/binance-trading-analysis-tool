@@ -96,6 +96,12 @@ export interface SystemDataPlane {
     connectBinance: () => Promise<unknown>;
     disconnectBinance: () => Promise<unknown>;
     refreshRealtimeCoreStatus: () => Promise<unknown>;
+    toggleWatchlist: (coin: string) => Promise<void>;
+    replaceWatchlistCoins: (name: string, coins: string[]) => Promise<void>;
+    createWatchlist: (name: string) => Promise<void>;
+    renameWatchlist: (name: string, nextName: string) => Promise<void>;
+    deleteWatchlist: (name: string) => Promise<void>;
+    setActiveWatchlist: (name: string) => Promise<void>;
   };
 }
 

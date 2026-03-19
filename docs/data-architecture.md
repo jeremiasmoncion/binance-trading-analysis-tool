@@ -52,6 +52,7 @@ Source of truth for:
   - binance form state
 - `actions`
   - refresh / connect / disconnect / control handlers exposed to views
+  - watchlist mutations exposed through the plane
 
 Lifecycle:
 
@@ -185,6 +186,7 @@ This means:
 CRYPE is still in a hybrid migration, so these boundaries are important:
 
 - `AppView` should keep shrinking its prop surface as views move to selector-first consumption
+- watchlist mutations should flow through `system plane actions`, not through screen-specific prop chains
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors
 - `MemoryView` now scopes its strategy/scanner polling to tabs that actually use that data instead of polling unconditionally in the background
 
@@ -206,6 +208,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - a market refresh should never request the active timeframe candles twice; multi-timeframe context must reuse the canonical active snapshot from the same cycle
 - system plane split into `snapshot + overlay + controls + actions`
 - balance, memory and profile actions can now resolve from the shared plane
+- market watchlist editing now resolves through `system plane actions`, so `MarketView` no longer needs a dedicated watchlist mutation prop path from `App`
 
 ### In Progress
 

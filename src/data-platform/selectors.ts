@@ -69,6 +69,14 @@ export function useWatchlistSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     watchlists: state.snapshot.watchlists,
     activeWatchlistName: state.snapshot.activeWatchlistName,
+    // Watchlist mutations now travel through the shared system plane so
+    // screens do not need a special prop-driven data path just for editing.
+    toggleWatchlist: state.actions.toggleWatchlist,
+    replaceWatchlistCoins: state.actions.replaceWatchlistCoins,
+    createWatchlist: state.actions.createWatchlist,
+    renameWatchlist: state.actions.renameWatchlist,
+    deleteWatchlist: state.actions.deleteWatchlist,
+    setActiveWatchlist: state.actions.setActiveWatchlist,
   }), shallowEqualSelection);
 }
 

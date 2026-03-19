@@ -51,6 +51,12 @@ const initialSystemDataPlane: SystemDataPlane = {
     connectBinance: async () => null,
     disconnectBinance: async () => null,
     refreshRealtimeCoreStatus: async () => null,
+    toggleWatchlist: async () => undefined,
+    replaceWatchlistCoins: async () => undefined,
+    createWatchlist: async () => undefined,
+    renameWatchlist: async () => undefined,
+    deleteWatchlist: async () => undefined,
+    setActiveWatchlist: async () => undefined,
   },
 };
 

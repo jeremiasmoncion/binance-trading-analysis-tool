@@ -15,7 +15,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
 import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
@@ -157,6 +157,17 @@ export function App() {
   useEffect(() => {
     syncSystemSignalActions(signalMemory);
   }, [signalMemory.refreshSignals]);
+
+  useEffect(() => {
+    syncSystemWatchlistActions(watchlist);
+  }, [
+    watchlist.createList,
+    watchlist.deleteList,
+    watchlist.renameList,
+    watchlist.replaceListCoins,
+    watchlist.setActiveList,
+    watchlist.toggleWatchlist,
+  ]);
 
   useEffect(() => {
     syncRealtimeCoreActions({ refreshRealtimeCoreStatus });
@@ -667,12 +678,6 @@ export function App() {
           onUseCurrentPrice={calculatorState.useCurrentPrice}
           comparison={market.comparison}
           onSelectCoin={market.selectCoin}
-          onToggleWatchlist={watchlist.toggleWatchlist}
-          onReplaceWatchlistCoins={watchlist.replaceListCoins}
-          onCreateWatchlist={watchlist.createList}
-          onRenameWatchlist={watchlist.renameList}
-          onDeleteWatchlist={watchlist.deleteList}
-          onSetActiveWatchlist={watchlist.setActiveList}
           onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
           user={auth.currentUser}
         />

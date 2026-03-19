@@ -36,12 +36,6 @@ interface AppViewProps {
   onUseCurrentPrice: () => void;
   comparison: ComparisonCoin[];
   onSelectCoin: (coin: string) => void;
-  onToggleWatchlist: (coin: string) => void;
-  onReplaceWatchlistCoins: (name: string, coins: string[]) => Promise<void>;
-  onCreateWatchlist: (name: string) => Promise<void>;
-  onRenameWatchlist: (name: string, nextName: string) => Promise<void>;
-  onDeleteWatchlist: (name: string) => Promise<void>;
-  onSetActiveWatchlist: (name: string) => Promise<void>;
   onSaveSignal: () => void;
   onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
@@ -87,12 +81,6 @@ export function AppView(props: AppViewProps) {
       content = (
         <MarketView
           onSelectCoin={props.onSelectCoin}
-          onToggleWatchlist={props.onToggleWatchlist}
-          onReplaceWatchlistCoins={props.onReplaceWatchlistCoins}
-          onCreateWatchlist={props.onCreateWatchlist}
-          onRenameWatchlist={props.onRenameWatchlist}
-          onDeleteWatchlist={props.onDeleteWatchlist}
-          onSetActiveWatchlist={props.onSetActiveWatchlist}
         />
       );
       break;

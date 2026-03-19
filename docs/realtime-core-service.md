@@ -137,6 +137,7 @@ Current protections:
 - `execution overlay` keeps the last good state when a new live frame is weaker than the current one
 - frontend applies the same principle again before letting a degraded overlay replace a good one
 - bootstrap no longer replaces a full portfolio snapshot with a lighter live overlay payload
+- bootstrap and overlay composition now resolve account data from the bridge-authenticated username, so the external core does not depend on same-origin app cookies to produce the first useful payload
 
 This makes the external realtime core safer during Binance/API instability and reduces visible KPI jumps on the dashboard.
 

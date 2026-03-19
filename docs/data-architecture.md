@@ -174,6 +174,7 @@ This means:
 - `overlay.execution` should survive degraded overlay frames
 - `overlay.dashboardSummary` should survive degraded overlay frames
 - `snapshot.signalMemory` should survive transient list failures
+- external realtime bootstrap and overlays must resolve system data from the already-authenticated username/session, not from same-origin request cookies
 
 ## Transitional Legacy Boundaries
 

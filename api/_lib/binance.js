@@ -237,8 +237,15 @@ async function readOnlyAccountSummary(apiKey, apiSecret) {
 
 async function getBinanceConnectionState(req) {
   const session = await getAuthenticatedSession(req);
-  const row = await getStoredConnection(session.username);
-  if (!row) return { connected: false, username: session.username };
+  return getBinanceConnectionStateForUsername(session.username);
+}
+
+// Realtime core resolves auth from a bridge token, so shared hot-path readers need
+// a username-based entrypoint instead of assuming same-origin cookies on the request.
+async function getBinanceConnectionStateForUsername(username) {
+  const normalizedUsername = String(username || "").trim();
+  const row = await getStoredConnection(normalizedUsername);
+  if (!row) return { connected: false, username: normalizedUsername };
 
   const apiKey = decryptValue(row.api_key_encrypted);
   const apiSecret = decryptValue(row.api_secret_encrypted);
@@ -252,7 +259,7 @@ async function getBinanceConnectionState(req) {
   return {
     connected: true,
     snapshotMode: "full",
-    username: session.username,
+    username: normalizedUsername,
     accountAlias: row.account_alias || "",
     maskedApiKey: maskApiKey(apiKey),
     updatedAt: row.updated_at || summary?.updatedAt || new Date().toISOString(),
@@ -935,5 +942,6 @@ export {
   getPortfolioSnapshot,
   getPortfolioSnapshotForUsername,
   getBinanceConnectionState,
+  getBinanceConnectionStateForUsername,
   sendJson,
 };

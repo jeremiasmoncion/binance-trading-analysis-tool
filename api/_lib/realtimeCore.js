@@ -1,5 +1,5 @@
-import { getBinanceConnectionState, getPortfolioSnapshot } from "./binance.js";
-import { getExecutionCenter, getExecutionDashboardSummary } from "./executionEngine.js";
+import { getBinanceConnectionStateForUsername, getPortfolioSnapshotForUsername } from "./binance.js";
+import { getExecutionCenterForUser, getExecutionDashboardSummaryForUser } from "./executionEngine.js";
 import { buildMarketSnapshot } from "./marketRuntime.js";
 import { listSignalSnapshotsForUser } from "./signals.js";
 import { resolveRealtimeCoreSession } from "./auth.js";
@@ -60,11 +60,13 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
   const timeframe = typeof req.query?.timeframe === "string" ? req.query.timeframe : (options.timeframe || "1h");
   const period = typeof req.query?.period === "string" ? req.query.period : (options.period || "1d");
 
+  // The external realtime core authenticates through a bridge token, so hot-path
+  // bootstrap reads must resolve by username instead of assuming same-origin cookies.
   const [connection, portfolio, execution, dashboardSummary, marketSnapshot, signals, watchlistsPayload] = await Promise.all([
-    getBinanceConnectionState(req).catch(() => null),
-    getPortfolioSnapshot(req, period, "full").catch(() => null),
-    getExecutionCenter(req).catch(() => null),
-    getExecutionDashboardSummary(req).catch(() => null),
+    getBinanceConnectionStateForUsername(session.username).catch(() => null),
+    getPortfolioSnapshotForUsername(session.username, period, "full").catch(() => null),
+    getExecutionCenterForUser(session.username).catch(() => null),
+    getExecutionDashboardSummaryForUser(session.username).catch(() => null),
     buildMarketSnapshot(coin, timeframe).catch(() => null),
     listSignalSnapshotsForUser(session.username, { limit: 200 }).catch(() => []),
     listWatchlists(req).catch(() => ({ lists: [], activeListName: "Principal" })),
@@ -98,9 +100,9 @@ export async function buildRealtimeCoreSystemOverlay(req, options = {}) {
   }
 
   const [connection, portfolio, execution] = await Promise.all([
-    getBinanceConnectionState(req).catch(() => null),
-    getPortfolioSnapshot(req, "1d", "live").catch(() => null),
-    getExecutionCenter(req).catch(() => null),
+    getBinanceConnectionStateForUsername(session.username).catch(() => null),
+    getPortfolioSnapshotForUsername(session.username, "1d", "live").catch(() => null),
+    getExecutionCenterForUser(session.username).catch(() => null),
   ]);
 
   return {

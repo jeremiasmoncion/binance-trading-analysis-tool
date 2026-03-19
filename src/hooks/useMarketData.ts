@@ -10,6 +10,25 @@ interface UseMarketDataOptions {
   currentView: ViewName;
 }
 
+interface MarketSnapshotState {
+  candles: Candle[];
+  currentPrice: number;
+  indicators: Indicators | null;
+  signal: Signal | null;
+  analysis: DashboardAnalysis | null;
+  strategy: StrategyDescriptor;
+  strategyCandidates: StrategyCandidate[];
+  multiTimeframes: TimeframeSignal[];
+  comparison: ComparisonCoin[];
+  market24h: {
+    change: number;
+    high: number;
+    low: number;
+    volume: string;
+    updatedAt: string;
+  };
+}
+
 const SMART_REFRESH_BY_TIMEFRAME: Record<string, number> = {
   "5m": 60_000,
   "15m": 120_000,
@@ -109,23 +128,26 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState("1h");
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [indicators, setIndicators] = useState<Indicators | null>(null);
-  const [signal, setSignal] = useState<Signal | null>(null);
-  const [analysis, setAnalysis] = useState<DashboardAnalysis | null>(null);
-  const [strategy, setStrategy] = useState<StrategyDescriptor>(runStrategyEngine({
-    candles: generateFallbackCandles("1h"),
-    indicators: calcIndicators(generateFallbackCandles("1h")),
-    timeframe: "1h",
+  const [snapshot, setSnapshot] = useState<MarketSnapshotState>(() => ({
+    candles: [],
+    currentPrice: 0,
+    indicators: null,
+    signal: null,
+    analysis: null,
+    strategy: runStrategyEngine({
+      candles: generateFallbackCandles("1h"),
+      indicators: calcIndicators(generateFallbackCandles("1h")),
+      timeframe: "1h",
+      multiTimeframes: [],
+    }).primary.strategy,
+    strategyCandidates: [],
     multiTimeframes: [],
-  }).primary.strategy);
-  const [strategyCandidates, setStrategyCandidates] = useState<StrategyCandidate[]>([]);
-  const [multiTimeframes, setMultiTimeframes] = useState<TimeframeSignal[]>([]);
-  const [comparison, setComparison] = useState<ComparisonCoin[]>([]);
-  const [currentPrice, setCurrentPrice] = useState(0);
-  const [market24h, setMarket24h] = useState({ change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" });
+    comparison: [],
+    market24h: { change: 0, high: 0, low: 0, volume: "0 BTC", updatedAt: "--:--" },
+  }));
   const [availableCoins, setAvailableCoins] = useState<string[]>(POPULAR_COINS);
-  const multiTimeframesRef = useRef<TimeframeSignal[]>([]);
+  const multiTimeframesRef = useRef<TimeframeSignal[]>(snapshot.multiTimeframes);
+  const snapshotRef = useRef(snapshot);
   const activeTimeframeRef = useRef(timeframe);
   const tickerFrameRef = useRef<number | null>(null);
   const klineFrameRef = useRef<number | null>(null);
@@ -135,8 +157,8 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const coinLookup = useMemo(() => new Set(availableCoins), [availableCoins]);
 
   const supportResistance = useMemo(
-    () => getSupportResistance(candles.length ? candles : generateFallbackCandles(timeframe)),
-    [candles, timeframe],
+    () => getSupportResistance(snapshot.candles.length ? snapshot.candles : generateFallbackCandles(timeframe)),
+    [snapshot.candles, timeframe],
   );
 
   const applyLiveDerivedState = useCallback((nextCandles: Candle[], livePrice?: number) => {
@@ -156,13 +178,19 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       aligned: item.label === nextSignal.label,
     }));
 
-    setIndicators(nextIndicators);
-    setSignal(nextSignal);
-    setAnalysis(nextAnalysis);
-    setStrategy(strategyExecution.primary.strategy);
-    setStrategyCandidates(strategyExecution.candidates);
-    setMultiTimeframes(alignedTimeframes);
-    setCurrentPrice(livePrice && livePrice > 0 ? livePrice : nextIndicators.current);
+    // Keep the derived market snapshot in one state object so live updates do
+    // not fan out through a long list of independent setters.
+    setSnapshot((current) => ({
+      ...current,
+      candles: nextCandles,
+      indicators: nextIndicators,
+      signal: nextSignal,
+      analysis: nextAnalysis,
+      strategy: strategyExecution.primary.strategy,
+      strategyCandidates: strategyExecution.candidates,
+      multiTimeframes: alignedTimeframes,
+      currentPrice: livePrice && livePrice > 0 ? livePrice : nextIndicators.current,
+    }));
     multiTimeframesRef.current = alignedTimeframes;
   }, []);
 
@@ -207,25 +235,26 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
 
       setCurrentCoin(coin);
       setTimeframe(nextTimeframe);
-      setCandles(fetchedCandles);
-      setIndicators(nextIndicators);
-      setCurrentPrice(nextIndicators.current);
-      setSignal(nextSignal);
-      setAnalysis(nextAnalysis);
-      setStrategy(strategyExecution.primary.strategy);
-      setStrategyCandidates(strategyExecution.candidates);
-      setMultiTimeframes(alignedTimeframes);
+      setSnapshot((current) => ({
+        ...current,
+        candles: fetchedCandles,
+        indicators: nextIndicators,
+        currentPrice: nextIndicators.current,
+        signal: nextSignal,
+        analysis: nextAnalysis,
+        strategy: strategyExecution.primary.strategy,
+        strategyCandidates: strategyExecution.candidates,
+        multiTimeframes: alignedTimeframes,
+        comparison: shouldLoadComparison ? nextComparison : current.comparison,
+        market24h: {
+          change: Number(ticker.priceChangePercent || 0),
+          high: Number(ticker.highPrice || 0),
+          low: Number(ticker.lowPrice || 0),
+          volume: `${(Number(ticker.volume || 0) / 1000).toFixed(1)} BTC`,
+          updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      }));
       multiTimeframesRef.current = alignedTimeframes;
-      if (shouldLoadComparison) {
-        setComparison(nextComparison);
-      }
-      setMarket24h({
-        change: Number(ticker.priceChangePercent || 0),
-        high: Number(ticker.highPrice || 0),
-        low: Number(ticker.lowPrice || 0),
-        volume: `${(Number(ticker.volume || 0) / 1000).toFixed(1)} BTC`,
-        updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      });
       setStatus("ok");
     } catch {
       setStatus("error");
@@ -237,8 +266,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   }, [timeframe]);
 
   useEffect(() => {
-    multiTimeframesRef.current = multiTimeframes;
-  }, [multiTimeframes]);
+    multiTimeframesRef.current = snapshot.multiTimeframes;
+  }, [snapshot.multiTimeframes]);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   useEffect(() => {
     if (!viewNeedsSymbolUniverse(currentView)) {
@@ -265,14 +298,14 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     // slow refreshes down further, but it should not make a view poll faster than declared.
     const refreshInterval = Math.max(
       refreshPolicy.marketSnapshotIntervalMs,
-      getSmartRefreshInterval(timeframe, strategy?.tradingStyle),
+      getSmartRefreshInterval(timeframe, snapshot.strategy?.tradingStyle),
     );
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void fetchData();
     }, refreshInterval);
     return () => window.clearInterval(intervalId);
-  }, [fetchData, refreshPolicy.marketSnapshotIntervalMs, timeframe, strategy?.tradingStyle]);
+  }, [fetchData, refreshPolicy.marketSnapshotIntervalMs, timeframe, snapshot.strategy?.tradingStyle]);
 
   useEffect(() => {
     if (!refreshPolicy.marketStreamsEnabled) return undefined;
@@ -291,18 +324,18 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           const snapshot = latestTickerRef.current;
           if (!snapshot) return;
 
-          if (snapshot.price > 0) {
-            setCurrentPrice(snapshot.price);
-          }
-
           if (snapshot.price > 0 || snapshot.high > 0 || snapshot.low > 0 || snapshot.volume > 0) {
-            setMarket24h({
-              change: snapshot.change || 0,
-              high: snapshot.high || 0,
-              low: snapshot.low || 0,
-              volume: `${(snapshot.volume / 1000).toFixed(1)} BTC`,
-              updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            });
+            setSnapshot((current) => ({
+              ...current,
+              currentPrice: snapshot.price > 0 ? snapshot.price : current.currentPrice,
+              market24h: {
+                change: snapshot.change || 0,
+                high: snapshot.high || 0,
+                low: snapshot.low || 0,
+                volume: `${(snapshot.volume / 1000).toFixed(1)} BTC`,
+                updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              },
+            }));
           }
         });
       }
@@ -338,12 +371,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           const incomingCandle = latestKlineRef.current;
           if (!incomingCandle) return;
 
-          setCandles((prevCandles) => {
-            const source = prevCandles.length ? prevCandles : generateFallbackCandles(activeTimeframeRef.current);
-            const nextCandles = mergeLiveCandle(source, incomingCandle);
-            applyLiveDerivedState(nextCandles, incomingCandle.close);
-            return nextCandles;
-          });
+          const prevCandles = snapshotRef.current.candles;
+          const source = prevCandles.length ? prevCandles : generateFallbackCandles(activeTimeframeRef.current);
+          const nextCandles = mergeLiveCandle(source, incomingCandle);
+          applyLiveDerivedState(nextCandles, incomingCandle.close);
         });
       }
     });
@@ -365,8 +396,9 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       const nextChange = Number(payload.P || 0);
       if (nextPrice <= 0 && nextChange === 0) return;
 
-      setComparison((prev) => {
-        if (!prev.length) return prev;
+      setSnapshot((current) => {
+        const prev = current.comparison;
+        if (!prev.length) return current;
         let changed = false;
         const next = prev.map((item) => {
           if (item.symbol !== symbol) return item;
@@ -378,7 +410,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
             impulse: nextChange > 2 ? "Fuerte" : nextChange > 0 ? "Moderado" : "Débil",
           };
         });
-        return changed ? next : prev;
+        return changed ? { ...current, comparison: next } : current;
       });
     });
 
@@ -391,20 +423,20 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     currentCoin,
     timeframe,
     status,
-    candles,
-    currentPrice,
-    indicators,
-    signal,
-    analysis,
-    strategy,
-    strategyCandidates,
-    multiTimeframes,
-    comparison,
+    candles: snapshot.candles,
+    currentPrice: snapshot.currentPrice,
+    indicators: snapshot.indicators,
+    signal: snapshot.signal,
+    analysis: snapshot.analysis,
+    strategy: snapshot.strategy,
+    strategyCandidates: snapshot.strategyCandidates,
+    multiTimeframes: snapshot.multiTimeframes,
+    comparison: snapshot.comparison,
     availableCoins,
     popularCoins: POPULAR_COINS.filter((coin) => coinLookup.has(coin)),
-    market24h,
+    market24h: snapshot.market24h,
     supportResistance,
-    refreshIntervalMs: getSmartRefreshInterval(timeframe, strategy?.tradingStyle),
+    refreshIntervalMs: getSmartRefreshInterval(timeframe, snapshot.strategy?.tradingStyle),
     fetchData,
     selectCoin(coin: string) {
       const normalized = coin.trim().toUpperCase();

@@ -71,6 +71,14 @@ function updateLiveTimeframes(items: TimeframeSignal[], activeTimeframe: string,
   ));
 }
 
+function viewNeedsMarketComparison(view: ViewName) {
+  return view === "market" || view === "compare";
+}
+
+function viewNeedsSymbolUniverse(view: ViewName) {
+  return view === "market" || view === "compare" || view === "trading";
+}
+
 export function useMarketData({ currentView }: UseMarketDataOptions) {
   const refreshPolicy = getViewRefreshPolicy(currentView);
   const [currentCoin, setCurrentCoin] = useState("BTC/USDT");
@@ -136,6 +144,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const fetchData = useCallback(async (coin = currentCoin, nextTimeframe = timeframe) => {
     setStatus("loading");
     try {
+      const shouldLoadComparison = viewNeedsMarketComparison(currentView);
       const [fetchedCandlesResponse, multiTfPayloads, ticker, nextComparison] = await Promise.all([
         marketService.fetchCandles(coin, nextTimeframe),
         Promise.all(
@@ -153,18 +162,20 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           }),
         ),
         marketService.fetch24h(coin),
-        Promise.all(
-          POPULAR_COINS.slice(0, 4).map(async (symbol) => {
-            const data = await marketService.fetch24h(symbol);
-            const change = Number(data.priceChangePercent || 0);
-            return {
-              symbol,
-              price: Number(data.lastPrice || 0),
-              change,
-              impulse: change > 2 ? "Fuerte" : change > 0 ? "Moderado" : "Débil",
-            };
-          }),
-        ),
+        shouldLoadComparison
+          ? Promise.all(
+            POPULAR_COINS.slice(0, 4).map(async (symbol) => {
+              const data = await marketService.fetch24h(symbol);
+              const change = Number(data.priceChangePercent || 0);
+              return {
+                symbol,
+                price: Number(data.lastPrice || 0),
+                change,
+                impulse: change > 2 ? "Fuerte" : change > 0 ? "Moderado" : "Débil",
+              };
+            }),
+          )
+          : Promise.resolve<ComparisonCoin[]>([]),
       ]);
 
       const fetchedCandles = fetchedCandlesResponse || generateFallbackCandles(nextTimeframe);
@@ -194,7 +205,9 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setStrategyCandidates(strategyExecution.candidates);
       setMultiTimeframes(alignedTimeframes);
       multiTimeframesRef.current = alignedTimeframes;
-      setComparison(nextComparison);
+      if (shouldLoadComparison) {
+        setComparison(nextComparison);
+      }
       setMarket24h({
         change: Number(ticker.priceChangePercent || 0),
         high: Number(ticker.highPrice || 0),
@@ -206,7 +219,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     } catch {
       setStatus("error");
     }
-  }, [currentCoin, timeframe]);
+  }, [currentCoin, currentView, timeframe]);
 
   useEffect(() => {
     activeTimeframeRef.current = timeframe;
@@ -217,6 +230,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   }, [multiTimeframes]);
 
   useEffect(() => {
+    if (!viewNeedsSymbolUniverse(currentView)) {
+      return undefined;
+    }
+
     let active = true;
     void (async () => {
       const symbols = await marketService.fetchSymbols();
@@ -229,11 +246,16 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentView]);
 
   useEffect(() => {
     if (!refreshPolicy.marketSnapshotIntervalMs) return undefined;
-    const refreshInterval = getSmartRefreshInterval(timeframe, strategy?.tradingStyle);
+    // Refresh policy now provides the view-level ceiling. Smart cadence can still
+    // slow refreshes down further, but it should not make a view poll faster than declared.
+    const refreshInterval = Math.max(
+      refreshPolicy.marketSnapshotIntervalMs,
+      getSmartRefreshInterval(timeframe, strategy?.tradingStyle),
+    );
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       void fetchData();

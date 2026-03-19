@@ -18,7 +18,7 @@ function isDashboardLikeView(view: ViewName) {
 export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
   if (view === "market") {
     return {
-      marketSnapshotIntervalMs: 1,
+      marketSnapshotIntervalMs: 60_000,
       marketStreamsEnabled: true,
       systemOverlayStreamEnabled: false,
       signalMemoryIntervalMs: 45_000,
@@ -57,7 +57,7 @@ export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
 
   if (isDashboardLikeView(view)) {
     return {
-      marketSnapshotIntervalMs: 1,
+      marketSnapshotIntervalMs: 300_000,
       marketStreamsEnabled: true,
       systemOverlayStreamEnabled: true,
       signalMemoryIntervalMs: 0,

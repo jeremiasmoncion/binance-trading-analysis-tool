@@ -201,6 +201,8 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - reduced prop-driven live state in `AppView`
 - shared selectors for primary view domains
 - centralized refresh policy for market/system/signal planes
+- market refresh policy now sets a real per-view cadence ceiling instead of acting as a boolean switch
+- heavy market comparison and symbol-universe reads are now skipped outside the views that actually need them
 - system plane split into `snapshot + overlay + controls + actions`
 - balance, memory and profile actions can now resolve from the shared plane
 

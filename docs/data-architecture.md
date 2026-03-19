@@ -106,6 +106,12 @@ This is still transitional:
 - it still coexists with polling
 - it exists to lock the contract and frontend flow before moving to the persistent realtime core
 
+Current reduction already applied:
+
+- `Dashboard` no longer polls `execution` and `dashboard summary` on an interval while the overlay stream is active
+- `Memory` no longer polls `execution` on an interval while the overlay stream is active
+- portfolio snapshots still refresh independently because they are not yet on the overlay stream
+
 ## Migration Phases
 
 ### Completed

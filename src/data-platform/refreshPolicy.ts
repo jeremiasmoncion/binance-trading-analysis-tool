@@ -3,6 +3,7 @@ import type { ViewName } from "../types";
 export interface ViewRefreshPolicy {
   marketSnapshotIntervalMs: number;
   marketStreamsEnabled: boolean;
+  systemOverlayStreamEnabled: boolean;
   signalMemoryIntervalMs: number;
   portfolioIntervalMs: number;
   portfolioMode: "full" | "live";
@@ -19,6 +20,7 @@ export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
     return {
       marketSnapshotIntervalMs: 1,
       marketStreamsEnabled: true,
+      systemOverlayStreamEnabled: false,
       signalMemoryIntervalMs: 45_000,
       portfolioIntervalMs: 120_000,
       portfolioMode: "full",
@@ -31,10 +33,11 @@ export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
     return {
       marketSnapshotIntervalMs: 0,
       marketStreamsEnabled: false,
+      systemOverlayStreamEnabled: true,
       signalMemoryIntervalMs: 20_000,
       portfolioIntervalMs: 120_000,
       portfolioMode: "full",
-      executionIntervalMs: 35_000,
+      executionIntervalMs: 0,
       dashboardSummaryIntervalMs: 0,
     };
   }
@@ -43,6 +46,7 @@ export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
     return {
       marketSnapshotIntervalMs: 0,
       marketStreamsEnabled: false,
+      systemOverlayStreamEnabled: false,
       signalMemoryIntervalMs: 45_000,
       portfolioIntervalMs: 20_000,
       portfolioMode: "live",
@@ -55,17 +59,19 @@ export function getViewRefreshPolicy(view: ViewName): ViewRefreshPolicy {
     return {
       marketSnapshotIntervalMs: 1,
       marketStreamsEnabled: true,
+      systemOverlayStreamEnabled: true,
       signalMemoryIntervalMs: 45_000,
       portfolioIntervalMs: 60_000,
       portfolioMode: "full",
-      executionIntervalMs: 30_000,
-      dashboardSummaryIntervalMs: 20_000,
+      executionIntervalMs: 0,
+      dashboardSummaryIntervalMs: 0,
     };
   }
 
   return {
     marketSnapshotIntervalMs: 0,
     marketStreamsEnabled: false,
+    systemOverlayStreamEnabled: false,
     signalMemoryIntervalMs: 45_000,
     portfolioIntervalMs: 120_000,
     portfolioMode: "full",

@@ -367,16 +367,23 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     void (async () => {
       const result = await refreshProfileData();
       if (result.connection?.connected) {
-        await Promise.all([refreshPortfolio(portfolioPeriod, "full"), refreshExecutionCenter()]);
-        await refreshDashboardSummary(true).catch(() => null);
+        await refreshPortfolio(portfolioPeriod, "full");
+        if (!refreshPolicy.systemOverlayStreamEnabled) {
+          await Promise.all([
+            refreshExecutionCenter(),
+            refreshDashboardSummary(true).catch(() => null),
+          ]);
+        }
       }
     })();
-  }, [currentUser, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio, refreshProfileData]);
+  }, [currentUser, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio, refreshProfileData, portfolioPeriod]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return;
     if (currentView === "memory") {
-      void refreshExecutionCenter();
+      if (!refreshPolicy.systemOverlayStreamEnabled) {
+        void refreshExecutionCenter();
+      }
       lastViewRef.current = currentView;
       return;
     }
@@ -387,14 +394,16 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return;
     }
     if (currentView === "dashboard") {
-      void Promise.all([
-        refreshPortfolio(portfolioPeriod, "full"),
-        refreshExecutionCenter(),
-        refreshDashboardSummary(true),
-      ]);
+      void refreshPortfolio(portfolioPeriod, "full");
+      if (!refreshPolicy.systemOverlayStreamEnabled) {
+        void Promise.all([
+          refreshExecutionCenter(),
+          refreshDashboardSummary(true),
+        ]);
+      }
     }
     lastViewRef.current = currentView;
-  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPortfolio]);
+  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;
@@ -409,10 +418,12 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       void refreshPortfolio(portfolioPeriod, mode);
     }, portfolioRefreshInterval);
 
-    const executionIntervalId = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void refreshExecutionCenter();
-    }, executionRefreshInterval);
+    const executionIntervalId = executionRefreshInterval > 0
+      ? window.setInterval(() => {
+        if (document.visibilityState === "hidden") return;
+        void refreshExecutionCenter();
+      }, executionRefreshInterval)
+      : null;
 
     const dashboardIntervalId = dashboardRefreshInterval
       ? window.setInterval(() => {

@@ -224,6 +224,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - high-frequency market paths should be no-op aware locally too; symbol-universe hydration and live ticker frames should not write React state again when the effective payload is unchanged
 - periodic market refreshes should stay background-friendly too; once a good market snapshot exists, silent refresh failures should not bounce the shared plane back through `loading/error` unless the user is actually switching coin or timeframe
 - live kline processing should reject fully identical candle frames too; websocket noise is normal, and the market plane should not rerun indicator + strategy derivation if the last visible candle has not changed at all
+- derived market collections exposed to shared sync, like `popularCoins`, should keep stable references too; if the contents are the same, the hook should memoize them so the market plane can actually treat the sync as a no-op
 - market snapshots should follow a latest-request-wins rule; if the user changes coin or timeframe quickly, older responses must be ignored instead of snapping the plane back to stale context
 - market derivation should have one canonical helper path; fetches and live streams can enter through different sources, but they should build signal/analysis/strategy state with the same snapshot pipeline
 - market derivation should also reuse any indicator pass that already happened in the active path; the hot kline/ticker loop should not recalculate the same candle indicators twice before running the strategy engine

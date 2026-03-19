@@ -246,6 +246,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const latestKlineRef = useRef<Candle | null>(null);
 
   const coinLookup = useMemo(() => new Set(availableCoins), [availableCoins]);
+  const popularCoins = useMemo(
+    () => POPULAR_COINS.filter((coin) => coinLookup.has(coin)),
+    [coinLookup],
+  );
 
   const supportResistance = useMemo(
     () => getSupportResistance(snapshot.candles.length ? snapshot.candles : generateFallbackCandles(timeframe)),
@@ -600,7 +604,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     multiTimeframes: snapshot.multiTimeframes,
     comparison: snapshot.comparison,
     availableCoins,
-    popularCoins: POPULAR_COINS.filter((coin) => coinLookup.has(coin)),
+    popularCoins,
     market24h: snapshot.market24h,
     supportResistance,
     refreshIntervalMs: getSmartRefreshInterval(timeframe, snapshot.strategy?.tradingStyle),

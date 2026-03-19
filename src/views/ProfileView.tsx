@@ -4,31 +4,14 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useProfileSystemSelector } from "../data-platform/selectors";
-import type { BinanceConnection, UserSession, WatchlistScanExecution } from "../types";
+import type { UserSession, WatchlistScanExecution } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
-  users?: UserSession[];
-  connection?: BinanceConnection | null;
-  binanceForm?: { alias: string; apiKey: string; apiSecret: string };
-  onBinanceFormChange?: (field: "alias" | "apiKey" | "apiSecret", value: string) => void;
-  onConnect?: () => void;
-  onRefresh?: () => void;
-  onDisconnect?: () => void;
 }
 
-export function ProfileView(incomingProps: ProfileViewProps) {
+export function ProfileView(props: ProfileViewProps) {
   const systemData = useProfileSystemSelector();
-  const props: ProfileViewProps = {
-    ...incomingProps,
-    users: incomingProps.users ?? systemData.availableUsers,
-    connection: incomingProps.connection ?? systemData.connection,
-    binanceForm: incomingProps.binanceForm ?? systemData.binanceForm,
-    onBinanceFormChange: incomingProps.onBinanceFormChange ?? systemData.setBinanceFormField,
-    onConnect: incomingProps.onConnect ?? (() => { void systemData.connectBinance(); }),
-    onRefresh: incomingProps.onRefresh ?? (() => { void systemData.refreshProfileDataWithFeedback(); }),
-    onDisconnect: incomingProps.onDisconnect ?? (() => { void systemData.disconnectBinance(); }),
-  };
   const [activeTab, setActiveTab] = useState<"account" | "binance" | "users" | "backtesting" | "scanner">("account");
   const [usersPage, setUsersPage] = useState(1);
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
@@ -43,12 +26,14 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
-  const connection = props.connection || null;
-  const binanceForm = props.binanceForm || { alias: "", apiKey: "", apiSecret: "" };
-  const onBinanceFormChange = props.onBinanceFormChange || (() => undefined);
-  const onConnect = props.onConnect || (() => undefined);
-  const onRefresh = props.onRefresh || (() => undefined);
-  const onDisconnect = props.onDisconnect || (() => undefined);
+  // Profile keeps the authenticated user as an explicit prop, but all mutable
+  // operational/admin state now comes from the shared system plane.
+  const connection = systemData.connection || null;
+  const binanceForm = systemData.binanceForm || { alias: "", apiKey: "", apiSecret: "" };
+  const onBinanceFormChange = systemData.setBinanceFormField || (() => undefined);
+  const onConnect = systemData.connectBinance || (() => undefined);
+  const onRefresh = systemData.refreshProfileDataWithFeedback || (() => undefined);
+  const onDisconnect = systemData.disconnectBinance || (() => undefined);
   const onRefreshRealtimeRuntime = systemData.refreshRealtimeCoreStatus || (async () => null);
   const onRefreshScannerStatus = systemData.refreshScannerStatus || (async () => null);
   const onRunScannerNow = systemData.runScannerNow || (async () => null);
@@ -61,7 +46,7 @@ export function ProfileView(incomingProps: ProfileViewProps) {
   const backtestRuns = systemData.backtestRuns;
   const backtestQueue = systemData.backtestQueue;
   const summary = connection?.summary || {};
-  const users = props.users || [];
+  const users = systemData.availableUsers || [];
   const pagedUsers = paginateRows(users, usersPage);
   const realtimeCore = systemData.realtimeCore;
   const realtimeReadiness = [

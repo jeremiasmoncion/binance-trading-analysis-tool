@@ -15,71 +15,38 @@ import { useDashboardMarketSelector, useDashboardSystemSelector } from "../data-
 import type {
   BinanceTradeSummary,
   Candle,
-  DashboardAnalysis,
-  DashboardSummaryPayload,
   ExecutionCenterPayload,
   ExecutionOrderRecord,
-  OperationPlan,
   PortfolioAsset,
   PortfolioPayload,
-  Signal,
   StrategyCandidate,
   StrategyDescriptor,
-  TimeframeSignal,
 } from "../types";
 import { openHelp } from "../lib/ui-events";
 import { drawBotComparisonChart, drawPerformanceChart } from "../lib/chart";
 
 interface DashboardViewProps {
   theme: "light" | "dark";
-  currentCoin?: string;
-  timeframe?: string;
-  currentPrice?: number;
-  signal?: Signal | null;
-  plan?: OperationPlan | null;
-  analysis?: DashboardAnalysis | null;
-  strategy?: StrategyDescriptor;
-  strategyCandidates?: StrategyCandidate[];
-  strategyRefreshIntervalMs?: number;
-  multiTimeframes?: TimeframeSignal[];
-  candles?: Candle[];
   chartRef: React.RefObject<HTMLCanvasElement | null>;
-  portfolioData?: PortfolioPayload | null;
-  executionCenter?: ExecutionCenterPayload | null;
-  dashboardSummary?: DashboardSummaryPayload | null;
   onSaveSignal: () => void;
 }
 
 type DashboardTab = "overview" | "bot-performance" | "recent-trades";
 type DashboardRange = "24h" | "7d" | "30d" | "90d" | "all";
 
-export function DashboardView(incomingProps: DashboardViewProps) {
+export function DashboardView(props: DashboardViewProps) {
   const marketData = useDashboardMarketSelector();
   const systemData = useDashboardSystemSelector();
-  const props: DashboardViewProps = {
-    ...incomingProps,
-    currentCoin: incomingProps.currentCoin ?? marketData.currentCoin,
-    timeframe: incomingProps.timeframe ?? marketData.timeframe,
-    currentPrice: incomingProps.currentPrice ?? marketData.currentPrice,
-    signal: incomingProps.signal ?? marketData.signal,
-    plan: incomingProps.plan ?? null,
-    analysis: incomingProps.analysis ?? marketData.analysis,
-    strategy: incomingProps.strategy ?? marketData.strategy ?? undefined,
-    strategyCandidates: incomingProps.strategyCandidates ?? marketData.strategyCandidates,
-    strategyRefreshIntervalMs: incomingProps.strategyRefreshIntervalMs ?? 0,
-    multiTimeframes: incomingProps.multiTimeframes ?? marketData.multiTimeframes,
-    candles: incomingProps.candles ?? marketData.candles,
-    portfolioData: incomingProps.portfolioData ?? systemData.portfolio,
-    executionCenter: incomingProps.executionCenter ?? systemData.execution,
-    dashboardSummary: incomingProps.dashboardSummary ?? systemData.dashboardSummary,
-  };
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [activeRange, setActiveRange] = useState<DashboardRange>("24h");
   const [tradeSearch, setTradeSearch] = useState("");
-  const currentCoin = props.currentCoin || "BTC/USDT";
-  const timeframe = props.timeframe || "1h";
-  const candles = props.candles || [];
-  const strategy = props.strategy || {
+  // Dashboard now consumes its live market/system state directly from the
+  // shared planes. Only view-local concerns like chart refs and UI actions
+  // should continue to arrive through props.
+  const currentCoin = marketData.currentCoin || "BTC/USDT";
+  const timeframe = marketData.timeframe || "1h";
+  const candles = marketData.candles || [];
+  const strategy = marketData.strategy || {
     id: "signal-bot",
     version: "v1",
     label: "Signal Bot",
@@ -89,22 +56,22 @@ export function DashboardView(incomingProps: DashboardViewProps) {
     idealMarketConditions: ["mixed"],
     parameters: {},
   };
-  const strategyCandidates = props.strategyCandidates || [];
-  const multiTimeframes = props.multiTimeframes || [];
-  const portfolioData = props.portfolioData || null;
-  const executionCenter = props.executionCenter || null;
-  const signal = props.signal;
-  const analysis = props.analysis;
+  const strategyCandidates = marketData.strategyCandidates || [];
+  const multiTimeframes = marketData.multiTimeframes || [];
+  const portfolioData = systemData.portfolio || null;
+  const executionCenter = systemData.execution || null;
+  const signal = marketData.signal;
+  const analysis = marketData.analysis;
   const hasUsefulDashboardSummary = useMemo(() => {
-    if (!props.dashboardSummary) return false;
-    const portfolioValue = Number(props.dashboardSummary.portfolio?.totalValue || 0);
-    const topAssetsCount = Array.isArray(props.dashboardSummary.topAssets) ? props.dashboardSummary.topAssets.length : 0;
-    const recentOrdersCount = Array.isArray(props.dashboardSummary.execution?.recentOrders)
-      ? props.dashboardSummary.execution.recentOrders.length
+    if (!systemData.dashboardSummary) return false;
+    const portfolioValue = Number(systemData.dashboardSummary.portfolio?.totalValue || 0);
+    const topAssetsCount = Array.isArray(systemData.dashboardSummary.topAssets) ? systemData.dashboardSummary.topAssets.length : 0;
+    const recentOrdersCount = Array.isArray(systemData.dashboardSummary.execution?.recentOrders)
+      ? systemData.dashboardSummary.execution.recentOrders.length
       : 0;
     return portfolioValue > 0 || topAssetsCount > 0 || recentOrdersCount > 0;
-  }, [props.dashboardSummary]);
-  const summary = hasUsefulDashboardSummary ? props.dashboardSummary : null;
+  }, [systemData.dashboardSummary]);
+  const summary = hasUsefulDashboardSummary ? systemData.dashboardSummary : null;
   const portfolio = portfolioData?.portfolio || summary?.portfolio;
   const executionAccount = summary
     ? {
@@ -122,7 +89,7 @@ export function DashboardView(incomingProps: DashboardViewProps) {
   const executionProfileEnabled = summary
     ? summary.execution.profileEnabled
     : executionCenter?.profile?.enabled;
-  const currentPrice = props.currentPrice || candles.at(-1)?.close || 0;
+  const currentPrice = marketData.currentPrice || candles.at(-1)?.close || 0;
   const firstClose = candles[0]?.close ?? currentPrice;
   const marketDriftPct = firstClose > 0 ? ((currentPrice - firstClose) / firstClose) * 100 : 0;
   const portfolioTotal = portfolio?.totalValue ?? executionAccount?.totalValue ?? 0;

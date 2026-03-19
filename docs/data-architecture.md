@@ -201,6 +201,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - market hooks should prefer a compact derived snapshot over many sibling state setters; fetch and stream updates can still be frequent, but they should fan into one market payload instead of a long list of local writes
 - high-frequency market paths should be no-op aware locally too; symbol-universe hydration and live ticker frames should not write React state again when the effective payload is unchanged
 - market snapshots should follow a latest-request-wins rule; if the user changes coin or timeframe quickly, older responses must be ignored instead of snapping the plane back to stale context
+- market derivation should have one canonical helper path; fetches and live streams can enter through different sources, but they should build signal/analysis/strategy state with the same snapshot pipeline
 
 ## Migration Phases
 
@@ -232,6 +233,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - market derived state now travels through a compact local snapshot inside `useMarketData`, reducing setter fan-out before the plane sync even runs
 - symbol-universe hydration and live ticker updates inside `useMarketData` now skip identical writes, trimming more invisible render work before sync reaches the plane
 - market fetches now ignore stale responses from older coin/timeframe requests, so rapid navigation cannot overwrite the latest market context with a slower previous payload
+- `useMarketData` now derives signal/analysis/strategy state through a single helper shared by fetch and live-stream updates, reducing duplicated logic before future optimizations move more work off the client
 
 ### In Progress
 

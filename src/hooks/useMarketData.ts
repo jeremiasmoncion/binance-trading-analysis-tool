@@ -102,6 +102,37 @@ function isSameStringArray(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
+function buildDerivedMarketSnapshot(
+  candles: Candle[],
+  timeframe: string,
+  multiTimeframes: TimeframeSignal[],
+  livePrice?: number,
+) {
+  const indicators = calcIndicators(candles);
+  const strategyExecution = runStrategyEngine({
+    candles,
+    indicators,
+    timeframe,
+    multiTimeframes,
+  });
+  const signal = strategyExecution.primary.signal;
+  const analysis = strategyExecution.primary.analysis;
+  const alignedTimeframes = multiTimeframes.map((item) => ({
+    ...item,
+    aligned: item.label === signal.label,
+  }));
+
+  return {
+    indicators,
+    signal,
+    analysis,
+    strategy: strategyExecution.primary.strategy,
+    strategyCandidates: strategyExecution.candidates,
+    multiTimeframes: alignedTimeframes,
+    currentPrice: livePrice && livePrice > 0 ? livePrice : indicators.current,
+  };
+}
+
 async function buildMultiTimeframePayloads(
   coin: string,
   activeTimeframe: string,
@@ -170,33 +201,27 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
     const nextIndicators = calcIndicators(nextCandles);
     const nextSignalSeed = generateSignal(nextIndicators);
     const nextMultiTimeframes = updateLiveTimeframes(multiTimeframesRef.current, activeTimeframeRef.current, nextSignalSeed);
-    const strategyExecution = runStrategyEngine({
-      candles: nextCandles,
-      indicators: nextIndicators,
-      timeframe: activeTimeframeRef.current,
-      multiTimeframes: nextMultiTimeframes,
-    });
-    const nextSignal = strategyExecution.primary.signal;
-    const nextAnalysis = strategyExecution.primary.analysis;
-    const alignedTimeframes = nextMultiTimeframes.map((item) => ({
-      ...item,
-      aligned: item.label === nextSignal.label,
-    }));
+    const derived = buildDerivedMarketSnapshot(
+      nextCandles,
+      activeTimeframeRef.current,
+      nextMultiTimeframes,
+      livePrice,
+    );
 
     // Keep the derived market snapshot in one state object so live updates do
     // not fan out through a long list of independent setters.
     setSnapshot((current) => ({
       ...current,
       candles: nextCandles,
-      indicators: nextIndicators,
-      signal: nextSignal,
-      analysis: nextAnalysis,
-      strategy: strategyExecution.primary.strategy,
-      strategyCandidates: strategyExecution.candidates,
-      multiTimeframes: alignedTimeframes,
-      currentPrice: livePrice && livePrice > 0 ? livePrice : nextIndicators.current,
+      indicators: derived.indicators,
+      signal: derived.signal,
+      analysis: derived.analysis,
+      strategy: derived.strategy,
+      strategyCandidates: derived.strategyCandidates,
+      multiTimeframes: derived.multiTimeframes,
+      currentPrice: derived.currentPrice,
     }));
-    multiTimeframesRef.current = alignedTimeframes;
+    multiTimeframesRef.current = derived.multiTimeframes;
   }, []);
 
   const fetchData = useCallback(async (coin = currentCoin, nextTimeframe = timeframe) => {
@@ -225,20 +250,11 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           : Promise.resolve<ComparisonCoin[]>([]),
       ]);
 
-      const nextIndicators = calcIndicators(fetchedCandles);
-      const nextMultiTimeframes = multiTfPayloads;
-      const strategyExecution = runStrategyEngine({
-        candles: fetchedCandles,
-        indicators: nextIndicators,
-        timeframe: nextTimeframe,
-        multiTimeframes: nextMultiTimeframes,
-      });
-      const nextSignal = strategyExecution.primary.signal;
-      const nextAnalysis = strategyExecution.primary.analysis;
-      const alignedTimeframes = nextMultiTimeframes.map((item) => ({
-        ...item,
-        aligned: item.label === nextSignal.label,
-      }));
+      const derived = buildDerivedMarketSnapshot(
+        fetchedCandles,
+        nextTimeframe,
+        multiTfPayloads,
+      );
 
       // Only the latest market request is allowed to commit UI state. This
       // prevents slow responses from older coin/timeframe selections from
@@ -252,13 +268,13 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setSnapshot((current) => ({
         ...current,
         candles: fetchedCandles,
-        indicators: nextIndicators,
-        currentPrice: nextIndicators.current,
-        signal: nextSignal,
-        analysis: nextAnalysis,
-        strategy: strategyExecution.primary.strategy,
-        strategyCandidates: strategyExecution.candidates,
-        multiTimeframes: alignedTimeframes,
+        indicators: derived.indicators,
+        currentPrice: derived.currentPrice,
+        signal: derived.signal,
+        analysis: derived.analysis,
+        strategy: derived.strategy,
+        strategyCandidates: derived.strategyCandidates,
+        multiTimeframes: derived.multiTimeframes,
         comparison: shouldLoadComparison ? nextComparison : current.comparison,
         market24h: {
           change: Number(ticker.priceChangePercent || 0),
@@ -268,7 +284,7 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
           updatedAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       }));
-      multiTimeframesRef.current = alignedTimeframes;
+      multiTimeframesRef.current = derived.multiTimeframes;
       setStatus("ok");
     } catch {
       if (marketRequestSeqRef.current === requestSeq) {

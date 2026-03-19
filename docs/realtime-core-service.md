@@ -141,6 +141,7 @@ Current protections:
 - frontend no longer trusts the external bootstrap blindly: if the payload is technically valid but operationally degraded, it falls back to the internal bootstrap path for first paint
 - bootstrap now reuses one canonical account snapshot for `portfolio`, `execution` and `dashboard summary` instead of recomputing the same user account state several times during first paint
 - startup bootstrap is now system-first; market bootstrap is omitted by default because the app already hydrates market through its dedicated fetch path during the same startup gate
+- the internal Vercel fallback routes stay pinned to the Binance-friendly region so startup does not regress to a faster-but-empty payload when the external core is degraded
 
 This makes the external realtime core safer during Binance/API instability and reduces visible KPI jumps on the dashboard.
 

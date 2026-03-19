@@ -178,6 +178,7 @@ This means:
 - external realtime bootstrap and overlays must resolve system data from the already-authenticated username/session, not from same-origin request cookies
 - frontend bootstrap fallback is now quality-aware: if the external realtime core answers but the first payload is degraded by upstream exchange issues, CRYPE falls back to the internal bootstrap before rendering the authenticated workspace
 - bootstrap composition must derive `portfolio`, `execution` and `dashboard summary` from one canonical account snapshot whenever possible; first paint should not fan out multiple full account reads for the same user
+- serverless fallback routes that still read Binance directly must stay pinned to a region that Binance Demo actually serves; a lower-latency region is not useful if it produces degraded startup payloads
 
 ## Transitional Legacy Boundaries
 

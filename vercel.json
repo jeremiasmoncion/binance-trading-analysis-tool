@@ -1,10 +1,10 @@
 {
   "functions": {
     "api/realtime/bootstrap.js": {
-      "regions": ["iad1"]
+      "regions": ["fra1"]
     },
     "api/realtime/events.js": {
-      "regions": ["iad1"],
+      "regions": ["fra1"],
       "maxDuration": 60
     },
     "api/binance/connection.js": {

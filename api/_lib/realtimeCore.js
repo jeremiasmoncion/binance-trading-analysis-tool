@@ -1,5 +1,11 @@
 import { getBinanceConnectionStateForUsername, getPortfolioSnapshotForUsername } from "./binance.js";
-import { getExecutionCenterForUser, getExecutionDashboardSummaryForUser } from "./executionEngine.js";
+import {
+  buildExecutionCenterFromDependencies,
+  buildExecutionDashboardSummaryFromDependencies,
+  getExecutionCenterForUser,
+  getExecutionProfileForUser,
+  listExecutionOrdersForUser,
+} from "./executionEngine.js";
 import { buildMarketSnapshot } from "./marketRuntime.js";
 import { listSignalSnapshotsForUser } from "./signals.js";
 import { resolveRealtimeCoreSession } from "./auth.js";
@@ -60,16 +66,45 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
   const timeframe = typeof req.query?.timeframe === "string" ? req.query.timeframe : (options.timeframe || "1h");
   const period = typeof req.query?.period === "string" ? req.query.period : (options.period || "1d");
 
-  // The external realtime core authenticates through a bridge token, so hot-path
-  // bootstrap reads must resolve by username instead of assuming same-origin cookies.
-  const [connection, portfolio, execution, dashboardSummary, marketSnapshot, signals, watchlistsPayload] = await Promise.all([
-    getBinanceConnectionStateForUsername(session.username).catch(() => null),
+  // First paint should reuse one canonical account snapshot; otherwise the bootstrap
+  // fans out several full account reads and makes degraded startup much more likely.
+  const [portfolio, profile, signals, executionOrdersRaw, marketSnapshot, watchlistsPayload] = await Promise.all([
     getPortfolioSnapshotForUsername(session.username, period, "full").catch(() => null),
-    getExecutionCenterForUser(session.username).catch(() => null),
-    getExecutionDashboardSummaryForUser(session.username).catch(() => null),
-    buildMarketSnapshot(coin, timeframe).catch(() => null),
+    getExecutionProfileForUser(session.username).catch(() => null),
     listSignalSnapshotsForUser(session.username, { limit: 200 }).catch(() => []),
+    listExecutionOrdersForUser(session.username).catch(() => []),
+    buildMarketSnapshot(coin, timeframe).catch(() => null),
     listWatchlists(req).catch(() => ({ lists: [], activeListName: "Principal" })),
+  ]);
+
+  const connection = portfolio
+    ? {
+      connected: Boolean(portfolio.connected),
+      snapshotMode: portfolio.snapshotMode || "full",
+      username: session.username,
+      accountAlias: portfolio.accountAlias || "",
+      maskedApiKey: portfolio.maskedApiKey || "",
+      updatedAt: portfolio.portfolio?.updatedAt || new Date().toISOString(),
+      summary: portfolio.summary || null,
+      connectionIssue: portfolio.connectionIssue || undefined,
+    }
+    : await getBinanceConnectionStateForUsername(session.username).catch(() => null);
+
+  const [execution, dashboardSummary] = await Promise.all([
+    buildExecutionCenterFromDependencies({
+      username: session.username,
+      profile,
+      portfolioPayload: portfolio,
+      signals,
+      executionOrdersRaw,
+    }).catch(() => null),
+    buildExecutionDashboardSummaryFromDependencies({
+      username: session.username,
+      profile,
+      portfolioPayload: portfolio,
+      signals,
+      executionOrdersRaw,
+    }).catch(() => null),
   ]);
 
   return {

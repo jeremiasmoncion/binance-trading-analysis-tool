@@ -554,7 +554,29 @@ async function getExecutionCenterForUser(username) {
     listExecutionOrdersForUser(username),
   ]);
 
-  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals || [], executionOrdersRaw || []);
+  return buildExecutionCenterFromDependencies({
+    username,
+    profile,
+    portfolioPayload,
+    signals,
+    executionOrdersRaw,
+  });
+}
+
+async function buildExecutionCenterFromDependencies({
+  username,
+  profile,
+  portfolioPayload,
+  signals,
+  executionOrdersRaw,
+}) {
+  // The realtime bootstrap reuses this builder so first paint derives from one
+  // canonical portfolio snapshot instead of re-reading the account repeatedly.
+  const safeProfile = profile || DEFAULT_PROFILE;
+  const safeSignals = signals || [];
+  const safeExecutionOrdersRaw = executionOrdersRaw || [];
+
+  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, safeSignals, safeExecutionOrdersRaw);
   const openExecutionSignalIds = new Set(
     executionOrders
       .filter((item) => isExecutionOpenStatus(item.lifecycle_status || item.status))
@@ -562,7 +584,7 @@ async function getExecutionCenterForUser(username) {
       .filter(Boolean),
   );
 
-  const dailyLossAbs = (signals || [])
+  const dailyLossAbs = safeSignals
     .filter((item) => item.outcome_status !== "pending")
     .filter((item) => new Date(item.updated_at || item.created_at).getTime() >= Date.now() - 24 * 60 * 60 * 1000)
     .reduce((sum, item) => sum + Math.min(0, Number(item.outcome_pnl || 0)), 0);
@@ -571,13 +593,13 @@ async function getExecutionCenterForUser(username) {
   const dailyAutoExecutions = buildDailyAutoExecutions(executionOrders);
   const recentLossStreak = buildRecentLossStreak(executionOrders);
 
-  const pendingSignals = (signals || []).filter((item) => item.outcome_status === "pending");
+  const pendingSignals = safeSignals.filter((item) => item.outcome_status === "pending");
   const candidates = [];
   for (const signal of pendingSignals.slice(0, 20)) {
     if (openExecutionSignalIds.has(Number(signal.id)) || (signal.execution_order_id && isExecutionOpenStatus(signal.execution_status))) {
       continue;
     }
-    candidates.push(await buildSignalCandidate(signal, portfolioPayload, profile, {
+    candidates.push(await buildSignalCandidate(signal, portfolioPayload, safeProfile, {
       dailyLossPct,
       dailyAutoExecutions,
       recentLossStreak,
@@ -585,7 +607,7 @@ async function getExecutionCenterForUser(username) {
   }
 
   return {
-    profile,
+    profile: safeProfile,
     account: {
       connected: Boolean(portfolioPayload?.connected),
       alias: portfolioPayload?.accountAlias || "",
@@ -595,7 +617,7 @@ async function getExecutionCenterForUser(username) {
       dailyLossPct: Number(dailyLossPct.toFixed(2)),
       dailyAutoExecutions,
       recentLossStreak,
-      autoExecutionRemaining: Math.max(0, profile.maxDailyAutoExecutions - dailyAutoExecutions),
+      autoExecutionRemaining: Math.max(0, safeProfile.maxDailyAutoExecutions - dailyAutoExecutions),
     },
     candidates,
     recentOrders: executionOrders || [],
@@ -636,7 +658,26 @@ async function getExecutionDashboardSummaryForUser(username) {
     listExecutionOrdersForUser(username),
   ]);
 
-  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals || [], executionOrdersRaw || []);
+  return buildExecutionDashboardSummaryFromDependencies({
+    profile,
+    portfolioPayload,
+    signals,
+    executionOrdersRaw,
+    username,
+  });
+}
+
+async function buildExecutionDashboardSummaryFromDependencies({
+  username,
+  profile,
+  portfolioPayload,
+  signals,
+  executionOrdersRaw,
+}) {
+  const safeProfile = profile || DEFAULT_PROFILE;
+  const safeSignals = signals || [];
+  const safeExecutionOrdersRaw = executionOrdersRaw || [];
+  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, safeSignals, safeExecutionOrdersRaw);
   const recentExecuteOrders = (executionOrders || [])
     .filter((item) => item.mode === "execute")
     .slice(0, 20);
@@ -649,7 +690,7 @@ async function getExecutionDashboardSummaryForUser(username) {
   const dailyLossPct = accountValue > 0 ? Math.abs((dailyLossAbs / accountValue) * 100) : 0;
   const dailyAutoExecutions = buildDailyAutoExecutions(executionOrders || []);
   const recentLossStreak = buildRecentLossStreak(executionOrders || []);
-  const { eligibleCount, blockedCount } = deriveDashboardCandidateCounts(signals || []);
+  const { eligibleCount, blockedCount } = deriveDashboardCandidateCounts(safeSignals);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -675,14 +716,14 @@ async function getExecutionDashboardSummaryForUser(username) {
     },
     topAssets: Array.isArray(portfolioPayload?.assets) ? portfolioPayload.assets.slice(0, 5) : [],
     execution: {
-      profileEnabled: Boolean(profile?.enabled),
-      activeBots: profile?.enabled ? 1 : 0,
+      profileEnabled: Boolean(safeProfile?.enabled),
+      activeBots: safeProfile?.enabled ? 1 : 0,
       totalBots: 1,
       openOrdersCount: Number(portfolioPayload?.openOrders?.length || 0),
       dailyLossPct: Number(dailyLossPct.toFixed(2)),
       dailyAutoExecutions,
       recentLossStreak,
-      autoExecutionRemaining: Math.max(0, Number(profile?.maxDailyAutoExecutions || 0) - dailyAutoExecutions),
+      autoExecutionRemaining: Math.max(0, Number(safeProfile?.maxDailyAutoExecutions || 0) - dailyAutoExecutions),
       eligibleCount,
       blockedCount,
       recentOrders: recentExecuteOrders,
@@ -1575,6 +1616,8 @@ async function attachProtectionToExecutionOrderForUser(username, executionOrderI
 
 export {
   attachProtectionToExecutionOrderForUser,
+  buildExecutionCenterFromDependencies,
+  buildExecutionDashboardSummaryFromDependencies,
   evaluateSignalEdgeSafety,
   executeSignalTrade,
   executeSignalTradeForUser,
@@ -1583,6 +1626,7 @@ export {
   getExecutionCenter,
   getExecutionCenterForUser,
   getExecutionProfileForUser,
+  listExecutionOrdersForUser,
   saveExecutionProfileForUser,
   sendJson,
   updateExecutionProfile,

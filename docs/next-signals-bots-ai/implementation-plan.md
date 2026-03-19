@@ -11,6 +11,27 @@ Each phase must end with:
 - updated documentation
 - a clear next step
 
+## UX Architecture Rule
+
+The product UX is no longer freeform.
+
+The local `TradeBotX` template defines the target navigation flow, submenu hierarchy, page grouping, and layout distribution for the redesign.
+
+Implementation should now follow the template flow exactly unless a deviation is explicitly documented and justified.
+
+The authoritative UX architecture is documented in:
+
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+
+This includes:
+
+- sidebar hierarchy
+- page/subpage distribution
+- expected tab structure
+- use of cards, tables, charts, forms, and drawers
+- end-user information minimization rules
+- separation of user-facing vs technical/admin surfaces
+
 ## Phase 1 - Discovery and Documentation
 
 Goals:
@@ -64,6 +85,8 @@ Suggested deliverables:
 - initial bot lifecycle actions
 - first user-facing bot page architecture
 - bot-list-first UX with create-bot entry point
+- page flow aligned with template `Control Panel -> Bot Settings`
+- search, chips, card grid, and edit-drawer behavior aligned with template
 
 ## Phase 4 - Signal Core Separation
 
@@ -80,6 +103,35 @@ Suggested deliverables:
 - feed selectors or service layer
 - first dedicated user-facing signals page architecture
 - watchlist vs market-discovery UX split
+- page flow aligned with template `AI Bot -> Signal Bot`
+- active-signals-first surface with lower supporting insight blocks
+
+## Phase 4.5 - UX Flow Migration
+
+Goals:
+
+- replace legacy end-user flow with template-matching navigation
+- stop treating old `Signal Bot` as the main product delivery surface
+- align sidebar, submenus, tabs, and page composition with the template
+- preserve CRYPE's migrated visual line while matching the template structure exactly
+
+Suggested deliverables:
+
+- sidebar hierarchy matching the template
+- `Control Panel` subpages:
+  - `Overview`
+  - `Bot Settings`
+  - `Execution Logs`
+- `AI Bot` subpages:
+  - `Signal Bot`
+  - `DCA Bot`
+  - `Arbitrage Bot`
+  - `Pump Screener`
+- dedicated page compositions for:
+  - `Bot Settings`
+  - `Execution Logs`
+  - `Signal Bot`
+- end-user information simplified and technical detail withheld or translated
 
 ## Phase 5 - AI and Governance Integration
 
@@ -144,6 +196,14 @@ Adding market-wide signal feeds without ranking discipline, creating noise.
 ### Risk 5
 
 Continuing to grow the legacy `Signal Bot` page instead of replacing it with a clearer end-user page structure modeled on the template UX.
+
+### Risk 6
+
+Treating the template as loose inspiration instead of as the official UX flow standard, causing inconsistent menus, tabs, or page hierarchy.
+
+### Risk 7
+
+Exposing too much technical bot/signal information directly to end users instead of translating it into simpler product language.
 
 ## Recommended Working Rule
 

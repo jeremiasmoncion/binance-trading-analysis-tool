@@ -66,6 +66,9 @@ The system should support:
 - The model must support `observe`, `assist`, and `auto` automation modes.
 - The general signals module should include both `watchlist` and `market-wide` signals.
 - Work must proceed by phases with stable, functional deliverables.
+- The user-facing navigation flow should follow the `TradeBotX` template hierarchy exactly unless a deviation is documented and justified.
+- The migrated CRYPE visual line already present in `Dashboard` and `My Wallet` remains the live visual baseline.
+- End-user surfaces should prefer minimum useful information and translate technical detail into simpler product language whenever possible.
 
 ## Suggested Reading Order
 

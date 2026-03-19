@@ -18,6 +18,10 @@ The project also now has an orchestration base for multi-thread execution under:
 
 - `docs/orchestration/`
 
+The redesign also now has an explicit UX architecture source of truth under:
+
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+
 ## What Has Been Done
 
 - mapped major current components related to:
@@ -80,6 +84,16 @@ The project also now has an orchestration base for multi-thread execution under:
   - `Bots`
 - removed the redesign from depending only on the legacy `Signal Bot` page for discoverability
 - aligned navigation and dashboard entry points with a more template-like page distribution
+- established that "template-like" is no longer sufficient:
+  - future UX flow should match the template hierarchy and page logic exactly
+- documented the official sidebar, submenu, tab, and page-composition architecture for:
+  - `Trading`
+  - `Control Panel`
+  - `AI Bot`
+  - `Signal Bot`
+  - `Bot Settings`
+  - `Execution Logs`
+- documented the rule that end-user surfaces must show only the minimum useful information and translate technical concepts into simpler product language when possible
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -137,10 +151,15 @@ Continue replacing the legacy product flow with the new user-facing page structu
   - -> `bot-consumable feed`
   - -> user-facing `Signals` surface
 - next step should stay focused on:
-  - improving the new `Signals` page
-  - improving the new `Bots` page
-  - phasing the old `Signal Bot` page out of the main user journey
-  - keeping registry persistence deferred until the UX structure is clearer
+  - migrating the sidebar and page flow to the exact template hierarchy
+  - replacing generic `Signals` / `Bots` interim flow with:
+    - `Control Panel`
+    - `AI Bot`
+    - `Signal Bot`
+    - `Bot Settings`
+    - `Execution Logs`
+  - phasing the old legacy `Signal Bot` implementation out of the visible main user journey
+  - keeping registry persistence deferred until the user-facing page architecture is stable
 
 ## GitHub Notification Practice
 
@@ -179,8 +198,14 @@ Practical consequence:
 - do not count a UI round as truly ready for final UX review unless it is discoverable, understandable, and coherent from a normal user flow
 
 The new `Signals` and `Bots` pages are now the correct surfaces to iterate on for end-user review.
+That was a transitional step only.
 
-The old `Signal Bot` page should no longer be treated as the primary delivery target for product UX.
+The current official target is now stricter:
+
+- the app should follow the exact `TradeBotX` sidebar and page flow
+- future work should iterate toward template-matching destinations, not generic interim pages
+- the old `Signal Bot` page should no longer be treated as the primary delivery target for product UX
+- technical or admin-heavy information should either be translated or kept out of the main user journey
 
 ## Delivery Expectation For Future Directors
 
@@ -208,6 +233,31 @@ This rule exists so the project owner can understand both:
 
 - the product value of the current lot
 - the architectural direction and the next work split
+
+## Current UX Direction For Future Directors
+
+Future directors should assume the following without reopening the discussion:
+
+- the template flow is the official UX standard
+- the sidebar grouping and ordering should match the template
+- page nesting should match the template
+- user-facing page composition should match the template
+- the migrated CRYPE graphic line in `Dashboard` and `My Wallet` remains the visual baseline
+- user-facing modules should show only the minimum useful information first
+- technical detail belongs in translated form or in future admin/technical surfaces
+
+Future work should be split like this:
+
+- implementer:
+  - exact UX flow migration
+  - page/subpage composition
+  - user-facing information simplification
+  - template-matching layout behavior
+- refiner:
+  - runtime protection
+  - shared-state stability
+  - anti-churn work while new surfaces are mounted
+  - prevention of page-local fetch/polling or equivalent writes
 
 ## Runtime Refinement Note
 

@@ -2,377 +2,431 @@
 
 ## Purpose
 
-This document translates the product redesign into a user-facing page structure.
+This document defines the official user-facing navigation, page hierarchy, and visual flow for the CRYPE redesign.
 
-It exists to prevent the project from continuing to grow inside the legacy `Signal Bot` view as one large mixed page.
+Its purpose is to stop future implementation rounds from:
 
-The reference UX direction is the local `TradeBotX` template, especially:
+- growing the legacy `Signal Bot` page further
+- inventing alternate navigation trees
+- creating page layouts that only feel "inspired by" the template
+- exposing technical internals directly to end users without translation
 
+This document is now the operational source of truth for UX architecture.
+
+## Reference Standard
+
+The local `TradeBotX` template is no longer just inspiration.
+
+It is the explicit reference standard for:
+
+- sidebar hierarchy
+- page grouping
+- submenu structure
+- top-of-page layout
+- use of quick stat cards
+- use of tabs
+- use of search, chips, filters, and toggles
+- use of cards vs tables vs forms vs drawers
+- visual rhythm and interaction flow
+
+Primary reference files:
+
+- `tradebotx/tradebotx/src/partials/sidebar.html`
 - `tradebotx/tradebotx/src/overview.html`
 - `tradebotx/tradebotx/src/signal-bot.html`
 - `tradebotx/tradebotx/src/bot-settings.html`
-- `tradebotx/tradebotx/src/partials/sidebar.html`
+- `tradebotx/tradebotx/src/execution-logs.html`
+- `tradebotx/tradebotx/src/trading.html`
 
-The template is not meant to be copied literally.
+The rule is now:
 
-It is meant to define:
+- CRYPE should match the template flow as closely as possible
+- deviations must be intentional, documented, and product-justified
+- "similar" is not enough when the template already defines the correct UX pattern
 
-- page distribution
-- navigation hierarchy
-- where cards, tabs, lists, tables, and charts belong
-- what should be visible to a normal end user versus an admin/operator
+## Graphic Line Rule
 
-## Core UX Rule
-
-The old `Signal Bot` page should no longer be treated as the long-term visual home for the redesign.
-
-That page may remain temporarily in code, but the future experience should be built as a new, clearer product surface.
-
-In practice:
-
-- do not keep extending the old page as the final product
-- do not hide major new work inside buried internal sections
-- do design around dedicated pages and subpages
-- do follow the template's stronger layout hierarchy and navigation model
-
-## User Types
-
-### End User
-
-The end user should see:
-
-- the most important signals
-- the bots they own or use
-- simple performance summaries
-- key actions
-- a clear explanation of what is working
-
-The end user should not be forced to consume:
-
-- low-level runtime diagnostics
-- raw strategy-engine internals
-- dense execution payloads
-- verbose policy objects
-- technical memory/governance data unless translated into simple product language
-
-### Admin / Technical Operator
-
-Admin users may later get a separate technical surface for:
-
-- runtime diagnostics
-- advanced governance
-- experimental bot policies
-- raw explainability
-- execution internals
-- deeper strategy and validation tooling
-
-That surface is not the primary end-user experience.
-
-## Information Translation Rule
-
-When a metric is too technical, prefer translating it into a simpler user-facing concept.
-
-Examples:
-
-- signal pass/fail ratio -> `efficiency`
-- dense ranking metadata -> `confidence` or `why this is prioritized`
-- multiple policy checks -> `fits this bot` / `blocked by bot rules`
-- raw execution gating -> `ready to act` / `not ready yet`
-
-Do not expose technical wording unless the module truly requires it.
-
-## Target Navigation Structure
-
-The intended CRYPE structure should move toward this:
-
-### Main
+CRYPE already has a newer visual line established in the migrated:
 
 - `Dashboard`
 - `My Wallet`
+
+That graphic line should remain the visual baseline for the live app.
+
+This means the project must simultaneously preserve two things:
+
+- the exact template UX structure and navigation flow
+- the already-migrated CRYPE theme system, shared CSS architecture, and global style inheritance
+
+Practical consequence:
+
+- match the template's flow and hierarchy exactly
+- do not introduce a second visual language
+- reuse the existing global style system and theme tokens
+- keep new pages visually coherent with the current CRYPE dashboard/wallet implementation
+
+## Core UX Rule
+
+The legacy `Signal Bot` page is no longer the future home of signals and bots.
+
+It may remain in code temporarily, but it should not continue as:
+
+- the main delivery target
+- the main navigation destination
+- the default place to mount new product UX
+
+The redesign should replace the old end-user flow, not extend it forever.
+
+## End-User First Rule
+
+Every new UI round must be judged as an end-user experience, not as an internal lab.
+
+This means:
+
+- new functionality must be reachable from a realistic user path
+- major surfaces should not be buried in hidden host pages
+- page naming, tab naming, and block grouping should make sense to a normal user
+- the interface should expose the minimum useful information first
+
+If a concept is too technical, the UI should either:
+
+- translate it into simpler product language
+- hide it from the main user surface
+- or defer it to a future admin/technical surface
+
+## User Information Policy
+
+### End User should see
+
+- key signal opportunities
+- active and pending bot status
+- simplified performance
+- clear next actions
+- confidence, efficiency, and health in simple language
+- clear segmentation between overview, settings, history, and active opportunities
+
+### End User should not see by default
+
+- runtime internals
+- raw governance objects
+- dense strategy-engine diagnostics
+- unfiltered execution payloads
+- technical ranking metadata in raw form
+- debug-style memory snapshots
+
+### Admin / Technical surfaces may later contain
+
+- deep runtime diagnostics
+- advanced AI/gov policy controls
+- detailed explainability
+- raw execution reasoning
+- validation and experiments
+
+That is not the main user journey.
+
+## Translation Rule
+
+Technical concepts must be translated whenever possible.
+
+Examples:
+
+- pass/fail ratio -> `efficiency`
+- ranking internals -> `confidence` or `why this appears first`
+- policy checks -> `fits this bot` / `blocked by bot rules`
+- execution gating -> `ready` / `waiting`
+- noisy strategy metrics -> short status summaries or health badges
+
+Do not overload the end-user surface with implementation language.
+
+## Official Sidebar Architecture
+
+The sidebar should follow the template hierarchy and ordering.
+
+### MAIN
+
+- `Dashboard`
+  - `Dashboard`
+- `My Wallet`
 - `My Statistics`
 
-### Trading & Bots
+### TRADING & BOTS
 
-- `Signals`
-- `Bots`
 - `Trading`
 - `Control Panel`
+  - `Overview`
+  - `Bot Settings`
+  - `Execution Logs`
+- `AI Bot`
+  - `Signal Bot`
+  - `DCA Bot`
+  - `Arbitrage Bot`
+  - `Pump Screener`
 
-### Later / Advanced
+### DEFI & PORTFOLIO
 
-- `AI Insights`
-- `Execution Logs`
-- `Admin Runtime`
+- `DeFi Center`
+- `Yield Farming`
+- `Staking Pools`
+- `Liquidity Tracker`
+- `Portfolio Tracker`
+- `Wallets`
+- `DeFi Protocols`
 
-The exact labels can evolve, but the important thing is that signals and bots become distinct first-class destinations.
+### MARKETPLACE
 
-## Target Page Architecture
+- `Strategies Marketplace`
 
-## 1. Signals
+Notes:
 
-This should become the new home for the user-facing signals product.
+- labels can be localized, but hierarchy and flow should remain equivalent
+- sidebar group order should match the template
+- submenu behavior should match the template pattern
+- icon usage should mirror the template's intent and placement
 
-Suggested subpages or tabs:
+## Page Flow Architecture
+
+## 1. Dashboard
+
+This should continue following the already-migrated CRYPE line while preserving the template structure:
+
+- page title and subtitle
+- primary CTA area on top right
+- quick stat cards
+- tabbed chart/content region
+- right-side summary/support cards where applicable
+
+This page is already among the closest to the intended direction.
+
+## 2. My Wallet
+
+This page should also remain aligned with the already-migrated CRYPE style line and continue matching the template's strong block hierarchy:
+
+- header
+- summary cards
+- main holdings/performance surface
+- supporting context blocks
+
+## 3. Trading
+
+Trading should follow the template's structure closely:
+
+- stat cards at the top
+- chart-heavy main area
+- order-entry surface to the right
+- lower market/order-book sections
+
+This is an operational page and may remain richer than Signals/Bots, but it should still respect the same visual rhythm.
+
+## 4. Control Panel
+
+This is the main operational management area for bots.
+
+It should contain the template-equivalent subpages:
 
 - `Overview`
-- `Watchlist`
-- `Market Discovery`
-- `High Confidence`
-- `History`
+- `Bot Settings`
+- `Execution Logs`
 
-### Signals Overview
+### 4.1 Overview
 
 Purpose:
 
-- show the best current signals without overwhelming the user
+- give a control-center summary for the user's bot operation
 
-Recommended blocks:
+Expected structure:
 
-- top quick stats
-- prioritized signal cards
-- short watchlist-first lane
-- short market-discovery lane
-- high-confidence section
-- compact explanation of why signals were promoted or demoted
+- page hero/header
+- quick stats row
+- chart/performance block
+- balance/context/support block
+- active bots list or cards
+- optional AI insights side block
 
-Recommended UI patterns:
-
-- cards for active/prioritized signals
-- filter chips for lanes or confidence level
-- a small number of compact stat cards
-- short explanatory text, not dense technical tables
-
-### Watchlist
+### 4.2 Bot Settings
 
 Purpose:
 
-- show signals that matter directly to the user's chosen universe
+- manage bots with a strong template-matching flow
 
-Recommended UI patterns:
+Expected structure:
 
-- signal cards or compact rows
-- watchlist filters
-- status pills
-- easy manual actions
+- top header with CTA
+- top stat cards
+- secondary tab strip:
+  - `All Bots`
+  - `General Settings`
+  - `Risk Management`
+  - `Notifications`
+  - `API Connections`
 
-### Market Discovery
+#### All Bots
 
-Purpose:
+Expected UX:
 
-- show the best opportunities outside the watchlist
-
-Recommended UI patterns:
-
-- cards or ranked list
-- stronger pruning than watchlist
-- explicit rationale tags
-
-### High Confidence
-
-Purpose:
-
-- show the smallest, cleanest subset
-
-Recommended UI patterns:
-
-- premium-feeling cards
-- short rationale
-- very little noise
-
-### History
-
-Purpose:
-
-- show past signals and outcomes
-
-Recommended UI patterns:
-
-- table or dense list
-- filters
-- pagination
-
-## 2. Bots
-
-This should become the new home for bot management as a product surface.
-
-Suggested subpages or tabs:
-
-- `All Bots`
-- `Create Bot`
-- `Performance`
-- `History`
-
-### All Bots
-
-Purpose:
-
-- give the user a clear overview of all bots
-
-Recommended blocks:
-
-- stats overview
-- search
+- search bar
 - status chips
-- grid of bot cards
-- optional table toggle later
+- grid/list toggle
+- bot cards
+- per-card primary action
+- per-card settings action
+- right drawer for editing bot settings
 
-Recommended bot card content:
+This page is the main reference for how bot management should feel.
 
-- bot name
-- style or strategy
-- environment
-- status
-- short performance summary
-- capital allocation
-- one primary action
-- one settings/detail action
+#### General Settings
 
-This page should feel very close to the template's `bot-settings.html`.
+Expected UX:
 
-### Create Bot
+- left form blocks
+- right toggle/settings blocks
+- bottom settings sections
+- save/reset action row
 
-Purpose:
+#### Risk Management
 
-- provide a clear, guided creation flow
+Expected UX:
 
-Recommended UI patterns:
+- large settings panels
+- grouped global risk controls
+- grouped stop-loss / take-profit controls
+- grouped emergency actions
 
-- drawer or dedicated page
-- simple mode first
-- advanced mode after
+#### Notifications
 
-The default experience should ask for only the essentials:
+Expected UX:
 
-- bot name
-- universe source
-- dominant style
-- execution environment
-- automation mode
-- capital allocation
+- notification channels panel
+- alert types panel
+- save/reset controls
 
-Everything else should be secondary or advanced.
+#### API Connections
 
-### Bot Detail
+Expected UX:
 
-Each bot should later have its own detail surface.
+- connected exchange cards
+- add-exchange card
+- security best-practice cards
 
-Recommended sections:
+## 5. AI Bot Group
 
-- overview
-- signals this bot can consume
-- current policy summary
-- performance
-- recent actions
-- why it acted / did not act
+This group should match the template structure and naming flow.
 
-The user should not be hit immediately with raw policy JSON or deep technical state.
+It should contain:
 
-## 3. Dashboard
+- `Signal Bot`
+- `DCA Bot`
+- `Arbitrage Bot`
+- `Pump Screener`
 
-Dashboard should remain the top-level command center, not the place where all signals/bots detail lives.
+### Signal Bot
 
-It should summarize:
+This is the new home of the signals product experience.
 
-- capital
-- active bots
-- top opportunities
-- health
-- quick jumps into Signals and Bots
+It should follow the template's structure:
 
-It should not absorb the full signals module again.
+- top stat cards
+- upper tab strip:
+  - `Active Signals`
+  - `Signal History`
+  - `Performance`
+  - `Bot Settings`
+- filter chips below
+- signal card grid
+- lower supporting insight blocks
 
-## Minimal End-User Information Rule
+Expected lower blocks:
 
-For end users, the minimum useful information is:
+- `Market Sentiment`
+- `AI Insights`
+- `Top Signal Performers`
 
-### On signals
+Signals should not be hidden in generic lab surfaces anymore.
 
-- pair
-- direction
-- confidence
-- why it matters
-- whether it is watchlist or discovery
-- whether it is actionable
+### DCA Bot / Arbitrage Bot / Pump Screener
 
-### On bots
+These should eventually follow the same high-level pattern:
 
-- name
-- status
-- mode
-- environment
-- high-level performance
-- high-level activity
-- one-line summary of what the bot is doing
+- summary metrics
+- strategy-specific active opportunities or bot cards
+- clear tabs
+- targeted settings
+- simplified explanatory blocks
 
-Everything more technical should either:
+## Page Composition Rules
 
-- be hidden
-- be collapsed
-- or be translated into plain language
+### Use cards when
 
-## Component Guidance
+- showing active opportunities
+- showing bot summaries
+- showing quick stats
+- showing lightweight explainability
+- showing grouped settings summaries
 
-### Use cards when:
+### Use tables when
 
-- the item is an active entity
-- it needs status, summary, and actions
-- it should feel operational and scannable
+- showing logs
+- showing long histories
+- showing audit-style records
+- showing dense chronological data
 
-Good examples:
+### Use charts when
 
-- signals
-- bots
-- top opportunities
-- high-confidence items
+- trend over time matters
+- performance progression matters
+- context is easier to read visually than in text
 
-### Use charts when:
+### Use text summaries when
 
-- the user is trying to understand trend/performance over time
+- translating technical internals into user language
+- introducing the purpose of a page or section
+- explaining why a signal or bot is highlighted
 
-Good examples:
+### Use drawers when
 
-- bot performance
-- signal performance
-- capital curve
+- editing a bot from a grid/list without leaving context
+- performing contextual settings edits
 
-### Use tables when:
+This is explicitly supported by the template and should be reused.
 
-- the user needs history, logs, or dense comparison
+## What Should Be Hidden From End Users For Now
 
-Good examples:
+The following should remain out of the main end-user flow unless productized first:
 
-- signal history
-- bot history
-- execution history
+- raw signal ranking internals
+- domain-only lab surfaces
+- registry scaffolding details
+- internal runtime/debug surfaces
+- deep bot memory objects
+- raw policy objects
+- raw execution-candidate payloads
 
-### Use plain text summaries when:
+## Implementation Mandates
 
-- the technical concept is too dense and needs product translation
+### For the Implementer
 
-Good examples:
+- do not keep expanding the old `Signal Bot` page as the future UX
+- implement page and submenu flow to match the template hierarchy
+- preserve the CRYPE theme/style system while matching template structure
+- think first in terms of:
+  - page
+  - subpage
+  - tab
+  - card/table/chart/form choice
+- decide what an end user truly needs to see first
+- move technical detail either behind translation or out of the main surface
 
-- confidence rationale
-- ranking reason
-- why a bot is blocked
+### For the Refiner
 
-## Immediate Implementation Consequence
+- protect runtime and shared state while the new page architecture is mounted
+- prevent new surfaces from introducing polling, churn, equivalent writes, or duplicated live paths
+- support page growth through stable shared seams, not page-local hacks
 
-The next implementation work should stop treating the current `Signal Bot` page as the future product home.
+## Current Big UX Goal
 
-Instead, the next UI step should be:
+Replace the legacy user flow around `Signal Bot` with a full template-matching product flow where:
 
-1. define the new user-facing `Signals` and `Bots` surfaces
-2. expose them clearly in navigation
-3. move the new domain-driven signals experience into that new structure
-4. keep the legacy `Signal Bot` page out of the main user flow once the replacement exists
-
-## Next Big UX Milestone
-
-Replace the legacy `Signal Bot` experience with:
-
-- a dedicated `Signals` page
-- a dedicated `Bots` page
-- a bot-list-first experience
-- a signal-list-first experience
-- end-user-friendly summaries
-- technical depth either simplified or deferred to admin surfaces
+- navigation is exact and predictable
+- signals live under the correct AI Bot structure
+- bot management lives under the correct Control Panel structure
+- the live app keeps the cleaner CRYPE graphic line already established in Dashboard and My Wallet
+- technical complexity stays behind the user-facing experience instead of leaking into it

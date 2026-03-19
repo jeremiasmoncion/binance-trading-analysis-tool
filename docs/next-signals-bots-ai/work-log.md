@@ -4,6 +4,45 @@
 
 ### Phase
 
+UX architecture clarification and template-flow lock
+
+### Completed
+
+- Reviewed the template screenshots as the final authority for:
+  - sidebar order
+  - submenu hierarchy
+  - page nesting
+  - top-level section grouping
+  - page composition patterns
+- Upgraded the UX direction from "template-inspired" to "template-matching".
+- Documented the official sidebar architecture for:
+  - `MAIN`
+  - `TRADING & BOTS`
+  - `DEFI & PORTFOLIO`
+  - `MARKETPLACE`
+- Documented the official template-matching flow for:
+  - `Trading`
+  - `Control Panel`
+  - `Bot Settings`
+  - `Execution Logs`
+  - `AI Bot`
+  - `Signal Bot`
+- Documented the rule that end-user surfaces must show the minimum useful information and translate technical internals into simpler product language whenever possible.
+- Documented that CRYPE must preserve the migrated visual line from `Dashboard` and `My Wallet` while matching the template flow exactly.
+
+### Decisions Captured
+
+- The template is now the official UX flow standard, not loose inspiration.
+- Sidebar grouping, nesting, and page logic should match the template unless a deviation is explicitly justified.
+- The old legacy `Signal Bot` surface should no longer drive the future UX.
+- Technical or admin-heavy information should be translated or withheld from the main user journey.
+
+### Recommended Next Step
+
+Direct the implementer toward exact template-flow migration and direct the refiner toward runtime protection while that migration is mounted.
+
+### Phase
+
 Phase 1 - Discovery and documentation initialization
 
 ### Completed

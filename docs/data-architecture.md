@@ -146,8 +146,8 @@ Current rule:
 - after session restore, login or register, `App` gates the authenticated UI behind a startup overlay
 - the initial gate waits for:
   - realtime bootstrap hydration
-  - first market snapshot load
 - bootstrap is now intentionally system-first during startup; market data hydrates through the dedicated market fetch instead of duplicating a second market snapshot inside the same first-paint request
+- the first market load now continues in the background after the authenticated shell is ready, so startup latency is driven by `system` readiness instead of the heaviest market calculation path
 - this prevents the dashboard from painting with temporary `$0.00` placeholders and then filling one or two seconds later
 
 Auth flow rule:

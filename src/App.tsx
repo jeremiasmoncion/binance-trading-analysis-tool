@@ -95,10 +95,10 @@ export function App() {
   ) => {
     setStartupPending(true);
     try {
-      await Promise.allSettled([
-        hydrateRealtimeBootstrap(coin, timeframe, period),
-        market.fetchData(coin, timeframe),
-      ]);
+      // First paint only depends on a stable system bootstrap. Market analysis is
+      // heavier and can continue in the background without forcing an empty shell.
+      await hydrateRealtimeBootstrap(coin, timeframe, period);
+      void market.fetchData(coin, timeframe);
     } finally {
       setStartupPending(false);
     }

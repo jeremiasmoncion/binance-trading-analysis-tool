@@ -53,6 +53,16 @@ npm run realtime-core:preflight
 npm run realtime-core:preflight -- --url=https://your-realtime-core-domain
 ```
 
+Smoke test after deploy:
+
+```bash
+npm run realtime-core:smoke -- \
+  --app-url=https://binance-trading-analysis-tool.vercel.app \
+  --core-url=https://your-realtime-core-domain \
+  --username=jeremias \
+  --password=1212
+```
+
 Container build:
 
 ```bash
@@ -154,6 +164,22 @@ This validates:
 - remote `/health` response when a URL is provided
 
 If the command exits with non-zero status, fix that first and do not cut production over yet.
+
+## Post-Deploy Smoke Test
+
+After the persistent service is up, run:
+
+1. `npm run realtime-core:smoke -- --app-url=https://binance-trading-analysis-tool.vercel.app --core-url=https://your-realtime-core-domain --username=... --password=...`
+
+This validates end-to-end:
+
+- login against the app domain
+- bridge token issuance from `/api/realtime/session`
+- remote `/health`
+- authenticated `/bootstrap`
+- first SSE frame from `/events`
+
+Only after this should you set `VITE_REALTIME_CORE_URL` in Vercel and redeploy the frontend.
 
 ## Migration Path
 

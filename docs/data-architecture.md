@@ -163,6 +163,7 @@ Current reduction already applied:
 - persistent-memory per-user overlay channels in the external realtime core
 - deployment assets for a persistent containerized realtime core
 - preflight validation for realtime-core cutover
+- smoke validation for bridge token, bootstrap and SSE after deploy
 
 ### Pending
 

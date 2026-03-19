@@ -517,3 +517,67 @@ Phase 3 - feed ranking refinement
   - visible segmentation
   - stronger operational blocks
 - A dedicated surface still feels premature until ranking thresholds stabilize further.
+
+## 2026-03-19 - Raw Vs Ranked Explainability Round
+
+### Phase
+
+Phase 3 - explainability refinement
+
+### Completed
+
+- Added human-readable explainability fields directly to the ranked signal model:
+  - `rawScore`
+  - `delta`
+  - `movement`
+  - `primaryReason`
+  - `summary`
+- Improved `market-discovery` pruning by applying an extra downgrade when discovery signals combine:
+  - weak context
+  - neutral direction
+  - noisy timeframe
+  - limited explainability
+- Reworked the temporary lab to explain ranking in more human terms:
+  - whether a signal goes up, down, or stays stable
+  - what changed from raw to ranked
+  - what the main reason was
+- Added a dedicated `raw vs ranked explainability` block so a reviewer can quickly read:
+  - original score
+  - ranked score
+  - lane
+  - tier
+  - movement
+  - primary reason
+- Kept the host temporary, but organized the lab more like a product surface:
+  - overview
+  - watchlist-first
+  - market discovery
+  - high-confidence
+  - bot-consumable
+
+### Discovery Signals Further Pruned
+
+- additional market-wide signals are now less likely to rise when they combine:
+  - incomplete context
+  - neutral direction
+  - intraday noise
+  - weak explainability
+- these still exist in raw feed for inspection, but are more likely to land in:
+  - `low-visibility`
+  - or lower `standard`
+
+### Files Updated
+
+- `src/domain/signals/contracts.ts`
+- `src/domain/signals/ranking.ts`
+- `src/components/domain/SignalsBotsReadOnlyLab.tsx`
+- `src/styles/content.css`
+
+### What We Learned
+
+- the temporary lab is still sufficient after this round
+- it now supports human review much better, especially for:
+  - what was promoted
+  - what was degraded
+  - why a discovery signal did not make the cut
+- a dedicated final surface still feels premature until explainability language and pruning behavior stabilize further

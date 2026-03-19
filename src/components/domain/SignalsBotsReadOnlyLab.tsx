@@ -151,9 +151,10 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                 <div className="domain-readonly-item-meta">
                   <span>Raw {signal.visibilityScore.toFixed(0)}</span>
                   <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                  <span>Delta {formatDelta(signal.ranking.delta)}</span>
                   <span>{signal.context.strategyId}</span>
                 </div>
-                <p>{signal.ranking.rationale[0]}</p>
+                <p>{signal.ranking.summary}</p>
                 <div className="domain-policy-notes">
                   {signal.ranking.boosts.slice(0, 2).map((note) => (
                     <span key={`${signal.id}-boost-${note}`} className="domain-policy-pill is-boost">{note}</span>
@@ -171,6 +172,44 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
       <div className="domain-readonly-grid">
         <article className="domain-readonly-card">
           <div className="domain-readonly-head">
+            <strong>Raw vs ranked explainability</strong>
+            <span>Lectura humana de qué sube, qué baja y por qué</span>
+          </div>
+          <div className="domain-readonly-list">
+            {readModel.rankedPublishedSignals.slice(0, 4).map((signal) => (
+              <div key={`explain-${signal.id}`} className="domain-readonly-item">
+                <div className="domain-readonly-item-top">
+                  <strong>{signal.context.symbol} · {signal.ranking.lane}</strong>
+                  <span className={`domain-readonly-badge ${getMovementClassName(signal.ranking.movement)}`}>
+                    {getMovementLabel(signal.ranking.movement)}
+                  </span>
+                </div>
+                <div className="domain-explainability-grid">
+                  <div className="domain-explainability-cell">
+                    <span>Raw</span>
+                    <strong>{signal.ranking.rawScore.toFixed(0)}</strong>
+                  </div>
+                  <div className="domain-explainability-cell">
+                    <span>Ranked</span>
+                    <strong>{signal.ranking.compositeScore.toFixed(0)}</strong>
+                  </div>
+                  <div className="domain-explainability-cell">
+                    <span>Tier</span>
+                    <strong>{signal.ranking.tier}</strong>
+                  </div>
+                  <div className="domain-explainability-cell">
+                    <span>Motivo</span>
+                    <strong>{signal.ranking.primaryReason}</strong>
+                  </div>
+                </div>
+                <p>{signal.ranking.summary}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="domain-readonly-card">
+          <div className="domain-readonly-head">
             <strong>Watchlist-first lane</strong>
             <span>Señales más cercanas a operación visible y seguimiento directo</span>
           </div>
@@ -184,11 +223,12 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                     <strong>{signal.context.symbol} · {signal.context.timeframe}</strong>
                     <span className={`domain-readonly-badge ${getTierClassName(signal.ranking.tier)}`}>{signal.ranking.tier}</span>
                   </div>
-                  <div className="domain-readonly-item-meta">
-                    <span>Lane watchlist-first</span>
-                    <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
-                  </div>
-                  <p>{signal.ranking.boosts.join(" · ")}</p>
+                <div className="domain-readonly-item-meta">
+                  <span>Lane watchlist-first</span>
+                  <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                  <span>{signal.ranking.movement}</span>
+                </div>
+                  <p>{signal.ranking.summary}</p>
                 </div>
               ))}
           </div>
@@ -209,8 +249,9 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                 <div className="domain-readonly-item-meta">
                   <span>Lane market-discovery</span>
                   <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
+                  <span>{signal.ranking.movement}</span>
                 </div>
-                <p>{(signal.ranking.penalties[0] || signal.ranking.rationale[0])}</p>
+                <p>{signal.ranking.summary}</p>
               </div>
             ))}
           </div>
@@ -302,7 +343,12 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                   <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
                   <span>{signal.ranking.lane}</span>
                 </div>
-                <p>{signal.ranking.boosts.join(" · ") || "Sin boosts visibles."}</p>
+                <p>{signal.ranking.summary}</p>
+                <div className="domain-policy-notes">
+                  {signal.ranking.boosts.slice(0, 2).map((note) => (
+                    <span key={`promoted-${signal.id}-${note}`} className="domain-policy-pill is-boost">{note}</span>
+                  ))}
+                </div>
               </div>
             ))}
             {readModel.demotedSignals.slice(0, 2).map((signal) => (
@@ -316,7 +362,12 @@ export function SignalsBotsReadOnlyLab({ signals, watchlistSymbols }: SignalsBot
                   <span>Ranked {signal.ranking.compositeScore.toFixed(0)}</span>
                   <span>{signal.ranking.lane}</span>
                 </div>
-                <p>{signal.ranking.penalties.join(" · ") || "Sin penalidades visibles."}</p>
+                <p>{signal.ranking.summary}</p>
+                <div className="domain-policy-notes">
+                  {signal.ranking.penalties.slice(0, 2).map((note) => (
+                    <span key={`demoted-${signal.id}-${note}`} className="domain-policy-pill is-penalty">{note}</span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -361,4 +412,22 @@ function getTierClassName(tier: string): string {
   if (tier === "priority") return "is-priority";
   if (tier === "low-visibility") return "is-blocked";
   return "";
+}
+
+function getMovementClassName(movement: string): string {
+  if (movement === "promoted") return "is-accepted";
+  if (movement === "demoted") return "is-blocked";
+  return "is-priority";
+}
+
+function getMovementLabel(movement: string): string {
+  if (movement === "promoted") return "Sube";
+  if (movement === "demoted") return "Baja";
+  return "Estable";
+}
+
+function formatDelta(delta: number): string {
+  if (delta > 0) return `+${delta.toFixed(0)}`;
+  if (delta < 0) return `${delta.toFixed(0)}`;
+  return "0";
 }

@@ -47,8 +47,25 @@ function dedupeNotes(notes: string[]): string[] {
   return Array.from(new Set(notes.filter(Boolean)));
 }
 
+function buildMovement(delta: number): "promoted" | "steady" | "demoted" {
+  if (delta >= 8) {
+    return "promoted";
+  }
+
+  if (delta <= -8) {
+    return "demoted";
+  }
+
+  return "steady";
+}
+
+function firstMeaningfulNote(preferred: string[], fallback: string[], emptyLabel: string): string {
+  return preferred[0] || fallback[0] || emptyLabel;
+}
+
 export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSignal {
-  let compositeScore = signal.visibilityScore;
+  const rawScore = signal.visibilityScore;
+  let compositeScore = rawScore;
   const lane = getLane(signal);
   const boosts: string[] = [];
   const penalties: string[] = [];
@@ -112,6 +129,15 @@ export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSig
     penalties.push("Discovery intradía más propenso a ruido");
   }
 
+  const weakDiscoveryContext = lane === "market-discovery"
+    && (
+      signal.context.direction === "NEUTRAL"
+      || !signal.context.marketRegime
+      || signal.context.marketRegime === "unknown"
+      || signal.context.timeframe === "5m"
+      || penalties.includes("Explicabilidad limitada")
+    );
+
   const majorPenaltyCount = penalties.filter((note) => (
     note === "Score base bajo"
     || note === "Timeframe ruidoso"
@@ -119,12 +145,30 @@ export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSig
     || note === "Contexto de mercado incompleto"
   )).length;
 
+  if (weakDiscoveryContext && majorPenaltyCount >= 2) {
+    compositeScore -= 12;
+    penalties.push("Discovery podado por contexto demasiado débil");
+  }
+
   const tier = rankTierFromScore({
     score: compositeScore,
     lane,
     majorPenaltyCount,
     boostCount: boosts.length,
   });
+
+  const delta = compositeScore - rawScore;
+  const movement = buildMovement(delta);
+  const primaryReason = movement === "demoted"
+    ? firstMeaningfulNote(penalties, rationale, "Discovery rebajado por prudencia.")
+    : movement === "promoted"
+      ? firstMeaningfulNote(boosts, rationale, "Promovida por mejor claridad operativa.")
+      : firstMeaningfulNote(rationale, boosts, "Se mantiene estable en el feed.");
+  const summary = movement === "demoted"
+    ? `Baja desde ${rawScore.toFixed(0)} a ${compositeScore.toFixed(0)} por ${primaryReason.toLowerCase()}.`
+    : movement === "promoted"
+      ? `Sube desde ${rawScore.toFixed(0)} a ${compositeScore.toFixed(0)} por ${primaryReason.toLowerCase()}.`
+      : `Se mantiene cerca de ${compositeScore.toFixed(0)} porque ${primaryReason.toLowerCase()}.`;
 
   rationale.push(
     tier === "high-confidence"
@@ -139,9 +183,14 @@ export function rankPublishedSignal(signal: PublishedSignal): RankedPublishedSig
   return {
     ...signal,
     ranking: {
+      rawScore,
       compositeScore,
+      delta,
       tier,
       lane,
+      movement,
+      primaryReason,
+      summary,
       boosts: dedupeNotes(boosts),
       penalties: dedupeNotes(penalties),
       rationale: dedupeNotes(rationale),

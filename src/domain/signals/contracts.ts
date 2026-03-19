@@ -45,9 +45,14 @@ export interface PublishedSignal {
 
 export interface RankedPublishedSignal extends PublishedSignal {
   ranking: {
+    rawScore: number;
     compositeScore: number;
+    delta: number;
     tier: SignalRankTier;
     lane: SignalRankLane;
+    movement: "promoted" | "steady" | "demoted";
+    primaryReason: string;
+    summary: string;
     boosts: string[];
     penalties: string[];
     rationale: string[];

@@ -67,6 +67,14 @@ The project also now has an orchestration base for multi-thread execution under:
   - stronger header hierarchy
   - denser quick stats
   - clearer feed segmentation
+- added human-readable `raw vs ranked` explainability directly on ranked signals
+- added more aggressive pruning for weak `market-discovery` combinations
+- grouped the lab more explicitly into product-like blocks:
+  - overview
+  - watchlist-first
+  - market discovery
+  - high-confidence
+  - bot-consumable
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -122,6 +130,7 @@ Bridge the new contracts into a safe read-only Phase 3 seam:
   - -> `bot-consumable feed`
   - -> read-only UI
 - next step should stay focused on threshold tuning, watchlist-vs-market noise split, and explainability before registry persistence
+- next step should likely continue on explainability language and discovery pruning before any persistence work
 
 ## GitHub Notification Practice
 
@@ -186,6 +195,7 @@ What implementers should avoid:
   - stronger threshold defensibility for `high-confidence`
   - better separation between watchlist-first and market discovery
   - richer ranking explanation before opening a dedicated surface
+  - whether the temporary lab is allowed one more refinement round before extraction
 - review whether `MemoryView` is the right temporary inspection host until a dedicated signals/bots workspace surface is approved
 
 ## Warning For Director

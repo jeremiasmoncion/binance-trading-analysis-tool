@@ -5,6 +5,7 @@ import type {
   DashboardAnalysis,
   DashboardSummaryPayload,
   ExecutionCenterPayload,
+  ExecutionProfile,
   Indicators,
   PortfolioPayload,
   UserSession,
@@ -112,6 +113,9 @@ export interface SystemDataPlane {
     refreshPortfolioWithFeedback: (period?: string, mode?: "full" | "live") => Promise<unknown>;
     refreshExecutionCenter: () => Promise<unknown>;
     refreshDashboardSummary: (forceFresh?: boolean) => Promise<unknown>;
+    updateExecutionProfile: (profile: ExecutionProfile) => Promise<unknown>;
+    executeDemoSignal: (signalId: number, mode: "preview" | "execute") => Promise<unknown>;
+    attachExecutionProtection: (executionOrderId: number) => Promise<unknown>;
     refreshProfileDataWithFeedback: () => Promise<unknown>;
     refreshStrategyEngine: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;
     createStrategyExperiment: (payload: {

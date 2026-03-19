@@ -6,7 +6,6 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { formatAmount, formatPrice, formatSignedPrice } from "../lib/format";
 import { openHelp, showToast, startLoading, stopLoading } from "../lib/ui-events";
-import { binanceService } from "../services/api";
 import { useMemorySystemSelector } from "../data-platform/selectors";
 import type {
   ExecutionCenterPayload,
@@ -237,6 +236,9 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const executionCenter = props.executionCenter || null;
   const onRefreshExecutionCenter = props.onRefreshExecutionCenter ?? (async () => null);
   const runScannerNow = systemData.runScannerNow || (async () => null);
+  const updateExecutionProfile = systemData.updateExecutionProfile || (async () => null);
+  const executeDemoSignal = systemData.executeDemoSignal || (async () => null);
+  const attachExecutionProtection = systemData.attachExecutionProtection || (async () => null);
   const [activeTab, setActiveTab] = useState<SignalsTab>("overview");
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState<"all" | "1d" | "7d" | "30d">("all");
@@ -1566,9 +1568,10 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       detail: "Actualizando límites y reglas del motor demo.",
     });
     try {
-      const payload = await binanceService.updateExecutionProfile(executionProfileForm);
-      setExecutionProfileForm(payload.profile);
-      await onRefreshExecutionCenter();
+      const payload = await updateExecutionProfile(executionProfileForm) as { profile?: ExecutionCenterPayload["profile"] } | null;
+      if (payload?.profile) {
+        setExecutionProfileForm(payload.profile);
+      }
       showToast({
         tone: "success",
         title: "Perfil actualizado",
@@ -1593,14 +1596,13 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       detail: mode === "execute" ? "Aplicando reglas, protección y envío a Binance Demo." : "Validando la señal antes de enviarla.",
     });
     try {
-      const payload = await binanceService.executeSignal(signalId, mode) as {
+      const payload = await executeDemoSignal(signalId, mode) as {
         candidate?: { status?: string; reasons?: string[] };
         protection?: {
           protectionAttached?: boolean;
           protectionNote?: string;
         };
-      };
-      await onRefreshExecutionCenter();
+      } | null;
       showToast({
         tone: "success",
         title: mode === "execute" ? "Trade demo enviado" : "Trade preparado",
@@ -1636,12 +1638,11 @@ export function MemoryView(incomingProps: MemoryViewProps) {
       detail: `Intentando montar TP/SL para ${item.coin} después de la apertura.`,
     });
     try {
-      const payload = await binanceService.attachProtection(item.id) as {
+      const payload = await attachExecutionProtection(item.id) as {
         protection?: {
           protectionNote?: string;
         };
-      };
-      await onRefreshExecutionCenter();
+      } | null;
       showToast({
         tone: "success",
         title: "Protección añadida",

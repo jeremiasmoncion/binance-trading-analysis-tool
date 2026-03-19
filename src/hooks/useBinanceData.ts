@@ -2,7 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { authService, binanceService } from "../services/api";
 import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
-import type { BinanceConnection, DashboardSummaryPayload, ExecutionCenterPayload, PortfolioPayload, UserSession, ViewName } from "../types";
+import type {
+  BinanceConnection,
+  DashboardSummaryPayload,
+  ExecutionCenterPayload,
+  ExecutionProfile,
+  PortfolioPayload,
+  UserSession,
+  ViewName,
+} from "../types";
 
 interface BinanceFormState {
   alias: string;
@@ -280,6 +288,62 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     }
   }, [currentUser?.username]);
 
+  const updateExecutionProfile = useCallback(async (profile: ExecutionProfile) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      const payload = await binanceService.updateExecutionProfile(profile);
+      if (activeUsernameRef.current !== username) {
+        return null;
+      }
+      await refreshExecutionCenter();
+      return payload;
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshExecutionCenter]);
+
+  const executeDemoSignal = useCallback(async (signalId: number, mode: "preview" | "execute") => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      const payload = await binanceService.executeSignal(signalId, mode);
+      if (activeUsernameRef.current !== username) {
+        return null;
+      }
+      // Demo execution mutates a hot operational domain, so the shared plane
+      // refreshes execution immediately after the command completes.
+      await refreshExecutionCenter();
+      return payload;
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshExecutionCenter]);
+
+  const attachExecutionProtection = useCallback(async (executionOrderId: number) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return null;
+    }
+
+    try {
+      const payload = await binanceService.attachProtection(executionOrderId);
+      if (activeUsernameRef.current !== username) {
+        return null;
+      }
+      await refreshExecutionCenter();
+      return payload;
+    } catch {
+      return null;
+    }
+  }, [currentUser?.username, refreshExecutionCenter]);
+
   const refreshProfileDataWithFeedback = useCallback(async () => {
     const loaderId = startLoading({ label: "Actualizando perfil", detail: "Leyendo conexion y acceso" });
     try {
@@ -498,6 +562,9 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     refreshPortfolioWithFeedback,
     refreshExecutionCenter,
     refreshDashboardSummary,
+    updateExecutionProfile,
+    executeDemoSignal,
+    attachExecutionProtection,
     connect,
     disconnect,
   };

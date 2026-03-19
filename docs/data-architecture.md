@@ -195,6 +195,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - `useBinanceData` should keep any remaining per-view warm-up logic behind a single load-plan helper; if that behavior needs to change, it should be updated in one place instead of reintroducing screen-specific refresh branches across multiple effects
 - profile backtesting controls should resolve through shared `system plane` state/actions; `ProfileView` should not own a second validation-lab fetch cycle
 - strategy engine mutations used by `MemoryView` should resolve through shared `system plane actions`; the view can keep local form state, but it should not own the canonical mutation pipeline
+- demo execution mutations used by `MemoryView` should resolve through shared `system plane actions`; the view can keep local draft state and UX toasts, but not own the operational request path
 
 ## Migration Phases
 
@@ -220,6 +221,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - profile scanner controls now consume shared scanner state/actions instead of calling the watchlist service directly from the view
 - profile backtesting now consumes shared validation-lab state/actions instead of calling the strategy engine directly from the view
 - memory strategy experiments and recommendation actions now resolve through shared `system plane` actions instead of calling the strategy engine directly from the view
+- memory execution profile, demo execution and post-fill protection actions now resolve through shared `system plane` actions instead of calling Binance services directly from the view
 
 ### In Progress
 

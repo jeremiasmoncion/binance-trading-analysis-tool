@@ -247,16 +247,16 @@ export function DashboardView(props: DashboardViewProps) {
                 type="button"
                 className="ui-button ui-button-primary"
                 onClick={() => openHelp({
-                  title: "Separación Dashboard vs Signal Bot",
-                  body: "Dashboard resume el estado de la plataforma. Signal Bot es donde vive la lectura más operativa del bot, su edge, ejecución y memoria.",
+                  title: "Separacion Dashboard vs Senales y bots",
+                  body: "Dashboard resume el estado de la plataforma. Senales y bots es donde vive la lectura mas operativa del bot, su edge, ejecucion y memoria.",
                   bullets: [
                     "Dashboard: comando, salud del sistema, capital y actividad.",
-                    "Signal Bot: setups, validación, aprendizaje y control fino.",
+                    "Senales y bots: setups, validacion, aprendizaje y control fino.",
                   ],
                 })}
               >
                 <SparklesIcon />
-                Signal Bot
+                Senales y bots
               </button>
             </div>
           </div>
@@ -621,9 +621,9 @@ export function DashboardView(props: DashboardViewProps) {
               className="dashboard-bot-network-link"
               onClick={() => openHelp({
                 title: "Bot system",
-                body: "CRYPE se presenta como plataforma de bots. Hoy Signal Bot es el bot real fuerte, pero el Dashboard ya organiza el sistema como una familia operativa.",
+                body: "CRYPE se presenta como plataforma de bots. Hoy Senales y bots es el bot real fuerte, pero el Dashboard ya organiza el sistema como una familia operativa.",
                 bullets: [
-                  "Signal Bot como bot principal.",
+                  "Senales y bots como bot principal.",
                   "Execution, watcher y risk guard como capas operativas.",
                   "Preparado para más bots reales después.",
                 ],

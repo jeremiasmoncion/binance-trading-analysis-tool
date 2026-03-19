@@ -26,6 +26,7 @@ import type {
   WatchlistScannerStatus,
 } from "../types";
 import type { RealtimeCoreBootstrapPayload } from "../realtime-core/contracts";
+import type { RealtimeCoreEventEnvelope } from "../realtime-core/contracts";
 
 interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -658,5 +659,36 @@ export const realtimeCoreService = {
     return apiRequest<RealtimeCoreBootstrapPayload>(`/api/realtime/bootstrap?${params.toString()}`, {
       timeoutMs: 15_000,
     });
+  },
+  openSystemEvents(onEvent: (event: RealtimeCoreEventEnvelope) => void, options: { intervalMs?: number } = {}) {
+    if (typeof window === "undefined" || typeof EventSource === "undefined") {
+      return () => undefined;
+    }
+
+    const params = new URLSearchParams();
+    if (options.intervalMs) {
+      params.set("intervalMs", String(options.intervalMs));
+    }
+
+    const source = new EventSource(`/api/realtime/events${params.toString() ? `?${params.toString()}` : ""}`, {
+      withCredentials: true,
+    });
+
+    const handleMessage = (event: MessageEvent<string>) => {
+      try {
+        onEvent(JSON.parse(event.data) as RealtimeCoreEventEnvelope);
+      } catch {
+        // ignore malformed event frames
+      }
+    };
+
+    source.addEventListener("system.overlay.updated", handleMessage as EventListener);
+    source.addEventListener("system.heartbeat", handleMessage as EventListener);
+
+    return () => {
+      source.removeEventListener("system.overlay.updated", handleMessage as EventListener);
+      source.removeEventListener("system.heartbeat", handleMessage as EventListener);
+      source.close();
+    };
   },
 };

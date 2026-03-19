@@ -90,3 +90,29 @@ export async function buildRealtimeCoreBootstrap(req, options = {}) {
     },
   };
 }
+
+export async function buildRealtimeCoreSystemOverlay(req) {
+  const session = getSession(req);
+  if (!session) {
+    throw new Error("Sesión no válida o vencida");
+  }
+
+  const [connection, execution, dashboardSummary] = await Promise.all([
+    getBinanceConnectionState(req).catch(() => null),
+    getExecutionCenter(req).catch(() => null),
+    getExecutionDashboardSummary(req).catch(() => null),
+  ]);
+
+  return {
+    connection,
+    execution,
+    dashboardSummary,
+  };
+}
+
+export function buildRealtimeCoreHeartbeat(overlay) {
+  return {
+    connected: Boolean(overlay?.connection?.connected),
+    generatedAt: new Date().toISOString(),
+  };
+}

@@ -54,6 +54,17 @@ export interface RealtimeCoreSystemBootstrap {
   };
 }
 
+export interface RealtimeCoreSystemOverlayPayload {
+  connection: import("../types").BinanceConnection | null;
+  execution: ExecutionCenterPayload | null;
+  dashboardSummary: DashboardSummaryPayload | null;
+}
+
+export interface RealtimeCoreHeartbeatPayload {
+  connected: boolean;
+  generatedAt: string;
+}
+
 export interface RealtimeCoreBootstrapPayload {
   version: number;
   generatedAt: string;

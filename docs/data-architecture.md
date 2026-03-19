@@ -90,6 +90,22 @@ This means the app already has:
 - one standard hydration path
 - one explicit bridge between cold snapshot loading and future event streams
 
+## Realtime Overlay Flow
+
+Current live overlay path:
+
+1. frontend opens `/api/realtime/events`
+2. the route emits `system.overlay.updated`
+3. frontend applies the event through `applyRealtimeCoreEvent`
+4. shared `system` plane updates `connection + execution + dashboard summary`
+5. selector-based views receive the overlay without rebuilding the whole app state
+
+This is still transitional:
+
+- it still runs on serverless
+- it still coexists with polling
+- it exists to lock the contract and frontend flow before moving to the persistent realtime core
+
 ## Migration Phases
 
 ### Completed

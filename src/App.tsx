@@ -17,6 +17,7 @@ import { getOperationPlan } from "./lib/trading";
 import { syncMarketDataPlane, syncSystemDataPlane, syncSystemDataPlaneActions } from "./data-platform/syncAppDataPlanes";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
+import { applyRealtimeCoreEvent } from "./realtime-core/events";
 import type { StrategyRecommendationRecord } from "./types";
 
 function isMobileViewport() {
@@ -143,6 +144,18 @@ export function App() {
       }
     })();
   }, [auth, binance.portfolioPeriod, hydrateRealtimeBootstrap, market]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return undefined;
+
+    const close = realtimeCoreService.openSystemEvents((event) => {
+      applyRealtimeCoreEvent(event);
+    });
+
+    return () => {
+      close();
+    };
+  }, [auth.currentUser]);
 
   useEffect(() => {
     if (!auth.currentUser || !market.signal || !market.analysis || !plan || !isCurrentCoinWatched) return;

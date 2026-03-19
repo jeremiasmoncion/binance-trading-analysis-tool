@@ -100,3 +100,32 @@ Persistent realtime-core overlay emission
 
 - Treat `realtime-core-service/server.mjs` as protected runtime infrastructure for future bot/live integrations.
 - Require new bot/live emitters to reuse semantic dedup rules instead of publishing freshness-only overlay frames.
+
+## 2026-03-19 - Shared Runtime Semantic Dashboard Refresh
+
+### Area
+
+Hybrid Binance runtime refresh stability
+
+### Completed
+
+- Hardened `src/hooks/useBinanceData.ts` so `dashboardSummary` refreshes ignore freshness-only `generatedAt` changes.
+- Upgraded the dashboard comparator to look at `topAssets` and recent execution orders semantically instead of treating every refresh as new.
+- Made Binance alias hydration no-op aware so profile refreshes do not rewrite the form state when the alias is already current.
+- Updated the architecture doc with the runtime rule.
+
+### Risk Avoided
+
+- The future dual runtime will add more read-only surfaces watching the same dashboard summary.
+- Without semantic summary comparison, hybrid safety refreshes would keep waking shared selectors even when only metadata changed.
+- Equivalent control writes, like alias rehydration, would also keep rippling through the shell for no user-visible change.
+
+### Pending
+
+- Continue auditing shared hooks for semantic-no-op gaps outside `useBinanceData`, especially any remaining hybrid refresh paths that still mix snapshot safety polling with overlay-driven state.
+- Revisit whether execution-center comparison also needs deeper semantic checks once bot-owned operational state grows.
+
+### Recommendation To Director
+
+- Keep treating hybrid runtime comparators as protected infrastructure, not view-level behavior.
+- Require future bot-facing summary/read-model hooks to define semantic equality up front instead of relying on timestamped payload identity.

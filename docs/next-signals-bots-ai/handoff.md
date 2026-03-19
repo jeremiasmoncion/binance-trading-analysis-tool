@@ -168,3 +168,38 @@ Keep the work phased.
 - Do not emit new live frames that differ only by timestamps.
 - Do not create bot-specific realtime feeds that bypass `realtime-core-service/server.mjs` normalization rules.
 - Do not touch `realtime-core-service/server.mjs` without coordinating with direction/refinement because it is now part of the protected hot path.
+
+## Refinador Runtime - 2026-03-19 - Semantic Shared Runtime Refresh
+
+### What Was Done
+
+- Hardened `useBinanceData` so `dashboardSummary` no-op checks ignore freshness-only metadata such as `generatedAt`.
+- Upgraded semantic comparison of dashboard `topAssets` and recent execution orders to avoid republishing equivalent summary payloads through hybrid refresh paths.
+- Made Binance alias hydration no-op aware so repeated connection refreshes do not rewrite the profile form when the alias string did not change.
+
+### Files Touched
+
+- `src/hooks/useBinanceData.ts`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### Where This Round Ended
+
+- Shared dashboard/runtime reads are now quieter outside the realtime core too.
+- The most visible remaining hybrid seam is deeper semantic comparison around execution-center growth as future bot-owned operational state lands.
+
+### What Remains Pending
+
+- Continue auditing shared hooks for equivalent writes outside the emit/apply realtime path.
+- Revisit `ExecutionCenterPayload` semantic equality if bot state starts expanding candidate/order payload density.
+
+### What The Director Should Review
+
+- Whether direction wants an explicit protected-runtime guideline for summary/read-model comparators, not only for event streams.
+- This round stayed inside the refinador mandate and did not touch product-layer features.
+
+### What The Implementer Should Avoid
+
+- Do not rely on `generatedAt` or similar freshness metadata to decide whether a shared summary is “new”.
+- Do not introduce bot-facing read models that force selector churn just because a backend response recreated arrays or timestamps.

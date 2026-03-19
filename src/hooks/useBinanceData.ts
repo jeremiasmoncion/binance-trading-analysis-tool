@@ -85,13 +85,57 @@ function hasExecutionCenterChanged(current: ExecutionCenterPayload | null, next:
   );
 }
 
+function hasDashboardAssetListChanged(
+  current: DashboardSummaryPayload["topAssets"],
+  next: DashboardSummaryPayload["topAssets"],
+) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (
+      currentItem.asset !== nextItem.asset
+      || Number(currentItem.marketValue || 0) !== Number(nextItem.marketValue || 0)
+      || Number(currentItem.quantity || 0) !== Number(nextItem.quantity || 0)
+      || Number(currentItem.periodChangePct || 0) !== Number(nextItem.periodChangePct || 0)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function hasDashboardOrderListChanged(
+  current: DashboardSummaryPayload["execution"]["recentOrders"],
+  next: DashboardSummaryPayload["execution"]["recentOrders"],
+) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (
+      currentItem.id !== nextItem.id
+      || (currentItem.lifecycle_status || "") !== (nextItem.lifecycle_status || "")
+      || Number(currentItem.realized_pnl || 0) !== Number(nextItem.realized_pnl || 0)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function hasDashboardSummaryChanged(current: DashboardSummaryPayload | null, next: DashboardSummaryPayload | null) {
   if (current === next) return false;
   if (!current || !next) return current !== next;
 
   return !(
-    current.generatedAt === next.generatedAt
-    && current.connection.connected === next.connection.connected
+    current.connection.connected === next.connection.connected
     && (current.connection.accountAlias || "") === (next.connection.accountAlias || "")
     && (current.connectionIssue || "") === (next.connectionIssue || "")
     && Number(current.portfolio.totalValue || 0) === Number(next.portfolio.totalValue || 0)
@@ -99,13 +143,12 @@ function hasDashboardSummaryChanged(current: DashboardSummaryPayload | null, nex
     && Number(current.portfolio.positionsValue || 0) === Number(next.portfolio.positionsValue || 0)
     && Number(current.portfolio.periodChangeValue || 0) === Number(next.portfolio.periodChangeValue || 0)
     && Number(current.portfolio.periodChangePct || 0) === Number(next.portfolio.periodChangePct || 0)
-    && current.topAssets.length === next.topAssets.length
+    && !hasDashboardAssetListChanged(current.topAssets, next.topAssets)
     && Number(current.execution.activeBots || 0) === Number(next.execution.activeBots || 0)
     && Number(current.execution.openOrdersCount || 0) === Number(next.execution.openOrdersCount || 0)
     && Number(current.execution.eligibleCount || 0) === Number(next.execution.eligibleCount || 0)
     && Number(current.execution.blockedCount || 0) === Number(next.execution.blockedCount || 0)
-    && current.execution.recentOrders.length === next.execution.recentOrders.length
-    && (current.execution.recentOrders[0]?.id || 0) === (next.execution.recentOrders[0]?.id || 0)
+    && !hasDashboardOrderListChanged(current.execution.recentOrders, next.execution.recentOrders)
   );
 }
 
@@ -302,7 +345,11 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setBinanceConnection((current) => (hasConnectionChanged(current, connection) ? connection : current));
       setAvailableUsers((current) => (hasUserListChanged(current, users) ? users : current));
       if (connection?.accountAlias) {
-        setBinanceForm((prev) => ({ ...prev, alias: connection.accountAlias || "" }));
+        setBinanceForm((prev) => (
+          prev.alias === (connection.accountAlias || "")
+            ? prev
+            : { ...prev, alias: connection.accountAlias || "" }
+        ));
       }
       return { ok: true as const, connection, users, message: null };
     } catch (error) {

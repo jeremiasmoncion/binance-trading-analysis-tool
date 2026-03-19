@@ -12,6 +12,7 @@
   - orchestration documentation initialized
   - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
   - persistent realtime-core overlay emit dedup is now semantic, so freshness-only timestamps do not republish equivalent overlays
+  - hybrid dashboard/runtime refreshes now ignore freshness-only summary metadata, reducing selector churn outside the realtime core too
 - `in progress`
   - preparing multi-thread workflow
 - `next`

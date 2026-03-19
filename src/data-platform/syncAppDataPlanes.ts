@@ -111,6 +111,58 @@ function hasSystemPlanePayloadChanged(
   );
 }
 
+function hasMarketActionPayloadChanged(
+  current: ReturnType<typeof marketDataPlaneStore.getState>,
+  nextActions: ReturnType<typeof marketDataPlaneStore.getState>["actions"],
+) {
+  return !(
+    current.actions.selectCoin === nextActions.selectCoin
+    && current.actions.selectTimeframe === nextActions.selectTimeframe
+    && current.actions.refreshMarket === nextActions.refreshMarket
+  );
+}
+
+function hasSystemActionPayloadChanged(
+  current: ReturnType<typeof systemDataPlaneStore.getState>,
+  nextActions: ReturnType<typeof systemDataPlaneStore.getState>["actions"],
+) {
+  return !(
+    current.actions.refreshSignals === nextActions.refreshSignals
+    && current.actions.updateSignalMemoryEntry === nextActions.updateSignalMemoryEntry
+    && current.actions.refreshPortfolio === nextActions.refreshPortfolio
+    && current.actions.refreshPortfolioWithFeedback === nextActions.refreshPortfolioWithFeedback
+    && current.actions.refreshExecutionCenter === nextActions.refreshExecutionCenter
+    && current.actions.refreshDashboardSummary === nextActions.refreshDashboardSummary
+    && current.actions.updateExecutionProfile === nextActions.updateExecutionProfile
+    && current.actions.executeDemoSignal === nextActions.executeDemoSignal
+    && current.actions.attachExecutionProtection === nextActions.attachExecutionProtection
+    && current.actions.refreshProfileDataWithFeedback === nextActions.refreshProfileDataWithFeedback
+    && current.actions.refreshStrategyEngine === nextActions.refreshStrategyEngine
+    && current.actions.createStrategyExperiment === nextActions.createStrategyExperiment
+    && current.actions.updateStrategyExperiment === nextActions.updateStrategyExperiment
+    && current.actions.promoteStrategyExperiment === nextActions.promoteStrategyExperiment
+    && current.actions.generateStrategyRecommendations === nextActions.generateStrategyRecommendations
+    && current.actions.activateStrategyRecommendation === nextActions.activateStrategyRecommendation
+    && current.actions.refreshScannerStatus === nextActions.refreshScannerStatus
+    && current.actions.runScannerNow === nextActions.runScannerNow
+    && current.actions.refreshValidationLab === nextActions.refreshValidationLab
+    && current.actions.enqueueValidationBacktest === nextActions.enqueueValidationBacktest
+    && current.actions.processValidationBacktestQueue === nextActions.processValidationBacktestQueue
+    && current.actions.backfillValidationDataset === nextActions.backfillValidationDataset
+    && current.actions.setHideSmallAssets === nextActions.setHideSmallAssets
+    && current.actions.setBinanceFormField === nextActions.setBinanceFormField
+    && current.actions.connectBinance === nextActions.connectBinance
+    && current.actions.disconnectBinance === nextActions.disconnectBinance
+    && current.actions.refreshRealtimeCoreStatus === nextActions.refreshRealtimeCoreStatus
+    && current.actions.toggleWatchlist === nextActions.toggleWatchlist
+    && current.actions.replaceWatchlistCoins === nextActions.replaceWatchlistCoins
+    && current.actions.createWatchlist === nextActions.createWatchlist
+    && current.actions.renameWatchlist === nextActions.renameWatchlist
+    && current.actions.deleteWatchlist === nextActions.deleteWatchlist
+    && current.actions.setActiveWatchlist === nextActions.setActiveWatchlist
+  );
+}
+
 export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
   const nextStatus = market.status === "ok"
     ? "ready"
@@ -159,14 +211,25 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
 }
 
 export function syncMarketDataPlaneActions(actions: ReturnTypeUseMarketData) {
-  marketDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  marketDataPlaneStore.setState((current) => {
+    const nextActions = {
       selectCoin: actions.selectCoin,
       selectTimeframe: actions.selectTimeframe,
       refreshMarket: actions.fetchData,
-    },
-  }));
+    };
+
+    // Action sync runs often from App. Keep the existing plane object when the
+    // handler references are identical so selector consumers do not rerender
+    // just because the shell performed another sync pass.
+    if (!hasMarketActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }
 
 export function syncSystemDataPlane(
@@ -270,30 +333,47 @@ export function syncRealtimeCoreControl(nextState: {
   activeSubscribers: number | null;
   pollIntervalMs: number | null;
 }) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    controls: {
-      ...current.controls,
-      realtimeCore: {
-        configured: nextState.configured,
-        preferredMode: nextState.preferredMode,
-        activeMode: nextState.activeMode,
-        healthy: nextState.healthy,
-        lastCheckedAt: Date.now(),
-        targetLabel: nextState.targetLabel,
-        serviceMode: nextState.serviceMode,
-        activeChannels: nextState.activeChannels,
-        activeSubscribers: nextState.activeSubscribers,
-        pollIntervalMs: nextState.pollIntervalMs,
+  systemDataPlaneStore.setState((current) => {
+    const nextRealtimeCore = {
+      configured: nextState.configured,
+      preferredMode: nextState.preferredMode,
+      activeMode: nextState.activeMode,
+      healthy: nextState.healthy,
+      lastCheckedAt: Date.now(),
+      targetLabel: nextState.targetLabel,
+      serviceMode: nextState.serviceMode,
+      activeChannels: nextState.activeChannels,
+      activeSubscribers: nextState.activeSubscribers,
+      pollIntervalMs: nextState.pollIntervalMs,
+    };
+
+    if (
+      current.controls.realtimeCore.configured === nextRealtimeCore.configured
+      && current.controls.realtimeCore.preferredMode === nextRealtimeCore.preferredMode
+      && current.controls.realtimeCore.activeMode === nextRealtimeCore.activeMode
+      && current.controls.realtimeCore.healthy === nextRealtimeCore.healthy
+      && current.controls.realtimeCore.targetLabel === nextRealtimeCore.targetLabel
+      && current.controls.realtimeCore.serviceMode === nextRealtimeCore.serviceMode
+      && current.controls.realtimeCore.activeChannels === nextRealtimeCore.activeChannels
+      && current.controls.realtimeCore.activeSubscribers === nextRealtimeCore.activeSubscribers
+      && current.controls.realtimeCore.pollIntervalMs === nextRealtimeCore.pollIntervalMs
+    ) {
+      return current;
+    }
+
+    return {
+      ...current,
+      controls: {
+        ...current.controls,
+        realtimeCore: nextRealtimeCore,
       },
-    },
-  }));
+    };
+  });
 }
 
 export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  systemDataPlaneStore.setState((current) => {
+    const nextActions = {
       ...current.actions,
       refreshPortfolio: actions.refreshPortfolio,
       refreshPortfolioWithFeedback: actions.refreshPortfolioWithFeedback,
@@ -307,14 +387,22 @@ export function syncSystemDataPlaneActions(actions: ReturnTypeUseBinanceData) {
       setBinanceFormField: actions.setBinanceFormField,
       connectBinance: actions.connect,
       disconnectBinance: actions.disconnect,
-    },
-  }));
+    };
+
+    if (!hasSystemActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }
 
 export function syncSystemMemoryActions(actions: ReturnTypeUseMemoryRuntime) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  systemDataPlaneStore.setState((current) => {
+    const nextActions = {
       ...current.actions,
       refreshStrategyEngine: actions.refreshStrategyEngine,
       createStrategyExperiment: actions.createStrategyExperiment,
@@ -324,48 +412,80 @@ export function syncSystemMemoryActions(actions: ReturnTypeUseMemoryRuntime) {
       activateStrategyRecommendation: actions.activateStrategyRecommendation,
       refreshScannerStatus: actions.refreshScannerStatus,
       runScannerNow: actions.runScannerNow,
-    },
-  }));
+    };
+
+    if (!hasSystemActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }
 
 export function syncSystemValidationLabActions(actions: ReturnTypeUseValidationLabRuntime) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  systemDataPlaneStore.setState((current) => {
+    const nextActions = {
       ...current.actions,
       refreshValidationLab: actions.refreshValidationLab,
       enqueueValidationBacktest: actions.enqueueValidationBacktest,
       processValidationBacktestQueue: actions.processValidationBacktestQueue,
       backfillValidationDataset: actions.backfillValidationDataset,
-    },
-  }));
+    };
+
+    if (!hasSystemActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }
 
 export function syncRealtimeCoreActions(actions: { refreshRealtimeCoreStatus: () => Promise<unknown> }) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  systemDataPlaneStore.setState((current) => {
+    const nextActions = {
       ...current.actions,
       refreshRealtimeCoreStatus: actions.refreshRealtimeCoreStatus,
-    },
-  }));
+    };
+
+    if (!hasSystemActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }
 
 export function syncSystemSignalActions(actions: ReturnTypeUseSignalMemory) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  systemDataPlaneStore.setState((current) => {
+    const nextActions = {
       ...current.actions,
       refreshSignals: actions.refreshSignals,
       updateSignalMemoryEntry: actions.updateSignal,
-    },
-  }));
+    };
+
+    if (!hasSystemActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }
 
 export function syncSystemWatchlistActions(actions: ReturnTypeUseWatchlist) {
-  systemDataPlaneStore.setState((current) => ({
-    ...current,
-    actions: {
+  systemDataPlaneStore.setState((current) => {
+    const nextActions = {
       ...current.actions,
       toggleWatchlist: actions.toggleWatchlist,
       replaceWatchlistCoins: actions.replaceListCoins,
@@ -373,6 +493,15 @@ export function syncSystemWatchlistActions(actions: ReturnTypeUseWatchlist) {
       renameWatchlist: actions.renameList,
       deleteWatchlist: actions.deleteList,
       setActiveWatchlist: actions.setActiveList,
-    },
-  }));
+    };
+
+    if (!hasSystemActionPayloadChanged(current, nextActions)) {
+      return current;
+    }
+
+    return {
+      ...current,
+      actions: nextActions,
+    };
+  });
 }

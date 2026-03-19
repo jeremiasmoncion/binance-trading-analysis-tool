@@ -210,6 +210,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - demo execution mutations used by `MemoryView` should resolve through shared `system plane actions`; the view can keep local draft state and UX toasts, but not own the operational request path
 - manual signal-memory mutations used by `MemoryView` should also resolve through shared `system plane actions`; the view should not depend on a separate prop callback for closing or annotating saved signals
 - market-plane sync should be no-op aware; if the market hook re-renders without a meaningful payload change, the plane should keep the same object so selectors do not wake up for identical state
+- action sync into shared planes should also be no-op aware; repeated App sync passes must not recreate market/system action objects when handler references did not actually change
 - market hooks should prefer a compact derived snapshot over many sibling state setters; fetch and stream updates can still be frequent, but they should fan into one market payload instead of a long list of local writes
 - high-frequency market paths should be no-op aware locally too; symbol-universe hydration and live ticker frames should not write React state again when the effective payload is unchanged
 - market snapshots should follow a latest-request-wins rule; if the user changes coin or timeframe quickly, older responses must be ignored instead of snapping the plane back to stale context

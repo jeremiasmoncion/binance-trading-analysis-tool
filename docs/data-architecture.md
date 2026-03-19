@@ -222,6 +222,7 @@ CRYPE is still in a hybrid migration, so these boundaries are important:
 - action sync into shared planes should also be no-op aware; repeated App sync passes must not recreate market/system action objects when handler references did not actually change
 - market hooks should prefer a compact derived snapshot over many sibling state setters; fetch and stream updates can still be frequent, but they should fan into one market payload instead of a long list of local writes
 - high-frequency market paths should be no-op aware locally too; symbol-universe hydration and live ticker frames should not write React state again when the effective payload is unchanged
+- periodic market refreshes should stay background-friendly too; once a good market snapshot exists, silent refresh failures should not bounce the shared plane back through `loading/error` unless the user is actually switching coin or timeframe
 - market snapshots should follow a latest-request-wins rule; if the user changes coin or timeframe quickly, older responses must be ignored instead of snapping the plane back to stale context
 - market derivation should have one canonical helper path; fetches and live streams can enter through different sources, but they should build signal/analysis/strategy state with the same snapshot pipeline
 - market derivation should also reuse any indicator pass that already happened in the active path; the hot kline/ticker loop should not recalculate the same candle indicators twice before running the strategy engine

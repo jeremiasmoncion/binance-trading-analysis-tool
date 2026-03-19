@@ -271,7 +271,11 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const fetchData = useCallback(async (coin = currentCoin, nextTimeframe = timeframe) => {
     const requestSeq = marketRequestSeqRef.current + 1;
     marketRequestSeqRef.current = requestSeq;
-    setStatus("loading");
+    const isContextSwitch = coin !== currentCoin || nextTimeframe !== timeframe;
+    const shouldSurfaceLoading = isContextSwitch || !snapshotRef.current.candles.length;
+    if (shouldSurfaceLoading) {
+      setStatus("loading");
+    }
     try {
       const shouldLoadComparison = viewNeedsMarketComparison(currentView);
       // Comparison is a shared 24h context, not a per-timeframe snapshot. Keep
@@ -358,7 +362,10 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       setStatus("ok");
     } catch {
       if (marketRequestSeqRef.current === requestSeq) {
-        setStatus("error");
+        // Background market refresh failures should not thrash the whole plane
+        // into an error/loading loop while a good snapshot is already on screen.
+        // Reserve visible error state for cold starts or real context switches.
+        setStatus((current) => (shouldSurfaceLoading ? "error" : current));
       }
     }
   }, [currentCoin, currentView, timeframe]);

@@ -34,6 +34,8 @@ UX architecture clarification and template-flow lock
 
 - The template is now the official UX flow standard, not loose inspiration.
 - Sidebar grouping, nesting, and page logic should match the template unless a deviation is explicitly justified.
+- The sidebar lower `ACCOUNT` section and bottom user block are part of the required template flow.
+- Logout should not remain as an isolated loose action outside the account/user zone.
 - The old legacy `Signal Bot` surface should no longer drive the future UX.
 - Technical or admin-heavy information should be translated or withheld from the main user journey.
 

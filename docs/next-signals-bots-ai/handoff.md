@@ -242,6 +242,7 @@ Future directors should assume the following without reopening the discussion:
 - the sidebar grouping and ordering should match the template
 - page nesting should match the template
 - user-facing page composition should match the template
+- the lower `ACCOUNT` section and bottom user block should also match the template structure
 - the migrated CRYPE graphic line in `Dashboard` and `My Wallet` remains the visual baseline
 - `Dashboard` and `My Wallet` are also the implementation reference for how template-faithful visuals should be built using CRYPE's shared CSS architecture
 - user-facing modules should show only the minimum useful information first

@@ -201,12 +201,39 @@ The sidebar should follow the template hierarchy and ordering.
 
 - `Strategies Marketplace`
 
+### ACCOUNT
+
+- `Preferences`
+- `Notifications`
+- `Security & API Keys`
+- `Invite Friends`
+- `Subscription`
+- `Help Center`
+
+### Bottom User Block
+
+The sidebar should end with a persistent user block at the bottom, matching the template pattern.
+
+This block should contain:
+
+- user avatar
+- display name
+- secondary identity text such as email or role label
+- user/account access entry point
+
+Important rule:
+
+- logout should not appear as an isolated loose button outside the sidebar architecture
+- logout should live inside the user/account area or as part of the account-related flow
+- the lower sidebar should feel like one integrated account zone, not disconnected fragments
+
 Notes:
 
 - labels can be localized, but hierarchy and flow should remain equivalent
 - sidebar group order should match the template
 - submenu behavior should match the template pattern
 - icon usage should mirror the template's intent and placement
+- the lower `ACCOUNT` section and bottom user block are part of the official flow, not optional extras
 
 ## Page Flow Architecture
 

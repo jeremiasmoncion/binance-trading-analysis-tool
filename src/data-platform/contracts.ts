@@ -63,6 +63,11 @@ export interface MarketDataPlane {
   };
   support: number;
   resistance: number;
+  actions: {
+    selectCoin: (coin: string) => boolean;
+    selectTimeframe: (timeframe: string) => void;
+    refreshMarket: (coin?: string, timeframe?: string) => Promise<unknown>;
+  };
 }
 
 export interface SystemDataPlane {

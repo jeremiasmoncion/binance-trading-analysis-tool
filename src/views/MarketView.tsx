@@ -46,6 +46,7 @@ export function MarketView(incomingProps: MarketViewProps) {
     market24h: incomingProps.market24h ?? marketData.market24h,
     support: incomingProps.support ?? marketData.support,
     resistance: incomingProps.resistance ?? marketData.resistance,
+    onSelectCoin: incomingProps.onSelectCoin ?? marketData.selectCoin,
     onToggleWatchlist: incomingProps.onToggleWatchlist ?? systemData.toggleWatchlist,
     onReplaceWatchlistCoins: incomingProps.onReplaceWatchlistCoins ?? systemData.replaceWatchlistCoins,
     onCreateWatchlist: incomingProps.onCreateWatchlist ?? systemData.createWatchlist,

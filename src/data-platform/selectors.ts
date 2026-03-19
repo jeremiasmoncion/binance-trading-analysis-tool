@@ -80,6 +80,15 @@ export function useMarketSummarySelector() {
     market24h: state.market24h,
     support: state.support,
     resistance: state.resistance,
+    selectCoin: state.actions.selectCoin,
+  }), shallowEqualSelection);
+}
+
+export function useCompareMarketSelector() {
+  return useDataPlaneStore(marketDataPlaneStore, (state) => ({
+    comparison: state.comparison,
+    currentCoin: state.currentCoin,
+    selectCoin: state.actions.selectCoin,
   }), shallowEqualSelection);
 }
 

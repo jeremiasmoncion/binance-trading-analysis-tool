@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode, type RefObject } from "react";
-import type { ComparisonCoin, UserSession, ViewName } from "../types";
+import type { UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
@@ -18,7 +18,6 @@ interface AppViewProps {
   currentView: ViewName;
   theme: "light" | "dark";
   onNavigateView: (view: ViewName) => void;
-  currentCoin: string;
   chartRef: RefObject<HTMLCanvasElement | null>;
   calculatorValues: { capital: string; entry: string; percent: string; stopPct: string };
   calculatorResult: {
@@ -34,10 +33,9 @@ interface AppViewProps {
   onCalculatorChange: (field: "capital" | "entry" | "percent" | "stopPct", value: string) => void;
   onSuggestPlan: () => void;
   onUseCurrentPrice: () => void;
-  comparison: ComparisonCoin[];
-  onSelectCoin: (coin: string) => void;
   onSaveSignal: () => void;
   user: UserSession;
+  onSelectCoin: (coin: string) => void;
 }
 
 export function AppView(props: AppViewProps) {
@@ -91,13 +89,7 @@ export function AppView(props: AppViewProps) {
       );
       break;
     case "compare":
-      content = (
-        <CompareView
-          comparison={props.comparison}
-          currentCoin={props.currentCoin}
-          onSelectCoin={props.onSelectCoin}
-        />
-      );
+      content = <CompareView />;
       break;
     case "learn":
       content = <LearnView />;

@@ -3,14 +3,8 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { EmptyState } from "../components/ui/EmptyState";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { useCompareMarketSelector } from "../data-platform/selectors";
 import { formatPrice, formatSignedPct } from "../lib/format";
-import type { ComparisonCoin } from "../types";
-
-interface CompareViewProps {
-  comparison: ComparisonCoin[];
-  currentCoin: string;
-  onSelectCoin: (coin: string) => void;
-}
 
 function impulseTone(impulse: string) {
   if (/alc|bull|fuer/i.test(impulse)) return "accent-profit";
@@ -18,7 +12,8 @@ function impulseTone(impulse: string) {
   return "accent-info";
 }
 
-export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareViewProps) {
+export function CompareView() {
+  const { comparison, currentCoin, selectCoin } = useCompareMarketSelector();
   const [comparisonPage, setComparisonPage] = useState(1);
   const leader = [...comparison].sort((a, b) => b.change - a.change)[0];
   const laggard = [...comparison].sort((a, b) => a.change - b.change)[0];
@@ -112,7 +107,7 @@ export function CompareView({ comparison, currentCoin, onSelectCoin }: CompareVi
                   type="button"
                   key={coin.symbol}
                   className={`comparison-coin-tile ${coin.symbol === currentCoin ? "is-active" : ""}`}
-                  onClick={() => onSelectCoin(coin.symbol)}
+                  onClick={() => selectCoin(coin.symbol)}
                 >
                   <div className="comparison-coin-top">
                     <span className="comparison-rank">#{(pagedComparison.safePage - 1) * pagedComparison.pageSize + index + 1}</span>

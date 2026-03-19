@@ -67,6 +67,17 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
   });
 }
 
+export function syncMarketDataPlaneActions(actions: ReturnTypeUseMarketData) {
+  marketDataPlaneStore.setState((current) => ({
+    ...current,
+    actions: {
+      selectCoin: actions.selectCoin,
+      selectTimeframe: actions.selectTimeframe,
+      refreshMarket: actions.fetchData,
+    },
+  }));
+}
+
 export function syncSystemDataPlane(
   binance: ReturnTypeUseBinanceData,
   memoryRuntime: ReturnTypeUseMemoryRuntime,

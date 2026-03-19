@@ -30,6 +30,11 @@ const initialMarketDataPlane: MarketDataPlane = {
   },
   support: 0,
   resistance: 0,
+  actions: {
+    selectCoin: () => false,
+    selectTimeframe: () => {},
+    refreshMarket: async () => null,
+  },
 };
 
 export const marketDataPlaneStore = createDataPlaneStore(initialMarketDataPlane);

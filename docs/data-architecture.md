@@ -186,6 +186,7 @@ This means:
 CRYPE is still in a hybrid migration, so these boundaries are important:
 
 - `AppView` should keep shrinking its prop surface as views move to selector-first consumption
+- market navigation actions should live in the shared `market plane`; views like `Compare` and `Market` should not depend on direct prop wiring just to switch coin/timeframe
 - watchlist mutations should flow through `system plane actions`, not through screen-specific prop chains
 - watchlists should treat `localStorage` as a startup cache and last-good fallback only; once a user has a remote session, the remote payload remains canonical and optimistic local edits should reconcile back through that same remote path
 - per-screen polling is considered transitional debt and should be removed or limited to explicit, local-only admin behaviors

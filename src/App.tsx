@@ -17,7 +17,7 @@ import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
-import { syncMarketDataPlane, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemValidationLabActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
+import { syncMarketDataPlane, syncMarketDataPlaneActions, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemValidationLabActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
 import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
@@ -131,6 +131,10 @@ export function App() {
     market.supportResistance,
     market.timeframe,
   ]);
+
+  useEffect(() => {
+    syncMarketDataPlaneActions(market);
+  }, [market.fetchData, market.selectCoin, market.selectTimeframe]);
 
   useEffect(() => {
     syncSystemDataPlane(binance, memoryRuntime, validationLabRuntime, watchlist, Boolean(auth.currentUser));
@@ -651,7 +655,6 @@ export function App() {
           currentView={view.currentView}
           theme={theme}
           onNavigateView={handleNavigateView}
-          currentCoin={market.currentCoin}
           chartRef={chartRef}
           onSaveSignal={() => {
             if (!market.signal) {
@@ -702,7 +705,6 @@ export function App() {
           onCalculatorChange={calculatorState.setField}
           onSuggestPlan={() => calculatorState.applySuggestedPlan()}
           onUseCurrentPrice={calculatorState.useCurrentPrice}
-          comparison={market.comparison}
           onSelectCoin={market.selectCoin}
           user={auth.currentUser}
         />

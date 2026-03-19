@@ -45,6 +45,8 @@ export interface MarketDataPlane {
   meta: DataPlaneMeta;
   currentCoin: string;
   timeframe: string;
+  availableCoins: string[];
+  popularCoins: string[];
   candles: Candle[];
   currentPrice: number;
   indicators: Indicators | null;

@@ -539,29 +539,6 @@ export function App() {
     });
   }
 
-  async function handleRefreshAnalysis() {
-    const loaderId = startLoading({
-      label: "Actualizando análisis",
-      detail: `${market.currentCoin} · ${market.timeframe}`,
-    });
-    try {
-      await market.fetchData(market.currentCoin, market.timeframe);
-      showToast({
-        tone: "success",
-        title: "Análisis actualizado",
-        message: `El mercado de ${market.currentCoin} ya se refrescó con datos recientes.`,
-      });
-    } catch (error) {
-      showToast({
-        tone: "error",
-        title: "No se pudo actualizar",
-        message: error instanceof Error ? error.message : "Inténtalo otra vez en unos segundos.",
-      });
-    } finally {
-      stopLoading(loaderId);
-    }
-  }
-
   if (!auth.currentUser && !sessionChecked) {
     return (
       <StartupOverlay
@@ -628,23 +605,9 @@ export function App() {
 
       <main className="main-content">
         <TopBar
-          currentView={view.currentView}
-          currentCoin={market.currentCoin}
-          coinOptions={market.availableCoins}
-          popularCoins={market.popularCoins}
-          watchlist={watchlist.watchlist}
-          isCurrentCoinWatched={isCurrentCoinWatched}
-          timeframe={market.timeframe}
-          status={market.status}
-          realtimeCore={realtimeCore}
           user={auth.currentUser}
           showAdmin={auth.currentUser.role === "admin"}
-          theme={theme}
           sidebarCollapsed={view.sidebarCollapsed}
-          onCoinChange={market.selectCoin}
-          onTimeframeChange={market.selectTimeframe}
-          onRefresh={() => void handleRefreshAnalysis()}
-          onToggleWatchlist={() => watchlist.toggleWatchlist(market.currentCoin)}
           onToggleTheme={toggleTheme}
           onToggleSidebar={view.toggleSidebar}
           onOpenAdmin={view.openProfile}

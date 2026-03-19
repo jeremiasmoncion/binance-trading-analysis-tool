@@ -1,31 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellIcon, BoltIcon, ChevronDownIcon, MoonIcon, PanelLeftIcon, SunIcon } from "./Icons";
+import { useRealtimeCoreStatusSelector, useTopBarMarketSelector } from "../data-platform/selectors";
 import type { UserSession } from "../types";
 
 interface TopBarProps {
-  currentView: string;
-  currentCoin: string;
-  coinOptions: string[];
-  popularCoins: string[];
-  watchlist: string[];
-  isCurrentCoinWatched: boolean;
-  timeframe: string;
-  status: "idle" | "loading" | "ok" | "error";
-  realtimeCore: {
-    configured: boolean;
-    preferredMode: "external" | "serverless";
-    activeMode: "external" | "serverless";
-    healthy: boolean;
-    lastCheckedAt: number | null;
-  };
   user: UserSession;
   showAdmin: boolean;
-  theme: "light" | "dark";
   sidebarCollapsed: boolean;
-  onCoinChange: (coin: string) => boolean;
-  onTimeframeChange: (timeframe: string) => void;
-  onRefresh: () => void;
-  onToggleWatchlist: () => void;
   onToggleTheme: () => void;
   onToggleSidebar: () => void;
   onOpenAdmin: () => void;
@@ -33,7 +14,11 @@ interface TopBarProps {
 }
 
 export function TopBar(props: TopBarProps) {
-  const [query, setQuery] = useState(props.currentCoin);
+  const market = useTopBarMarketSelector();
+  const { realtimeCore } = useRealtimeCoreStatusSelector();
+  // TopBar reads market/runtime state straight from the shared planes so App
+  // only forwards local UI actions instead of re-broadcasting hot market props.
+  const [query, setQuery] = useState(market.currentCoin);
   const [isOpen, setIsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -41,27 +26,27 @@ export function TopBar(props: TopBarProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const statusText =
-    props.status === "loading" ? "Cargando..." : props.status === "error" ? "Error de conexión" : "Datos correctos";
-  const runtimeText = !props.realtimeCore.configured
+    market.status === "loading" ? "Cargando..." : market.status === "error" ? "Error de conexión" : "Datos correctos";
+  const runtimeText = !realtimeCore.configured
     ? "Fallback"
-    : props.realtimeCore.activeMode === "external"
+    : realtimeCore.activeMode === "external"
       ? "Core"
       : "Fallback";
-  const runtimeTitle = !props.realtimeCore.configured
+  const runtimeTitle = !realtimeCore.configured
     ? "Realtime core externo no configurado. La app usa el fallback interno."
-    : props.realtimeCore.activeMode === "external"
+    : realtimeCore.activeMode === "external"
       ? "Realtime core externo activo."
       : "Realtime core externo no saludable. La app usa el fallback interno.";
   const filteredCoins = useMemo(() => {
     const normalized = query.trim().toUpperCase().replace(/\s+/g, "");
     const source = normalized
-      ? props.coinOptions.filter((coin) => coin.includes(normalized))
-      : props.popularCoins;
+      ? market.availableCoins.filter((coin) => coin.includes(normalized))
+      : market.popularCoins;
     return source.slice(0, 10);
-  }, [props.coinOptions, props.popularCoins, query]);
+  }, [market.availableCoins, market.popularCoins, query]);
   useEffect(() => {
-    setQuery(props.currentCoin);
-  }, [props.currentCoin]);
+    setQuery(market.currentCoin);
+  }, [market.currentCoin]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -91,7 +76,7 @@ export function TopBar(props: TopBarProps) {
 
   function applyCoin(nextCoin: string) {
     const normalized = nextCoin.trim().toUpperCase();
-    const ok = props.onCoinChange(normalized);
+    const ok = market.selectCoin(normalized);
     if (!ok) {
       setFeedback("Ese par no existe en Binance Spot");
       setIsOpen(true);
@@ -174,7 +159,7 @@ export function TopBar(props: TopBarProps) {
                   <button
                     key={coin}
                     type="button"
-                    className={`coin-combobox-option${index === activeIndex ? " active" : ""}${coin === props.currentCoin ? " current" : ""}`}
+                    className={`coin-combobox-option${index === activeIndex ? " active" : ""}${coin === market.currentCoin ? " current" : ""}`}
                     onMouseDown={(e) => e.preventDefault()}
                     onMouseEnter={() => setActiveIndex(index)}
                     onClick={() => applyCoin(coin)}
@@ -193,15 +178,15 @@ export function TopBar(props: TopBarProps) {
 
       <div className="top-right">
         <div className="topbar-status-shell" title={statusText}>
-          <span className={`status-indicator ${props.status === "loading" ? "loading" : props.status === "error" ? "error" : ""}`} />
-          <span>{props.status === "loading" ? "Sync" : props.status === "error" ? "Issue" : "Live"}</span>
+          <span className={`status-indicator ${market.status === "loading" ? "loading" : market.status === "error" ? "error" : ""}`} />
+          <span>{market.status === "loading" ? "Sync" : market.status === "error" ? "Issue" : "Live"}</span>
         </div>
 
         <div
-          className={`topbar-runtime-shell${props.realtimeCore.activeMode === "external" ? " is-external" : ""}${!props.realtimeCore.healthy ? " is-fallback" : ""}`}
+          className={`topbar-runtime-shell${realtimeCore.activeMode === "external" ? " is-external" : ""}${!realtimeCore.healthy ? " is-fallback" : ""}`}
           title={runtimeTitle}
         >
-          <span className={`topbar-runtime-indicator${props.realtimeCore.activeMode === "external" ? " is-external" : ""}${!props.realtimeCore.healthy ? " is-fallback" : ""}`} />
+          <span className={`topbar-runtime-indicator${realtimeCore.activeMode === "external" ? " is-external" : ""}${!realtimeCore.healthy ? " is-fallback" : ""}`} />
           <span>{runtimeText}</span>
         </div>
 
@@ -211,7 +196,7 @@ export function TopBar(props: TopBarProps) {
 
         <button className="topbar-icon-shell topbar-alert-shell" type="button" aria-label="Centro de alertas">
           <BellIcon />
-          {props.status !== "ok" ? <span className="topbar-alert-badge">{props.status === "error" ? "!" : "1"}</span> : null}
+          {market.status !== "ready" ? <span className="topbar-alert-badge">{market.status === "error" ? "!" : "1"}</span> : null}
         </button>
 
         <button className="topbar-icon-shell theme-toggle" type="button" onClick={props.onToggleTheme} aria-label="Cambiar tema">

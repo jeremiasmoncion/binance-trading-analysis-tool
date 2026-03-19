@@ -7,6 +7,8 @@ function hasMarketPlanePayloadChanged(current: ReturnType<typeof marketDataPlane
     current.meta.status === nextStatus
     && current.currentCoin === market.currentCoin
     && current.timeframe === market.timeframe
+    && current.availableCoins === market.availableCoins
+    && current.popularCoins === market.popularCoins
     && current.candles === market.candles
     && current.currentPrice === market.currentPrice
     && current.indicators === market.indicators
@@ -51,6 +53,8 @@ export function syncMarketDataPlane(market: ReturnTypeUseMarketData) {
       },
       currentCoin: market.currentCoin,
       timeframe: market.timeframe,
+      availableCoins: market.availableCoins,
+      popularCoins: market.popularCoins,
       candles: market.candles,
       currentPrice: market.currentPrice,
       indicators: market.indicators,

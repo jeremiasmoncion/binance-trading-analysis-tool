@@ -12,6 +12,8 @@ const initialMarketDataPlane: MarketDataPlane = {
   },
   currentCoin: "BTC/USDT",
   timeframe: "1h",
+  availableCoins: [],
+  popularCoins: [],
   candles: [],
   currentPrice: 0,
   indicators: null,

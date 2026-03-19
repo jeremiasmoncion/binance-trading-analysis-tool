@@ -37,6 +37,7 @@ export function useMemorySystemSelector() {
     strategyDecision: state.snapshot.strategyDecision,
     scannerStatus: state.snapshot.scannerStatus,
     refreshSignals: state.actions.refreshSignals,
+    updateSignalMemoryEntry: state.actions.updateSignalMemoryEntry,
     refreshExecutionCenter: state.actions.refreshExecutionCenter,
     updateExecutionProfile: state.actions.updateExecutionProfile,
     executeDemoSignal: state.actions.executeDemoSignal,

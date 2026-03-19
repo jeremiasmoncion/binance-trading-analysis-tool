@@ -8,6 +8,7 @@ import type {
   ExecutionProfile,
   Indicators,
   PortfolioPayload,
+  SignalOutcomeStatus,
   UserSession,
   Signal,
   SignalSnapshot,
@@ -109,6 +110,7 @@ export interface SystemDataPlane {
   };
   actions: {
     refreshSignals: () => Promise<unknown>;
+    updateSignalMemoryEntry: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => Promise<unknown>;
     refreshPortfolio: (period?: string, mode?: "full" | "live") => Promise<unknown>;
     refreshPortfolioWithFeedback: (period?: string, mode?: "full" | "live") => Promise<unknown>;
     refreshExecutionCenter: () => Promise<unknown>;

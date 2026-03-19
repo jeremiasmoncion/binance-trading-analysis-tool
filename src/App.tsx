@@ -69,7 +69,6 @@ export function App() {
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
   const {
     saveSignal,
-    updateSignal,
     maybeAutoSaveSignal,
     evaluatePendingSignals,
   } = signalMemory;
@@ -704,7 +703,6 @@ export function App() {
           onUseCurrentPrice={calculatorState.useCurrentPrice}
           comparison={market.comparison}
           onSelectCoin={market.selectCoin}
-          onUpdateSignal={(id, outcomeStatus, outcomePnl, note) => void updateSignal(id, outcomeStatus, outcomePnl, note)}
           user={auth.currentUser}
         />
       </main>

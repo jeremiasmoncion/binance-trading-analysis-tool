@@ -27,7 +27,6 @@ interface MemoryViewProps {
   watchlist?: string[];
   executionCenter?: ExecutionCenterPayload | null;
   onRefreshExecutionCenter?: () => Promise<unknown>;
-  onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
 }
 
 type SignalsTab = "overview" | "performance" | "strategies" | "adaptive" | "experiments" | "execution" | "history";
@@ -236,6 +235,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
   const executionCenter = props.executionCenter || null;
   const onRefreshExecutionCenter = props.onRefreshExecutionCenter ?? (async () => null);
   const runScannerNow = systemData.runScannerNow || (async () => null);
+  const updateSignalMemoryEntry = systemData.updateSignalMemoryEntry || (async () => null);
   const updateExecutionProfile = systemData.updateExecutionProfile || (async () => null);
   const executeDemoSignal = systemData.executeDemoSignal || (async () => null);
   const attachExecutionProtection = systemData.attachExecutionProtection || (async () => null);
@@ -3381,7 +3381,7 @@ export function MemoryView(incomingProps: MemoryViewProps) {
                     </tr>
                   ) : (
                     pagedSignals.rows.map((signal) => (
-                      <SignalRow key={signal.id} signal={signal} onSave={props.onUpdateSignal} />
+                      <SignalRow key={signal.id} signal={signal} onSave={updateSignalMemoryEntry} />
                     ))
                   )}
                 </tbody>

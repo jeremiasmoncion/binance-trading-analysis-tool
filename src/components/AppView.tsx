@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode, type RefObject } from "react";
-import type { ComparisonCoin, SignalOutcomeStatus, UserSession, ViewName } from "../types";
+import type { ComparisonCoin, UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
@@ -37,7 +37,6 @@ interface AppViewProps {
   comparison: ComparisonCoin[];
   onSelectCoin: (coin: string) => void;
   onSaveSignal: () => void;
-  onUpdateSignal: (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => void;
   user: UserSession;
 }
 
@@ -55,11 +54,7 @@ export function AppView(props: AppViewProps) {
       );
       break;
     case "memory":
-      content = (
-        <MemoryView
-          onUpdateSignal={props.onUpdateSignal}
-        />
-      );
+      content = <MemoryView />;
       break;
     case "stats":
       content = <StatsView />;

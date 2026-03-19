@@ -165,6 +165,8 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   }, [currentUser, refreshSignals, signals]);
 
   const updateSignal = useCallback(async (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => {
+    // Manual signal closure/editing still belongs to the shared signal-memory
+    // domain so every surface sees the same canonical mutation path.
     await signalService.update(id, { outcomeStatus, outcomePnl, note });
     await refreshSignals();
   }, [refreshSignals]);

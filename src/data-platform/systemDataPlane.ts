@@ -53,6 +53,7 @@ const initialSystemDataPlane: SystemDataPlane = {
   },
   actions: {
     refreshSignals: async () => null,
+    updateSignalMemoryEntry: async () => null,
     refreshPortfolio: async () => null,
     refreshPortfolioWithFeedback: async () => null,
     refreshExecutionCenter: async () => null,

@@ -213,6 +213,7 @@ export function syncSystemSignalActions(actions: ReturnTypeUseSignalMemory) {
     actions: {
       ...current.actions,
       refreshSignals: actions.refreshSignals,
+      updateSignalMemoryEntry: actions.updateSignal,
     },
   }));
 }

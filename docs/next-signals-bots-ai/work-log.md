@@ -71,3 +71,32 @@ Shared realtime overlay application
 
 - Keep `src/realtime-core/events.ts` treated as protected runtime infrastructure.
 - Route future bot/live state through the shared runtime path instead of allowing per-screen event consumers.
+
+## 2026-03-19 - Realtime Overlay Semantic Emit Dedup
+
+### Area
+
+Persistent realtime-core overlay emission
+
+### Completed
+
+- Added semantic overlay hashing inside `realtime-core-service/server.mjs`.
+- Stopped the external core from treating freshness-only timestamp changes as new `system.overlay.updated` payloads.
+- Kept the emitted overlay payload intact for operators while normalizing only the dedup comparison path.
+- Updated the shared architecture doc with the emit-side rule.
+
+### Risk Avoided
+
+- The dual `signals + bots + AI` model will increase the number of read-only consumers sharing the same operational overlay.
+- Without emit-side semantic deduplication, volatile timestamps would keep publishing equivalent overlays and wake selector-driven surfaces unnecessarily.
+- That would scale poorly as more bot/runtime state reuses the same shared hot path.
+
+### Pending
+
+- Audit whether future bot-specific overlay slices should still travel through `system.overlay.updated` or split into a finer taxonomy.
+- Continue auditing shared runtimes for equivalent writes that still originate outside the realtime core.
+
+### Recommendation To Director
+
+- Treat `realtime-core-service/server.mjs` as protected runtime infrastructure for future bot/live integrations.
+- Require new bot/live emitters to reuse semantic dedup rules instead of publishing freshness-only overlay frames.

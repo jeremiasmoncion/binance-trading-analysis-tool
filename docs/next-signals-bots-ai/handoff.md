@@ -129,3 +129,42 @@ Keep the work phased.
 - Do not add screen-level SSE/WebSocket consumers for bot state.
 - Do not bypass `selectors + actions` with direct runtime subscriptions in product-layer work.
 - Do not reshape `src/realtime-core/events.ts` without coordinating with the director/refinador.
+
+## Refinador Runtime - 2026-03-19 - Semantic Emit Dedup
+
+### What Was Done
+
+- Hardened emit-side overlay deduplication in `realtime-core-service/server.mjs`.
+- Added semantic hashing for overlays so volatile freshness metadata (`generatedAt`, `updatedAt`) no longer causes new `system.overlay.updated` events by itself.
+- Kept payload timestamps intact for consumers and operators; only the comparison path is normalized.
+
+### Files Touched
+
+- `realtime-core-service/server.mjs`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- The external realtime core now deduplicates overlays semantically on both sides:
+  - emit side in `realtime-core-service/server.mjs`
+  - apply side in `src/realtime-core/events.ts`
+- Shared selector-driven surfaces are better protected against churn as bot/runtime state density grows.
+
+### What Remains Pending
+
+- Decide whether future bot/live event growth should stay under the current `system.overlay.updated` contract or split into a more granular event taxonomy.
+- Continue auditing shared runtime hooks for no-op writes outside the realtime core.
+
+### What The Director Should Review
+
+- Whether the current overlay contract should remain the canonical event seam for early bot/runtime work.
+- Whether the implementador should be explicitly forbidden from publishing bot-state overlays outside the semantic dedup path.
+
+### What The Implementer Should Avoid
+
+- Do not emit new live frames that differ only by timestamps.
+- Do not create bot-specific realtime feeds that bypass `realtime-core-service/server.mjs` normalization rules.
+- Do not touch `realtime-core-service/server.mjs` without coordinating with direction/refinement because it is now part of the protected hot path.

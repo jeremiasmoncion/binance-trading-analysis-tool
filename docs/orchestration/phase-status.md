@@ -11,6 +11,7 @@
   - base redesign documentation created under `docs/next-signals-bots-ai/`
   - orchestration documentation initialized
   - shared realtime overlay application is now no-op aware, reducing churn before bot runtime expansion
+  - persistent realtime-core overlay emit dedup is now semantic, so freshness-only timestamps do not republish equivalent overlays
 - `in progress`
   - preparing multi-thread workflow
 - `next`

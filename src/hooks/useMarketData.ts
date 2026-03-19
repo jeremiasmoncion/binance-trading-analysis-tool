@@ -45,6 +45,7 @@ const SMART_REFRESH_BY_STYLE: Record<string, number> = {
 
 const COMPARISON_SNAPSHOT_TTL_MS = 60_000;
 const SYMBOL_UNIVERSE_TTL_MS = 10 * 60_000;
+const MULTI_TIMEFRAME_TTL_MS = 60_000;
 
 function getSmartRefreshInterval(timeframe: string, tradingStyle?: string) {
   const timeframeBase = SMART_REFRESH_BY_TIMEFRAME[timeframe] || 300_000;
@@ -137,27 +138,57 @@ function buildDerivedMarketSnapshot(
   };
 }
 
+function toTimeframeSignal(timeframe: string, signal: Signal): TimeframeSignal {
+  return {
+    timeframe,
+    label: signal.label,
+    note: signal.trend === "Neutral" ? "Sin sesgo claro" : signal.trend,
+    trend: signal.trend,
+    score: signal.score,
+    aligned: false,
+  };
+}
+
+function mergeCachedMultiTimeframes(
+  activeTimeframe: string,
+  activeSignal: Signal,
+  cachedItems: TimeframeSignal[],
+) {
+  const activeItem = toTimeframeSignal(activeTimeframe, activeSignal);
+  if (!cachedItems.length) {
+    return [activeItem];
+  }
+
+  let replaced = false;
+  const next = cachedItems.map((item) => {
+    if (item.timeframe !== activeTimeframe) return item;
+    replaced = true;
+    return activeItem;
+  });
+
+  return replaced ? next : [activeItem, ...next];
+}
+
 async function buildMultiTimeframePayloads(
   coin: string,
   activeTimeframe: string,
   activeCandles: Candle[],
+  cachedItems?: TimeframeSignal[],
 ) {
+  const activeSignal = generateSignal(calcIndicators(activeCandles));
+  if (cachedItems?.length) {
+    return mergeCachedMultiTimeframes(activeTimeframe, activeSignal, cachedItems);
+  }
+
   return Promise.all(
     MAP_TIMEFRAMES.map(async (mapTf) => {
       // Reuse the active timeframe candles so a single refresh does not request
       // the same market snapshot twice before running the strategy engine.
-      const tfCandles = mapTf === activeTimeframe
-        ? activeCandles
-        : ((await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf));
-      const tfSignal = generateSignal(calcIndicators(tfCandles));
-      return {
-        timeframe: mapTf,
-        label: tfSignal.label,
-        note: tfSignal.trend === "Neutral" ? "Sin sesgo claro" : tfSignal.trend,
-        trend: tfSignal.trend,
-        score: tfSignal.score,
-        aligned: false,
-      };
+      if (mapTf === activeTimeframe) {
+        return toTimeframeSignal(mapTf, activeSignal);
+      }
+      const tfCandles = (await marketService.fetchCandles(coin, mapTf)) || generateFallbackCandles(mapTf);
+      return toTimeframeSignal(mapTf, generateSignal(calcIndicators(tfCandles)));
     }),
   );
 }
@@ -191,6 +222,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
   const marketRequestSeqRef = useRef(0);
   const comparisonFetchedAtRef = useRef(0);
   const symbolUniverseFetchedAtRef = useRef(0);
+  const multiTimeframeCacheRef = useRef<{
+    coin: string;
+    activeTimeframe: string;
+    fetchedAt: number;
+    items: TimeframeSignal[];
+  } | null>(null);
   const tickerFrameRef = useRef<number | null>(null);
   const klineFrameRef = useRef<number | null>(null);
   const latestTickerRef = useRef<{ price: number; change: number; high: number; low: number; volume: number } | null>(null);
@@ -244,9 +281,16 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
         !snapshotRef.current.comparison.length
         || Date.now() - comparisonFetchedAtRef.current >= COMPARISON_SNAPSHOT_TTL_MS
       );
+      const multiTimeframeCache = multiTimeframeCacheRef.current;
+      const cachedMultiTimeframes = multiTimeframeCache
+        && multiTimeframeCache.coin === coin
+        && multiTimeframeCache.activeTimeframe === nextTimeframe
+        && Date.now() - multiTimeframeCache.fetchedAt < MULTI_TIMEFRAME_TTL_MS
+          ? multiTimeframeCache.items
+          : undefined;
       const fetchedCandles = (await marketService.fetchCandles(coin, nextTimeframe)) || generateFallbackCandles(nextTimeframe);
       const [multiTfPayloads, ticker, nextComparison] = await Promise.all([
-        buildMultiTimeframePayloads(coin, nextTimeframe, fetchedCandles),
+        buildMultiTimeframePayloads(coin, nextTimeframe, fetchedCandles, cachedMultiTimeframes),
         marketService.fetch24h(coin),
         shouldRefreshComparison
           ? Promise.all(
@@ -280,6 +324,12 @@ export function useMarketData({ currentView }: UseMarketDataOptions) {
       if (nextComparison) {
         comparisonFetchedAtRef.current = Date.now();
       }
+      multiTimeframeCacheRef.current = {
+        coin,
+        activeTimeframe: nextTimeframe,
+        fetchedAt: Date.now(),
+        items: multiTfPayloads,
+      };
 
       setCurrentCoin(coin);
       setTimeframe(nextTimeframe);

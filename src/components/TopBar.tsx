@@ -11,6 +11,13 @@ interface TopBarProps {
   isCurrentCoinWatched: boolean;
   timeframe: string;
   status: "idle" | "loading" | "ok" | "error";
+  realtimeCore: {
+    configured: boolean;
+    preferredMode: "external" | "serverless";
+    activeMode: "external" | "serverless";
+    healthy: boolean;
+    lastCheckedAt: number | null;
+  };
   user: UserSession;
   showAdmin: boolean;
   theme: "light" | "dark";
@@ -35,6 +42,16 @@ export function TopBar(props: TopBarProps) {
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const statusText =
     props.status === "loading" ? "Cargando..." : props.status === "error" ? "Error de conexión" : "Datos correctos";
+  const runtimeText = !props.realtimeCore.configured
+    ? "Fallback"
+    : props.realtimeCore.activeMode === "external"
+      ? "Core"
+      : "Fallback";
+  const runtimeTitle = !props.realtimeCore.configured
+    ? "Realtime core externo no configurado. La app usa el fallback interno."
+    : props.realtimeCore.activeMode === "external"
+      ? "Realtime core externo activo."
+      : "Realtime core externo no saludable. La app usa el fallback interno.";
   const filteredCoins = useMemo(() => {
     const normalized = query.trim().toUpperCase().replace(/\s+/g, "");
     const source = normalized
@@ -178,6 +195,14 @@ export function TopBar(props: TopBarProps) {
         <div className="topbar-status-shell" title={statusText}>
           <span className={`status-indicator ${props.status === "loading" ? "loading" : props.status === "error" ? "error" : ""}`} />
           <span>{props.status === "loading" ? "Sync" : props.status === "error" ? "Issue" : "Live"}</span>
+        </div>
+
+        <div
+          className={`topbar-runtime-shell${props.realtimeCore.activeMode === "external" ? " is-external" : ""}${!props.realtimeCore.healthy ? " is-fallback" : ""}`}
+          title={runtimeTitle}
+        >
+          <span className={`topbar-runtime-indicator${props.realtimeCore.activeMode === "external" ? " is-external" : ""}${!props.realtimeCore.healthy ? " is-fallback" : ""}`} />
+          <span>{runtimeText}</span>
         </div>
 
         <button className="topbar-icon-shell utility-highlight" type="button" aria-label="Automatización activa">

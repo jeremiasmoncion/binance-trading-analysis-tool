@@ -15,6 +15,7 @@ import { useWatchlist } from "./hooks/useWatchlist";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
 import { syncMarketDataPlane, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemSignalActions } from "./data-platform/syncAppDataPlanes";
+import { useRealtimeCoreStatusSelector } from "./data-platform/selectors";
 import { strategyEngineService, realtimeCoreService } from "./services/api";
 import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
 import { applyRealtimeCoreEvent } from "./realtime-core/events";
@@ -38,6 +39,7 @@ export function App() {
   const automationEventsBootstrappedRef = useRef(false);
 
   const auth = useAuth();
+  const { realtimeCore } = useRealtimeCoreStatusSelector();
   const market = useMarketData({ currentView: view.currentView });
   const calculatorState = useCalculator(
     market.indicators,
@@ -484,6 +486,7 @@ export function App() {
           isCurrentCoinWatched={isCurrentCoinWatched}
           timeframe={market.timeframe}
           status={market.status}
+          realtimeCore={realtimeCore}
           user={auth.currentUser}
           showAdmin={auth.currentUser.role === "admin"}
           theme={theme}

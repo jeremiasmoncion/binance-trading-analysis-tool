@@ -204,6 +204,9 @@
 .btn-primary:hover { background: #0f1525; }
 .user-pill { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: rgba(15, 23, 42, 0.82); border: 1px solid rgba(71, 85, 105, 0.44); border-radius: 16px; font-size: 11px; color: #e2e8f0; }
 .topbar-status-shell { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border-radius: 14px; border: 1px solid rgba(71, 85, 105, 0.44); background: rgba(15, 23, 42, 0.82); color: #cbd5e1; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.topbar-runtime-shell { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 12px; border-radius: 14px; border: 1px solid rgba(71, 85, 105, 0.44); background: rgba(15, 23, 42, 0.82); color: #cbd5e1; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.topbar-runtime-shell.is-external { border-color: rgba(34, 197, 94, 0.3); color: #86efac; }
+.topbar-runtime-shell.is-fallback { border-color: rgba(245, 158, 11, 0.28); color: #fcd34d; }
 .topbar-icon-shell,
 .theme-toggle { position: relative; width: 42px; height: 42px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(71, 85, 105, 0.44); border-radius: 14px; background: rgba(15, 23, 42, 0.82); color: #e2e8f0; transition: all 0.2s ease; }
 .topbar-icon-shell:hover,
@@ -227,6 +230,9 @@
 .topbar-user-dropdown-action-danger:hover { background: rgba(239, 68, 68, 0.14); color: #fca5a5; }
 .theme-toggle .moon-icon { display: none; }
 .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+.topbar-runtime-indicator { width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; }
+.topbar-runtime-indicator.is-external { background: #22c55e; }
+.topbar-runtime-indicator.is-fallback { background: #f59e0b; }
 .status-indicator.loading {
   background: #f59e0b;
   animation: crype-status-pulse 1.2s ease-in-out infinite;

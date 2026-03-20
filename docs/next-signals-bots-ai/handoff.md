@@ -1094,3 +1094,28 @@ Keep the work phased.
 
 - `Cuenta` should now feel much closer to the template composition.
 - The top-left card should read as a profile/settings card with an inline edit action, not as a generic admin panel.
+
+## Implementador - 2026-03-20 - Account Header Simplification
+
+### What Was Done
+
+- Removed the top summary block that sat above the account tabs.
+- Hid the standalone `Binance` tab from the account settings surface.
+- Mapped any legacy `binance` entry point into `Security & API Keys`.
+
+### Why This Was Correct
+
+- The summary strip added extra admin density before the actual settings UI.
+- Binance/API connectivity already has a more correct home in `Security & API Keys`.
+- This makes the account area read more like the template and more like the existing wallet/bot-settings tab treatment.
+
+### Files Touched
+
+- `src/views/ProfileView.tsx`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### What To Review
+
+- The account page should now open directly into the tab surface without the upper summary band.
+- `Binance` should no longer appear as a visible tab.

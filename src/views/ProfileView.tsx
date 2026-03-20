@@ -16,7 +16,9 @@ interface ProfileViewProps {
 export function ProfileView(props: ProfileViewProps) {
   const systemData = useProfileSystemSelector();
   const botReadModel = useSignalsBotsReadModel();
-  const [activeTab, setActiveTab] = useState<"account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner">(props.initialTab || "account");
+  const [activeTab, setActiveTab] = useState<"account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner">(
+    props.initialTab === "binance" ? "security" : (props.initialTab || "account"),
+  );
   const [usersPage, setUsersPage] = useState(1);
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
@@ -57,7 +59,6 @@ export function ProfileView(props: ProfileViewProps) {
   const realtimeCore = systemData.realtimeCore;
   const tabs = [
     { key: "account", label: "Cuenta" },
-    { key: "binance", label: "Binance" },
     { key: "notifications", label: "Notifications" },
     { key: "security", label: "Security & API Keys" },
     ...(props.user.role === "admin" ? [{ key: "scanner", label: "Vigilante" }] : []),
@@ -105,7 +106,7 @@ export function ProfileView(props: ProfileViewProps) {
 
   useEffect(() => {
     if (!props.initialTab) return;
-    setActiveTab(props.initialTab);
+    setActiveTab(props.initialTab === "binance" ? "security" : props.initialTab);
   }, [props.initialTab]);
 
   useEffect(() => {
@@ -201,20 +202,6 @@ export function ProfileView(props: ProfileViewProps) {
 
   return (
     <div id="profileView" className="view-panel active">
-      <SectionCard
-        title="Perfil y conexiones"
-        subtitle="Desde aqui controlas tu identidad, el acceso a Binance Demo y la visibilidad del backend."
-        helpTitle="Como leer esta vista"
-        helpBody="Perfil no es solo informacion basica. Tambien es la zona donde confirmas si tu cuenta esta lista para operar y si Binance Demo esta enlazado correctamente."
-      />
-
-      <div className="premium-overview-grid">
-        <StatCard label="Usuario activo" value={props.user.displayName || props.user.username} detail={props.user.role === "admin" ? "Administrador" : "Usuario"} tone="accent" />
-        <StatCard label="Conexion Binance" value={connection?.connected ? "Activa" : "Sin conectar"} detail={connection?.maskedApiKey || "Todavia no enlazada"} tone={connection?.connected ? "profit" : "warning"} />
-        <StatCard label="Ordenes abiertas" value={String(summary.openOrdersCount || 0)} detail={connection?.connected ? "Leidas desde Binance Demo" : "Sin lectura activa"} tone="neutral" />
-        <StatCard label="Usuarios visibles" value={String(users.length)} detail={props.user.role === "admin" ? "Panel administrativo" : "Solo lectura"} tone="accent" />
-      </div>
-
       <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner")} />
 
       <div className="profile-panel-grid">

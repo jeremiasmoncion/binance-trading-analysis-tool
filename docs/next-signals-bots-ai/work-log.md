@@ -1887,3 +1887,21 @@ Phase 3 - Signal Bot hard-close refinement
 
 - `src/views/ProfileView.tsx`
 - `src/styles/content.css`
+
+## Account Header Simplification
+
+### What Changed
+
+- Removed the extra hero/status block above the account tabs.
+- Removed the visible `Binance` tab from the account settings surface.
+- Redirected any account entry that still targets `binance` into `Security & API Keys`.
+
+### Why This Matters
+
+- The upper summary strip added unnecessary admin noise before the actual settings tabs.
+- Binance connectivity now belongs to the API/security flow, so exposing it as a separate tab duplicated the same workflow.
+- This makes the account surface read closer to the template and to the wallet/bot-settings tab pattern already adopted in the app.
+
+### Files Updated
+
+- `src/views/ProfileView.tsx`

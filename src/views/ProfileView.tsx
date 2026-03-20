@@ -225,7 +225,7 @@ export function ProfileView(props: ProfileViewProps) {
       <div className="profile-panel-grid">
         {activeTab === "account" ? (
           <>
-            <div className="profile-settings-shell">
+            <div className="profile-settings-shell profile-settings-shell--full">
               <SectionCard
                 className="profile-settings-card"
               >

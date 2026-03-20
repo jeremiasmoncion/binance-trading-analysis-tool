@@ -402,6 +402,10 @@
   gap: 1.35rem;
 }
 
+.profile-settings-shell--full {
+  grid-column: 1 / -1;
+}
+
 .profile-settings-card {
   display: grid;
   gap: 1.1rem;

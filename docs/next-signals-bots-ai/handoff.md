@@ -160,6 +160,9 @@ The redesign also now has dedicated documentation for:
     - cooldown state
     - auto-order counters
     - eligible/blocked cohort averages
+  - the shared `signals + bots` read-model now builds bot-facing feeds from the explicit signal taxonomy
+    instead of relying on the broad ranked feed as the primary bot input
+  - `Signal Bot` now maps decision layers with real adaptive/execution metadata first
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context
@@ -171,7 +174,7 @@ The redesign also now has dedicated documentation for:
   - connect scanner outputs into the new signal core even more directly when there is richer scanner-owned signal evidence available
   - continue tightening market-wide / operable contracts before the next strong bot-core pass
   - turn informational / AI-prioritized into even more explicit contracts if those cohorts spread to more product surfaces
-  - continue moving bot logic to consume the cleaner feed taxonomy
+  - continue moving more bot logic to consume the cleaner feed taxonomy
 
 ## Files Added
 

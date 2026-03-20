@@ -14,6 +14,15 @@ import { useMarketSignalsCore } from "./useMarketSignalsCore";
 import { useBotDecisionsState } from "./useBotDecisions";
 import { useSelectedBotState } from "./useSelectedBot";
 
+function dedupeRankedSignals<T extends { id: string }>(signals: T[]) {
+  const seen = new Set<string>();
+  return signals.filter((signal) => {
+    if (seen.has(signal.id)) return false;
+    seen.add(signal.id);
+    return true;
+  });
+}
+
 function normalizePair(value: string | null | undefined) {
   return String(value || "").trim().toUpperCase();
 }
@@ -119,11 +128,24 @@ export function useSignalsBotsReadModel() {
     const highConfidenceSignals = core.signalCore.subsets.highConfidenceSignals;
     const watchlistFirstSignals = core.signalCore.subsets.watchlistSignals;
     const marketDiscoverySignals = core.signalCore.subsets.marketWideSignals;
-    const signalBotFeed = createBotConsumableFeed(signalBot, rankedSignals, rankedFeed.generatedAt);
+    const observationalSignals = core.signalCore.subsets.observationalSignals;
+    const informationalSignals = core.signalCore.subsets.informationalSignals;
+    const aiPrioritizedSignals = core.signalCore.subsets.aiPrioritizedSignals;
+    // Keep bots mounted on the explicit Signal Core taxonomy instead of
+    // consuming the wide ranked feed directly.
+    const botReadyRankedSignals = dedupeRankedSignals([
+      ...aiPrioritizedSignals,
+      ...prioritySignals,
+      ...watchlistFirstSignals,
+      ...marketDiscoverySignals,
+      ...observationalSignals,
+      ...informationalSignals,
+    ]);
+    const signalBotFeed = createBotConsumableFeed(signalBot, botReadyRankedSignals, rankedFeed.generatedAt);
     const signalBotApprovedSignals = selectAcceptedBotConsumableSignals(signalBotFeed);
     const signalBotBlockedSignals = selectBlockedBotConsumableSignals(signalBotFeed);
     const botCards = bots.map((bot) => {
-      const feed = createBotConsumableFeed(bot, rankedSignals, rankedFeed.generatedAt);
+      const feed = createBotConsumableFeed(bot, botReadyRankedSignals, rankedFeed.generatedAt);
       const primaryPair = bot.workspaceSettings.primaryPair || "";
       const botDecisions = decisions.filter((decision) => decision.botId === bot.id);
       const acceptedSignals = filterSignalsForBotPair(selectAcceptedBotConsumableSignals(feed), primaryPair);
@@ -189,6 +211,10 @@ export function useSignalsBotsReadModel() {
       publishedFeed,
       rankedFeed,
       rankedSignals,
+      informationalSignals,
+      observationalSignals,
+      aiPrioritizedSignals,
+      botReadyRankedSignals,
       prioritySignals,
       highConfidenceSignals,
       watchlistFirstSignals,

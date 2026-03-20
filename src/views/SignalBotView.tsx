@@ -494,9 +494,14 @@ function findSnapshotForSignal(symbol: string, timeframe: string, signals: Signa
 }
 
 function mapSignalLayer(signal: RankedPublishedSignal) {
-  if (signal.ranking.tier === "priority") return "ai-prioritized" as const;
-  if (signal.ranking.compositeScore >= 70) return "operable" as const;
-  return "observational" as const;
+  const adaptiveScore = Number(signal.intelligence?.adaptiveScore || 0);
+  const baseScore = Number(signal.context.score || 0);
+  const hasAdaptivePromotion = adaptiveScore > baseScore || Boolean(signal.intelligence?.scorerLabel);
+  if (hasAdaptivePromotion) return "ai-prioritized" as const;
+  if (signal.intelligence?.executionEligible) return "operable" as const;
+  return signal.ranking.tier === "low-visibility" || signal.ranking.tier === "standard"
+    ? "observational" as const
+    : "operable" as const;
 }
 
 function buildDecisionRationale(action: "observe" | "execute" | "block", signal: RankedPublishedSignal) {

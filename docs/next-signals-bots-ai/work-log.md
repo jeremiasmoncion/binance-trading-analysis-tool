@@ -49,6 +49,34 @@
 
 - Keep pushing the same shared seam toward a fuller `Signal Core` contract, then return to `Bot Core` only after the signal funnel is stable enough for bot consumption.
 
+### Phase
+
+`Bot Core` read-model alignment with `Signal Core`
+
+### Completed
+
+- Moved the shared `signals + bots` read-model away from consuming the broad ranked feed as its primary bot source.
+- Bots now build their consumable feed from the explicit signal taxonomy:
+  - AI-prioritized
+  - operable
+  - watchlist-first
+  - market-wide
+  - observational
+  - informational
+- Updated `Signal Bot` decision-layer mapping so it reads real intelligence metadata first:
+  - adaptive score
+  - scorer evidence
+  - execution eligibility
+
+### Risk Avoided
+
+- This avoids deepening `Bot Core` on top of a wide ranked feed that still hides important semantic distinctions between signal layers.
+- It also reduces the chance that bot history and policy decisions get tied to a visual ranking trick instead of real signal state.
+
+### Recommended Next Step
+
+- Finish the last signal-core tightening pass, then return to a stronger bot phase where bot entities can consume the cleaner taxonomy with less ambiguity.
+
 ## 2026-03-19
 
 ### Phase

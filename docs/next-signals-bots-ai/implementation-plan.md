@@ -170,6 +170,11 @@ Current progress:
   - the first shared operational bot loop now exists:
     - accepted signals can auto-create bot-owned decisions
     - automation mode and execution policy now govern whether the bot observes, assists, or prepares an execution-intent decision
+  - the operational loop now also enforces first runtime guardrails before escalation:
+    - available capital
+    - max open positions
+    - symbol exposure
+    - execution overlap
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
@@ -181,6 +186,7 @@ Current progress:
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
   - bridge operational bot decisions into explicit execution intents
   - harden capital / overlap / exposure runtime guards before direct bot-driven execution
+  - expose guardrail outcomes where they help diagnostics and execution review
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

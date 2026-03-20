@@ -4,6 +4,44 @@
 
 ### Phase
 
+`Bot Core` operational guardrails round
+
+### Completed
+
+- Hardened the new operational decision loop with first real bot-level guardrails before any decision can escalate toward execution intent.
+- The loop now evaluates:
+  - available capital
+  - max open positions
+  - symbol exposure
+  - execution overlap policy
+- `auto` bots no longer jump straight from accepted signal to execution-intent status blindly:
+  - they can now fall back to `assist`
+  - or emit a bot-owned `block` decision when a guardrail is violated
+- Operational decisions now persist richer metadata for future execution-intent work:
+  - requested notional
+  - open position count
+  - same-symbol open count
+  - projected symbol exposure
+  - guardrail code / reason
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids letting the first operational loop behave as if accepted signal plus `auto` mode were enough to justify execution escalation.
+- It also avoids hiding why a bot refused to progress a signal once runtime policy starts mattering.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - bridge execution-intent decisions into a more explicit intent contract
+  - expose guardrail outcomes in bot diagnostics/logs where useful
+  - keep `paper/demo` as the only serious lane until those intents are fully governed end-to-end
+
+### Phase
+
 `Bot Core` operational decision loop round
 
 ### Completed

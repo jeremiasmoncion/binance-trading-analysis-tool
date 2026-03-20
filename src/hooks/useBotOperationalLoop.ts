@@ -26,6 +26,10 @@ function normalizeSignalId(value: unknown) {
   return Number.isFinite(nextValue) && nextValue > 0 ? nextValue : 0;
 }
 
+function normalizeToken(value: unknown) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function mapSignalLayer(signal: RankedPublishedSignal) {
   const adaptiveScore = Number(signal.intelligence?.adaptiveScore || 0);
   const baseScore = Number(signal.context.score || 0);
@@ -53,15 +57,138 @@ function hasExistingDecision(decisions: BotDecisionRecord[], botId: string, sign
   ));
 }
 
-function resolveOperationalIntent(bot: Bot, signal: RankedPublishedSignal) {
+function isOpenDecision(decision: BotDecisionRecord) {
+  return decision.status === "pending" || decision.status === "approved" || decision.status === "executed";
+}
+
+function evaluateExecutionGuardrails(bot: Bot, signal: RankedPublishedSignal, decisions: BotDecisionRecord[]) {
+  const botOpenDecisions = decisions.filter((decision) => decision.botId === bot.id && isOpenDecision(decision));
+  const symbolOpenDecisions = botOpenDecisions.filter((decision) => normalizeToken(decision.symbol) === normalizeToken(signal.context.symbol));
+  const requestedNotionalUsd = Math.max(
+    0,
+    Math.min(
+      Number(bot.capital.availableUsd || 0),
+      Number(bot.riskPolicy.maxPositionUsd || 0),
+    ),
+  );
+  const allocatedUsd = Math.max(Number(bot.capital.allocatedUsd || 0), requestedNotionalUsd, 1);
+  const projectedSymbolExposurePct = ((symbolOpenDecisions.length + 1) * requestedNotionalUsd / allocatedUsd) * 100;
+
+  if (!bot.executionPolicy.canOpenPositions) {
+    return {
+      status: "blocked" as const,
+      reason: "Position opening is disabled by execution policy.",
+      code: "execution-disabled",
+      requestedNotionalUsd,
+      openPositionCount: botOpenDecisions.length,
+      symbolOpenCount: symbolOpenDecisions.length,
+      projectedSymbolExposurePct,
+    };
+  }
+
+  if (requestedNotionalUsd <= 0) {
+    return {
+      status: "blocked" as const,
+      reason: "No available capital remains for a new bot-driven position.",
+      code: "capital-unavailable",
+      requestedNotionalUsd,
+      openPositionCount: botOpenDecisions.length,
+      symbolOpenCount: symbolOpenDecisions.length,
+      projectedSymbolExposurePct,
+    };
+  }
+
+  if (botOpenDecisions.length >= Number(bot.riskPolicy.maxOpenPositions || 0)) {
+    return {
+      status: "blocked" as const,
+      reason: "The bot already reached its maximum concurrent positions.",
+      code: "max-open-positions",
+      requestedNotionalUsd,
+      openPositionCount: botOpenDecisions.length,
+      symbolOpenCount: symbolOpenDecisions.length,
+      projectedSymbolExposurePct,
+    };
+  }
+
+  if (symbolOpenDecisions.length > 0 && bot.overlapPolicy.executionOverlap === "block") {
+    return {
+      status: "blocked" as const,
+      reason: `Execution overlap is blocked for ${signal.context.symbol}.`,
+      code: "execution-overlap-blocked",
+      requestedNotionalUsd,
+      openPositionCount: botOpenDecisions.length,
+      symbolOpenCount: symbolOpenDecisions.length,
+      projectedSymbolExposurePct,
+    };
+  }
+
+  if (projectedSymbolExposurePct > Number(bot.riskPolicy.maxSymbolExposurePct || 0)) {
+    return {
+      status: "blocked" as const,
+      reason: `Projected symbol exposure for ${signal.context.symbol} exceeds the bot limit.`,
+      code: "symbol-exposure-limit",
+      requestedNotionalUsd,
+      openPositionCount: botOpenDecisions.length,
+      symbolOpenCount: symbolOpenDecisions.length,
+      projectedSymbolExposurePct,
+    };
+  }
+
+  return {
+    status: "clear" as const,
+    reason: "Guardrails allow the bot to progress this signal toward execution intent.",
+    code: "clear",
+    requestedNotionalUsd,
+    openPositionCount: botOpenDecisions.length,
+    symbolOpenCount: symbolOpenDecisions.length,
+    projectedSymbolExposurePct,
+  };
+}
+
+function resolveOperationalIntent(signal: RankedPublishedSignal) {
   const executionEligible = Boolean(signal.intelligence?.executionEligible)
     || signal.ranking.tier === "high-confidence"
     || signal.ranking.tier === "priority";
+  if (!executionEligible) {
+    return {
+      action: "observe" as BotDecisionAction,
+      status: "approved" as const,
+      source: "signal-core" as BotDecisionSource,
+      rationale: `Bot operativo observo ${signal.context.symbol} porque la señal todavia no es elegible para ejecucion.`,
+      executionIntentStatus: "observe-only",
+      guardrail: null,
+    };
+  }
+
+  return {
+    action: "assist" as BotDecisionAction,
+    status: "approved" as const,
+    source: "ai-supervisor" as BotDecisionSource,
+    rationale: `Bot operativo elevo ${signal.context.symbol} para revision asistida antes de ejecucion.`,
+    executionIntentStatus: "approval-needed",
+    guardrail: null,
+  };
+}
+
+function resolveAutomatedIntent(bot: Bot, signal: RankedPublishedSignal, decisions: BotDecisionRecord[]) {
+  const baseIntent = resolveOperationalIntent(signal);
+  if (bot.automationMode === "observe") return baseIntent;
+  if (bot.automationMode === "assist") return baseIntent;
+
+  const guardrail = evaluateExecutionGuardrails(bot, signal, decisions);
+  if (guardrail.status === "blocked") {
+    return {
+      action: "block" as BotDecisionAction,
+      status: "blocked" as const,
+      source: "ai-supervisor" as BotDecisionSource,
+      rationale: `Bot operativo bloqueo ${signal.context.symbol}: ${guardrail.reason}`,
+      executionIntentStatus: "guardrail-blocked",
+      guardrail,
+    };
+  }
+
   const canSelfExecute = (
-    bot.automationMode === "auto"
-    && executionEligible
-    && bot.executionPolicy.canOpenPositions
-    && bot.executionPolicy.autoExecutionEnabled
+    bot.executionPolicy.autoExecutionEnabled
     && !bot.executionPolicy.suggestionsOnly
     && !bot.executionPolicy.requiresHumanApproval
     && (bot.executionEnvironment !== "real" || bot.executionPolicy.realExecutionEnabled)
@@ -72,32 +199,24 @@ function resolveOperationalIntent(bot: Bot, signal: RankedPublishedSignal) {
       action: "execute" as BotDecisionAction,
       status: "pending" as const,
       source: "ai-supervisor" as BotDecisionSource,
-      rationale: `Bot operativo listo para ejecutar ${signal.context.symbol} automaticamente tras pasar politicas y elegibilidad.`,
+      rationale: `Bot operativo preparo ${signal.context.symbol} para ejecucion automatica tras pasar guardrails y politicas.`,
       executionIntentStatus: "ready",
-    };
-  }
-
-  if (bot.automationMode === "assist" || (bot.automationMode === "auto" && executionEligible)) {
-    return {
-      action: "assist" as BotDecisionAction,
-      status: "approved" as const,
-      source: "ai-supervisor" as BotDecisionSource,
-      rationale: `Bot operativo elevo ${signal.context.symbol} para revision asistida antes de ejecucion.`,
-      executionIntentStatus: bot.executionPolicy.requiresHumanApproval ? "approval-needed" : "assist-only",
+      guardrail,
     };
   }
 
   return {
-    action: "observe" as BotDecisionAction,
+    action: "assist" as BotDecisionAction,
     status: "approved" as const,
-    source: "signal-core" as BotDecisionSource,
-    rationale: `Bot operativo observo ${signal.context.symbol} dentro de su feed consumible y politicas actuales.`,
-    executionIntentStatus: "observe-only",
+    source: "ai-supervisor" as BotDecisionSource,
+    rationale: `Bot operativo elevo ${signal.context.symbol} para aprobacion antes de ejecucion directa.`,
+    executionIntentStatus: bot.executionPolicy.requiresHumanApproval ? "approval-needed" : "assist-only",
+    guardrail,
   };
 }
 
-function buildOperationalDecision(bot: Bot, signal: RankedPublishedSignal): BotDecisionRecord {
-  const intent = resolveOperationalIntent(bot, signal);
+function buildOperationalDecision(bot: Bot, signal: RankedPublishedSignal, decisions: BotDecisionRecord[]): BotDecisionRecord {
+  const intent = resolveAutomatedIntent(bot, signal, decisions);
   const now = new Date().toISOString();
 
   return {
@@ -138,6 +257,12 @@ function buildOperationalDecision(bot: Bot, signal: RankedPublishedSignal): BotD
       requiresHumanApproval: bot.executionPolicy.requiresHumanApproval,
       autoExecutionEnabled: bot.executionPolicy.autoExecutionEnabled,
       canOpenPositions: bot.executionPolicy.canOpenPositions,
+      requestedNotionalUsd: intent.guardrail?.requestedNotionalUsd ?? null,
+      openPositionCount: intent.guardrail?.openPositionCount ?? null,
+      symbolOpenCount: intent.guardrail?.symbolOpenCount ?? null,
+      projectedSymbolExposurePct: intent.guardrail?.projectedSymbolExposurePct ?? null,
+      guardrailCode: intent.guardrail?.code || null,
+      guardrailReason: intent.guardrail?.reason || null,
       generatedByOperationalLoop: true,
     },
     createdAt: now,
@@ -183,7 +308,7 @@ export function useBotOperationalLoop() {
 
     const fingerprint = candidates
       .map(({ bot, signal }) => {
-        const intent = resolveOperationalIntent(bot, signal);
+        const intent = resolveAutomatedIntent(bot, signal, decisions);
         return `${bot.id}:${signal.id}:${intent.action}:${intent.status}`;
       })
       .join("|");
@@ -195,12 +320,12 @@ export function useBotOperationalLoop() {
     void (async () => {
       for (const { bot, signal } of candidates) {
         if (cancelled) return;
-        await createDecision(buildOperationalDecision(bot, signal));
+        await createDecision(buildOperationalDecision(bot, signal, decisions));
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [botsHydrated, candidates, createDecision, decisionsHydrated]);
+  }, [botsHydrated, candidates, createDecision, decisions, decisionsHydrated]);
 }

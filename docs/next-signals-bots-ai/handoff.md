@@ -297,6 +297,18 @@ The redesign also now has dedicated documentation for:
     - `auto` -> auto execution-intent decision only when policy truly allows self-execution
   - when execution policy is not fully open, `auto` bots now fall back to assisted decisions instead of pretending real execution happened
   - this round stops at `signal -> bot decision`; it does not yet emit direct execution orders from the bot runtime
+  - the operational loop now also applies first real bot-level guardrails before escalating toward execution intent:
+    - available capital
+    - max open positions
+    - symbol exposure
+    - execution overlap policy
+  - guardrail violations now persist as bot-owned blocked decisions instead of silently disappearing
+  - operational decision metadata now includes first execution-intent fields:
+    - requested notional
+    - open position count
+    - same-symbol open count
+    - projected symbol exposure
+    - guardrail code / reason
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -325,6 +337,7 @@ The redesign also now has dedicated documentation for:
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
   - bridge auto bot decisions into explicit execution intents
   - harden capital/overlap/exposure guards before letting the operational loop escalate beyond decisions
+  - expose guardrail outcomes where they help bot diagnostics and execution review
 
 ## Phase 4 Status
 

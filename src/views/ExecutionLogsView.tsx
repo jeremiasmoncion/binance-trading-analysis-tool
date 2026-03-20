@@ -49,7 +49,7 @@ type ActivityLogEntry =
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
-type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "awaiting-approval" | "blocked" | "linked";
+type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "linked";
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
@@ -163,12 +163,13 @@ export function ExecutionLogsView() {
       .filter((bot) => (
         (bot.executionIntentSummary?.queuedCount || 0)
         || (bot.executionIntentSummary?.dispatchRequestedCount || 0)
+        || (bot.executionIntentSummary?.dispatchedCount || 0)
         || (bot.executionIntentSummary?.awaitingApprovalCount || 0)
         || (bot.executionIntentSummary?.blockedLaneCount || 0)
       ))
       .sort((left, right) => (
-        ((right.executionIntentSummary?.queuedCount || 0) + (right.executionIntentSummary?.dispatchRequestedCount || 0) + (right.executionIntentSummary?.awaitingApprovalCount || 0) + (right.executionIntentSummary?.blockedLaneCount || 0))
-        - ((left.executionIntentSummary?.queuedCount || 0) + (left.executionIntentSummary?.dispatchRequestedCount || 0) + (left.executionIntentSummary?.awaitingApprovalCount || 0) + (left.executionIntentSummary?.blockedLaneCount || 0))
+        ((right.executionIntentSummary?.queuedCount || 0) + (right.executionIntentSummary?.dispatchRequestedCount || 0) + (right.executionIntentSummary?.dispatchedCount || 0) + (right.executionIntentSummary?.awaitingApprovalCount || 0) + (right.executionIntentSummary?.blockedLaneCount || 0))
+        - ((left.executionIntentSummary?.queuedCount || 0) + (left.executionIntentSummary?.dispatchRequestedCount || 0) + (left.executionIntentSummary?.dispatchedCount || 0) + (left.executionIntentSummary?.awaitingApprovalCount || 0) + (left.executionIntentSummary?.blockedLaneCount || 0))
       ))
       .slice(0, 4)
       .map((bot) => ({
@@ -177,6 +178,7 @@ export function ExecutionLogsView() {
         pair: bot.workspaceSettings.primaryPair || latestSymbolFromBot(bot) || "-",
         queuedCount: bot.executionIntentSummary?.queuedCount || 0,
         dispatchRequestedCount: bot.executionIntentSummary?.dispatchRequestedCount || 0,
+        dispatchedCount: bot.executionIntentSummary?.dispatchedCount || 0,
         awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
         blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
         linkedCount: bot.executionIntentSummary?.linkedCount || 0,
@@ -309,6 +311,7 @@ export function ExecutionLogsView() {
               <button type="button" className={`template-chip ${ownershipFilter === "unlinked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("unlinked")}>Unlinked Orders</button>
               <button type="button" className={`template-chip ${intentFilter === "queued" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("queued")}>Queued Intents</button>
               <button type="button" className={`template-chip ${intentFilter === "dispatch-requested" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("dispatch-requested")}>Dispatch Requested</button>
+              <button type="button" className={`template-chip ${intentFilter === "dispatched" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("dispatched")}>Dispatched</button>
               <button type="button" className={`template-chip ${intentFilter === "awaiting-approval" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("awaiting-approval")}>Awaiting Approval</button>
               <button type="button" className={`template-chip ${intentFilter === "blocked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("blocked")}>Blocked Intents</button>
               <button type="button" className={`template-chip ${intentFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("linked")}>Linked Intents</button>
@@ -322,7 +325,7 @@ export function ExecutionLogsView() {
                 <article key={`intent-${bot.id}`} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>
-                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.dispatchedCount} dispatched · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
                   </p>
                   <p>
                     {bot.latestIntentSymbol
@@ -504,6 +507,7 @@ function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter) {
   if (!laneStatus) return false;
   if (filter === "queued") return laneStatus === "queued";
   if (filter === "dispatch-requested") return laneStatus === "dispatch-requested";
+  if (filter === "dispatched") return laneStatus === "dispatched";
   if (filter === "awaiting-approval") return laneStatus === "awaiting-approval";
   if (filter === "blocked") return laneStatus === "blocked";
   return laneStatus === "linked";
@@ -639,6 +643,7 @@ function formatDecisionStatus(status: string, linkedOrderStatus?: string | null,
   if (linkedOrderStatus) return formatStatus({ status: linkedOrderStatus } as ExecutionLogOrderEntry);
   if (intentLaneStatus === "queued") return "Queued";
   if (intentLaneStatus === "dispatch-requested") return "Dispatch Requested";
+  if (intentLaneStatus === "dispatched") return "Dispatched";
   if (intentLaneStatus === "awaiting-approval") return "Awaiting Approval";
   if (intentLaneStatus === "blocked") return "Intent Blocked";
   if (intentLaneStatus === "linked") return "Linked";

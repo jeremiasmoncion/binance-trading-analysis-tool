@@ -200,6 +200,10 @@ Current progress:
   - queued paper/demo intents can now also move into an explicit `dispatch-requested` lane from the same review surface
   - blocked intent rows now also surface the shared intent reason more directly
   - intent summaries now also count and prioritize dispatch backlog explicitly
+  - the operational loop now also consumes `dispatch-requested` paper/demo intents through the existing shared execution adapter instead of opening a second execution path
+  - successful adapter calls now move those intents into an explicit `dispatched` lane while execution linkage still closes them later into `linked`
+  - dispatch failures now fall back into the same governed bot-decision seam as blocked intents with explicit reason metadata
+  - `Signal Bot` and `Execution Logs` now expose `dispatched` as a first-class paper/demo lane state
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
@@ -209,9 +213,9 @@ Current progress:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics
   - decide whether the fleet hub should also surface ranked recurring symbols
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - decide whether `dispatch-requested` should now integrate with a real paper/demo execution adapter
   - decide whether dispatch backlog should surface more clearly in fleet-level summaries
   - keep direct bot-driven order emission out of scope until that intent lane is governed end-to-end
+  - decide whether the next step should expose more explicit dispatch outcome diagnostics per adapter call
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

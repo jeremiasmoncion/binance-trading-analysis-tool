@@ -786,7 +786,7 @@ function getDecisionGuardrailCode(decision: { metadata?: Record<string, unknown>
 }
 
 function getDecisionGuardrailReason(decision: { metadata?: Record<string, unknown> }) {
-  const value = String(decision.metadata?.guardrailReason || "").trim();
+  const value = String(decision.metadata?.guardrailReason || decision.metadata?.executionIntentReason || "").trim();
   return value || null;
 }
 
@@ -831,6 +831,7 @@ function createExecutionIntentSummary<
     autoExecutableCount: ranked.filter((entry) => entry.intentStatus === "ready").length,
     queuedCount: ranked.filter((entry) => entry.laneStatus === "queued").length,
     dispatchRequestedCount: ranked.filter((entry) => entry.laneStatus === "dispatch-requested").length,
+    dispatchedCount: ranked.filter((entry) => entry.laneStatus === "dispatched").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,
     linkedCount: ranked.filter((entry) => entry.laneStatus === "linked").length,

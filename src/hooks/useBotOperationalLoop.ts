@@ -8,6 +8,7 @@ import {
   type BotDecisionSource,
   type RankedPublishedSignal,
 } from "../domain";
+import { systemDataPlaneStore } from "../data-platform/systemDataPlane";
 import { useBotDecisionsState } from "./useBotDecisions";
 import { useMarketSignalsCore } from "./useMarketSignalsCore";
 import { useSelectedBotState } from "./useSelectedBot";
@@ -284,6 +285,18 @@ function getDecisionIntentLaneStatus(decision: BotDecisionRecord) {
   return String(decision.metadata?.executionIntentLaneStatus || "").trim();
 }
 
+function getDispatchModeForLane(lane: string) {
+  if (lane === "paper") return "preview" as const;
+  if (lane === "demo") return "execute" as const;
+  return null;
+}
+
+function getDispatchSignalId(decision: BotDecisionRecord) {
+  return normalizeSignalId(decision.metadata?.signalId)
+    || normalizeSignalId(decision.metadata?.publishedSignalId)
+    || normalizeSignalId(decision.signalSnapshotId);
+}
+
 function buildIntentLanePatch(bot: Bot, decision: BotDecisionRecord): Partial<BotDecisionRecord> | null {
   if (!decision.metadata?.generatedByOperationalLoop) return null;
   if (decision.metadata?.executionOrderId) return null;
@@ -304,6 +317,22 @@ function buildIntentLanePatch(bot: Bot, decision: BotDecisionRecord): Partial<Bo
   const currentLane = String(decision.metadata?.executionIntentLane || "").trim();
   const currentLaneStatus = getDecisionIntentLaneStatus(decision);
   const currentIntentStatus = String(decision.metadata?.executionIntentLastStatus || "").trim();
+  if (
+    currentLane === lane
+    && intentStatus === "ready"
+    && ["dispatch-requested", "dispatched", "linked", "blocked"].includes(currentLaneStatus)
+    && currentIntentStatus === intentStatus
+  ) {
+    return null;
+  }
+  if (
+    currentLane === lane
+    && intentStatus === "approval-needed"
+    && currentLaneStatus === "blocked"
+    && currentIntentStatus === intentStatus
+  ) {
+    return null;
+  }
   if (currentLane === lane && currentLaneStatus === laneStatus && currentIntentStatus === intentStatus) {
     return null;
   }
@@ -330,6 +359,7 @@ export function useBotOperationalLoop() {
   const core = useMarketSignalsCore();
   const loopFingerprintRef = useRef("");
   const intentLaneFingerprintRef = useRef("");
+  const dispatchInFlightRef = useRef(new Set<string>());
 
   const candidates = useMemo(() => {
     const botReadyRankedSignals = dedupeRankedSignals([
@@ -419,4 +449,119 @@ export function useBotOperationalLoop() {
       cancelled = true;
     };
   }, [pendingIntentLanePatches, updateDecision]);
+
+  const pendingDispatches = useMemo(() => {
+    if (!botsHydrated || !decisionsHydrated) return [];
+
+    const botById = new Map(registryState.bots.map((bot) => [bot.id, bot]));
+    return decisions
+      .map((decision) => {
+        const bot = botById.get(decision.botId);
+        if (!bot || bot.status !== "active") return null;
+        if (!decision.metadata?.generatedByOperationalLoop) return null;
+        if (decision.metadata?.executionOrderId) return null;
+        if (getDecisionIntentLaneStatus(decision) !== "dispatch-requested") return null;
+        return { bot, decision };
+      })
+      .filter((entry): entry is { bot: Bot; decision: BotDecisionRecord } => Boolean(entry));
+  }, [botsHydrated, decisions, decisionsHydrated, registryState.bots]);
+
+  useEffect(() => {
+    if (!pendingDispatches.length) return;
+
+    let cancelled = false;
+    void (async () => {
+      for (const { decision } of pendingDispatches) {
+        if (cancelled) return;
+        if (dispatchInFlightRef.current.has(decision.id)) continue;
+        dispatchInFlightRef.current.add(decision.id);
+
+        try {
+          const lane = String(decision.metadata?.executionIntentLane || "").trim();
+          const dispatchMode = getDispatchModeForLane(lane);
+          const signalId = getDispatchSignalId(decision);
+          const now = new Date().toISOString();
+
+          if (!dispatchMode) {
+            await updateDecision(decision.id, {
+              status: "blocked",
+              metadata: {
+                ...decision.metadata,
+                executionIntentLaneStatus: "blocked",
+                executionIntentLastUpdatedAt: now,
+                executionIntentDispatchAttemptedAt: now,
+                executionIntentDispatchStatus: "blocked",
+                executionIntentReason: `The ${lane || "unknown"} lane cannot dispatch through the shared paper/demo adapter.`,
+              },
+            });
+            continue;
+          }
+
+          if (!signalId) {
+            await updateDecision(decision.id, {
+              status: "blocked",
+              metadata: {
+                ...decision.metadata,
+                executionIntentLaneStatus: "blocked",
+                executionIntentLastUpdatedAt: now,
+                executionIntentDispatchAttemptedAt: now,
+                executionIntentDispatchStatus: "blocked",
+                executionIntentReason: "The bot intent is missing a published signal id for paper/demo dispatch.",
+              },
+            });
+            continue;
+          }
+
+          const payload = await systemDataPlaneStore.getState().actions.executeDemoSignal(signalId, dispatchMode) as {
+            candidate?: { status?: string; reasons?: string[] };
+            protection?: { protectionAttached?: boolean; protectionNote?: string };
+          } | null;
+
+          const candidateStatus = String(payload?.candidate?.status || "").trim().toLowerCase();
+          const candidateReason = payload?.candidate?.reasons?.[0] || "";
+
+          if (!payload || candidateStatus === "blocked") {
+            await updateDecision(decision.id, {
+              status: "blocked",
+              metadata: {
+                ...decision.metadata,
+                executionIntentLaneStatus: "blocked",
+                executionIntentLastUpdatedAt: now,
+                executionIntentDispatchAttemptedAt: now,
+                executionIntentDispatchStatus: candidateStatus || "failed",
+                executionIntentDispatchMode: dispatchMode,
+                executionIntentDispatchSignalId: signalId,
+                executionIntentReason: candidateReason || `The ${lane} dispatch adapter could not progress ${decision.symbol}.`,
+              },
+            });
+            continue;
+          }
+
+          await updateDecision(decision.id, {
+            status: dispatchMode === "execute" && decision.status !== "closed" ? "pending" : decision.status,
+            metadata: {
+              ...decision.metadata,
+              executionIntentLaneStatus: "dispatched",
+              executionIntentLastUpdatedAt: now,
+              executionIntentDispatchAttemptedAt: now,
+              executionIntentDispatchedAt: now,
+              executionIntentDispatchStatus: candidateStatus || "submitted",
+              executionIntentDispatchMode: dispatchMode,
+              executionIntentDispatchSignalId: signalId,
+              executionIntentDispatchProtectionAttached: Boolean(payload?.protection?.protectionAttached),
+              executionIntentReason: dispatchMode === "execute"
+                ? "Dispatched through the shared demo execution adapter."
+                : "Dispatched through the shared paper preview adapter.",
+            },
+          });
+        } finally {
+          dispatchInFlightRef.current.delete(decision.id);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingDispatches, updateDecision]);
 }

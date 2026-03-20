@@ -221,6 +221,23 @@ This is the entity that should later power:
 - learning snapshots
 - conversational audit trails
 
+The current operational progression inside `BotDecisionRecord.metadata` also now supports a governed execution-intent lane for non-real dispatch:
+
+- `executionIntentStatus`
+- `executionIntentLane`
+- `executionIntentLaneStatus`
+
+Current lane-state progression in the implementation:
+
+- `awaiting-approval`
+- `queued`
+- `dispatch-requested`
+- `dispatched`
+- `blocked`
+- `linked`
+
+This allows the bot to move from signal consumption to paper/demo dispatch without pretending that a real order was already emitted.
+
 ## Future Conversational Entities
 
 The architecture should leave room for:

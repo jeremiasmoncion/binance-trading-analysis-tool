@@ -4,6 +4,44 @@
 
 ### Phase
 
+`Bot Core` paper-demo dispatch adapter round
+
+### Completed
+
+- Connected the shared `dispatch-requested` bot-intent lane to the existing shared paper/demo execution adapter instead of inventing a second execution runtime.
+- The operational loop now consumes `dispatch-requested` decisions and dispatches them through:
+  - `preview` when the bot lane is `paper`
+  - `execute` when the bot lane is `demo`
+- Successful adapter calls now move intents into an explicit `dispatched` lane while the existing execution-linkage seam can still close them later into `linked`.
+- Dispatch failures now stay inside the same governed bot-decision seam as:
+  - `executionIntentLaneStatus = blocked`
+  - explicit dispatch reason metadata
+- Guarded the lane normalizer so a `ready` intent that has already progressed to:
+  - `dispatch-requested`
+  - `dispatched`
+  - `linked`
+  - `blocked`
+  is not snapped back to `queued`.
+- `Signal Bot` and `Execution Logs` now surface the new `Dispatched` lane state explicitly in summaries and filters.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids opening a second dispatch path outside the existing execution adapter seam.
+- It also avoids infinite re-queueing where the lane normalizer would otherwise drag progressed intents back from `dispatch-requested`/`dispatched` into `queued`.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - expose clearer dispatch outcome diagnostics per row and per bot
+  - decide whether paper-preview dispatches now need a richer terminal outcome than `dispatched`
+  - keep direct real-trading emission out of scope until the paper/demo loop is validated end-to-end
+
+### Phase
+
 `Bot Core` paper-demo dispatch request round
 
 ### Completed

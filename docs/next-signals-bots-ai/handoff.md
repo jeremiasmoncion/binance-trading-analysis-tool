@@ -353,8 +353,17 @@ The redesign also now has dedicated documentation for:
   - this keeps dispatch distinct from both:
     - approval
     - linked execution outcome
+  - the shared operational loop now also consumes that `dispatch-requested` lane through the existing shared execution adapter:
+    - `paper -> preview`
+    - `demo -> execute`
+  - successful adapter calls now move intents into an explicit `dispatched` lane instead of leaving them stuck in `dispatch-requested`
+  - failed adapter calls now move the same decision into `blocked` with explicit dispatch reason metadata
+  - the lane normalizer now preserves progressed ready intents instead of snapping:
+    - `dispatch-requested -> queued`
+    - `dispatched -> queued`
   - blocked intent rows now also surface the shared intent reason more directly during execution review
   - intent summaries now also count and prioritize dispatch backlog instead of treating it as hidden queue state
+  - `Signal Bot` and `Execution Logs` now expose `dispatched` as a first-class paper/demo lane state
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -381,8 +390,8 @@ The redesign also now has dedicated documentation for:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
   - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - decide whether `dispatch-requested` should now integrate with a real paper/demo execution adapter
   - decide whether dispatch backlog should surface more clearly in fleet-level summaries
+  - decide whether `dispatched` now needs richer adapter-level diagnostics or a stronger terminal state for paper-preview flow
   - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status

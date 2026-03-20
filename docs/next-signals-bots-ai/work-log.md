@@ -4,6 +4,40 @@
 
 ### Phase
 
+`Bot Core` operational decision loop round
+
+### Completed
+
+- Added the first shared operational bot loop so active bots can now consume accepted signals and persist bot-owned decisions automatically instead of waiting only for manual workspace actions.
+- The runtime now mounts once at app level and reuses the shared seams already in place:
+  - bot registry
+  - market/signal core
+  - bot decisions persistence
+- The loop is conservative and policy-governed:
+  - `observe` bots auto-register `observe` decisions
+  - `assist` bots auto-register `assist` decisions
+  - `auto` bots only escalate to `execute` decisions when execution policy actually allows self-execution
+- When auto-execution policy is not fully open, `auto` bots fall back to assisted decisions instead of pretending a real order was sent.
+- Kept this round at the `signal -> bot decision` layer only; it does not yet emit direct execution orders from the bot runtime.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids calling bots “operational” while they still depend entirely on manual button clicks to create decisions.
+- It also avoids faking execution ownership by marking decisions as executed before execution policy really allows it.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - bridge `auto` bot decisions into execution intents more explicitly
+  - tighten runtime guards around overlap/exposure/capital before direct execution
+  - keep paper/demo first before treating the loop as real-trading capable
+
+### Phase
+
 `Bot Core` fleet recurring-symbol rankings round
 
 ### Completed

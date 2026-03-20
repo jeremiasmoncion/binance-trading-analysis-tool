@@ -288,6 +288,15 @@ The redesign also now has dedicated documentation for:
     - unresolved decision rankings
     - unlinked execution rankings
   - `Bot Settings` weakest-bots panel now consumes those rankings instead of flat symbol lists
+  - the first shared operational bot loop now exists at app level:
+    - active bots can consume accepted signals automatically
+    - active bots can persist bot-owned decisions automatically
+  - the loop is policy-governed by automation mode and execution policy:
+    - `observe` -> auto observation decision
+    - `assist` -> auto assisted decision
+    - `auto` -> auto execution-intent decision only when policy truly allows self-execution
+  - when execution policy is not fully open, `auto` bots now fall back to assisted decisions instead of pretending real execution happened
+  - this round stops at `signal -> bot decision`; it does not yet emit direct execution orders from the bot runtime
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -314,6 +323,8 @@ The redesign also now has dedicated documentation for:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
   - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
+  - bridge auto bot decisions into explicit execution intents
+  - harden capital/overlap/exposure guards before letting the operational loop escalate beyond decisions
 
 ## Phase 4 Status
 

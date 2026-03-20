@@ -4,6 +4,37 @@
 
 ### Phase
 
+`Bot Core` execution logs pockets round
+
+### Completed
+
+- Deepened the new per-bot `Execution Logs` summaries so each prioritized bot now surfaces more actionable context instead of only counts.
+- Added backlog pocket cues from the shared bot seam:
+  - unresolved decision symbols
+  - unlinked execution symbols
+- Added lightweight outcome-pocket cues from existing bot performance/adaptation signals:
+  - best pocket symbol
+  - weak pocket symbol
+- Kept all of that on top of the same shared bot/read-model seam without opening a second execution-analysis path inside the page.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids turning the new bot summaries into another “pretty but vague” layer that still forces row-by-row diagnosis.
+- It also avoids duplicating pocket analysis logic locally in `Execution Logs` when those signals already exist in shared ownership/adaptation summaries.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - add stronger recurring-symbol ranking per prioritized bot
+  - decide whether those recurring pockets now deserve persistence or backend indexing
+  - evaluate whether the same strongest/weakest pocket language should rise into fleet-level summaries too
+
+### Phase
+
 `Bot Core` execution logs bot summaries round
 
 ### Completed

@@ -116,6 +116,10 @@ export function ExecutionLogsView() {
         healthLabel: bot.ownership.healthLabel,
         adaptationConfidence: bot.adaptationSummary?.trainingConfidence || "low",
         attentionNote: bot.attention?.note || bot.adaptationSummary?.adaptationBias || "Waiting for stronger owned outcomes.",
+        unresolvedDecisionSymbols: bot.ownership.unresolvedDecisionSymbols || [],
+        unlinkedExecutionSymbols: bot.ownership.unlinkedExecutionSymbols || [],
+        bestSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
+        weakestSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         latestTimestamp: latestEntry
           ? formatTimestamp(latestEntry.kind === "decision"
             ? (latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt)
@@ -198,6 +202,24 @@ export function ExecutionLogsView() {
                     {bot.linkedCount} linked / {bot.decisionOnlyCount} decision-only / {bot.unlinkedOrderCount} unlinked orders
                     {bot.latestTimestamp ? ` · latest ${bot.latestTimestamp}` : ""}
                   </p>
+                  {bot.unresolvedDecisionSymbols.length || bot.unlinkedExecutionSymbols.length ? (
+                    <p>
+                      {bot.unresolvedDecisionSymbols.length
+                        ? `Decision backlog: ${bot.unresolvedDecisionSymbols.join(", ")}`
+                        : "Decision backlog: clear"}
+                      {" · "}
+                      {bot.unlinkedExecutionSymbols.length
+                        ? `Execution backlog: ${bot.unlinkedExecutionSymbols.join(", ")}`
+                        : "Execution backlog: clear"}
+                    </p>
+                  ) : null}
+                  {bot.bestSymbol || bot.weakestSymbol ? (
+                    <p>
+                      {bot.bestSymbol ? `Best pocket: ${bot.bestSymbol}` : "Best pocket: forming"}
+                      {" · "}
+                      {bot.weakestSymbol ? `Weak pocket: ${bot.weakestSymbol}` : "Weak pocket: not clear"}
+                    </p>
+                  ) : null}
                   <p>{bot.attentionNote}</p>
                 </article>
               ))}

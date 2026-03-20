@@ -163,11 +163,13 @@ Current progress:
   - `Execution Logs` now supports an `Attention Bots` scope on top of the shared activity stream
   - the fleet hub now reuses the same shared ranked attention list for its compact weakest-bots panel
   - `Execution Logs` now also exposes compact per-bot summaries on top of the prioritized/shared activity stream
+  - prioritized execution summaries now also surface unresolved-symbol pockets and best/weak pocket cues per bot
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
   - richer per-bot outcome summaries on top of the now-prioritized execution activity stream
   - recurring unresolved-symbol and outcome-pocket surfacing inside those execution summaries
+  - decide whether recurring pocket rankings now deserve persistence or fleet-level promotion
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

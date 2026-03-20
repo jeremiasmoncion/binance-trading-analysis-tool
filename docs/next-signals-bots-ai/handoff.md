@@ -271,6 +271,11 @@ The redesign also now has dedicated documentation for:
     - unresolved ownership backlog
     - ownership health
     - adaptation confidence
+  - prioritized execution summaries now also surface more actionable pockets per bot:
+    - unresolved decision symbols
+    - unlinked execution symbols
+    - best pocket symbol
+    - weak pocket symbol
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -293,6 +298,7 @@ The redesign also now has dedicated documentation for:
   - evaluate whether any owned-outcome/adaptation summaries now deserve persistence or indexed storage support
   - keep tightening recurring unresolved symbols surfaced by the shared attention scope
   - decide whether recurring unresolved-symbol pockets should now surface directly in the prioritized execution summaries
+  - decide whether recurring pocket rankings now deserve persistence or fleet-level promotion
 
 ## Phase 4 Status
 

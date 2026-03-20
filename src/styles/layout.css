@@ -74,6 +74,8 @@
 .app-shell.sidebar-collapsed .sidebar-header-row { justify-content: center; }
 .app-shell.sidebar-collapsed .sidebar-brand-copy,
 .app-shell.sidebar-collapsed .user-info,
+.app-shell.sidebar-collapsed .sidebar-user-copy,
+.app-shell.sidebar-collapsed .sidebar-user-actions,
 .app-shell.sidebar-collapsed .nav-item span,
 .app-shell.sidebar-collapsed .sidebar-user-pills,
 .app-shell.sidebar-collapsed .nav-arrow,
@@ -351,8 +353,8 @@
   padding: 0 10px;
   font-size: 10px;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
+  text-transform: none;
+  letter-spacing: 0.08em;
   color: rgba(71, 85, 105, 0.72);
 }
 

@@ -578,3 +578,68 @@ Keep the work phased.
 
 - No runtime wiring or new per-screen fetch/polling was introduced.
 - The new pages continue to read from existing shared selectors and local domain adapters only.
+
+## Implementador - 2026-03-19 - Template Naming And Account Sidebar Pass
+
+### What Was Done
+
+- Completed the template account section in the sidebar.
+- Integrated the user block and logout into the account/user pattern instead of leaving logout as a detached control.
+- Added the missing `Bot Templates` item under `Marketplace`.
+- Tightened visible language to match the template more literally across:
+  - tabs
+  - labels
+  - column names
+  - status names
+  - action labels
+- Deepened the live content of:
+  - `Control Panel -> Overview`
+  - `Control Panel -> Bot Settings`
+  - `Control Panel -> Execution Logs`
+  - `AI Bot -> Signal Bot`
+
+### Files Touched
+
+- `src/types.ts`
+- `src/components/Sidebar.tsx`
+- `src/components/AppView.tsx`
+- `src/views/ControlOverviewView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `src/views/ExecutionLogsView.tsx`
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `src/styles/layout.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### What Was Reused
+
+- shared selectors and data planes already in the repo
+- domain ranking and bot feed logic under `src/domain/`
+- CRYPE visual primitives and layout conventions already proven in `Dashboard` and `My Wallet`
+
+### Where This Round Ended
+
+- The sidebar now mirrors the template more completely, including the lower account zone.
+- The user-facing pages now speak much closer to the template's product language.
+- The first opened template pages are no longer just structural placeholders; they now have deeper, more page-specific content.
+
+### What Remains Pending
+
+- Placeholder routes still need real content in later phases.
+- Some transitional views remain in the codebase even though they are no longer the intended UX target.
+- Additional depth is still possible in later rounds for drawers, richer controls, and more literal page behaviors.
+
+### What The Director Should Review
+
+- Whether the new naming layer is now close enough to the template for preview review.
+- Whether the next round should deepen the already-open pages again or start removing transitional legacy views from the visible app path.
+
+### Sensitive Areas Avoided
+
+- `src/App.tsx`
+- `src/data-platform/*`
+- `src/realtime-core/*`
+- hooks sensibles
+- `api/_lib/*`

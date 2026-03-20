@@ -15,7 +15,7 @@ export function ExecutionLogsView() {
     const orders = systemData.execution?.recentOrders || [];
     return {
       orders,
-      success: orders.filter((order) => Number(order.realized_pnl || 0) >= 0).length,
+      successRate: calculateSuccessRate(orders),
       failed: orders.filter((order) => isFailedOrder(order)).length,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notional_usd || 0), 0),
     };
@@ -31,8 +31,8 @@ export function ExecutionLogsView() {
             <span className="template-page-kicker">Control Panel</span>
             <h1 className="template-page-title">Execution Logs</h1>
             <p className="template-page-subtitle">
-              Monitoreo claro de operaciones y eventos recientes, organizado como en el template pero sin exponer
-              complejidad innecesaria al usuario final.
+              Real-time monitoring of bot trades and system operations, translated into the same labels, columns and
+              state names used by the template.
             </p>
           </div>
           <div className="template-page-actions">
@@ -43,10 +43,10 @@ export function ExecutionLogsView() {
         </div>
 
         <div className="template-stats-grid">
-          <StatCard label="Total Executions" value={String(readModel.orders.length)} sub="Registros disponibles ahora mismo" accentClass="accent-blue" />
-          <StatCard label="Success Rate" value={`${calculateSuccessRate(readModel.orders).toFixed(1)}%`} sub="Órdenes con cierre favorable o estable" accentClass="accent-green" />
-          <StatCard label="Failed Trades" value={String(readModel.failed)} sub="Casos que requieren atención" accentClass="accent-amber" />
-          <StatCard label="Total Volume" value={formatUsd(readModel.totalVolume)} sub="Volumen notional reciente" accentClass="accent-emerald" />
+          <StatCard label="Total Executions" value={String(readModel.orders.length)} sub="Recent execution log entries" accentClass="accent-blue" />
+          <StatCard label="Success Rate" value={`${readModel.successRate.toFixed(1)}%`} sub="Successful and completed entries" accentClass="accent-green" />
+          <StatCard label="Failed Trades" value={String(readModel.failed)} sub="Entries that need attention" accentClass="accent-amber" />
+          <StatCard label="Total Volume" value={formatUsd(readModel.totalVolume)} sub="Recent notional volume" accentClass="accent-emerald" />
         </div>
 
         <SectionCard className="template-panel">
@@ -88,22 +88,29 @@ export function ExecutionLogsView() {
                   <th>Price</th>
                   <th>Status</th>
                   <th>P/L</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleLogs.map((order) => (
                   <tr key={order.id}>
-                    <td>{formatTime(order.created_at)}</td>
+                    <td>{formatTimestamp(order.created_at)}</td>
                     <td>#{order.id}</td>
                     <td>{inferBotLabel(order)}</td>
                     <td>{inferLogType(order)}</td>
                     <td>{order.coin}</td>
-                    <td>{(order.side || "-").toUpperCase()}</td>
-                    <td>{Number(order.quantity || 0).toFixed(4)}</td>
+                    <td>{formatSide(order.side)}</td>
+                    <td>{formatAmount(order.quantity)}</td>
                     <td>{formatUsd(Number(order.current_price || 0))}</td>
-                    <td>{order.lifecycle_status || order.status}</td>
+                    <td>{formatStatus(order)}</td>
                     <td className={Number(order.realized_pnl || 0) >= 0 ? "is-positive" : "is-negative"}>
                       {formatUsd(Number(order.realized_pnl || 0))}
+                    </td>
+                    <td>
+                      <div className="template-table-actions">
+                        <button type="button" className="template-inline-link">View</button>
+                        <button type="button" className="template-inline-link">Copy</button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -119,7 +126,7 @@ export function ExecutionLogsView() {
 function matchesTab(order: ExecutionOrderRecord, tab: ExecutionLogsTab) {
   if (tab === "all") return true;
   if (tab === "trades") return order.mode === "execute";
-  if (tab === "signals") return order.mode !== "execute";
+  if (tab === "signals") return order.mode !== "execute" && !isFailedOrder(order);
   if (tab === "errors") return isFailedOrder(order);
   return order.origin === "system" || order.origin === "runtime";
 }
@@ -132,13 +139,28 @@ function isFailedOrder(order: ExecutionOrderRecord) {
 function inferBotLabel(order: ExecutionOrderRecord) {
   if (String(order.strategy_name || "").toLowerCase().includes("signal")) return "Signal Bot";
   if (String(order.strategy_name || "").toLowerCase().includes("dca")) return "DCA Bot";
+  if (String(order.strategy_name || "").toLowerCase().includes("arbitrage")) return "Arbitrage Bot";
   return order.strategy_name || "System";
 }
 
 function inferLogType(order: ExecutionOrderRecord) {
   if (isFailedOrder(order)) return "Error";
   if (order.mode === "execute") return "Trade";
-  return "Signal";
+  if (order.mode === "observe") return "Signal";
+  return "System";
+}
+
+function formatSide(value?: string) {
+  if (!value) return "-";
+  return value.toUpperCase();
+}
+
+function formatStatus(order: ExecutionOrderRecord) {
+  const status = String(order.lifecycle_status || order.status || "").toLowerCase();
+  if (status.includes("fill") || status.includes("close") || status.includes("win")) return "Filled";
+  if (status.includes("pending") || status.includes("open")) return "Pending";
+  if (status.includes("fail") || status.includes("error") || status.includes("reject")) return "Failed";
+  return "Success";
 }
 
 function calculateSuccessRate(orders: ExecutionOrderRecord[]) {
@@ -155,7 +177,11 @@ function formatUsd(value: number) {
   }).format(value);
 }
 
-function formatTime(value?: string) {
+function formatAmount(value?: number) {
+  return typeof value === "number" ? value.toFixed(4) : "-";
+}
+
+function formatTimestamp(value?: string) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",

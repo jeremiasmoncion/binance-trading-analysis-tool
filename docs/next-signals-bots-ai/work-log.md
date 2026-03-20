@@ -894,3 +894,65 @@ Phase 3 - template-faithful navigation and page architecture
 
 - Continue refining the new template-matched pages instead of reopening generic `Signals` / `Bots` surfaces
 - Replace remaining transitional content inside those pages with more literal template behavior where direction approves it
+
+## 2026-03-19 - Template Naming And Account Sidebar Pass
+
+### Phase
+
+Phase 3 - template naming and deeper product surfaces
+
+### Completed
+
+- Completed the lower sidebar structure so it now follows the template more literally:
+  - added `Account`
+  - added `Preferences`
+  - added `Notifications`
+  - added `Security & API Keys`
+  - added `Invite Friends`
+  - added `Subscription`
+  - added `Help Center`
+- Integrated `Logout` into the user/account block instead of leaving it as an isolated button.
+- Added the missing `Bot Templates` entry under `Marketplace`.
+- Tightened visible naming so the new pages use template-facing labels for:
+  - tabs
+  - columns
+  - status names
+  - action labels
+- Deepened the content of the first live template pages:
+  - `Control Panel -> Overview`
+  - `Control Panel -> Bot Settings`
+  - `Control Panel -> Execution Logs`
+  - `AI Bot -> Signal Bot`
+- Kept all of that on top of CRYPE's shared style architecture instead of importing template CSS patterns directly.
+
+### Why This Matters
+
+- The app now reads much closer to the actual product language of the template, not just its structure.
+- The sidebar no longer feels truncated relative to the reference standard.
+- The new pages are no longer just layout shells; they are closer to product-ready reading surfaces.
+
+### Files Updated
+
+- `src/types.ts`
+- `src/components/Sidebar.tsx`
+- `src/components/AppView.tsx`
+- `src/views/ControlOverviewView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `src/views/ExecutionLogsView.tsx`
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `src/styles/layout.css`
+
+### Pending
+
+- The remaining placeholder routes still need their full content when direction opens those product areas.
+- Some legacy transitional views still remain in the repo, though they are no longer the primary destination.
+- A later round may still be needed to make micro-interactions even closer to the template:
+  - richer filters
+  - drawers
+  - more stateful controls
+
+### Recommended Next Step
+
+- keep deepening the template-faithful pages already opened
+- decide when to retire the transitional legacy views that no longer represent the target UX

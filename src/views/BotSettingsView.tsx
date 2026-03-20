@@ -43,8 +43,8 @@ export function BotSettingsView() {
             <span className="template-page-kicker">Control Panel</span>
             <h1 className="template-page-title">Bot Settings</h1>
             <p className="template-page-subtitle">
-              Configuración y administración de bots siguiendo la jerarquía y composición del template, pero con la
-              implementación visual ordenada de CRYPE.
+              Configure and manage trading bots, strategies and automation rules with the literal tab taxonomy and block
+              order defined by the template.
             </p>
           </div>
           <div className="template-page-actions">
@@ -54,10 +54,10 @@ export function BotSettingsView() {
         </div>
 
         <div className="template-stats-grid">
-          <StatCard label="Active Bots" value={String(readModel.filter((bot) => bot.status === "active").length)} sub="Bots vivos dentro del registry local" accentClass="accent-green" />
-          <StatCard label="Total Trades (24h)" value={String(readModel.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0))} sub="Actividad traducida a una lectura simple" accentClass="accent-blue" />
-          <StatCard label="Total Profit (24h)" value={formatUsd(readModel.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0))} sub="Rendimiento agregado del conjunto" accentClass="accent-emerald" />
-          <StatCard label="Win Rate" value={`${averageWinRate(readModel).toFixed(1)}%`} sub="Promedio visual de bots listados" accentClass="accent-amber" />
+          <StatCard label="Active Bots" value={String(readModel.filter((bot) => bot.status === "active").length)} sub="Live bots in current registry" accentClass="accent-green" />
+          <StatCard label="Total Trades (24h)" value={String(readModel.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0))} sub="Closed outcomes attributed to listed bots" accentClass="accent-blue" />
+          <StatCard label="Total Profit (24h)" value={formatUsd(readModel.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0))} sub="Aggregated bot performance" accentClass="accent-emerald" />
+          <StatCard label="Win Rate" value={`${averageWinRate(readModel).toFixed(1)}%`} sub="Average across visible bot cards" accentClass="accent-amber" />
         </div>
 
         <SectionCard className="template-panel">
@@ -85,14 +85,19 @@ export function BotSettingsView() {
                   <button type="button" className="template-chip">Paused</button>
                   <button type="button" className="template-chip">Stopped</button>
                 </div>
+                <div className="template-view-toggle">
+                  <button type="button" className="template-view-button is-active">Grid</button>
+                  <button type="button" className="template-view-button">Table</button>
+                </div>
               </div>
+
               <div className="template-card-grid">
                 {readModel.map((bot) => (
                   <article key={bot.id} className="template-bot-card">
                     <div className="template-bot-card-head">
                       <div>
                         <h3>{bot.name}</h3>
-                        <p>{bot.slug} · {bot.executionEnvironment.toUpperCase()}</p>
+                        <p>{bot.slug} • {bot.executionEnvironment.toUpperCase()}</p>
                       </div>
                       <span className={`template-status-pill ${bot.status === "active" ? "is-live" : ""}`}>
                         {bot.status === "active" ? "Running" : bot.status}
@@ -104,8 +109,8 @@ export function BotSettingsView() {
                         <strong>{bot.strategyPolicy.preferredStrategyIds[0] || "Adaptive"}</strong>
                       </div>
                       <div>
-                        <span>Signals</span>
-                        <strong>{bot.accepted}</strong>
+                        <span>Trades</span>
+                        <strong>{bot.localMemory.outcomeCount}</strong>
                       </div>
                       <div>
                         <span>Profit</span>
@@ -120,11 +125,11 @@ export function BotSettingsView() {
                       <div className="template-allocation-bar">
                         <span style={{ width: `${Math.min((bot.capital.allocatedUsd / Math.max(bot.riskPolicy.maxPositionUsd * bot.riskPolicy.maxOpenPositions, 1)) * 100, 100)}%` }} />
                       </div>
-                      <strong>{formatUsd(bot.capital.allocatedUsd)} allocated</strong>
+                      <strong>{formatUsd(bot.capital.allocatedUsd)} / allocated</strong>
                     </div>
                     <div className="template-button-row">
-                      <button type="button" className="premium-action-button is-ghost">Pause</button>
-                      <button type="button" className="premium-action-button">Configure</button>
+                      <button type="button" className="premium-action-button is-ghost">{bot.status === "active" ? "Pause" : "Start"}</button>
+                      <button type="button" className="premium-action-button">Settings</button>
                     </div>
                   </article>
                 ))}
@@ -132,11 +137,39 @@ export function BotSettingsView() {
             </>
           ) : null}
 
-          {activeTab !== "all-bots" ? (
-            <div className="template-mini-grid">
-              <MetricTile label={tabTitle(activeTab)} value="Prepared" note="La arquitectura visible ya sigue el template; la siguiente ronda llenará este panel con contenido funcional." />
-              <MetricTile label="Registry seam" value="Local" note="Sin persistencia global todavía." />
-              <MetricTile label="UX state" value="Template-first" note="La configuración ya vive en el flujo correcto, no en la UX heredada." />
+          {activeTab === "general-settings" ? (
+            <div className="template-form-grid">
+              <SettingsCard title="Default Trading Mode" value="Assist" note="Bots stay visible and user-approved before any real action." />
+              <SettingsCard title="Base Universe" value="Watchlist + Discovery" note="Supports watchlist-first and market discovery lanes." />
+              <SettingsCard title="Style Coverage" value="Scalping • Swing • Long" note="Matches the domain styles already supported by the model." />
+              <SettingsCard title="AI Unrestricted Lab" value="Isolated" note="Supported as a separate experimental profile, never as a global default." />
+            </div>
+          ) : null}
+
+          {activeTab === "risk-management" ? (
+            <div className="template-form-grid">
+              <SettingsCard title="Max Position Size" value="$250" note="Current default per bot position." />
+              <SettingsCard title="Max Open Positions" value="3" note="Prevents uncontrolled overlap across symbols." />
+              <SettingsCard title="Daily Loss Limit" value="2%" note="Risk cap before the bot slows down or stops." />
+              <SettingsCard title="Symbol Exposure" value="35%" note="Keeps a single market from dominating bot capital." />
+            </div>
+          ) : null}
+
+          {activeTab === "notifications" ? (
+            <div className="template-form-grid">
+              <SettingsCard title="Execution Alerts" value="Enabled" note="Important fills and failures remain visible for the operator." />
+              <SettingsCard title="Policy Warnings" value="Enabled" note="Bot-policy mismatches remain surfaced in the control layer." />
+              <SettingsCard title="Daily Summary" value="Enabled" note="Compact recap rather than raw technical telemetry." />
+              <SettingsCard title="Escalations" value="Manual Review" note="High-risk events still require a human-visible checkpoint." />
+            </div>
+          ) : null}
+
+          {activeTab === "api-connections" ? (
+            <div className="template-form-grid">
+              <SettingsCard title="Primary Exchange" value="Binance" note="Current connected trading venue for live operations." />
+              <SettingsCard title="Paper Environment" value="Available" note="Keeps bot testing separate from real balances." />
+              <SettingsCard title="Demo Routing" value="Enabled" note="Intermediate execution mode between paper and real." />
+              <SettingsCard title="Real Orders" value="Approval Required" note="No change to runtime governance in this round." />
             </div>
           ) : null}
         </SectionCard>
@@ -145,10 +178,10 @@ export function BotSettingsView() {
   );
 }
 
-function MetricTile(props: { label: string; value: string; note: string }) {
+function SettingsCard(props: { title: string; value: string; note: string }) {
   return (
-    <div className="template-metric-card">
-      <span>{props.label}</span>
+    <div className="template-settings-card">
+      <span>{props.title}</span>
       <strong>{props.value}</strong>
       <small>{props.note}</small>
     </div>
@@ -165,11 +198,4 @@ function formatUsd(value: number) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function tabTitle(tab: BotSettingsTab) {
-  if (tab === "general-settings") return "General Settings";
-  if (tab === "risk-management") return "Risk Management";
-  if (tab === "notifications") return "Notifications";
-  return "API Connections";
 }

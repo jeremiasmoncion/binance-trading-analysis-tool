@@ -1538,9 +1538,8 @@ function ShieldAlertIcon() {
 function ApiTabIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7.2 14.2a2.5 2.5 0 0 1 0-3.5l3-3a2.5 2.5 0 0 1 3.5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M16.8 9.8a2.5 2.5 0 0 1 0 3.5l-3 3a2.5 2.5 0 0 1-3.5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="m9.5 14.5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8.5 8.5a2.5 2.5 0 0 1 3.5 0l1.1 1.1a2.5 2.5 0 0 1 0 3.5l-1.1 1.1a2.5 2.5 0 0 1-3.5 0a2.5 2.5 0 0 1 0-3.5l.7-.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15.5 9.8a2.5 2.5 0 0 1 0 3.5l-1.1 1.1a2.5 2.5 0 0 1-3.5 0l-1.1-1.1a2.5 2.5 0 0 1 0-3.5a2.5 2.5 0 0 1 3.5 0l.7.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

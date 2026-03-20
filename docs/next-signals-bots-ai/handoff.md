@@ -110,11 +110,25 @@ The redesign also now has dedicated documentation for:
 ## What Has Not Been Done Yet
 
 - the first bot registry persistence seam now exists, but platform-level settings tabs still need to move from local UI state into that same persisted contract
-- the first real bot now derives runtime card/workspace metrics from persisted signal snapshots through the shared read-model seam, but a dedicated bot-decision log table still remains pending
+- the first real bot now derives runtime card/workspace metrics from persisted signal snapshots through the shared read-model seam, and the bot-decision API/runtime seam now exists, but the dedicated Supabase `bot_decisions` table still remains pending
 - the next recommended phase is now explicit: `Phase 3.5 - Bot Decision And Activity Layer`
 - no global shell wiring has been added for the domain module
 - no signal feed has been wired into the existing market/runtime pipeline beyond read-only/domain-driven surfaces
 - no AI conversational layer has been implemented yet
+
+## Phase 3.5 Status
+
+- done:
+  - `BotDecisionRecord` exists in the domain contracts
+  - `/api/bot-decisions` exists as a shared persistence seam
+  - `useBotDecisions` exists as a shared runtime hook
+  - `Signal Bot` can register manual bot decisions from the workspace
+  - `Execution Logs` can already consume bot decisions alongside execution orders
+- next:
+  - create the Supabase `bot_decisions` table
+  - persist more bot-owned outcomes against those decisions
+  - move platform settings tabs from local UI state into shared persisted contracts
+  - deepen performance/training off the decision layer
 
 ## Files Added
 

@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
+import { useBotDecisionsState } from "../hooks/useBotDecisions";
 import { useExecutionLogsSelector } from "../data-platform/selectors";
+import type { BotDecisionRecord } from "../domain";
 import type { ExecutionOrderRecord } from "../types";
 
 type ExecutionLogsTab = "all" | "trades" | "signals" | "errors" | "system";
@@ -10,18 +12,24 @@ type ExecutionLogsTab = "all" | "trades" | "signals" | "errors" | "system";
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
   const executionData = useExecutionLogsSelector();
+  const { decisions } = useBotDecisionsState();
 
   const readModel = useMemo(() => {
     const orders = executionData.recentOrders;
+    const logs = [
+      ...decisions.map((decision) => ({ kind: "decision" as const, decision })),
+      ...orders.map((order) => ({ kind: "order" as const, order })),
+    ].sort((left, right) => getLogTimestamp(right) - getLogTimestamp(left));
     return {
+      logs,
       orders,
-      successRate: calculateSuccessRate(orders),
-      failed: orders.filter((order) => isFailedOrder(order)).length,
+      successRate: calculateSuccessRate(orders, decisions),
+      failed: orders.filter((order) => isFailedOrder(order)).length + decisions.filter((decision) => isFailedDecision(decision)).length,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notional_usd || 0), 0),
     };
-  }, [executionData.recentOrders]);
+  }, [decisions, executionData.recentOrders]);
 
-  const visibleLogs = readModel.orders.filter((order) => matchesTab(order, activeTab)).slice(0, 12);
+  const visibleLogs = readModel.logs.filter((entry) => matchesTab(entry, activeTab)).slice(0, 12);
 
   return (
     <div id="executionLogsView" className="view-panel active">
@@ -43,7 +51,7 @@ export function ExecutionLogsView() {
         </div>
 
         <div className="template-stats-grid">
-          <StatCard label="Total Executions" value={String(readModel.orders.length)} sub="Recent execution log entries" accentClass="accent-blue" />
+          <StatCard label="Total Executions" value={String(readModel.logs.length)} sub="Recent execution log entries" accentClass="accent-blue" />
           <StatCard label="Success Rate" value={`${readModel.successRate.toFixed(1)}%`} sub="Successful and completed entries" accentClass="accent-green" />
           <StatCard label="Failed Trades" value={String(readModel.failed)} sub="Entries that need attention" accentClass="accent-amber" />
           <StatCard label="Total Volume" value={formatUsd(readModel.totalVolume)} sub="Recent notional volume" accentClass="accent-emerald" />
@@ -92,19 +100,40 @@ export function ExecutionLogsView() {
                 </tr>
               </thead>
               <tbody>
-                {visibleLogs.map((order) => (
-                  <tr key={order.id}>
-                    <td>{formatTimestamp(order.created_at)}</td>
-                    <td>#{order.id}</td>
-                    <td>{inferBotLabel(order)}</td>
-                    <td>{inferLogType(order)}</td>
-                    <td>{order.coin}</td>
-                    <td>{formatSide(order.side)}</td>
-                    <td>{formatAmount(order.quantity)}</td>
-                    <td>{formatUsd(Number(order.current_price || 0))}</td>
-                    <td>{formatStatus(order)}</td>
-                    <td className={Number(order.realized_pnl || 0) >= 0 ? "is-positive" : "is-negative"}>
-                      {formatUsd(Number(order.realized_pnl || 0))}
+                {visibleLogs.map((entry) => entry.kind === "order" ? (
+                  <tr key={`order-${entry.order.id}`}>
+                    <td>{formatTimestamp(entry.order.created_at)}</td>
+                    <td>#{entry.order.id}</td>
+                    <td>{inferBotLabel(entry.order)}</td>
+                    <td>{inferLogType(entry.order)}</td>
+                    <td>{entry.order.coin}</td>
+                    <td>{formatSide(entry.order.side)}</td>
+                    <td>{formatAmount(entry.order.quantity)}</td>
+                    <td>{formatUsd(Number(entry.order.current_price || 0))}</td>
+                    <td>{formatStatus(entry.order)}</td>
+                    <td className={Number(entry.order.realized_pnl || 0) >= 0 ? "is-positive" : "is-negative"}>
+                      {formatUsd(Number(entry.order.realized_pnl || 0))}
+                    </td>
+                    <td>
+                      <div className="template-table-actions">
+                        <button type="button" className="template-inline-link">View</button>
+                        <button type="button" className="template-inline-link">Copy</button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={`decision-${entry.decision.id}`}>
+                    <td>{formatTimestamp(entry.decision.createdAt)}</td>
+                    <td>{entry.decision.id}</td>
+                    <td>{entry.decision.botId}</td>
+                    <td>{formatDecisionType(entry.decision)}</td>
+                    <td>{entry.decision.symbol}</td>
+                    <td>{entry.decision.action.toUpperCase()}</td>
+                    <td>-</td>
+                    <td>{formatMaybeUsd(entry.decision.metadata.entryPrice)}</td>
+                    <td>{formatDecisionStatus(entry.decision.status)}</td>
+                    <td className={Number(entry.decision.metadata.realizedPnlUsd || 0) >= 0 ? "is-positive" : "is-negative"}>
+                      {formatMaybeUsd(entry.decision.metadata.realizedPnlUsd)}
                     </td>
                     <td>
                       <div className="template-table-actions">
@@ -123,7 +152,16 @@ export function ExecutionLogsView() {
   );
 }
 
-function matchesTab(order: ExecutionOrderRecord, tab: ExecutionLogsTab) {
+function matchesTab(entry: { kind: "order"; order: ExecutionOrderRecord } | { kind: "decision"; decision: BotDecisionRecord }, tab: ExecutionLogsTab) {
+  if (entry.kind === "decision") {
+    if (tab === "all") return true;
+    if (tab === "trades") return entry.decision.action === "execute" || entry.decision.action === "close";
+    if (tab === "signals") return entry.decision.action === "observe" || entry.decision.action === "block" || entry.decision.action === "accept";
+    if (tab === "errors") return isFailedDecision(entry.decision);
+    return entry.decision.source === "ai-supervisor" || entry.decision.source === "market-core";
+  }
+
+  const order = entry.order;
   if (tab === "all") return true;
   if (tab === "trades") return order.mode === "execute";
   if (tab === "signals") return order.mode !== "execute" && !isFailedOrder(order);
@@ -131,9 +169,19 @@ function matchesTab(order: ExecutionOrderRecord, tab: ExecutionLogsTab) {
   return order.origin === "system" || order.origin === "runtime";
 }
 
+function isFailedDecision(decision: BotDecisionRecord) {
+  return decision.status === "blocked";
+}
+
 function isFailedOrder(order: ExecutionOrderRecord) {
   const status = String(order.lifecycle_status || order.status || "").toLowerCase();
   return status.includes("fail") || status.includes("error") || status.includes("reject");
+}
+
+function getLogTimestamp(entry: { kind: "order"; order: ExecutionOrderRecord } | { kind: "decision"; decision: BotDecisionRecord }) {
+  return entry.kind === "order"
+    ? new Date(entry.order.created_at || 0).getTime()
+    : new Date(entry.decision.createdAt || 0).getTime();
 }
 
 function inferBotLabel(order: ExecutionOrderRecord) {
@@ -163,10 +211,11 @@ function formatStatus(order: ExecutionOrderRecord) {
   return "Success";
 }
 
-function calculateSuccessRate(orders: ExecutionOrderRecord[]) {
-  if (!orders.length) return 0;
-  const success = orders.filter((order) => !isFailedOrder(order)).length;
-  return (success / orders.length) * 100;
+function calculateSuccessRate(orders: ExecutionOrderRecord[], decisions: BotDecisionRecord[]) {
+  const total = orders.length + decisions.length;
+  if (!total) return 0;
+  const success = orders.filter((order) => !isFailedOrder(order)).length + decisions.filter((decision) => !isFailedDecision(decision)).length;
+  return (success / total) * 100;
 }
 
 function formatUsd(value: number) {
@@ -179,6 +228,26 @@ function formatUsd(value: number) {
 
 function formatAmount(value?: number) {
   return typeof value === "number" ? value.toFixed(4) : "-";
+}
+
+function formatDecisionType(decision: BotDecisionRecord) {
+  if (decision.action === "execute") return "Trade";
+  if (decision.action === "block") return "Filter";
+  if (decision.action === "observe") return "Review";
+  return "Bot";
+}
+
+function formatDecisionStatus(status: string) {
+  if (status === "approved") return "Reviewed";
+  if (status === "dismissed") return "Dismissed";
+  if (status === "executed") return "Executed";
+  if (status === "blocked") return "Blocked";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatMaybeUsd(value: unknown) {
+  const nextValue = Number(value);
+  return Number.isFinite(nextValue) && nextValue > 0 ? formatUsd(nextValue) : "-";
 }
 
 function formatTimestamp(value?: string) {

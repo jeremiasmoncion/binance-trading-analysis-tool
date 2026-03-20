@@ -2,6 +2,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { DownloadIcon, SlidersHorizontalIcon } from "../components/Icons";
 import { SectionCard } from "../components/ui/SectionCard";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import { useBotDecisionsState } from "../hooks/useBotDecisions";
+import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { RankedPublishedSignal } from "../domain";
 import type { SignalSnapshot, ViewName } from "../types";
 
@@ -27,6 +29,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const [activeTab, setActiveTab] = useState<SignalBotTab>("active-signals");
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("all");
   const feedReadModel = useSignalsBotsReadModel();
+  const { createDecision } = useBotDecisionsState();
   const signals = feedReadModel.signalMemory;
   const selectedBotCard = feedReadModel.selectedBotCard || feedReadModel.botCards[0] || null;
   const selectedBotSignals = feedReadModel.selectedBotApprovedRankedSignals;
@@ -55,14 +58,20 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
       watchlistFirst: feedReadModel.watchlistFirstSignals,
       botApproved: selectedBotSignals,
       botBlockedCount: selectedBotBlockedCount,
+      botDecisions: feedReadModel.selectedBotDecisions,
       openSignals,
       closedSignals,
       cards,
       filteredCards: cards.filter((card) => matchesFilter(card.signal, card.direction, activeFilter)),
-      closedHistory: closedSignals
-        .slice()
-        .sort((left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime())
-        .slice(0, 12),
+      closedHistory: feedReadModel.selectedBotDecisions.length
+        ? feedReadModel.selectedBotDecisions
+          .slice()
+          .sort((left, right) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime())
+          .slice(0, 12)
+        : closedSignals
+          .slice()
+          .sort((left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime())
+          .slice(0, 12),
     };
   }, [activeFilter, feedReadModel, selectedBotBlockedCount, selectedBotSignals, signals]);
 
@@ -74,6 +83,62 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const selectedBotProfit = selectedBotCard?.performance.realizedPnlUsd ?? sumPnl(readModel.closedSignals);
   const selectedBotTradeCount = selectedBotCard?.localMemory.outcomeCount ?? readModel.closedSignals.length;
   const selectedBotPairCount = new Set(readModel.priority.map((signal) => signal.context.symbol)).size;
+
+  const handleDecisionAction = async (
+    signal: RankedPublishedSignal,
+    snapshot: SignalSnapshot | undefined,
+    action: "observe" | "execute" | "block",
+  ) => {
+    if (!selectedBotCard) return;
+
+    const loaderId = startLoading({
+      label: action === "execute" ? "Registrando ejecución" : action === "block" ? "Registrando descarte" : "Registrando revisión",
+      detail: `${selectedBotCard.name} • ${signal.context.symbol}`,
+    });
+
+    try {
+      await createDecision({
+        id: `${selectedBotCard.id}-${signal.id}-${action}-${Date.now()}`,
+        botId: selectedBotCard.id,
+        signalSnapshotId: snapshot?.id ?? null,
+        symbol: signal.context.symbol,
+        timeframe: signal.context.timeframe,
+        signalLayer: mapSignalLayer(signal),
+        action,
+        status: action === "execute" ? "executed" : action === "block" ? "dismissed" : "approved",
+        source: "manual",
+        rationale: buildDecisionRationale(action, signal),
+        executionEnvironment: selectedBotCard.executionEnvironment,
+        automationMode: selectedBotCard.automationMode,
+        marketContextSignature: `${signal.context.symbol}:${signal.context.timeframe}:${signal.ranking.tier}`,
+        contextTags: [signal.ranking.tier, signal.context.symbol, signal.context.timeframe],
+        metadata: {
+          signalId: signal.id,
+          rankingTier: signal.ranking.tier,
+          compositeScore: signal.ranking.compositeScore,
+          entryPrice: Number(snapshot?.entry_price || snapshot?.support || 0) || null,
+          targetPrice: Number(snapshot?.tp_price || snapshot?.tp2_price || snapshot?.resistance || 0) || null,
+          stopLossPrice: Number(snapshot?.sl_price || 0) || null,
+          realizedPnlUsd: action === "execute" ? Number(snapshot?.outcome_pnl || 0) || 0 : 0,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      showToast({
+        tone: "success",
+        title: action === "execute" ? "Decisión ejecutada" : action === "block" ? "Señal descartada" : "Señal revisada",
+        message: `${selectedBotCard.name} registró ${signal.context.symbol} en su historial real.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo registrar la decisión",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
 
   return (
     <div id="signalBotView" className="view-panel active signalbot-view">
@@ -211,13 +276,28 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     <div className="signalbot-card-foot">
                       <span className="signalbot-card-time">{formatRelative(signal.context.observedAt)}</span>
                       <div className="signalbot-card-actions">
-                        <button type="button" className="signalbot-icon-button" aria-label={`View ${signal.context.symbol}`}>
+                        <button
+                          type="button"
+                          className="signalbot-icon-button"
+                          aria-label={`View ${signal.context.symbol}`}
+                          onClick={() => void handleDecisionAction(signal, snapshot, "observe")}
+                        >
                           <SignalViewIcon />
                         </button>
-                        <button type="button" className="signalbot-icon-button" aria-label={`Execute ${signal.context.symbol}`}>
+                        <button
+                          type="button"
+                          className="signalbot-icon-button"
+                          aria-label={`Execute ${signal.context.symbol}`}
+                          onClick={() => void handleDecisionAction(signal, snapshot, "execute")}
+                        >
                           <SignalPlayIcon />
                         </button>
-                        <button type="button" className="signalbot-icon-button" aria-label={`Dismiss ${signal.context.symbol}`}>
+                        <button
+                          type="button"
+                          className="signalbot-icon-button"
+                          aria-label={`Dismiss ${signal.context.symbol}`}
+                          onClick={() => void handleDecisionAction(signal, snapshot, "block")}
+                        >
                           <SignalCloseIcon />
                         </button>
                       </div>
@@ -251,16 +331,29 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {readModel.closedHistory.map((signal) => (
-                    <tr key={signal.id}>
-                      <td>{signal.coin}</td>
-                      <td>{formatDirection(signal)}</td>
-                      <td>{formatUsd(Number(signal.entry_price || signal.support || 0))}</td>
-                      <td>{formatUsd(Number(signal.tp_price || signal.resistance || 0))}</td>
-                      <td className={Number(signal.outcome_pnl || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>{formatUsd(Number(signal.outcome_pnl || 0))}</td>
-                      <td>{formatDuration(signal.created_at, signal.updated_at || signal.created_at)}</td>
-                      <td>{formatSignalStatus(signal.outcome_status)}</td>
-                      <td>{formatDate(signal.updated_at || signal.created_at)}</td>
+                  {readModel.closedHistory.map((entry) => isDecisionRecord(entry) ? (
+                    <tr key={entry.id}>
+                      <td>{entry.symbol}</td>
+                      <td>{formatDecisionAction(entry.action)}</td>
+                      <td>{formatMaybeUsd(entry.metadata.entryPrice)}</td>
+                      <td>{formatMaybeUsd(entry.metadata.targetPrice)}</td>
+                      <td className={Number(entry.metadata.realizedPnlUsd || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>
+                        {formatMaybeUsd(entry.metadata.realizedPnlUsd)}
+                      </td>
+                      <td>{formatDuration(entry.createdAt, entry.updatedAt || entry.createdAt)}</td>
+                      <td>{formatDecisionStatus(entry.status)}</td>
+                      <td>{formatDate(entry.updatedAt || entry.createdAt)}</td>
+                    </tr>
+                  ) : (
+                    <tr key={entry.id}>
+                      <td>{entry.coin}</td>
+                      <td>{formatDirection(entry)}</td>
+                      <td>{formatUsd(Number(entry.entry_price || entry.support || 0))}</td>
+                      <td>{formatUsd(Number(entry.tp_price || entry.resistance || 0))}</td>
+                      <td className={Number(entry.outcome_pnl || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>{formatUsd(Number(entry.outcome_pnl || 0))}</td>
+                      <td>{formatDuration(entry.created_at, entry.updated_at || entry.created_at)}</td>
+                      <td>{formatSignalStatus(entry.outcome_status)}</td>
+                      <td>{formatDate(entry.updated_at || entry.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -398,6 +491,53 @@ function getAssetIconUrl(asset: string) {
 
 function findSnapshotForSignal(symbol: string, timeframe: string, signals: SignalSnapshot[]) {
   return signals.find((item) => item.coin.toUpperCase() === symbol.toUpperCase() && item.timeframe === timeframe);
+}
+
+function mapSignalLayer(signal: RankedPublishedSignal) {
+  if (signal.ranking.tier === "priority") return "ai-prioritized" as const;
+  if (signal.ranking.compositeScore >= 70) return "operable" as const;
+  return "observational" as const;
+}
+
+function buildDecisionRationale(action: "observe" | "execute" | "block", signal: RankedPublishedSignal) {
+  if (action === "execute") {
+    return `Operación confirmada manualmente para ${signal.context.symbol} con score ${Math.round(signal.ranking.compositeScore)}.`;
+  }
+  if (action === "block") {
+    return `La señal de ${signal.context.symbol} fue descartada desde el workspace del bot.`;
+  }
+  return `La señal de ${signal.context.symbol} fue revisada manualmente desde el workspace del bot.`;
+}
+
+function isDecisionRecord(value: unknown): value is {
+  id: string;
+  symbol: string;
+  action: string;
+  status: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+} {
+  return Boolean(value) && typeof value === "object" && "symbol" in (value as Record<string, unknown>) && "action" in (value as Record<string, unknown>);
+}
+
+function formatDecisionAction(action: string) {
+  if (action === "execute") return "EXECUTE";
+  if (action === "block") return "BLOCK";
+  if (action === "observe") return "OBSERVE";
+  return action.toUpperCase();
+}
+
+function formatDecisionStatus(status: string) {
+  if (status === "approved") return "Reviewed";
+  if (status === "dismissed") return "Dismissed";
+  if (status === "executed") return "Executed";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatMaybeUsd(value: unknown) {
+  const nextValue = Number(value);
+  return Number.isFinite(nextValue) && nextValue > 0 ? formatUsd(nextValue) : "-";
 }
 
 function getDisplaySignalDirection(signal: RankedPublishedSignal, snapshot?: SignalSnapshot): SignalCardDirection {

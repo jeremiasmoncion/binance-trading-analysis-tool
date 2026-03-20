@@ -25,7 +25,7 @@ import type {
   WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
-import type { Bot } from "../domain";
+import type { Bot, BotDecisionRecord } from "../domain";
 import type { RealtimeCoreBootstrapPayload, RealtimeCoreEventEnvelope, RealtimeCoreHealthPayload } from "../realtime-core/contracts";
 
 export type RealtimeCoreRuntimeMode = "external" | "serverless";
@@ -527,6 +527,30 @@ export const botService = {
   },
   update(id: string, payload: Partial<Bot>) {
     return apiRequest<{ bot: Bot }>(`/api/bots/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
+export const botDecisionService = {
+  list(options: { botId?: string; limit?: number } = {}) {
+    const params = new URLSearchParams();
+    if (options.botId) params.set("botId", options.botId);
+    if (typeof options.limit === "number") params.set("limit", String(options.limit));
+    const query = params.toString();
+    return apiRequest<{ decisions: BotDecisionRecord[]; lastHydratedAt: string | null }>(
+      `/api/bot-decisions${query ? `?${query}` : ""}`,
+    );
+  },
+  create(payload: BotDecisionRecord) {
+    return apiRequest<{ decision: BotDecisionRecord }>("/api/bot-decisions", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  update(id: string, payload: Partial<BotDecisionRecord>) {
+    return apiRequest<{ decision: BotDecisionRecord }>(`/api/bot-decisions/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     });

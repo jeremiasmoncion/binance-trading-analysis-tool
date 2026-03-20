@@ -114,6 +114,19 @@ Suggested deliverables:
   - performance
   - training
 
+Current progress:
+
+- done:
+  - bot decision contract
+  - bot decision API seam
+  - shared frontend bot decision runtime
+  - first Signal Bot actions writing manual decisions
+  - first Execution Logs integration for decision records
+- pending:
+  - Supabase `bot_decisions` table
+  - richer bot-owned outcomes and performance aggregation
+  - persistence for platform-wide bot settings tabs
+
 Suggested first implementation rule:
 
 - reuse persisted `signalMemory` where useful

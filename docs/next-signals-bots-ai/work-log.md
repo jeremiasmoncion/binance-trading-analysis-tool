@@ -1596,3 +1596,46 @@ Phase 3 - Signal Bot hard-close refinement
 - `docs/next-signals-bots-ai/domain-model.md`
 - `docs/next-signals-bots-ai/implementation-plan.md`
 - `src/domain/bots/contracts.ts`
+
+## Bot Decision And Activity Base
+
+### What Changed
+
+- Started `Phase 3.5` with a real bot-owned decision/activity seam.
+- Added backend handlers for bot decisions:
+  - `GET /api/bot-decisions`
+  - `POST /api/bot-decisions`
+  - `PATCH /api/bot-decisions/[id]`
+- Added a shared runtime hook for bot decisions with warm local cache:
+  - `src/hooks/useBotDecisions.ts`
+- Updated the shared bots read-model so bot cards can prefer bot-owned decisions over pair-only inference when decisions exist.
+- Wired `Signal Bot` actions so the bot can now register real manual decisions from its workspace:
+  - observe
+  - execute
+  - block
+- Updated `Execution Logs` so bot decisions can appear in the same monitoring surface as execution orders.
+
+### Why This Matters
+
+- The first bot is no longer limited to fake or pair-derived history only.
+- We now have the structural base for:
+  - real bot history
+  - execution logs per bot
+  - performance fed by bot-owned activity
+  - future training and audit layers
+
+### Supabase Dependency
+
+- This phase now expects a `bot_decisions` table in Supabase.
+- The frontend/runtime degrades safely while the table is missing, but full persistence requires that table.
+
+### Files Updated
+
+- `api/_lib/botDecisions.js`
+- `api/bot-decisions/index.js`
+- `api/bot-decisions/[id].js`
+- `src/services/api.ts`
+- `src/hooks/useBotDecisions.ts`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/views/SignalBotView.tsx`
+- `src/views/ExecutionLogsView.tsx`

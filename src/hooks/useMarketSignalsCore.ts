@@ -12,6 +12,7 @@ import {
   selectPriorityRankedSignals,
   selectPublishedSignals,
   selectRankedPublishedSignals,
+  summarizeExecutionCandidateCohort,
   selectWatchlistFirstRankedSignals,
   createBotConsumableFeed,
 } from "../domain";
@@ -67,7 +68,10 @@ export function useMarketSignalsCore() {
       : null;
     const botConsumableSignals = botConsumableFeed ? selectAcceptedBotConsumableSignals(botConsumableFeed) : [];
     const latestScannerRun = signalCore.scannerStatus?.latestRun || null;
+    const latestSchedulerRun = signalCore.scannerStatus?.latestSchedulerRun || null;
     const activeScannerTarget = signalCore.scannerStatus?.targets[0] || null;
+    const eligibleSummary = summarizeExecutionCandidateCohort(eligibleExecutionCandidates);
+    const blockedSummary = summarizeExecutionCandidateCohort(signalCore.executionCandidates.filter((candidate) => candidate.status === "blocked"));
     const scannerDiscovery = {
       activeListName: activeScannerTarget?.activeListName || signalCore.activeWatchlistName || "Sin watchlist activa",
       watchedCoinsCount: Number(activeScannerTarget?.coinsCount || signalCore.activeWatchlistCoins.length || 0),
@@ -77,6 +81,29 @@ export function useMarketSignalsCore() {
       latestRunFrames: Number(latestScannerRun?.frames_scanned || 0),
       latestRunSignalsCreated: Number(latestScannerRun?.signals_created || 0),
       latestRunSignalsClosed: Number(latestScannerRun?.signals_closed || 0),
+    };
+    const marketWideContext = {
+      discoveryFeedSource: operablePublishedBundle.marketWide.items.length ? "execution-overlay" : "ranked-memory",
+      latestScanSource: latestScannerRun?.scan_source || null,
+      latestSchedulerRunAt: latestSchedulerRun?.created_at || null,
+      latestSchedulerSignalsCreated: Number(latestSchedulerRun?.signals_created || 0),
+      latestSchedulerSignalsClosed: Number(latestSchedulerRun?.signals_closed || 0),
+      latestDiscoveryCount: marketWideSignals.length,
+      activeCooldownUntil: signalCore.scannerStatus?.summary.autoExecutionCooldownUntil || null,
+      cooldownActive: Boolean(signalCore.scannerStatus?.summary.autoExecutionCooldownActive),
+    };
+    const operationalContext = {
+      feedSource: operablePublishedBundle.all.items.length ? "execution-overlay" : "ranked-memory",
+      eligibleCount: eligibleSummary.total,
+      blockedCount: blockedSummary.total,
+      eligibleAvgScore: eligibleSummary.avgScore,
+      blockedAvgScore: blockedSummary.avgScore,
+      eligibleAvgRr: eligibleSummary.avgRr,
+      blockedAvgRr: blockedSummary.avgRr,
+      latestRunAutoOrdersPlaced: Number(latestScannerRun?.auto_orders_placed || 0),
+      latestRunAutoOrdersBlocked: Number(latestScannerRun?.auto_orders_blocked || 0),
+      latestRunAutoOrdersSkipped: Number(latestScannerRun?.auto_orders_skipped || 0),
+      latestRunStatus: latestScannerRun?.status || null,
     };
 
     return {
@@ -98,6 +125,8 @@ export function useMarketSignalsCore() {
         activeWatchlistCoins: signalCore.activeWatchlistCoins,
         scannerStatus: signalCore.scannerStatus,
         scannerDiscovery,
+        marketWideContext,
+        operationalContext,
         executionCandidates: signalCore.executionCandidates,
         feeds: {
           published: publishedFeed,

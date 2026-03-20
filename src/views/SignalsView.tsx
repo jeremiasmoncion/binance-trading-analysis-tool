@@ -44,6 +44,8 @@ export function SignalsView() {
   const watchlistVisible = readModel.watchlistFirst.filter((signal) => signal.ranking.tier !== "low-visibility");
   const discoveryVisible = readModel.marketDiscovery.filter((signal) => signal.ranking.tier !== "low-visibility");
   const scannerDiscovery = core.signalCore.scannerDiscovery;
+  const marketWideContext = core.signalCore.marketWideContext;
+  const operationalContext = core.signalCore.operationalContext;
 
   return (
     <div id="signalsWorkspaceView" className="view-panel active">
@@ -156,6 +158,12 @@ export function SignalsView() {
             subtitle="Descubrimiento del mercado general con filtro más duro para que no se vuelva ruido."
             className="workspace-panel"
           >
+            <div className="workspace-mini-metrics">
+              <MetricTile label="Feed source" value={marketWideContext.discoveryFeedSource} note="De dónde sale hoy el discovery market-wide compartido" />
+              <MetricTile label="Último scan" value={marketWideContext.latestScanSource || "Sin fuente"} note={`${scannerDiscovery.latestRunFrames} marcos · ${scannerDiscovery.latestRunSignalsCreated} señales creadas`} />
+              <MetricTile label="Scheduler" value={marketWideContext.latestSchedulerRunAt ? "Activo" : "Sin evidencia"} note={`${marketWideContext.latestSchedulerSignalsCreated} creadas · ${marketWideContext.latestSchedulerSignalsClosed} cerradas`} />
+              <MetricTile label="Cooldown" value={marketWideContext.cooldownActive ? "Activo" : "Libre"} note={marketWideContext.activeCooldownUntil || "Sin enfriamiento automático"} />
+            </div>
             <div className="signal-card-grid">
               {discoveryVisible.slice(0, 8).map((signal) => (
                 <SignalCard
@@ -204,6 +212,8 @@ export function SignalsView() {
               <MetricTile label="Bloqueadas" value={String(readModel.blockedCandidates.length)} note="Candidatas reales que fueron frenadas por reglas" />
               <MetricTile label="Operables visibles" value={String(readModel.priority.length)} note="Subset priorizado en el producto" />
               <MetricTile label="Observacionales" value={String(readModel.observational.length)} note="Todavía no pasan a ejecución" />
+              <MetricTile label="RR elegible" value={operationalContext.eligibleAvgRr ? operationalContext.eligibleAvgRr.toFixed(2) : "--"} note={`Score medio ${operationalContext.eligibleAvgScore.toFixed(0)} · source ${operationalContext.feedSource}`} />
+              <MetricTile label="Auto órdenes" value={String(operationalContext.latestRunAutoOrdersPlaced)} note={`${operationalContext.latestRunAutoOrdersBlocked} bloqueadas · ${operationalContext.latestRunAutoOrdersSkipped} omitidas`} />
             </div>
             <div className="signal-card-grid with-top-gap">
               {readModel.eligibleCandidates.slice(0, 4).map((candidate) => (

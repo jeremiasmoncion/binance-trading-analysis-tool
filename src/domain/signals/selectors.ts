@@ -1,4 +1,5 @@
 import type { BotConsumableSignal, PublishedSignal, RankedPublishedSignal, SignalFeed } from "./contracts";
+import type { ExecutionCandidate } from "../../types";
 
 export function selectPublishedSignals(feed: SignalFeed<PublishedSignal>): PublishedSignal[] {
   return feed.items;
@@ -77,4 +78,21 @@ export function selectAcceptedBotConsumableSignals(feed: SignalFeed<BotConsumabl
 
 export function selectBlockedBotConsumableSignals(feed: SignalFeed<BotConsumableSignal>): BotConsumableSignal[] {
   return feed.items.filter((signal) => !signal.acceptedByPolicy);
+}
+
+export function summarizeExecutionCandidateCohort(candidates: ExecutionCandidate[]) {
+  const total = candidates.length;
+  const avgScore = total
+    ? candidates.reduce((sum, item) => sum + Number(item.score || 0), 0) / total
+    : 0;
+  const rrCandidates = candidates.filter((item) => Number(item.rrRatio || 0) > 0);
+  const avgRr = rrCandidates.length
+    ? rrCandidates.reduce((sum, item) => sum + Number(item.rrRatio || 0), 0) / rrCandidates.length
+    : 0;
+
+  return {
+    total,
+    avgScore,
+    avgRr,
+  };
 }

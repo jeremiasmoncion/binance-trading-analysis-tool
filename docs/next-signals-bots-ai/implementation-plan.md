@@ -171,6 +171,12 @@ Current progress:
   - explicit informational and AI-prioritized subsets now exist in the signal seam
   - AI-prioritized no longer depends only on ranking boosts:
     - it now reuses real `adaptiveScore`, scorer label/confidence, and execution metadata already stored in `signalMemory`
+  - market-wide and operable now also carry explicit scanner/runtime context:
+    - feed source
+    - latest scan source
+    - scheduler evidence
+    - auto-order / cooldown context
+    - average score / RR for the eligible cohort
 - pending:
   - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
   - deepen the operable contract with richer scanner/runtime context and later explicit informational / AI-prioritized contracts

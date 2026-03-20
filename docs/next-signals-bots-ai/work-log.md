@@ -25,6 +25,30 @@
 
 - Continue deepening `market-wide` and `operable` with more explicit scanner/runtime evidence so the signal funnel can stabilize before the next strong bot-core round.
 
+### Phase
+
+`Signal Core` scanner/runtime context strengthening
+
+### Completed
+
+- Added explicit `marketWideContext` and `operationalContext` to the shared `Signal Core` seam.
+- Reused scanner/runtime evidence already present in the system instead of inventing a second discovery layer:
+  - latest scan source
+  - scheduler evidence
+  - cooldown state
+  - auto-order counts
+  - eligible / blocked cohort averages
+- Updated `SignalsView` so discovery and operational surfaces can read that context directly from the seam.
+
+### Risk Avoided
+
+- This avoids turning the discovery and operational tabs into readouts that only show lists without explaining what the scanner/runtime actually did underneath.
+- It also avoids re-implementing candidate cohort summaries locally in each view.
+
+### Recommended Next Step
+
+- Keep pushing the same shared seam toward a fuller `Signal Core` contract, then return to `Bot Core` only after the signal funnel is stable enough for bot consumption.
+
 ## 2026-03-19
 
 ### Phase

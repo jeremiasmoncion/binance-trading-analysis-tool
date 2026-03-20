@@ -153,6 +153,13 @@ The redesign also now has dedicated documentation for:
     - observational ranked signals
   - explicit informational and AI-prioritized ranked subsets now also travel in the same seam
   - AI-prioritized now reuses real adaptive/scorer metadata preserved from `signalMemory`, not only ranking boosts
+  - market-wide and operable now also expose scanner/runtime context:
+    - discovery feed source
+    - latest scan source
+    - scheduler evidence
+    - cooldown state
+    - auto-order counters
+    - eligible/blocked cohort averages
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context
@@ -161,8 +168,8 @@ The redesign also now has dedicated documentation for:
   - ranked feed logic already under `src/domain/signals/`
   - execution candidates are now the first live bridge for deeper operable feeds
 - next:
-  - connect scanner outputs into the new signal core more directly
-  - deepen market-wide and operable feeds with richer scanner/runtime context
+  - connect scanner outputs into the new signal core even more directly when there is richer scanner-owned signal evidence available
+  - continue tightening market-wide / operable contracts before the next strong bot-core pass
   - turn informational / AI-prioritized into even more explicit contracts if those cohorts spread to more product surfaces
   - continue moving bot logic to consume the cleaner feed taxonomy
 

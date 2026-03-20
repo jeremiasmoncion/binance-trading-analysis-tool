@@ -4,7 +4,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import { useBotDecisionsState } from "../hooks/useBotDecisions";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
-import type { RankedPublishedSignal } from "../domain";
+import type { BotDecisionRecord, RankedPublishedSignal } from "../domain";
 import type { SignalSnapshot, ViewName } from "../types";
 
 type SignalBotTab = "active-signals" | "signal-history" | "performance" | "settings";
@@ -37,9 +37,9 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
 
   const readModel = useMemo(() => {
     const scopedSignalFeed = selectedBotSignals.length ? selectedBotSignals : feedReadModel.prioritySignals;
-    const openSignals = signals.filter((signal) => signal.outcome_status === "pending");
-    const closedSignals = signals.filter((signal) => signal.outcome_status !== "pending");
-    const cards = scopedSignalFeed.slice(0, 12).map((signal) => {
+    const openSignals = signals.filter((signal: SignalSnapshot) => signal.outcome_status === "pending");
+    const closedSignals = signals.filter((signal: SignalSnapshot) => signal.outcome_status !== "pending");
+    const cards = scopedSignalFeed.slice(0, 12).map((signal: RankedPublishedSignal) => {
       const snapshot = findSnapshotForSignal(signal.context.symbol, signal.context.timeframe, signals);
       const direction = getDisplaySignalDirection(signal, snapshot);
       return {
@@ -66,7 +66,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
       closedHistory: feedReadModel.selectedBotDecisions.length
         ? feedReadModel.selectedBotDecisions
           .slice()
-          .sort((left, right) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime())
+          .sort((left: BotDecisionRecord, right: BotDecisionRecord) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime())
           .slice(0, 12)
         : closedSignals
           .slice()
@@ -331,7 +331,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {readModel.closedHistory.map((entry) => isDecisionRecord(entry) ? (
+                  {readModel.closedHistory.map((entry: BotDecisionRecord | SignalSnapshot) => isDecisionRecord(entry) ? (
                     <tr key={entry.id}>
                       <td>{entry.symbol}</td>
                       <td>{formatDecisionAction(entry.action)}</td>

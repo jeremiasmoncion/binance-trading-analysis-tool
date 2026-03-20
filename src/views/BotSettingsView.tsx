@@ -1781,8 +1781,8 @@ function PlayMiniIcon() {
 function GearMiniIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 0 0 0-6.4Z" stroke="currentColor" strokeWidth="1.8" />
-      <path d="m19 13.1-.9.5.1 1a1 1 0 0 1-.6 1l-1 .4-.6.9a1 1 0 0 1-1 .4l-1-.2-.8.7a1 1 0 0 1-1 0l-.8-.7-1 .2a1 1 0 0 1-1-.4l-.6-.9-1-.4a1 1 0 0 1-.6-1l.1-1-.9-.5a1 1 0 0 1-.4-.9l.4-1-.4-1a1 1 0 0 1 .4-.9l.9-.5-.1-1a1 1 0 0 1 .6-1l1-.4.6-.9a1 1 0 0 1 1-.4l1 .2.8-.7a1 1 0 0 1 1 0l.8.7 1-.2a1 1 0 0 1 1 .4l.6.9 1 .4a1 1 0 0 1 .6 1l-.1 1 .9.5a1 1 0 0 1 .4.9l-.4 1 .4 1a1 1 0 0 1-.4.9Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="2.8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 4.8v2.1M12 17.1v2.1M19.2 12h-2.1M6.9 12H4.8M17.1 6.9l-1.5 1.5M8.4 15.6l-1.5 1.5M17.1 17.1l-1.5-1.5M8.4 8.4L6.9 6.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

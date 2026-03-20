@@ -349,6 +349,11 @@ The redesign also now has dedicated documentation for:
     - approve -> move back to `queued`
     - reject -> move to `blocked`
   - approval/rejection stays inside the same shared bot-decision seam; no second runtime or side queue was introduced
+  - queued paper/demo intents can now also move into an explicit `dispatch-requested` lane from `Execution Logs`
+  - this keeps dispatch distinct from both:
+    - approval
+    - linked execution outcome
+  - blocked intent rows now also surface the shared intent reason more directly during execution review
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -375,8 +380,8 @@ The redesign also now has dedicated documentation for:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
   - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - expose blocked-intent reasons more directly per row where helpful
-  - decide whether queued paper/demo intents should now support a second-stage dispatch action
+  - decide whether `dispatch-requested` should now integrate with a real paper/demo execution adapter
+  - decide whether dispatch backlog should surface more clearly in fleet-level summaries
   - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status

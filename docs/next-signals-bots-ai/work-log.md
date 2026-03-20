@@ -4,6 +4,40 @@
 
 ### Phase
 
+`Bot Core` paper-demo dispatch request round
+
+### Completed
+
+- Added the next governed step after review approval: queued paper/demo intents can now move into an explicit `dispatch-requested` lane without pretending a real order was already emitted.
+- The execution-intent lane now supports:
+  - `queued`
+  - `dispatch-requested`
+  - `awaiting-approval`
+  - `blocked`
+  - `linked`
+- `Execution Logs` now lets the operator request dispatch for queued intents directly from the review table.
+- Row labels and filters now reflect that second-stage state explicitly:
+  - `Dispatch Requested`
+- Blocked intent rows now also surface the shared intent reason more directly instead of falling back to a generic label.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids jumping from `queued` straight to “executed” semantics before there is a governed dispatch stage.
+- It also avoids losing blocked-intent context once rejection and guardrail failures start sharing the same lane.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `dispatch-requested` should now integrate with a real paper/demo execution adapter
+  - expose dispatch backlog counts more clearly in fleet-level summaries if they start to matter
+  - keep real trading execution out of scope until the paper/demo dispatch path is fully governed end-to-end
+
+### Phase
+
 `Bot Core` execution intent review actions round
 
 ### Completed

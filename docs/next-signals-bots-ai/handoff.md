@@ -359,6 +359,8 @@ The redesign also now has dedicated documentation for:
   - successful adapter calls now split into clearer paper/demo terminal states instead of sharing one generic `dispatched` lane:
     - `paper -> previewed`
     - `demo -> execution-submitted`
+  - when the execution plane confirms a preview record, the paper path now closes into:
+    - `preview-recorded`
   - failed adapter calls now move the same decision into `blocked` with explicit dispatch reason metadata
   - the lane normalizer now preserves progressed ready intents instead of snapping:
     - `dispatch-requested -> queued`
@@ -401,6 +403,7 @@ The redesign also now has dedicated documentation for:
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
   - decide whether dispatch backlog should surface more clearly in fleet-level summaries
   - decide whether those terminal dispatch states now need richer adapter-level diagnostics per row and per bot
+  - decide whether `preview-recorded` now needs a user-facing closure/expiry model distinct from demo execution progress
   - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status

@@ -204,10 +204,13 @@ Current progress:
   - successful adapter calls now split into clearer paper/demo terminal semantics:
     - `paper -> previewed`
     - `demo -> execution-submitted`
+  - when the shared execution plane later confirms a preview record, the paper path now closes into:
+    - `preview-recorded`
   - execution linkage still closes the demo path later into `linked`
   - dispatch failures now fall back into the same governed bot-decision seam as blocked intents with explicit reason metadata
   - `Signal Bot` and `Execution Logs` now expose those paper/demo terminal states directly instead of collapsing both under one generic `dispatched` label
   - the shared decision timeline now also exposes dispatch-mode/status diagnostics so those terminal states can be audited without inspecting raw metadata
+  - the preview path now has its own closure semantics instead of reusing demo-style `linked`
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

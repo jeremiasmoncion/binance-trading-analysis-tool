@@ -233,6 +233,7 @@ Current lane-state progression in the implementation:
 - `queued`
 - `dispatch-requested`
 - `previewed`
+- `preview-recorded`
 - `execution-submitted`
 - `blocked`
 - `linked`

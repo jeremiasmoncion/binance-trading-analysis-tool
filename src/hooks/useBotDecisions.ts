@@ -247,12 +247,13 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
   const linkedBy = decisionSignalIds.size && normalizeSignalId(match.signal_id) && decisionSignalIds.has(normalizeSignalId(match.signal_id))
     ? "signal-id"
     : "heuristic";
+  const isPreviewRecord = normalizeToken(match.mode) === "preview" || normalizeToken(match.lifecycle_status || match.status) === "preview";
   const nextMetadata = {
     ...decision.metadata,
     executionOrderId: match.id,
     executionOrderMode: match.mode,
     executionLinkedAt: getOrderTimestamp(match),
-    executionIntentLaneStatus: "linked",
+    executionIntentLaneStatus: isPreviewRecord ? "preview-recorded" : "linked",
     executionIntentLastUpdatedAt: getOrderTimestamp(match),
     executionStatus: String(match.lifecycle_status || match.status || ""),
     executionOutcomeStatus: match.signal_outcome_status || null,
@@ -268,6 +269,8 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
   };
   const nextStatus = hasClosedOutcome(match)
     ? "closed"
+    : isPreviewRecord && decision.status === "pending"
+      ? "approved"
     : decision.status === "pending" && normalizeToken(match.mode) === "execute"
       ? "executed"
       : decision.status;

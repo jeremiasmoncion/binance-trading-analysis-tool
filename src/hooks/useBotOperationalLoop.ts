@@ -320,7 +320,7 @@ function buildIntentLanePatch(bot: Bot, decision: BotDecisionRecord): Partial<Bo
   if (
     currentLane === lane
     && intentStatus === "ready"
-    && ["dispatch-requested", "previewed", "execution-submitted", "linked", "blocked"].includes(currentLaneStatus)
+    && ["dispatch-requested", "previewed", "preview-recorded", "execution-submitted", "linked", "blocked"].includes(currentLaneStatus)
     && currentIntentStatus === intentStatus
   ) {
     return null;

@@ -4,6 +4,39 @@
 
 ### Phase
 
+`Bot Core` preview closure semantics round
+
+### Completed
+
+- Closed the safe paper-preview path more honestly once the execution plane confirms that a preview record exists.
+- The bot-owned intent lane now distinguishes:
+  - `previewed` for a preview dispatch that has been requested/submitted
+  - `preview-recorded` for a preview that already exists as an execution-plane record
+- Preview confirmation no longer closes into the same `linked` semantics used by demo execution outcomes.
+- Decision outcome sync now marks preview records as:
+  - `executionIntentLaneStatus = preview-recorded`
+  - `status = approved` when the bot was still pending
+- Shared summaries now also track `previewRecordedCount`.
+- `Execution Logs` and `Signal Bot` now surface that preview closure state directly instead of collapsing it into generic dispatched flow.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids pretending a preview record is the same as a demo execution linkage.
+- It also avoids leaving the paper path half-open after the shared execution plane already confirmed a preview artifact.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `preview-recorded` now needs expiry or promotion semantics
+  - expose clearer lifecycle wording for paper-preview closure vs demo execution progress
+  - keep real trading execution out of scope until the safe paper/demo lane is fully trustworthy
+
+### Phase
+
 `Bot Core` paper-demo terminal semantics round
 
 ### Completed

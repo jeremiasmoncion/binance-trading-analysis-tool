@@ -143,8 +143,9 @@ More specific rule for template migration:
   - the selected tab must stay visibly highlighted after selection
   - that selected-state behavior should come from the shared tab/chip primitive, not a page-local exception
 - for global loading surfaces:
-  - preserve CRYPE identity in the loader itself
-  - prefer branded animated logo treatment over generic spinner-only presentation
+  - preserve CRYPE visual language in the loader itself
+  - when the startup slot is a compact mark container, prefer a real loading animation instead of a static `C`
+  - verify whether the active loader belongs to `StartupOverlay` or `SystemUiHost` before changing it
 - for `All Bots` quick configuration:
   - the bot gear action should open an in-context right drawer
   - do not force a page transition for lightweight bot edits

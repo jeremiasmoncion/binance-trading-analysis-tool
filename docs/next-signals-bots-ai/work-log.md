@@ -152,17 +152,19 @@ System loading identity refinement
 
 ### Completed
 
-- Replaced the generic spinner treatment inside the system loading dock with a branded loading animation around the CRYPE `C`.
-- Kept the same loading surface and wording, but made the logo itself carry the loading signal.
-- Implemented the change in the shared system UI host so future startup/loading states keep the same branded behavior.
+- Traced the startup loading surface to the real source component: `StartupOverlay`, not just the shared `SystemUiHost`.
+- Replaced the static `C` in the startup overlay mark with a true spinner animation inside the same slot.
+- Kept the same loading surface and wording, but removed the static letter so the mark now communicates real progress.
+- Documented the rule that future loader tweaks must first confirm which loading surface is actually rendering.
 
 ### Risk Avoided
 
-- This avoids drifting back to generic loading indicators that feel disconnected from the rest of the product identity.
+- This avoids repeating false-positive fixes on the wrong loader while the visible startup screen keeps shipping unchanged.
+- It also avoids leaving a static brand letter in a place that users expect to behave like a loading indicator.
 
 ### Recommended Next Step
 
-- Reuse the same branded loader treatment for future global loading surfaces instead of reintroducing standalone spinners.
+- Reuse the same spinner treatment for compact startup marks and confirm surface ownership before editing other global loaders.
 
 ### Phase
 

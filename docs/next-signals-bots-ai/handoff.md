@@ -727,6 +727,24 @@ Keep the work phased.
 
 - Open the dedicated per-bot settings pages so the gear/settings actions stop terminating in placeholders for the non-signal bots.
 
+## Latest General Settings Round
+
+### Outcome
+
+- `General Settings` inside `Bot Settings` now behaves like a real configuration page instead of a compact summary section.
+- The tab now includes:
+  - select-style trading preferences
+  - automation switches
+  - performance tuning sliders
+  - schedule/time/day controls
+  - reset/save actions
+
+### Important Note
+
+- This round is visual + interaction scaffolding only.
+- It does not persist settings yet.
+- No new fetch path or isolated settings runtime was introduced.
+
 ## Implementador - 2026-03-19 - Signal Bot Page Closure Pass
 
 ### What Was Done

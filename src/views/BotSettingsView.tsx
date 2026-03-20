@@ -24,6 +24,25 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
   const [layoutMode, setLayoutMode] = useState<BotLayoutMode>("grid");
   const [search, setSearch] = useState("");
+  const [generalSettings, setGeneralSettings] = useState({
+    defaultTradingPair: "BTC/USDT",
+    defaultExchange: "Binance",
+    baseCurrency: "USDT",
+    orderSizeType: "fixed" as "fixed" | "percentage",
+    autoRestartOnError: true,
+    autoCompoundProfits: true,
+    paperTradingMode: false,
+    smartOrderRouting: true,
+    antiSlippageProtection: true,
+    executionSpeed: 50,
+    apiRateLimit: 1200,
+    maxConcurrentBots: 15,
+    tradingScheduleEnabled: false,
+    startTime: "09:00 AM",
+    endTime: "05:00 PM",
+    activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    timezone: "UTC",
+  });
   const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
@@ -160,6 +179,29 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       },
     };
   }, [feedReadModel, search, statusFilter]);
+
+  const toggleGeneralSetting = <TKey extends keyof typeof generalSettings>(key: TKey) => {
+    setGeneralSettings((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
+
+  const updateGeneralSetting = <TKey extends keyof typeof generalSettings>(key: TKey, value: (typeof generalSettings)[TKey]) => {
+    setGeneralSettings((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const toggleActiveDay = (day: string) => {
+    setGeneralSettings((current) => ({
+      ...current,
+      activeDays: current.activeDays.includes(day)
+        ? current.activeDays.filter((item) => item !== day)
+        : [...current.activeDays, day],
+    }));
+  };
 
   return (
     <div id="botSettingsView" className="view-panel active botsettings-view">
@@ -383,8 +425,235 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           ) : null}
 
           {activeTab === "general-settings" ? (
-            <div className="botsettings-settings-grid">
-              {readModel.tabs.general.map((item) => <SettingsPanel key={item.title} {...item} icon={<SlidersHorizontalIcon />} />)}
+            <div className="botsettings-general-grid">
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-primary">
+                      <SlidersHorizontalIcon />
+                    </div>
+                    <h3>Trading Preferences</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <FormSelect
+                    label="Default Trading Pair"
+                    value={generalSettings.defaultTradingPair}
+                    options={["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"]}
+                    onChange={(value) => updateGeneralSetting("defaultTradingPair", value)}
+                  />
+                  <FormSelect
+                    label="Default Exchange"
+                    value={generalSettings.defaultExchange}
+                    options={["Binance", "Binance Demo", "Paper Router"]}
+                    onChange={(value) => updateGeneralSetting("defaultExchange", value)}
+                  />
+                  <FormSelect
+                    label="Base Currency"
+                    value={generalSettings.baseCurrency}
+                    options={["USDT", "USDC", "USD"]}
+                    onChange={(value) => updateGeneralSetting("baseCurrency", value)}
+                  />
+
+                  <div className="botsettings-field-block">
+                    <label className="botsettings-field-label">Order Size Type</label>
+                    <div className="botsettings-choice-grid">
+                      <ChoiceCard
+                        icon={<DollarSizeIcon />}
+                        title="Fixed Amount"
+                        active={generalSettings.orderSizeType === "fixed"}
+                        onClick={() => updateGeneralSetting("orderSizeType", "fixed")}
+                      />
+                      <ChoiceCard
+                        icon={<PercentSizeIcon />}
+                        title="Percentage"
+                        active={generalSettings.orderSizeType === "percentage"}
+                        onClick={() => updateGeneralSetting("orderSizeType", "percentage")}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-warning">
+                      <AutomationBoltIcon />
+                    </div>
+                    <h3>Automation Settings</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-toggle-stack">
+                  <ToggleRow
+                    title="Auto-restart on error"
+                    note="Automatically restart bots after recoverable errors"
+                    checked={generalSettings.autoRestartOnError}
+                    onToggle={() => toggleGeneralSetting("autoRestartOnError")}
+                  />
+                  <ToggleRow
+                    title="Auto-compound profits"
+                    note="Reinvest profits automatically"
+                    checked={generalSettings.autoCompoundProfits}
+                    onToggle={() => toggleGeneralSetting("autoCompoundProfits")}
+                  />
+                  <ToggleRow
+                    title="Paper trading mode"
+                    note="Test strategies without real funds"
+                    checked={generalSettings.paperTradingMode}
+                    onToggle={() => toggleGeneralSetting("paperTradingMode")}
+                  />
+                  <ToggleRow
+                    title="Smart order routing"
+                    note="Find best prices across exchanges"
+                    checked={generalSettings.smartOrderRouting}
+                    onToggle={() => toggleGeneralSetting("smartOrderRouting")}
+                  />
+                  <ToggleRow
+                    title="Anti-slippage protection"
+                    note="Prevent execution at unfavorable prices"
+                    checked={generalSettings.antiSlippageProtection}
+                    onToggle={() => toggleGeneralSetting("antiSlippageProtection")}
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-info">
+                      <PerformanceGaugeIcon />
+                    </div>
+                    <h3>Performance Settings</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-slider-stack">
+                  <SliderField
+                    label="Execution Speed"
+                    value={generalSettings.executionSpeed}
+                    minLabel="Normal"
+                    maxLabel="Ultra"
+                    displayValue={generalSettings.executionSpeed >= 66 ? "Ultra" : generalSettings.executionSpeed >= 33 ? "Fast" : "Normal"}
+                    max={100}
+                    onChange={(value) => updateGeneralSetting("executionSpeed", value)}
+                  />
+                  <SliderField
+                    label="API Rate Limit"
+                    value={generalSettings.apiRateLimit}
+                    min={300}
+                    max={1800}
+                    step={100}
+                    minLabel="300/min"
+                    maxLabel="1800/min"
+                    displayValue={`${generalSettings.apiRateLimit}/min`}
+                    onChange={(value) => updateGeneralSetting("apiRateLimit", value)}
+                  />
+                  <SliderField
+                    label="Max Concurrent Bots"
+                    value={generalSettings.maxConcurrentBots}
+                    min={1}
+                    max={30}
+                    step={1}
+                    minLabel="1"
+                    maxLabel="30"
+                    displayValue={String(generalSettings.maxConcurrentBots)}
+                    onChange={(value) => updateGeneralSetting("maxConcurrentBots", value)}
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-success">
+                      <ScheduleClockIcon />
+                    </div>
+                    <h3>Schedule Settings</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <ToggleRow
+                    title="Trading schedule"
+                    note="Limit trading to specific hours"
+                    checked={generalSettings.tradingScheduleEnabled}
+                    onToggle={() => toggleGeneralSetting("tradingScheduleEnabled")}
+                  />
+
+                  <div className="botsettings-time-grid">
+                    <FormInput
+                      label="Start Time"
+                      value={generalSettings.startTime}
+                      onChange={(value) => updateGeneralSetting("startTime", value)}
+                      suffix={<TimeMiniIcon />}
+                    />
+                    <FormInput
+                      label="End Time"
+                      value={generalSettings.endTime}
+                      onChange={(value) => updateGeneralSetting("endTime", value)}
+                      suffix={<TimeMiniIcon />}
+                    />
+                  </div>
+
+                  <div className="botsettings-field-block">
+                    <label className="botsettings-field-label">Active Days</label>
+                    <div className="botsettings-day-row">
+                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                        <button
+                          key={day}
+                          type="button"
+                          className={`botsettings-day-chip ${generalSettings.activeDays.includes(day) ? "active" : ""}`}
+                          onClick={() => toggleActiveDay(day)}
+                        >
+                          {day}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <FormSelect
+                    label="Timezone"
+                    value={generalSettings.timezone}
+                    options={["UTC", "America/New_York", "America/Santo_Domingo", "Europe/London"]}
+                    onChange={(value) => updateGeneralSetting("timezone", value)}
+                  />
+                </div>
+              </article>
+
+              <div className="botsettings-general-actions">
+                <button
+                  type="button"
+                  className="botsettings-reset-button ui-button"
+                  onClick={() => setGeneralSettings({
+                    defaultTradingPair: "BTC/USDT",
+                    defaultExchange: "Binance",
+                    baseCurrency: "USDT",
+                    orderSizeType: "fixed",
+                    autoRestartOnError: true,
+                    autoCompoundProfits: true,
+                    paperTradingMode: false,
+                    smartOrderRouting: true,
+                    antiSlippageProtection: true,
+                    executionSpeed: 50,
+                    apiRateLimit: 1200,
+                    maxConcurrentBots: 15,
+                    tradingScheduleEnabled: false,
+                    startTime: "09:00 AM",
+                    endTime: "05:00 PM",
+                    activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+                    timezone: "UTC",
+                  })}
+                >
+                  Reset to Default
+                </button>
+                <button type="button" className="ui-button ui-button-primary">
+                  <SaveMiniIcon />
+                  Save Settings
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -451,6 +720,100 @@ function MetricCell(props: { label: string; value: string; tone: "positive" | "n
     <div className="botsettings-metric-cell">
       <span>{props.label}</span>
       <strong className={props.tone === "positive" ? "is-positive" : props.tone === "negative" ? "is-negative" : ""}>{props.value}</strong>
+    </div>
+  );
+}
+
+function FormSelect(props: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return (
+    <div className="botsettings-field-block">
+      <label className="botsettings-field-label">{props.label}</label>
+      <label className="botsettings-select-shell ui-input-shell">
+        <select value={props.value} onChange={(event) => props.onChange(event.target.value)} aria-label={props.label}>
+          {props.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        <SelectChevronIcon />
+      </label>
+    </div>
+  );
+}
+
+function FormInput(props: { label: string; value: string; onChange: (value: string) => void; suffix?: ReactNode }) {
+  return (
+    <div className="botsettings-field-block">
+      <label className="botsettings-field-label">{props.label}</label>
+      <label className="botsettings-input-shell ui-input-shell">
+        <input value={props.value} onChange={(event) => props.onChange(event.target.value)} aria-label={props.label} />
+        {props.suffix ? <span className="botsettings-input-suffix">{props.suffix}</span> : null}
+      </label>
+    </div>
+  );
+}
+
+function ChoiceCard(props: { icon: ReactNode; title: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={`botsettings-choice-card ${props.active ? "active" : ""}`} onClick={props.onClick}>
+      <div className="botsettings-choice-icon">{props.icon}</div>
+      <strong>{props.title}</strong>
+    </button>
+  );
+}
+
+function ToggleRow(props: { title: string; note: string; checked: boolean; onToggle: () => void }) {
+  return (
+    <div className="botsettings-toggle-card">
+      <div className="botsettings-toggle-copy">
+        <strong>{props.title}</strong>
+        <span>{props.note}</span>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={props.checked}
+        className={`botsettings-switch ${props.checked ? "is-active" : ""}`}
+        onClick={props.onToggle}
+      >
+        <span />
+      </button>
+    </div>
+  );
+}
+
+function SliderField(props: {
+  label: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  minLabel: string;
+  maxLabel: string;
+  displayValue: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="botsettings-slider-field">
+      <div className="botsettings-slider-head">
+        <strong>{props.label}</strong>
+        <span>{props.displayValue}</span>
+      </div>
+      <input
+        className="botsettings-slider"
+        type="range"
+        min={props.min ?? 0}
+        max={props.max ?? 100}
+        step={props.step ?? 1}
+        value={props.value}
+        onChange={(event) => props.onChange(Number(event.target.value))}
+        aria-label={props.label}
+      />
+      <div className="botsettings-slider-scale">
+        <span>{props.minLabel}</span>
+        <span>{props.maxLabel}</span>
+      </div>
     </div>
   );
 }
@@ -629,6 +992,79 @@ function KebabIcon() {
       <circle cx="12" cy="6.5" r="1.3" fill="currentColor" />
       <circle cx="12" cy="12" r="1.3" fill="currentColor" />
       <circle cx="12" cy="17.5" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function TimeMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 8v4.8l2.8 1.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DollarSizeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4v16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M16.5 7.5c0-1.4-1.6-2.5-4.5-2.5s-4.5 1.1-4.5 2.8c0 4.5 9 2 9 6.2c0 1.8-1.7 3-4.5 3s-4.5-1.2-4.5-2.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PercentSizeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m6 18 12-12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="16" cy="16" r="2" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function AutomationBoltIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M13 2 5.8 12h4.4L9.7 22 17.9 11.7h-4.4L13 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PerformanceGaugeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 15a7 7 0 1 1 14 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m12 12 3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ScheduleClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.7v4.8l2.8 1.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SelectChevronIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SaveMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5.5 5h10.7l2.3 2.3V18.5A1.5 1.5 0 0 1 17 20H7a1.5 1.5 0 0 1-1.5-1.5V5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M8 5v4.2h7V5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 15h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

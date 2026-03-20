@@ -1255,3 +1255,32 @@ Phase 3 - Signal Bot hard-close refinement
 - `src/components/AppView.tsx`
 - `src/views/BotSettingsView.tsx`
 - `src/styles/content.css`
+
+## Bot Settings General Settings Round
+
+### What Changed
+
+- Deepened `Bot Settings -> General Settings` so it no longer reads like a row of summary cards.
+- Added a more literal settings surface with:
+  - trading preferences
+  - automation toggles
+  - performance sliders
+  - scheduling controls
+  - reset/save footer actions
+
+### UX Continuity
+
+- Kept the page on the same visual baseline as `My Wallet`.
+- Reused the same dark/light discipline instead of hard-locking the section to one theme.
+- Continued using page-local classes only as a thin layer on top of shared UI primitives.
+
+### Scope Note
+
+- These controls are currently a UI-stage configuration surface.
+- They do not introduce a second runtime or a page-local persistence path.
+- The next phase can connect them to a shared persisted settings model without redoing the layout.
+
+### Files Updated
+
+- `src/views/BotSettingsView.tsx`
+- `src/styles/content.css`

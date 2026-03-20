@@ -94,6 +94,40 @@
 
 ### Phase
 
+`Bot Settings` quick-edit drawer round
+
+### Completed
+
+- Added a quick-edit surface from the gear button on each bot card inside `Bot Settings -> All Bots`.
+- Implemented it as a right-side drawer instead of a detached popup so the user can keep the bot grid visible in context.
+- Added UI-stage quick controls for:
+  - bot name
+  - investment amount
+  - range lower / upper
+  - number of grids
+  - stop loss / take profit
+  - auto-compound toggle
+  - delete / cancel / save actions
+- Kept the drawer on the same shared control language already used in the rest of `Bot Settings`:
+  - shared form inputs
+  - shared toggle row
+  - shared action buttons
+  - theme parity in the same round
+
+### Risk Avoided
+
+- This avoids sending users to a different full page for a lightweight edit and avoids introducing a second modal/dialog system just for bot quick edits.
+
+### Recommended Next Step
+
+- Review the all-bots card grid and quick-edit drawer together for micro-alignment:
+  - spacing
+  - typography
+  - drawer density
+  - button hierarchy
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

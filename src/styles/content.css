@@ -4775,6 +4775,125 @@ body.dark-theme .market-score-track {
   gap: 18px;
 }
 
+.botsettings-drawer-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  justify-items: end;
+}
+
+.botsettings-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.botsettings-drawer {
+  position: relative;
+  z-index: 1;
+  width: min(540px, 100vw);
+  height: 100%;
+  padding: 28px 24px;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 20px;
+  border-left: 1px solid rgba(59, 130, 246, 0.14);
+  background:
+    linear-gradient(180deg, rgba(11, 18, 32, 0.98), rgba(7, 13, 25, 0.96)),
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.08), transparent 42%);
+  box-shadow: -24px 0 56px rgba(2, 6, 23, 0.4);
+}
+
+.botsettings-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.botsettings-drawer-head h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.botsettings-drawer-close,
+.botsettings-drawer-danger {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  background: rgba(8, 15, 28, 0.76);
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--crype-motion-fast), color var(--crype-motion-fast), transform var(--crype-motion-fast), background-color var(--crype-motion-fast);
+}
+
+.botsettings-drawer-close:hover,
+.botsettings-drawer-danger:hover {
+  transform: translateY(-1px);
+  color: #f8fafc;
+}
+
+.botsettings-drawer-danger {
+  color: #ff4d5f;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(127, 29, 29, 0.28));
+}
+
+.botsettings-drawer-close svg,
+.botsettings-drawer-danger svg {
+  width: 20px;
+  height: 20px;
+}
+
+.botsettings-drawer-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(4, 10, 20, 0.7);
+}
+
+.botsettings-drawer-summary-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.botsettings-drawer-summary-copy strong {
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.botsettings-drawer-summary-copy span {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.botsettings-drawer-form {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.botsettings-drawer-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(59, 130, 246, 0.14);
+}
+
 .botsettings-tab-bar {
   display: flex;
   align-items: center;
@@ -6020,6 +6139,43 @@ body:not(.dark-theme) .botsettings-panel {
     0 18px 36px rgba(148, 163, 184, 0.14);
 }
 
+body:not(.dark-theme) .botsettings-drawer {
+  border-left-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.05), transparent 40%);
+  box-shadow: -24px 0 56px rgba(148, 163, 184, 0.22);
+}
+
+body:not(.dark-theme) .botsettings-drawer-head h2,
+body:not(.dark-theme) .botsettings-drawer-summary-copy strong {
+  color: #0f172a;
+}
+
+body:not(.dark-theme) .botsettings-drawer-summary {
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+body:not(.dark-theme) .botsettings-drawer-summary-copy span {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-drawer-close,
+body:not(.dark-theme) .botsettings-drawer-danger {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 22px rgba(148, 163, 184, 0.1);
+}
+
+body:not(.dark-theme) .botsettings-drawer-close {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-drawer-actions {
+  border-top-color: rgba(148, 163, 184, 0.16);
+}
+
 body:not(.dark-theme) .botsettings-tab-bar {
   border-color: rgba(148, 163, 184, 0.16);
   background: rgba(255, 255, 255, 0.82);
@@ -6383,6 +6539,15 @@ body:not(.dark-theme) .botsettings-emergency-card span {
   }
 
   .botsettings-card-foot {
+    grid-template-columns: 1fr;
+  }
+
+  .botsettings-drawer {
+    width: 100vw;
+    padding: 22px 18px;
+  }
+
+  .botsettings-drawer-actions {
     grid-template-columns: 1fr;
   }
 

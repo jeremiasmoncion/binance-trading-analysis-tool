@@ -7,6 +7,21 @@ type BotSettingsTab = "all-bots" | "general-settings" | "risk-management" | "not
 type BotStatusFilter = "all" | "running" | "paused" | "stopped";
 type BotLayoutMode = "grid" | "table";
 
+interface QuickEditDraft {
+  botId: string;
+  botName: string;
+  pair: string;
+  strategy: string;
+  investmentAmount: string;
+  rangeLower: string;
+  rangeUpper: string;
+  gridCount: string;
+  stopLossPct: string;
+  takeProfitPct: string;
+  autoCompoundProfits: boolean;
+  accentClass: string;
+}
+
 interface BotSettingsViewProps {
   onNavigateView: (view: ViewName) => void;
 }
@@ -100,6 +115,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
   const [apiConnections] = useState(INITIAL_API_CONNECTIONS);
+  const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
   const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
@@ -281,6 +297,27 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     }));
   };
 
+  const openQuickEdit = (bot: (typeof readModel.filteredCards)[number]) => {
+    setQuickEditDraft({
+      botId: bot.id,
+      botName: bot.name,
+      pair: bot.pair,
+      strategy: bot.strategy,
+      investmentAmount: String(Math.max(1000, Math.round(bot.capital.allocatedUsd || 10000))),
+      rangeLower: String(Math.max(1000, Math.round((bot.riskPolicy.maxPositionUsd || 25000) * 2))),
+      rangeUpper: String(Math.max(5000, Math.round((bot.riskPolicy.maxPositionUsd || 25000) * 3.6))),
+      gridCount: String(Math.max(10, bot.riskPolicy.maxOpenPositions * 5)),
+      stopLossPct: String(Math.max(2, Math.round(bot.riskPolicy.maxDrawdownPct || 5))),
+      takeProfitPct: String(Math.max(4, Math.round((bot.performance.winRate || 50) / 7))),
+      autoCompoundProfits: bot.status === "active",
+      accentClass: getAssetAccentClass(bot.pair.split("/")[0] || bot.name),
+    });
+  };
+
+  const updateQuickEdit = <TKey extends keyof QuickEditDraft>(key: TKey, value: QuickEditDraft[TKey]) => {
+    setQuickEditDraft((current) => (current ? { ...current, [key]: value } : current));
+  };
+
   return (
     <div id="botSettingsView" className="view-panel active botsettings-view">
       <section className="botsettings-shell">
@@ -449,7 +486,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                           type="button"
                           className="botsettings-gear-button"
                           aria-label={`Open settings for ${bot.name}`}
-                          onClick={() => onNavigateView(resolveBotTarget(bot.slug))}
+                          onClick={() => openQuickEdit(bot)}
                         >
                           <GearMiniIcon />
                         </button>
@@ -1109,6 +1146,92 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             </div>
           ) : null}
         </section>
+
+        {quickEditDraft ? (
+          <div className="botsettings-drawer-shell" role="dialog" aria-modal="true" aria-label="Edit bot settings">
+            <button type="button" className="botsettings-drawer-backdrop" aria-label="Close quick settings" onClick={() => setQuickEditDraft(null)} />
+            <aside className="botsettings-drawer">
+              <div className="botsettings-drawer-head">
+                <h2>Edit Bot Settings</h2>
+                <button type="button" className="botsettings-drawer-close" onClick={() => setQuickEditDraft(null)} aria-label="Close quick settings">
+                  <CloseMiniIcon />
+                </button>
+              </div>
+
+              <div className="botsettings-drawer-summary">
+                <div className={`botsettings-asset-badge ${quickEditDraft.accentClass}`}>
+                  {(quickEditDraft.pair.split("/")[0] || quickEditDraft.botName).slice(0, 1)}
+                </div>
+                <div className="botsettings-drawer-summary-copy">
+                  <strong>{quickEditDraft.botName}</strong>
+                  <span>{quickEditDraft.pair} • {quickEditDraft.strategy}</span>
+                </div>
+              </div>
+
+              <div className="botsettings-drawer-form">
+                <FormInput
+                  label="Bot Name"
+                  value={quickEditDraft.botName}
+                  onChange={(value) => updateQuickEdit("botName", value)}
+                />
+                <FormInput
+                  label="Investment Amount"
+                  value={quickEditDraft.investmentAmount}
+                  onChange={(value) => updateQuickEdit("investmentAmount", value)}
+                  prefix="$"
+                />
+                <div className="botsettings-time-grid">
+                  <FormInput
+                    label="Grid Lower"
+                    value={quickEditDraft.rangeLower}
+                    onChange={(value) => updateQuickEdit("rangeLower", value)}
+                  />
+                  <FormInput
+                    label="Grid Upper"
+                    value={quickEditDraft.rangeUpper}
+                    onChange={(value) => updateQuickEdit("rangeUpper", value)}
+                  />
+                </div>
+                <FormInput
+                  label="Number of Grids"
+                  value={quickEditDraft.gridCount}
+                  onChange={(value) => updateQuickEdit("gridCount", value)}
+                />
+                <div className="botsettings-time-grid">
+                  <FormInput
+                    label="Stop Loss %"
+                    value={quickEditDraft.stopLossPct}
+                    onChange={(value) => updateQuickEdit("stopLossPct", value)}
+                  />
+                  <FormInput
+                    label="Take Profit %"
+                    value={quickEditDraft.takeProfitPct}
+                    onChange={(value) => updateQuickEdit("takeProfitPct", value)}
+                  />
+                </div>
+                <ToggleRow
+                  title="Auto-compound profits"
+                  note="Reinvest profits into the grid"
+                  checked={quickEditDraft.autoCompoundProfits}
+                  onToggle={() => updateQuickEdit("autoCompoundProfits", !quickEditDraft.autoCompoundProfits)}
+                />
+              </div>
+
+              <div className="botsettings-drawer-actions">
+                <button type="button" className="botsettings-drawer-danger" aria-label={`Delete ${quickEditDraft.botName}`}>
+                  <TrashMiniIcon />
+                </button>
+                <button type="button" className="botsettings-reset-button ui-button" onClick={() => setQuickEditDraft(null)}>
+                  Cancel
+                </button>
+                <button type="button" className="ui-button ui-button-primary">
+                  <SaveMiniIcon />
+                  Save Changes
+                </button>
+              </div>
+            </aside>
+          </div>
+        ) : null}
       </section>
     </div>
   );
@@ -1597,6 +1720,14 @@ function PlusMiniIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 5.5v13M5.5 12h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CloseMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m8 8 8 8M16 8l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

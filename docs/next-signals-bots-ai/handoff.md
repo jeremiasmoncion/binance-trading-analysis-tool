@@ -171,6 +171,12 @@ Continue replacing the legacy product flow with the new user-facing page structu
   - shared exchange/security cards
   - shared bottom action row
   - shared theme-parity handling
+- `Bot Settings -> All Bots` now also includes an in-context quick-edit drawer from each bot card gear action
+- that quick-edit surface should remain:
+  - contextual
+  - right-sided
+  - visually inside the same `Bot Settings` family
+  - built from the same shared field/toggle/button primitives
 - the implementation rule is now explicit:
   - new settings tabs should extend the same shared form primitives
   - they should not reintroduce page-local form styling or theme-specific hacks

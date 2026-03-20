@@ -332,6 +332,19 @@ The redesign also now has dedicated documentation for:
     - awaiting approval
     - linked intents
     - latest lane state
+  - the shared decision timeline now also carries execution-intent lane metadata directly into `Execution Logs`
+  - `Execution Logs` now supports intent-review scopes on top of the shared activity seam:
+    - queued intents
+    - awaiting approval
+    - blocked intents
+    - linked intents
+  - `Execution Logs` now also shows compact per-bot paper/demo intent backlog summaries:
+    - queued
+    - awaiting approval
+    - blocked
+    - linked
+    - top ready symbols
+    - top blocked symbols
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -358,8 +371,8 @@ The redesign also now has dedicated documentation for:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
   - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - expose approval-needed and blocked paper/demo intent backlog where it helps diagnostics and execution review
-  - decide whether queued paper/demo intents now deserve a dedicated execution-review surface
+  - decide whether queued paper/demo intents now deserve approve/reject actions inside execution review
+  - expose blocked-intent reasons more directly per row where helpful
   - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status

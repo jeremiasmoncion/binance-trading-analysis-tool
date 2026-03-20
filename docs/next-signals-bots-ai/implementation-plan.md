@@ -189,6 +189,13 @@ Current progress:
     - paper/demo readiness
     - approval requirement
   - linked execution outcomes now close that same intent lane into `linked`
+  - the shared decision timeline now also carries that lane metadata into `Execution Logs`
+  - `Execution Logs` now supports explicit paper/demo intent review filters:
+    - queued
+    - awaiting approval
+    - blocked
+    - linked
+  - `Execution Logs` now also exposes compact per-bot intent backlog summaries above the table
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
@@ -198,8 +205,8 @@ Current progress:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics
   - decide whether the fleet hub should also surface ranked recurring symbols
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - expose approval-needed and blocked paper/demo intent backlog where they help diagnostics and execution review
-  - decide whether queued paper/demo intents now deserve a dedicated execution-review surface
+  - decide whether queued paper/demo intents now deserve approve/reject actions inside execution review
+  - expose blocked-intent reasons more directly per row where they help diagnostics
   - keep direct bot-driven order emission out of scope until that intent lane is governed end-to-end
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 

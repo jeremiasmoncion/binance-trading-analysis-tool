@@ -35,6 +35,9 @@ type DecisionLogEntry = {
   pnlUsd?: number;
   entryPrice?: number | null;
   executionOrderId?: number | null;
+  executionIntentStatus?: string | null;
+  executionIntentLane?: string | null;
+  executionIntentLaneStatus?: string | null;
   executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -44,11 +47,13 @@ type ActivityLogEntry =
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
+type ActivityIntentFilter = "all" | "queued" | "awaiting-approval" | "blocked" | "linked";
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
   const [ownershipFilter, setOwnershipFilter] = useState<ActivityOwnershipFilter>("all");
   const [botScope, setBotScope] = useState<ActivityBotScope>("all");
+  const [intentFilter, setIntentFilter] = useState<ActivityIntentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { decisions } = useBotDecisionsState();
   const botsReadModel = useSignalsBotsReadModel();
@@ -77,8 +82,38 @@ export function ExecutionLogsView() {
     .filter((entry) => matchesTab(entry, activeTab))
     .filter((entry) => matchesOwnership(entry, ownershipFilter))
     .filter((entry) => matchesBotScope(entry, botScope, readModel.attentionBotIds))
+    .filter((entry) => matchesIntent(entry, intentFilter))
     .filter((entry) => matchesSearch(entry, searchQuery, readModel.botNameById));
   const visibleLogs = filteredLogs.slice(0, 12);
+  const intentSummaries = useMemo(() => {
+    const scopedBots = botScope === "attention" ? readModel.attentionBots : readModel.botCards;
+    return scopedBots
+      .filter((bot) => (
+        (bot.executionIntentSummary?.queuedCount || 0)
+        || (bot.executionIntentSummary?.awaitingApprovalCount || 0)
+        || (bot.executionIntentSummary?.blockedLaneCount || 0)
+      ))
+      .sort((left, right) => (
+        ((right.executionIntentSummary?.queuedCount || 0) + (right.executionIntentSummary?.awaitingApprovalCount || 0) + (right.executionIntentSummary?.blockedLaneCount || 0))
+        - ((left.executionIntentSummary?.queuedCount || 0) + (left.executionIntentSummary?.awaitingApprovalCount || 0) + (left.executionIntentSummary?.blockedLaneCount || 0))
+      ))
+      .slice(0, 4)
+      .map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+        pair: bot.workspaceSettings.primaryPair || latestSymbolFromBot(bot) || "-",
+        queuedCount: bot.executionIntentSummary?.queuedCount || 0,
+        awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
+        blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
+        linkedCount: bot.executionIntentSummary?.linkedCount || 0,
+        latestIntentStatus: bot.executionIntentSummary?.latestIntentStatus || null,
+        latestLaneStatus: bot.executionIntentSummary?.latestLaneStatus || null,
+        latestIntentSymbol: bot.executionIntentSummary?.latestIntentSymbol || null,
+        latestGuardrailReason: bot.executionIntentSummary?.latestGuardrailReason || null,
+        topReadySymbols: bot.executionIntentSummary?.topReadySymbols || [],
+        topBlockedSymbols: bot.executionIntentSummary?.topBlockedSymbols || [],
+      }));
+  }, [botScope, readModel.attentionBots, readModel.botCards]);
   const botSummaries = useMemo(() => {
     const logsByBotId = new Map<string, ActivityLogEntry[]>();
     filteredLogs.forEach((entry) => {
@@ -198,9 +233,39 @@ export function ExecutionLogsView() {
               <button type="button" className={`template-chip ${ownershipFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("linked")}>Linked Outcomes</button>
               <button type="button" className={`template-chip ${ownershipFilter === "decision-only" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("decision-only")}>Decision Only</button>
               <button type="button" className={`template-chip ${ownershipFilter === "unlinked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("unlinked")}>Unlinked Orders</button>
-              <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
+              <button type="button" className={`template-chip ${intentFilter === "queued" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("queued")}>Queued Intents</button>
+              <button type="button" className={`template-chip ${intentFilter === "awaiting-approval" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("awaiting-approval")}>Awaiting Approval</button>
+              <button type="button" className={`template-chip ${intentFilter === "blocked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("blocked")}>Blocked Intents</button>
+              <button type="button" className={`template-chip ${intentFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("linked")}>Linked Intents</button>
+              <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setIntentFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
+
+          {intentSummaries.length ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              {intentSummaries.map((bot) => (
+                <article key={`intent-${bot.id}`} className="signalbot-insight-card">
+                  <strong>{bot.name} · {bot.pair}</strong>
+                  <p>
+                    {bot.queuedCount} queued · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                  </p>
+                  <p>
+                    {bot.latestIntentSymbol
+                      ? `${formatIntentStatus(bot.latestIntentStatus)} • ${formatLaneStatus(bot.latestLaneStatus)} • ${bot.latestIntentSymbol}`
+                      : "No operational intent has been staged yet."}
+                  </p>
+                  {bot.topReadySymbols.length || bot.topBlockedSymbols.length ? (
+                    <p>
+                      {bot.topReadySymbols.length ? `Ready: ${formatSymbolRanking(bot.topReadySymbols)}` : "Ready: clear"}
+                      {" · "}
+                      {bot.topBlockedSymbols.length ? `Blocked: ${formatSymbolRanking(bot.topBlockedSymbols)}` : "Blocked: clear"}
+                    </p>
+                  ) : null}
+                  <p>{bot.latestGuardrailReason || "The shared intent lane is now available for paper/demo review."}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
 
           {botSummaries.length ? (
             <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
@@ -287,7 +352,7 @@ export function ExecutionLogsView() {
                     <td>{entry.decision.action.toUpperCase()}</td>
                     <td>{entry.decision.timeframe || "-"}</td>
                     <td>{formatMaybeUsd(entry.linkedOrder?.entryPrice ?? entry.decision.entryPrice ?? null)}</td>
-                    <td>{formatDecisionStatus(entry.decision.status, entry.linkedOrder?.status)}</td>
+                    <td>{formatDecisionStatus(entry.decision.status, entry.linkedOrder?.status, entry.decision.executionIntentLaneStatus)}</td>
                     <td className={Number((entry.linkedOrder?.pnlUsd ?? entry.decision.pnlUsd ?? 0) || 0) >= 0 ? "is-positive" : "is-negative"}>
                       {formatMaybeUsd(entry.linkedOrder?.pnlUsd ?? entry.decision.pnlUsd ?? null)}
                     </td>
@@ -346,6 +411,17 @@ function matchesBotScope(entry: ActivityLogEntry, scope: ActivityBotScope, atten
   if (scope === "all") return true;
   const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
   return Boolean(botId && attentionBotIds.has(botId));
+}
+
+function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter) {
+  if (filter === "all") return true;
+  if (entry.kind !== "decision") return false;
+  const laneStatus = String(entry.decision.executionIntentLaneStatus || "").trim();
+  if (!laneStatus) return false;
+  if (filter === "queued") return laneStatus === "queued";
+  if (filter === "awaiting-approval") return laneStatus === "awaiting-approval";
+  if (filter === "blocked") return laneStatus === "blocked";
+  return laneStatus === "linked";
 }
 
 function matchesSearch(entry: ActivityLogEntry, query: string, botNameById: Map<string, string>) {
@@ -474,8 +550,12 @@ function formatDecisionType(decision: { action: string }) {
   return "Bot";
 }
 
-function formatDecisionStatus(status: string, linkedOrderStatus?: string | null) {
+function formatDecisionStatus(status: string, linkedOrderStatus?: string | null, intentLaneStatus?: string | null) {
   if (linkedOrderStatus) return formatStatus({ status: linkedOrderStatus } as ExecutionLogOrderEntry);
+  if (intentLaneStatus === "queued") return "Queued";
+  if (intentLaneStatus === "awaiting-approval") return "Awaiting Approval";
+  if (intentLaneStatus === "blocked") return "Intent Blocked";
+  if (intentLaneStatus === "linked") return "Linked";
   if (status === "closed") return "Closed";
   if (status === "approved") return "Reviewed";
   if (status === "dismissed") return "Dismissed";
@@ -490,7 +570,22 @@ function formatDecisionActionLink(decision: DecisionLogEntry, linkedOrder?: Exec
     const outcome = decision.executionOutcomeStatus || linkedOrder?.status;
     return outcome ? `Order ${String(outcome).toLowerCase()}` : `Order #${orderId}`;
   }
+  if (decision.executionIntentLaneStatus) {
+    return `${formatLaneStatus(decision.executionIntentLaneStatus)} intent`;
+  }
   return decision.source || "View";
+}
+
+function formatIntentStatus(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Waiting";
+  return normalized.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function formatLaneStatus(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Pending";
+  return normalized.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
 }
 
 function formatMaybeUsd(value: unknown) {

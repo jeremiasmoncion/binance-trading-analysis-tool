@@ -4,6 +4,51 @@
 
 ### Phase
 
+`Bot Core` execution intent review logs round
+
+### Completed
+
+- Extended `Execution Logs` so the new paper/demo intent lane is no longer hidden inside the selected bot workspace only.
+- The shared decision timeline now carries intent-lane metadata:
+  - `executionIntentStatus`
+  - `executionIntentLane`
+  - `executionIntentLaneStatus`
+- `Execution Logs` now supports intent-focused review directly on the shared activity stream:
+  - `Queued Intents`
+  - `Awaiting Approval`
+  - `Blocked Intents`
+  - `Linked Intents`
+- Added compact per-bot intent review summaries above the table showing:
+  - queued counts
+  - awaiting-approval counts
+  - blocked counts
+  - linked counts
+  - top ready symbols
+  - top blocked symbols
+- Decision rows in the logs now also show lane-aware status labels such as:
+  - `Queued`
+  - `Awaiting Approval`
+  - `Intent Blocked`
+  - `Linked`
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids building a paper/demo intent lane that only exists in backend/runtime semantics but has no operational review surface.
+- It also avoids forcing users to inspect a single bot workspace to understand queue and approval backlog across the fleet.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether queued intents now deserve dedicated approve/reject actions
+  - surface blocked-intent reasons more directly per row where helpful
+  - keep direct order emission out of scope until review and approval flow are governed end-to-end
+
+### Phase
+
 `Bot Core` paper-demo intent lane round
 
 ### Completed

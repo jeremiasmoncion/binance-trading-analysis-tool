@@ -28,6 +28,7 @@ It is the explicit reference standard for:
 - use of search, chips, filters, and toggles
 - use of cards vs tables vs forms vs drawers
 - visual rhythm and interaction flow
+- end-user terminology, labels, and record naming shown on screen
 
 Primary reference files:
 
@@ -43,6 +44,37 @@ The rule is now:
 - CRYPE should match the template flow as closely as possible
 - deviations must be intentional, documented, and product-justified
 - "similar" is not enough when the template already defines the correct UX pattern
+
+## Language And Naming Rule
+
+The template is also the default reference for the visible language used inside pages.
+
+This includes:
+
+- section names
+- tab names
+- stat labels
+- filter labels
+- table column names
+- record/status naming
+- action labels
+- summary wording
+
+Practical rule:
+
+- if the template already names a user-facing concept clearly, prefer that same concept and wording structure in CRYPE
+- do not invent a second taxonomy for the same visible product concept without a documented reason
+- when the real data is not available yet, example/demo content should still follow the template's terminology and screen semantics
+
+Examples:
+
+- `Execution Logs` should keep template-like log naming and visible record categories
+- bot settings sections should preserve template naming patterns such as:
+  - `General Settings`
+  - `Risk Management`
+  - `Notifications`
+  - `API Connections`
+- signal surfaces should preserve template-like user-facing naming for filters, statuses, and card metadata where the concept is the same
 
 ## Graphic Line Rule
 

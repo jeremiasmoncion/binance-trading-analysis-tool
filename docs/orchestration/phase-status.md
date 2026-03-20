@@ -19,6 +19,7 @@
   - hybrid dashboard/runtime refreshes now ignore freshness-only summary metadata, reducing selector churn outside the realtime core too
   - shared execution runtime equality now compares policy arrays, candidate cohorts and recent-order cohorts semantically, reducing churn before template-scale execution surfaces expand
   - first template-facing `Signals` and `Bots` pages now use a narrow shared feed selector instead of the broader memory/runtime selector bundle
+  - shared scanner runtime equality now compares target cohorts and run cohorts semantically before denser control-panel surfaces land
 - `in progress`
   - validate the completed account sidebar and deeper template-faithful page language
   - deepen the first `Control Panel` / `AI Bot` pages toward product-ready review

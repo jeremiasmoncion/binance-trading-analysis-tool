@@ -2,45 +2,20 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
-import {
-  INITIAL_BOT_REGISTRY_STATE,
-  createBotConsumableFeed,
-  createBotRegistrySnapshot,
-  rankPublishedFeed,
-  createPublishedSignalFeedBundleFromMemory,
-  selectBots,
-} from "../domain";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import { openHelp } from "../lib/ui-events";
 
 type BotsWorkspaceTab = "all-bots" | "performance" | "how-it-works";
 
 export function BotsView() {
   const [activeTab, setActiveTab] = useState<BotsWorkspaceTab>("all-bots");
-  const feedData = useSignalsBotsFeedSelector();
-  const watchlist = feedData.activeWatchlistCoins;
+  const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
-    const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
-    const bots = selectBots(registry.state);
-    // The template now opens more read-only bot surfaces, so this page should
-    // subscribe only to the feed inputs it actually uses instead of the whole
-    // memory/runtime selector surface.
-    const rankedFeed = rankPublishedFeed(createPublishedSignalFeedBundleFromMemory(feedData.signalMemory, { watchlistSymbols: watchlist }).all);
-
-    const cards = bots.map((bot) => {
-      const feed = createBotConsumableFeed(bot, rankedFeed.items, rankedFeed.generatedAt);
-      const accepted = feed.items.filter((signal) => signal.acceptedByPolicy).length;
-      const blocked = feed.items.length - accepted;
-      return {
-        ...bot,
-        accepted,
-        blocked,
-      };
-    });
-
-    return { cards };
-  }, [feedData.signalMemory, watchlist]);
+    return {
+      cards: feedReadModel.botCards,
+    };
+  }, [feedReadModel.botCards]);
 
   const activeBots = readModel.cards.filter((bot) => bot.status === "active").length;
 

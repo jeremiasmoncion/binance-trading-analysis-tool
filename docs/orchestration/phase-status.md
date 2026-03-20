@@ -21,6 +21,8 @@
   - first template-facing `Signals` and `Bots` pages now use a narrow shared feed selector instead of the broader memory/runtime selector bundle
   - shared scanner runtime equality now compares target cohorts and run cohorts semantically before denser control-panel surfaces land
   - `Signal Bot` feed pages now observe only `signalMemory + activeWatchlistCoins`, avoiding churn from non-active watchlist edits
+  - template-facing `signals + bots` pages now reuse one shared domain read-model seam instead of rebuilding the ranked feed locally per screen
+  - `Control Panel -> Overview`, `Bot Settings` and `Execution Logs` now observe narrower shared selectors instead of the broader memory/runtime bundle
 - `in progress`
   - validate `Signal Bot` as the first page-specific closure target
   - continue page-by-page closure instead of broad facade-first expansion

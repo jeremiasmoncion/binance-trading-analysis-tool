@@ -1,39 +1,14 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useMemorySystemSelector } from "../data-platform/selectors";
-import {
-  INITIAL_BOT_REGISTRY_STATE,
-  createBotConsumableFeed,
-  createBotRegistrySnapshot,
-  createPublishedSignalFeedBundleFromMemory,
-  rankPublishedFeed,
-  selectBots,
-} from "../domain";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 
 type BotSettingsTab = "all-bots" | "general-settings" | "risk-management" | "notifications" | "api-connections";
 
 export function BotSettingsView() {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
-  const systemData = useMemorySystemSelector();
-  const watchlist = systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || [];
-
-  const readModel = useMemo(() => {
-    const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
-    const bots = selectBots(registry.state);
-    const rankedFeed = rankPublishedFeed(createPublishedSignalFeedBundleFromMemory(systemData.signalMemory, { watchlistSymbols: watchlist }).all);
-
-    return bots.map((bot) => {
-      const feed = createBotConsumableFeed(bot, rankedFeed.items, rankedFeed.generatedAt);
-      const accepted = feed.items.filter((signal) => signal.acceptedByPolicy).length;
-      return {
-        ...bot,
-        accepted,
-        blocked: feed.items.length - accepted,
-      };
-    });
-  }, [systemData.signalMemory, watchlist]);
+  const readModel = useSignalsBotsReadModel().botCards;
 
   return (
     <div id="botSettingsView" className="view-panel active">

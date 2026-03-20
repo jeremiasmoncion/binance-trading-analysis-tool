@@ -3132,6 +3132,18 @@ body.dark-theme .market-score-track {
   gap: 1rem;
 }
 
+.template-signal-panel {
+  padding: 1.15rem;
+}
+
+.template-signal-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
 .template-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.9fr);
@@ -3149,6 +3161,11 @@ body.dark-theme .market-score-track {
   margin: 1rem 0 1.25rem;
 }
 
+.template-signal-filter-row {
+  margin-top: 0;
+  margin-bottom: 1.4rem;
+}
+
 .template-chip {
   display: inline-flex;
   align-items: center;
@@ -3164,9 +3181,10 @@ body.dark-theme .market-score-track {
 }
 
 .template-chip.is-active {
-  border-color: rgba(42, 198, 122, 0.28);
-  background: rgba(42, 198, 122, 0.12);
-  color: var(--profit);
+  border-color: rgba(107, 114, 255, 0.3);
+  background: linear-gradient(135deg, rgba(107, 114, 255, 0.92), rgba(87, 84, 232, 0.88));
+  color: #f8faff;
+  box-shadow: 0 12px 30px rgba(91, 109, 255, 0.22);
 }
 
 .template-view-toggle {
@@ -3234,19 +3252,67 @@ body.dark-theme .market-score-track {
 }
 
 .template-signal-card.is-buy {
-  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.15);
+  box-shadow: inset 0 2px 0 0 rgba(44, 220, 197, 0.92);
 }
 
 .template-signal-card.is-sell {
-  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.15);
+  box-shadow: inset 0 2px 0 0 rgba(249, 89, 70, 0.94);
 }
 
 .template-signal-card-premium {
   gap: 0.95rem;
+  min-height: 252px;
 }
 
 .template-signal-card-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.template-signal-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.template-signal-asset-badge {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.template-signal-asset-badge.is-btc {
+  background: linear-gradient(135deg, #f59e0b 0%, #fb923c 100%);
+}
+
+.template-signal-asset-badge.is-eth {
+  background: linear-gradient(135deg, #8b9eff 0%, #5b6dff 100%);
+}
+
+.template-signal-asset-badge.is-sol {
+  background: linear-gradient(135deg, #0f172a 0%, #7c3aed 55%, #22c55e 100%);
+}
+
+.template-signal-asset-badge.is-bnb {
+  background: linear-gradient(135deg, #f8c534 0%, #f59e0b 100%);
+}
+
+.template-signal-asset-badge.is-xrp {
+  background: linear-gradient(135deg, #111827 0%, #4b5563 100%);
+}
+
+.template-signal-asset-badge.is-ada {
+  background: radial-gradient(circle at 30% 30%, #f8fafc 0 4%, transparent 5%), #102342;
+}
+
+.template-signal-asset-badge.is-generic {
+  background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%);
 }
 .template-signal-card-head,
 .template-bot-card-head,
@@ -3400,6 +3466,18 @@ body.dark-theme .market-score-track {
   font-weight: 800;
 }
 
+.template-signal-badge.is-buy {
+  border-color: rgba(34, 197, 94, 0.18);
+  background: rgba(24, 111, 83, 0.38);
+  color: #4ade80;
+}
+
+.template-signal-badge.is-sell {
+  border-color: rgba(239, 68, 68, 0.18);
+  background: rgba(127, 29, 29, 0.38);
+  color: #fb7185;
+}
+
 .template-status-pill.is-live {
   border-color: rgba(34, 197, 94, 0.28);
   background: rgba(34, 197, 94, 0.12);
@@ -3488,6 +3566,43 @@ body.dark-theme .market-score-track {
   font-size: 1rem;
 }
 
+.template-signal-confidence-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.template-signal-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.template-signal-dot.is-high {
+  background: #4ade80;
+}
+
+.template-signal-dot.is-mid {
+  background: #f59e0b;
+}
+
+.template-signal-dot.is-low {
+  background: #f97316;
+}
+
+.template-signal-confidence-row strong.template-confidence-high {
+  color: #4ade80;
+}
+
+.template-signal-confidence-row strong.template-confidence-mid {
+  color: #fbbf24;
+}
+
+.template-signal-confidence-row strong.template-confidence-low {
+  color: #fb923c;
+}
+
 .template-signal-confidence-meta {
   text-align: right;
 }
@@ -3497,6 +3612,11 @@ body.dark-theme .market-score-track {
   font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.template-settings-cta {
+  display: flex;
+  align-items: end;
 }
 
 .template-progress-track,
@@ -3516,6 +3636,23 @@ body.dark-theme .market-score-track {
   background: linear-gradient(90deg, #22c55e 0%, #3b82f6 100%);
 }
 
+.template-signal-progress-track {
+  height: 0.42rem;
+  background: rgba(99, 102, 241, 0.22);
+}
+
+.template-progress-fill.is-high {
+  background: linear-gradient(90deg, #43d38f 0%, #37c88b 100%);
+}
+
+.template-progress-fill.is-mid {
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.template-progress-fill.is-low {
+  background: linear-gradient(90deg, #f97316 0%, #fb7185 100%);
+}
+
 .template-signal-foot,
 .template-allocation-row {
   display: flex;
@@ -3524,6 +3661,59 @@ body.dark-theme .market-score-track {
   align-items: center;
   color: var(--text-soft);
   font-size: 0.76rem;
+}
+
+.template-signal-card-foot {
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.template-signal-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.template-signal-icon-button {
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: rgba(189, 201, 224, 0.86);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.template-signal-icon-button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.template-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.template-toolbar-button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.template-signal-empty {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.2rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  color: var(--text-soft);
+}
+
+.template-signal-empty strong {
+  color: var(--text);
 }
 
 .template-search-shell {
@@ -3869,6 +4059,10 @@ body.dark-theme .market-score-track {
 }
 
 @media (max-width: 1180px) {
+  .template-signal-panel-head {
+    display: grid;
+  }
+
   .template-stats-grid,
   .template-signal-card-grid,
   .template-card-grid,
@@ -3898,6 +4092,10 @@ body.dark-theme .market-score-track {
   .template-page-actions,
   .template-toolbar-inline {
     display: grid;
+  }
+
+  .template-toolbar {
+    width: 100%;
   }
 
   .template-page-actions {

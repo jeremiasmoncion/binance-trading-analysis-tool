@@ -589,6 +589,63 @@ Keep the work phased.
 - Whether `Signal Bot` now sets the quality bar for the next page-by-page closure rounds.
 - Whether the next page should be `Control Panel -> Overview` or `Execution Logs`.
 
+## Implementador - 2026-03-19 - Signal Bot Literal Fidelity Pass
+
+### What Was Done
+
+- Pushed `Signal Bot` closer to the template visually in a more literal way.
+- Reworked the top stats into page-specific cards with stronger hierarchy and badge treatment.
+- Rebuilt `Active Signals` with stronger internal proportions for:
+  - entry
+  - target
+  - stop loss
+  - confidence
+  - actions
+- Kept `Signal History` in a denser template-shaped table.
+- Strengthened:
+  - `Market Sentiment`
+  - `AI Insights`
+  - `Top Signal Performers`
+  as more complete lower modules.
+
+### Functional Improvement
+
+- Kept the page on `useSignalsBotsFeedSelector` instead of reverting to a larger selector bundle.
+- Continued to use real derived domain data for:
+  - ranked signals
+  - high-confidence
+  - policy-approved signals
+  - history rows
+  - performers
+  - side summaries
+
+### What Was Simplified For The User
+
+- Continued translating ranking and policy mechanics into friendlier page language.
+- Avoided exposing raw internal system detail unless it improved user decisions.
+- Kept the in-page `Bot Settings` section minimal and understandable.
+
+### Files Touched
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- `Signal Bot` is now closer to a near-closed product page.
+- The page has a stronger claim to being the visual and functional benchmark for the next closure rounds.
+
+### What Remains Pending
+
+- If direction wants absolute final polish later, remaining work would mostly be:
+  - micro-interaction refinement
+  - drawer behavior
+  - export behavior
+  - final spacing polish against preview review
+
 ### Coordination Note For Refinador
 
 - No runtime wiring or new per-screen fetch/polling was introduced.

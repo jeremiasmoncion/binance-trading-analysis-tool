@@ -53,6 +53,20 @@ export function useMemorySystemSelector() {
   }), shallowEqualSelection);
 }
 
+export function useSignalsBotsFeedSelector() {
+  return useDataPlaneStore(systemDataPlaneStore, (state) => {
+    const activeWatchlist = state.snapshot.watchlists.find(
+      (watchlist) => watchlist.name === state.snapshot.activeWatchlistName,
+    );
+
+    return {
+      signalMemory: state.snapshot.signalMemory,
+      activeWatchlistName: state.snapshot.activeWatchlistName,
+      activeWatchlistCoins: activeWatchlist?.coins ?? [],
+    };
+  }, shallowEqualSelection);
+}
+
 export function usePortfolioSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     portfolio: state.snapshot.portfolio,

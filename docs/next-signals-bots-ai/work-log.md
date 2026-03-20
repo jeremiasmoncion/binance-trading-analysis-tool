@@ -993,3 +993,71 @@ Phase 3 - page-by-page closure
 
 - use `Signal Bot` as the benchmark page for the next page-closure rounds
 - choose the next page and close it with the same full-page discipline
+
+## 2026-03-19 - Signal Bot Literal Fidelity Pass
+
+### Phase
+
+Phase 3 - Signal Bot hard-close refinement
+
+### Completed
+
+- Pushed `Signal Bot` closer to the template visually in a more literal way, not just structurally.
+- Reworked the interior rhythm of the page to better match the template in:
+  - top stat cards
+  - tab container rhythm
+  - chip row density
+  - active signal card proportions
+  - side panel hierarchy
+  - lower insight blocks
+- Rebuilt the top stats as page-specific cards instead of relying on a more generic summary surface.
+- Strengthened `Active Signals` so it now feels more like the template's main product area:
+  - stronger price-level treatment for entry / target / stop loss
+  - stronger confidence bar hierarchy
+  - clearer action row
+  - more literal card density and vertical rhythm
+- Kept `Signal History` in the template table shape while improving semantic usefulness.
+- Tightened the lower blocks so:
+  - `Market Sentiment`
+  - `AI Insights`
+  - `Top Signal Performers`
+  feel more like real product modules and less like generic support cards.
+
+### Functional Improvement
+
+- Kept the page on the narrower feed selector:
+  - `useSignalsBotsFeedSelector`
+- Continued using real derived data from:
+  - signal memory snapshots
+  - ranked published feed
+  - high-confidence subset
+  - bot-consumable filtering
+- Added more useful real-page derivations for:
+  - filtered active cards
+  - history rows
+  - top performers
+  - market sentiment summary
+  - AI insight summaries
+
+### User-Facing Simplification
+
+- Continued translating technical ranking into simpler user-facing terms:
+  - `AI Confidence`
+  - `Completed`
+  - `Pending`
+  - `Top Signal Performers`
+- Avoided dumping raw domain mechanics into the page.
+- Kept `Bot Settings` in-page content minimal and user-readable instead of exposing internal system complexity.
+
+### Files Updated
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Recommended Next Step
+
+- Treat `Signal Bot` as the reference-quality page for the next closure round
+- Only continue here later if direction wants final polish beyond this near-closed state

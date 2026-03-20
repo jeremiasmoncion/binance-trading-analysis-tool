@@ -63,15 +63,13 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
       closedSignals,
       cards,
       filteredCards: cards.filter((card) => matchesFilter(card.signal, card.direction, activeFilter)),
-      closedHistory: feedReadModel.selectedBotDecisions.length
-        ? feedReadModel.selectedBotDecisions
-          .slice()
-          .sort((left: BotDecisionRecord, right: BotDecisionRecord) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime())
-          .slice(0, 12)
+      closedHistory: feedReadModel.selectedBotActivityTimeline.length
+        ? feedReadModel.selectedBotActivityTimeline
         : closedSignals
           .slice()
           .sort((left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime())
           .slice(0, 12),
+      performanceBreakdowns: feedReadModel.selectedBotPerformanceBreakdowns.slice(0, 6),
     };
   }, [activeFilter, feedReadModel, selectedBotBlockedCount, selectedBotSignals, signals]);
 
@@ -114,6 +112,17 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
         contextTags: [signal.ranking.tier, signal.context.symbol, signal.context.timeframe],
         metadata: {
           signalId: signal.id,
+          publishedSignalId: signal.id,
+          strategyId: signal.context.strategyId || null,
+          strategyVersion: signal.context.strategyVersion || null,
+          signalFeedKinds: signal.feedKinds,
+          signalObservedAt: signal.context.observedAt,
+          executionEligible: Boolean(signal.intelligence?.executionEligible),
+          scorerLabel: signal.intelligence?.scorerLabel || null,
+          scorerConfidence: Number(signal.intelligence?.scorerConfidence || 0) || null,
+          adaptiveScore: Number(signal.intelligence?.adaptiveScore || 0) || null,
+          rrRatio: null,
+          acceptedByBot: true,
           rankingTier: signal.ranking.tier,
           compositeScore: signal.ranking.compositeScore,
           entryPrice: Number(snapshot?.entry_price || snapshot?.support || 0) || null,
@@ -331,7 +340,20 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {readModel.closedHistory.map((entry: BotDecisionRecord | SignalSnapshot) => isDecisionRecord(entry) ? (
+                  {readModel.closedHistory.map((entry: BotDecisionRecord | SignalSnapshot | (typeof readModel.closedHistory)[number]) => isExecutionTimelineEntry(entry) ? (
+                    <tr key={entry.id}>
+                      <td>{entry.symbol}</td>
+                      <td>{formatExecutionType(entry.mode)}</td>
+                      <td>{formatMaybeUsd(entry.entryPrice)}</td>
+                      <td>-</td>
+                      <td className={Number(entry.pnlUsd || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>
+                        {formatMaybeUsd(entry.pnlUsd)}
+                      </td>
+                      <td>{formatDuration(entry.createdAt, entry.updatedAt || entry.createdAt)}</td>
+                      <td>{formatExecutionStatus(entry.status)}</td>
+                      <td>{formatDate(entry.updatedAt || entry.createdAt)}</td>
+                    </tr>
+                  ) : isDecisionRecord(entry) ? (
                     <tr key={entry.id}>
                       <td>{entry.symbol}</td>
                       <td>{formatDecisionAction(entry.action)}</td>
@@ -339,6 +361,19 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                       <td>{formatMaybeUsd(entry.metadata.targetPrice)}</td>
                       <td className={Number(entry.metadata.realizedPnlUsd || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>
                         {formatMaybeUsd(entry.metadata.realizedPnlUsd)}
+                      </td>
+                      <td>{formatDuration(entry.createdAt, entry.updatedAt || entry.createdAt)}</td>
+                      <td>{formatDecisionStatus(entry.status)}</td>
+                      <td>{formatDate(entry.updatedAt || entry.createdAt)}</td>
+                    </tr>
+                  ) : isTimelineEntry(entry) ? (
+                    <tr key={entry.id}>
+                      <td>{entry.symbol}</td>
+                      <td>{formatDecisionAction(entry.action)}</td>
+                      <td>{formatMaybeUsd(entry.entryPrice)}</td>
+                      <td>{formatMaybeUsd(entry.targetPrice)}</td>
+                      <td className={Number(entry.pnlUsd || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>
+                        {formatMaybeUsd(entry.pnlUsd)}
                       </td>
                       <td>{formatDuration(entry.createdAt, entry.updatedAt || entry.createdAt)}</td>
                       <td>{formatDecisionStatus(entry.status)}</td>
@@ -368,7 +403,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   <MetricTile label="Total Trades" value={String(selectedBotTradeCount)} note="Tracked outcomes attached to this bot profile." />
                   <MetricTile label="Approved Signals" value={String(readModel.botApproved.length)} note="Signals that currently fit this bot policy." />
                   <MetricTile label="Blocked Signals" value={String(readModel.botBlockedCount)} note="Signals filtered out by this bot policy." />
-                  <MetricTile label="Avg. Profit / Trade" value={formatPct(calculateAveragePnl(readModel.closedSignals))} note="Shared realized result benchmark while bot-level history is still converging." />
+                  <MetricTile
+                    label="Avg. Profit / Trade"
+                    value={selectedBotCard?.performance.avgPnlUsd != null ? formatUsd(selectedBotCard.performance.avgPnlUsd) : formatPct(calculateAveragePnl(readModel.closedSignals))}
+                    note={selectedBotCard?.performance.avgHoldMinutes != null ? `${Math.round(selectedBotCard.performance.avgHoldMinutes)} min average hold.` : "Shared realized result benchmark while bot-level history is still converging."}
+                  />
                 </div>
               </SectionCard>
 
@@ -388,6 +427,61 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   </article>
                 </div>
               </SectionCard>
+
+              <SectionCard title="Bot Activity Breakdown" subtitle="What this bot is actually touching most often." className="signalbot-subcard">
+                <div className="signalbot-mini-grid">
+                  {readModel.performanceBreakdowns.length ? readModel.performanceBreakdowns.map((item) => (
+                    <MetricTile
+                      key={`${item.dimension}:${item.label}`}
+                      label={`${capitalize(item.dimension)} • ${item.label}`}
+                      value={formatUsd(item.pnlUsd)}
+                      note={`${item.closed} closed • ${item.winRate.toFixed(0)}% win rate`}
+                    />
+                  )) : (
+                    <MetricTile label="No activity yet" value="-" note="The bot still needs more owned decisions to build a richer breakdown." />
+                  )}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Execution Ownership" subtitle="Closed execution outcomes linked back to this bot." className="signalbot-subcard">
+                <div className="signalbot-mini-grid">
+                  <MetricTile
+                    label="Owned Executions"
+                    value={String(selectedBotCard?.executionTimeline?.length || 0)}
+                    note="Orders resolved from the shared execution plane."
+                  />
+                  <MetricTile
+                    label="Last Execution"
+                    value={selectedBotCard?.audit.lastExecutionAt ? formatRelative(selectedBotCard.audit.lastExecutionAt) : "-"}
+                    note={selectedBotCard?.executionTimeline?.[0]?.symbol ? `${selectedBotCard.executionTimeline[0].symbol} • ${formatExecutionStatus(selectedBotCard.executionTimeline[0].status)}` : "No linked execution outcome yet."}
+                  />
+                  <MetricTile
+                    label="Execution P/L"
+                    value={formatUsd(selectedBotCard?.performance.realizedPnlUsd || 0)}
+                    note="Performance now prefers linked execution outcomes when they exist."
+                  />
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Memory Layers" subtitle="Local, family and platform learning stay separate." className="signalbot-subcard">
+                <div className="signalbot-mini-grid">
+                  <MetricTile
+                    label="Local Memory"
+                    value={String(selectedBotCard?.localMemory.decisionCount || 0)}
+                    note={selectedBotCard?.localMemory.notes?.[0] || "This bot's own owned decisions."}
+                  />
+                  <MetricTile
+                    label="Family Memory"
+                    value={String(selectedBotCard?.familyMemory.decisionCount || 0)}
+                    note={selectedBotCard?.familyMemory.notes?.[0] || "No family learning yet."}
+                  />
+                  <MetricTile
+                    label="Global Memory"
+                    value={String(selectedBotCard?.globalMemory.decisionCount || 0)}
+                    note={selectedBotCard?.globalMemory.notes?.[0] || "No platform memory yet."}
+                  />
+                </div>
+              </SectionCard>
             </div>
           ) : null}
 
@@ -395,8 +489,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
             <div className="signalbot-settings-grid">
               <SettingsCard title="Bot Status" value={selectedBotStatus} note={`${selectedBotName} is the full workspace currently selected from Bot Settings.`} />
               <SettingsCard title="Minimum Confidence" value={`${Math.min(calculateMinimumConfidence(readModel.highConfidence), 100).toFixed(0)}%`} note="Only clearer opportunities are promoted into the strongest subset." />
-              <SettingsCard title="Notifications" value="Enabled" note="New high-confidence ideas can stay visible without overwhelming the page." />
+              <SettingsCard title="Notifications" value={selectedBotCard?.notificationSettings?.errorAlerts ? "Enabled" : "Limited"} note="Alert routing now comes from the persisted bot profile." />
               <SettingsCard title="Trading Pairs" value={String(selectedBotPairCount)} note="The current mix of pairs stays curated from watchlist and discovery." />
+              <SettingsCard title="Identity" value={formatOperatingProfile(selectedBotCard)} note={`${selectedBotCard?.identity.family || "signal-core"} • ${selectedBotCard?.executionEnvironment || "paper"} • ${selectedBotCard?.automationMode || "observe"}`} />
+              <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
+              <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
               <div className="signalbot-settings-cta">
                 <button type="button" className="ui-button ui-button-primary" onClick={() => onNavigateView("control-bot-settings")}>
                   Open Full Bot Settings
@@ -504,6 +601,25 @@ function mapSignalLayer(signal: RankedPublishedSignal) {
     : "operable" as const;
 }
 
+function formatOperatingProfile(bot: { identity?: { operatingProfile?: string } } | null) {
+  const value = bot?.identity?.operatingProfile || "manual-assisted";
+  if (value === "automatic") return "Automatic";
+  if (value === "experimental") return "Experimental";
+  if (value === "unrestricted-ai") return "Unrestricted AI";
+  return "Manual Assisted";
+}
+
+function formatPolicyEnvelope(bot: {
+  universePolicy?: { kind?: string };
+  stylePolicy?: { dominantStyle?: string };
+  executionPolicy?: { requiresHumanApproval?: boolean };
+} | null) {
+  const universe = bot?.universePolicy?.kind || "watchlist";
+  const style = bot?.stylePolicy?.dominantStyle || "swing";
+  const approval = bot?.executionPolicy?.requiresHumanApproval ? "approval" : "self-exec";
+  return `${universe} • ${style} • ${approval}`;
+}
+
 function buildDecisionRationale(action: "observe" | "execute" | "block", signal: RankedPublishedSignal) {
   if (action === "execute") {
     return `Operación confirmada manualmente para ${signal.context.symbol} con score ${Math.round(signal.ranking.compositeScore)}.`;
@@ -526,6 +642,53 @@ function isDecisionRecord(value: unknown): value is {
   return Boolean(value) && typeof value === "object" && "symbol" in (value as Record<string, unknown>) && "action" in (value as Record<string, unknown>);
 }
 
+function isTimelineEntry(value: unknown): value is {
+  id: string;
+  symbol: string;
+  action: string;
+  status: string;
+  entryPrice: number | null;
+  targetPrice: number | null;
+  pnlUsd: number;
+  createdAt: string;
+  updatedAt: string;
+} {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && "symbol" in value
+    && "action" in value
+    && "status" in value
+    && "pnlUsd" in value
+    && "createdAt" in value,
+  );
+}
+
+function isExecutionTimelineEntry(value: unknown): value is {
+  id: string;
+  symbol: string;
+  mode: string;
+  status: string;
+  pnlUsd: number;
+  entryPrice: number | null;
+  createdAt: string;
+  updatedAt: string;
+} {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && "symbol" in value
+    && "mode" in value
+    && "status" in value
+    && "pnlUsd" in value
+    && "createdAt" in value,
+  );
+}
+
+function capitalize(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
 function formatDecisionAction(action: string) {
   if (action === "execute") return "EXECUTE";
   if (action === "block") return "BLOCK";
@@ -540,9 +703,26 @@ function formatDecisionStatus(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+function formatExecutionType(mode: string) {
+  if (mode === "execute") return "EXECUTE";
+  if (mode === "observe") return "OBSERVE";
+  if (mode === "preview") return "PREVIEW";
+  return mode ? mode.toUpperCase() : "ORDER";
+}
+
+function formatExecutionStatus(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("closed")) return "Closed";
+  if (normalized.includes("win")) return "Win";
+  if (normalized.includes("loss")) return "Loss";
+  if (normalized.includes("protected")) return "Protected";
+  if (normalized.includes("pending") || normalized.includes("open")) return "Pending";
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : "Order";
+}
+
 function formatMaybeUsd(value: unknown) {
   const nextValue = Number(value);
-  return Number.isFinite(nextValue) && nextValue > 0 ? formatUsd(nextValue) : "-";
+  return Number.isFinite(nextValue) ? formatUsd(nextValue) : "-";
 }
 
 function getDisplaySignalDirection(signal: RankedPublishedSignal, snapshot?: SignalSnapshot): SignalCardDirection {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import type { BotDecisionRecord } from "../domain";
+import { summarizeBotDecisionRuntime, type BotDecisionRecord } from "../domain";
 import { botDecisionService } from "../services/api";
+import { updateBotProfile } from "./useSelectedBot";
 
 interface BotDecisionRuntimeState {
   decisions: BotDecisionRecord[];
@@ -130,6 +131,12 @@ function upsertDecision(nextDecision: BotDecisionRecord) {
   });
 }
 
+async function syncBotRuntime(botId: string) {
+  const botDecisions = runtimeState.decisions.filter((decision) => decision.botId === botId);
+  const runtimePatch = summarizeBotDecisionRuntime(botDecisions);
+  await updateBotProfile(botId, runtimePatch);
+}
+
 export function useBotDecisionsState() {
   const [state, setLocalState] = useState(() => runtimeState);
 
@@ -144,12 +151,14 @@ export function useBotDecisionsState() {
   const createDecision = useCallback(async (payload: BotDecisionRecord) => {
     const response = await botDecisionService.create(payload);
     upsertDecision(response.decision);
+    await syncBotRuntime(response.decision.botId);
     return response.decision;
   }, []);
 
   const updateDecision = useCallback(async (id: string, payload: Partial<BotDecisionRecord>) => {
     const response = await botDecisionService.update(id, payload);
     upsertDecision(response.decision);
+    await syncBotRuntime(response.decision.botId);
     return response.decision;
   }, []);
 

@@ -11,13 +11,22 @@ export type BotTradingStyle = "scalping" | "swing" | "long";
 export type BotExecutionArbitrationMode = "exclusive" | "priority" | "shared";
 
 export type BotExecutionOverlapMode = "block" | "allow-with-approval" | "allow";
+export type BotOperatingProfile = "experimental" | "manual-assisted" | "automatic" | "unrestricted-ai";
 
 export type BotMemoryLayer = "local" | "family" | "global";
 export type BotDecisionAction = "observe" | "accept" | "block" | "assist" | "execute" | "close" | "adjust";
 export type BotDecisionSource = "signal-core" | "market-core" | "manual" | "ai-analyst" | "ai-adjuster" | "ai-supervisor";
 export type BotDecisionStatus = "pending" | "approved" | "blocked" | "executed" | "dismissed" | "closed";
-export type BotSignalLayer = "informative" | "observational" | "operable" | "ai-prioritized";
+export type BotSignalLayer = "informational" | "observational" | "operable" | "ai-prioritized";
 export type BotPerformanceOrigin = "manual" | "signal" | "bot" | "auto";
+
+export interface BotIdentity {
+  family: string;
+  operatingProfile: BotOperatingProfile;
+  ownerScope: "user" | "system" | "lab";
+  isTemplate: boolean;
+  isIsolated: boolean;
+}
 
 export interface BotUniversePolicy {
   kind: BotUniversePolicyKind;
@@ -85,6 +94,14 @@ export interface BotOverlapPolicy {
   exclusiveUniverse: boolean;
 }
 
+export interface BotMemoryPolicy {
+  familySharingEnabled: boolean;
+  globalLearningEnabled: boolean;
+  allowPromotionToShared: boolean;
+  requiresApprovalForSharedLearning: boolean;
+  familyScope: string;
+}
+
 export interface MemorySummary {
   layer: BotMemoryLayer;
   lastUpdatedAt: string | null;
@@ -147,6 +164,38 @@ export interface BotAuditSummary {
   lastPolicyChangeAt: string | null;
 }
 
+export interface BotNotificationSettings {
+  emailEnabled: boolean;
+  emailAddress: string;
+  telegramEnabled: boolean;
+  telegramHandle: string;
+  discordConnected: boolean;
+  discordLabel: string;
+  pushEnabled: boolean;
+  pushLabel: string;
+  tradeExecuted: boolean;
+  takeProfitHit: boolean;
+  stopLossTriggered: boolean;
+  botStatusChange: boolean;
+  dailySummary: boolean;
+  errorAlerts: boolean;
+}
+
+export interface BotActivitySummary {
+  lastSignalConsumedAt: string | null;
+  lastSignalLayer: BotSignalLayer | null;
+  lastDecisionAction: BotDecisionAction | null;
+  lastDecisionStatus: BotDecisionStatus | null;
+  lastDecisionSymbol: string | null;
+  lastDecisionSource: BotDecisionSource | null;
+  pendingCount: number;
+  approvedCount: number;
+  blockedCount: number;
+  executedCount: number;
+  recentDecisionIds: string[];
+  recentSymbols: string[];
+}
+
 export interface BotDecisionRecord {
   id: string;
   botId: string;
@@ -203,12 +252,14 @@ export interface Bot {
   slug: string;
   name: string;
   description: string;
+  identity: BotIdentity;
   status: BotStatus;
   executionEnvironment: BotExecutionEnvironment;
   automationMode: BotAutomationMode;
   capital: BotCapitalAllocation;
   workspaceSettings: BotWorkspaceSettings;
   generalSettings: BotGeneralSettings;
+  notificationSettings: BotNotificationSettings;
   universePolicy: BotUniversePolicy;
   stylePolicy: BotStylePolicy;
   timeframePolicy: BotTimeframePolicy;
@@ -217,11 +268,13 @@ export interface Bot {
   executionPolicy: BotExecutionPolicy;
   aiPolicy: BotAiPolicy;
   overlapPolicy: BotOverlapPolicy;
+  memoryPolicy: BotMemoryPolicy;
   localMemory: MemorySummary;
   familyMemory: MemorySummary;
   globalMemory: MemorySummary;
   performance: PerformanceSummary;
   audit: BotAuditSummary;
+  activity: BotActivitySummary;
   tags: string[];
   priority: number;
   createdAt: string;

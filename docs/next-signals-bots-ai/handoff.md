@@ -4,6 +4,20 @@
 
 The project now has a dedicated documentation base for the redesign of CRYPE into a `signals + bots + AI` platform.
 
+The active working brief for the current round is now explicit in the documentation set:
+
+- continue on `main`
+- resume from the current `Bot Core` state
+- preserve the current CRYPE base and shared seams
+- avoid screen-local fetch/polling/runtime fixes when a shared path already exists
+- advance by phases with documentation, handoff updates, and functional deliverables
+
+The current product/engineering focus remains:
+
+- deepen `Bot Core` over the cleaner `Signal Core`
+- close real bot identity, policy, memory, activity/history, performance, and missing persisted settings
+- strengthen the bridge between consumed signals and bot decisions
+
 The first code-level Phase 2 foundation now exists in an isolated domain module under `src/domain/`.
 
 This documentation is the source of truth for:
@@ -117,8 +131,8 @@ The redesign also now has dedicated documentation for:
 
 ## What Has Not Been Done Yet
 
-- the first bot registry persistence seam now exists, but platform-level settings tabs still need to move from local UI state into that same persisted contract
-- the first real bot now derives runtime card/workspace metrics from persisted signal snapshots through the shared read-model seam, and the bot-decision API/runtime seam now exists, but the dedicated Supabase `bot_decisions` table still remains pending
+- the first bot registry persistence seam now exists, and `General Settings`, `Risk Management`, and `Notifications` now persist through it, but deeper policy editing is still pending across identity / universe / style / timeframe / execution controls
+- the first real bot now derives runtime card/workspace metrics from persisted signal snapshots through the shared read-model seam, and the bot-decision API/runtime seam now also syncs memory/performance/activity back into the bot profile, but the dedicated Supabase `bot_decisions` table still remains pending
 - the next recommended phase is now explicit: `Phase 3.5 - Bot Decision And Activity Layer`
 - no global shell wiring has been added for the domain module
 - no signal feed has been wired into the existing market/runtime pipeline beyond read-only/domain-driven surfaces
@@ -135,11 +149,55 @@ The redesign also now has dedicated documentation for:
   - `Execution Logs` can already consume bot decisions alongside execution orders
   - `General Settings` now persist against the selected bot profile
   - `Risk Management` now persists against the selected bot profile
+  - `Notifications` now persist against the selected bot profile
+  - `General Settings` now also persists a deeper bot policy envelope:
+    - identity family / owner scope / operating profile
+    - execution environment
+    - automation mode
+    - universe policy
+    - styles
+    - timeframes
+    - execution overlap / arbitration mode
+    - key AI / execution toggles
+  - the persisted bot contract now preserves:
+    - identity
+    - notification settings
+    - audit
+    - activity
+  - bot decisions now sync real bot-owned runtime summaries back into the bot profile:
+    - local memory
+    - performance
+    - audit timestamps
+    - recent activity
+  - the shared `signals + bots` read-model now exposes a richer bot-owned activity layer from decisions:
+    - per-bot decision timeline
+    - top performance breakdowns by symbol / timeframe / source
+  - `Signal Bot` and `Execution Logs` now consume that richer activity layer instead of relying only on raw decision rows
+  - the shared bot read-model now also derives layered bot memory boundaries:
+    - local
+    - family
+    - global
+  - `Signal Bot` now exposes that layered memory separation in the bot performance workspace
+  - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
+  - `Bot Settings -> General Settings` now also persists shared-learning governance:
+    - family sharing
+    - global learning
+    - promotion to shared memory
+    - approval requirement
+    - family scope
+  - family/global memory derivation now respects those memory-policy toggles
+  - execution orders from the shared execution plane now resolve back into the shared bot read-model:
+    - cross-bot execution timeline
+    - per-bot execution timeline
+    - per-bot execution breakdowns
+    - stronger bot label resolution in `Execution Logs`
+  - `Signal Bot` now shows owned execution outcomes in bot history/performance instead of only decision-level history
+  - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - persist more bot-owned outcomes against those decisions
-  - move the remaining settings tabs from local UI state into shared persisted contracts
-  - deepen performance/training off the decision layer
+  - persist more bot-owned execution outcomes against those decisions
+  - deepen performance/training off the decision + execution layer with stronger contracts
+  - tighten execution ownership further for unresolved orders that still lack a direct signal bridge
 
 ## Phase 4 Status
 
@@ -305,6 +363,7 @@ Future AI contributors should preserve this operating rule:
 - do not deploy to Vercel automatically after every completed task
 - for logic/runtime/architecture work, deploy to Vercel only when the human explicitly asks to review the changes in the browser
 - for primarily visual work, a review deployment/link may be provided after validation because visual review is part of the deliverable
+- if the human explicitly asks for the link, provide it even if the task was mainly logical
 - only then provide the production/deployment link
 - when a review link is requested, the canonical public URL is:
   - `https://binance-trading-analysis-tool.vercel.app`
@@ -315,6 +374,39 @@ This rule exists to keep:
 - branch ownership predictable
 - production review intentional
 - checkpoint branches separate from everyday development flow
+
+## Task Close-Out Rule
+
+Future contributors should close each completed task or subphase with all of the following, not only code changes:
+
+- update the relevant documentation
+- update `work-log.md` when a meaningful subphase closes
+- update `handoff.md` with current status and next phase context
+- if the task changed the application, validate that:
+  - code validation still passes
+  - build still passes
+  - the application still runs and behaves correctly
+- if the validation is healthy, save the result in `main`, commit it, and push the milestone when appropriate
+- explain clearly to the human operator what was changed
+- keep the close-out concise
+- prefer two short summaries:
+  - a simple end-user/product-flow summary
+  - a short technical summary
+- explain any important validation, limitation, or residual risk
+- state explicitly what the AI believes should be the next recommended step
+
+Default human-facing close-out behavior:
+
+- for logic/runtime/architecture work:
+  - explain the result
+  - do not send the production link unless the human asked for browser review
+- for primarily visual work:
+  - explain the result
+  - include the production review link when browser inspection is part of acceptance
+
+Canonical public review URL:
+
+- `https://binance-trading-analysis-tool.vercel.app`
 
 ## Important Constraints To Preserve
 

@@ -60,12 +60,38 @@ const INITIAL_GENERAL_SETTINGS = {
   defaultTradingPair: "BTC/USDT",
   defaultExchange: "Binance",
   baseCurrency: "USDT",
+  family: "signal-core",
+  ownerScope: "system" as "user" | "system" | "lab",
+  executionEnvironment: "paper" as "paper" | "demo" | "real",
+  automationMode: "observe" as "observe" | "assist" | "auto",
+  operatingProfile: "manual-assisted" as "experimental" | "manual-assisted" | "automatic" | "unrestricted-ai",
+  universeKind: "watchlist" as "watchlist" | "custom-list" | "hybrid" | "market-filter",
+  customSymbolsText: "",
+  dominantStyle: "swing" as "scalping" | "swing" | "long",
+  allowedStyles: ["swing"] as Array<"scalping" | "swing" | "long">,
+  preferredTimeframes: ["1h", "4h"] as string[],
+  allowedTimeframes: ["15m", "1h", "4h"] as string[],
+  executionOverlap: "allow-with-approval" as "block" | "allow-with-approval" | "allow",
+  arbitrationMode: "priority" as "exclusive" | "priority" | "shared",
   orderSizeType: "fixed" as "fixed" | "percentage",
   autoRestartOnError: true,
   autoCompoundProfits: true,
   paperTradingMode: false,
   smartOrderRouting: true,
   antiSlippageProtection: true,
+  analystEnabled: true,
+  supervisorEnabled: true,
+  unrestrictedModeEnabled: false,
+  adaptiveAdjustmentsEnabled: true,
+  requiresHumanApproval: true,
+  autoExecutionEnabled: false,
+  realExecutionEnabled: false,
+  isIsolated: false,
+  familySharingEnabled: false,
+  globalLearningEnabled: false,
+  allowPromotionToShared: false,
+  requiresApprovalForSharedLearning: true,
+  familyScope: "bot-family",
   executionSpeed: 50,
   apiRateLimit: 1200,
   maxConcurrentBots: 15,
@@ -104,6 +130,61 @@ const INITIAL_NOTIFICATION_SETTINGS = {
   dailySummary: false,
   errorAlerts: true,
 };
+
+const STYLE_OPTIONS = ["scalping", "swing", "long"] as const;
+const TIMEFRAME_OPTIONS = ["5m", "15m", "1h", "4h", "1d"] as const;
+type GeneralSettingsState = typeof INITIAL_GENERAL_SETTINGS;
+
+function buildGeneralSettingsState(selectedSettingsBot: any | null): GeneralSettingsState {
+  if (!selectedSettingsBot) {
+    return INITIAL_GENERAL_SETTINGS;
+  }
+
+  return {
+    ...INITIAL_GENERAL_SETTINGS,
+    ...selectedSettingsBot.generalSettings,
+    defaultTradingPair: selectedSettingsBot.generalSettings?.defaultTradingPair || selectedSettingsBot.workspaceSettings.primaryPair || "BTC/USDT",
+    autoCompoundProfits: selectedSettingsBot.generalSettings?.autoCompoundProfits ?? selectedSettingsBot.workspaceSettings.autoCompoundProfits,
+    family: selectedSettingsBot.identity?.family || selectedSettingsBot.slug || "signal-core",
+    ownerScope: selectedSettingsBot.identity?.ownerScope || "system",
+    executionEnvironment: selectedSettingsBot.executionEnvironment || "paper",
+    automationMode: selectedSettingsBot.automationMode || "observe",
+    operatingProfile: selectedSettingsBot.identity?.operatingProfile || "manual-assisted",
+    universeKind: selectedSettingsBot.universePolicy?.kind || "watchlist",
+    customSymbolsText: Array.isArray(selectedSettingsBot.universePolicy?.symbols) ? selectedSettingsBot.universePolicy.symbols.join(", ") : "",
+    dominantStyle: selectedSettingsBot.stylePolicy?.dominantStyle || "swing",
+    allowedStyles: selectedSettingsBot.stylePolicy?.allowedStyles?.length ? selectedSettingsBot.stylePolicy.allowedStyles : ["swing"],
+    preferredTimeframes: selectedSettingsBot.timeframePolicy?.preferredTimeframes?.length
+      ? selectedSettingsBot.timeframePolicy.preferredTimeframes
+      : ["1h", "4h"],
+    allowedTimeframes: selectedSettingsBot.timeframePolicy?.allowedTimeframes?.length
+      ? selectedSettingsBot.timeframePolicy.allowedTimeframes
+      : ["15m", "1h", "4h"],
+    executionOverlap: selectedSettingsBot.overlapPolicy?.executionOverlap || "allow-with-approval",
+    arbitrationMode: selectedSettingsBot.overlapPolicy?.arbitrationMode || "priority",
+    paperTradingMode: selectedSettingsBot.executionEnvironment === "paper",
+    analystEnabled: selectedSettingsBot.aiPolicy?.analystEnabled ?? true,
+    supervisorEnabled: selectedSettingsBot.aiPolicy?.supervisorEnabled ?? true,
+    unrestrictedModeEnabled: selectedSettingsBot.aiPolicy?.unrestrictedModeEnabled ?? false,
+    adaptiveAdjustmentsEnabled: selectedSettingsBot.strategyPolicy?.adaptiveAdjustmentsEnabled ?? true,
+    requiresHumanApproval: selectedSettingsBot.executionPolicy?.requiresHumanApproval ?? true,
+    autoExecutionEnabled: selectedSettingsBot.executionPolicy?.autoExecutionEnabled ?? false,
+    realExecutionEnabled: selectedSettingsBot.executionPolicy?.realExecutionEnabled ?? false,
+    isIsolated: selectedSettingsBot.identity?.isIsolated ?? false,
+    familySharingEnabled: selectedSettingsBot.memoryPolicy?.familySharingEnabled ?? false,
+    globalLearningEnabled: selectedSettingsBot.memoryPolicy?.globalLearningEnabled ?? false,
+    allowPromotionToShared: selectedSettingsBot.memoryPolicy?.allowPromotionToShared ?? false,
+    requiresApprovalForSharedLearning: selectedSettingsBot.memoryPolicy?.requiresApprovalForSharedLearning ?? true,
+    familyScope: selectedSettingsBot.memoryPolicy?.familyScope || selectedSettingsBot.identity?.family || "bot-family",
+  };
+}
+
+function buildNotificationSettingsState(selectedSettingsBot: { notificationSettings?: typeof INITIAL_NOTIFICATION_SETTINGS } | null) {
+  return {
+    ...INITIAL_NOTIFICATION_SETTINGS,
+    ...(selectedSettingsBot?.notificationSettings || {}),
+  };
+}
 
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
@@ -276,6 +357,22 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     }));
   };
 
+  const toggleGeneralListItem = (
+    key: "allowedStyles" | "preferredTimeframes" | "allowedTimeframes",
+    value: string,
+  ) => {
+    setGeneralSettings((current) => {
+      const currentItems = current[key] as string[];
+      const nextItems = currentItems.includes(value)
+        ? currentItems.filter((item) => item !== value)
+        : [...currentItems, value];
+      return {
+        ...current,
+        [key]: nextItems,
+      };
+    });
+  };
+
   const toggleRiskSetting = <TKey extends keyof typeof riskSettings>(key: TKey) => {
     setRiskSettings((current) => ({
       ...current,
@@ -329,12 +426,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   useEffect(() => {
     if (!selectedSettingsBot) return;
 
-    setGeneralSettings({
-      ...INITIAL_GENERAL_SETTINGS,
-      ...selectedSettingsBot.generalSettings,
-      defaultTradingPair: selectedSettingsBot.generalSettings?.defaultTradingPair || selectedSettingsBot.workspaceSettings.primaryPair || "BTC/USDT",
-      autoCompoundProfits: selectedSettingsBot.generalSettings?.autoCompoundProfits ?? selectedSettingsBot.workspaceSettings.autoCompoundProfits,
-    });
+    setGeneralSettings(buildGeneralSettingsState(selectedSettingsBot));
 
     setRiskSettings({
       ...INITIAL_RISK_SETTINGS,
@@ -348,6 +440,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       trailingStopLossEnabled: !selectedSettingsBot.executionPolicy.suggestionsOnly,
       trailingDistancePct: String(selectedSettingsBot.riskPolicy.cooldownAfterLosses || INITIAL_RISK_SETTINGS.trailingDistancePct),
     });
+
+    setNotificationSettings(buildNotificationSettingsState(selectedSettingsBot));
   }, [selectedSettingsBot?.id]);
 
   const handleCreateBot = async () => {
@@ -456,7 +550,30 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     if (!selectedSettingsBot) return;
     const loaderId = startLoading({ label: "Guardando settings", detail: selectedSettingsBot.name });
     try {
+      const customSymbols = generalSettings.customSymbolsText
+        .split(",")
+        .map((item) => item.trim().toUpperCase())
+        .filter(Boolean);
+      const executionEnvironment = generalSettings.paperTradingMode ? "paper" : generalSettings.executionEnvironment;
+      const automationMode = generalSettings.automationMode;
+      const unrestrictedModeEnabled = generalSettings.operatingProfile === "unrestricted-ai" || generalSettings.unrestrictedModeEnabled;
+      const isolatedMode = unrestrictedModeEnabled || generalSettings.isIsolated;
+      const allowedStyles = generalSettings.allowedStyles.length ? generalSettings.allowedStyles : [generalSettings.dominantStyle];
+      const preferredTimeframes = generalSettings.preferredTimeframes.length
+        ? generalSettings.preferredTimeframes
+        : [selectedSettingsBot.timeframePolicy.preferredTimeframes[0] || "1h"];
+      const allowedTimeframes = generalSettings.allowedTimeframes.length
+        ? generalSettings.allowedTimeframes
+        : preferredTimeframes;
+
       await updateBot(selectedSettingsBot.id, {
+        identity: {
+          ...selectedSettingsBot.identity,
+          family: generalSettings.family.trim() || selectedSettingsBot.identity.family,
+          ownerScope: generalSettings.ownerScope,
+          operatingProfile: generalSettings.operatingProfile,
+          isIsolated: isolatedMode,
+        },
         workspaceSettings: {
           ...selectedSettingsBot.workspaceSettings,
           primaryPair: generalSettings.defaultTradingPair,
@@ -466,12 +583,60 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           ...selectedSettingsBot.generalSettings,
           ...generalSettings,
         },
-        executionEnvironment: generalSettings.paperTradingMode ? "paper" : selectedSettingsBot.executionEnvironment,
+        executionEnvironment,
+        automationMode,
+        universePolicy: {
+          ...selectedSettingsBot.universePolicy,
+          kind: generalSettings.universeKind,
+          symbols: generalSettings.universeKind === "watchlist" ? selectedSettingsBot.universePolicy.symbols : customSymbols,
+        },
+        stylePolicy: {
+          ...selectedSettingsBot.stylePolicy,
+          dominantStyle: generalSettings.dominantStyle,
+          allowedStyles,
+          multiStyleEnabled: allowedStyles.length > 1,
+        },
+        timeframePolicy: {
+          ...selectedSettingsBot.timeframePolicy,
+          preferredTimeframes,
+          allowedTimeframes,
+        },
+        strategyPolicy: {
+          ...selectedSettingsBot.strategyPolicy,
+          adaptiveAdjustmentsEnabled: generalSettings.adaptiveAdjustmentsEnabled,
+        },
+        executionPolicy: {
+          ...selectedSettingsBot.executionPolicy,
+          requiresHumanApproval: generalSettings.requiresHumanApproval,
+          autoExecutionEnabled: generalSettings.autoExecutionEnabled,
+          realExecutionEnabled: generalSettings.realExecutionEnabled && executionEnvironment === "real",
+          suggestionsOnly: automationMode === "observe",
+        },
+        aiPolicy: {
+          ...selectedSettingsBot.aiPolicy,
+          analystEnabled: generalSettings.analystEnabled,
+          supervisorEnabled: generalSettings.supervisorEnabled,
+          unrestrictedModeEnabled,
+          isolationScope: isolatedMode ? "isolated" : "standard",
+        },
+        overlapPolicy: {
+          ...selectedSettingsBot.overlapPolicy,
+          executionOverlap: generalSettings.executionOverlap,
+          arbitrationMode: generalSettings.arbitrationMode,
+        },
+        memoryPolicy: {
+          ...selectedSettingsBot.memoryPolicy,
+          familySharingEnabled: generalSettings.familySharingEnabled,
+          globalLearningEnabled: generalSettings.globalLearningEnabled,
+          allowPromotionToShared: generalSettings.allowPromotionToShared,
+          requiresApprovalForSharedLearning: generalSettings.requiresApprovalForSharedLearning,
+          familyScope: generalSettings.familyScope.trim() || selectedSettingsBot.identity.family,
+        },
       });
       showToast({
         tone: "success",
         title: "General Settings guardado",
-        message: `${selectedSettingsBot.name} ya usa configuración persistida real.`,
+        message: `${selectedSettingsBot.name} ya usa identidad y políticas persistidas reales.`,
       });
     } catch (error) {
       showToast({
@@ -489,12 +654,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       setGeneralSettings(INITIAL_GENERAL_SETTINGS);
       return;
     }
-    setGeneralSettings({
-      ...INITIAL_GENERAL_SETTINGS,
-      ...selectedSettingsBot.generalSettings,
-      defaultTradingPair: selectedSettingsBot.generalSettings?.defaultTradingPair || selectedSettingsBot.workspaceSettings.primaryPair || "BTC/USDT",
-      autoCompoundProfits: selectedSettingsBot.generalSettings?.autoCompoundProfits ?? selectedSettingsBot.workspaceSettings.autoCompoundProfits,
-    });
+    setGeneralSettings(buildGeneralSettingsState(selectedSettingsBot));
   };
 
   const handleSaveRiskSettings = async () => {
@@ -554,6 +714,36 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       trailingStopLossEnabled: !selectedSettingsBot.executionPolicy.suggestionsOnly,
       trailingDistancePct: String(selectedSettingsBot.riskPolicy.cooldownAfterLosses || INITIAL_RISK_SETTINGS.trailingDistancePct),
     });
+  };
+
+  const handleSaveNotificationSettings = async () => {
+    if (!selectedSettingsBot) return;
+    const loaderId = startLoading({ label: "Guardando notificaciones", detail: selectedSettingsBot.name });
+    try {
+      await updateBot(selectedSettingsBot.id, {
+        notificationSettings: {
+          ...selectedSettingsBot.notificationSettings,
+          ...notificationSettings,
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Notifications guardado",
+        message: `${selectedSettingsBot.name} ya usa preferencias persistidas de alertas.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo guardar",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleResetNotificationSettings = () => {
+    setNotificationSettings(buildNotificationSettingsState(selectedSettingsBot));
   };
 
   return (
@@ -796,6 +986,75 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               <article className="botsettings-general-card">
                 <div className="botsettings-general-head">
                   <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-info">
+                      <BotsTabIcon />
+                    </div>
+                    <h3>Bot Identity</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <FormInput
+                    label="Bot Family"
+                    value={generalSettings.family}
+                    onChange={(value) => updateGeneralSetting("family", value)}
+                  />
+                  <FormSelect
+                    label="Owner Scope"
+                    value={generalSettings.ownerScope}
+                    options={["system", "user", "lab"]}
+                    onChange={(value) => updateGeneralSetting("ownerScope", value as GeneralSettingsState["ownerScope"])}
+                  />
+                  <FormSelect
+                    label="Operating Profile"
+                    value={generalSettings.operatingProfile}
+                    options={["manual-assisted", "experimental", "automatic", "unrestricted-ai"]}
+                    onChange={(value) => updateGeneralSetting("operatingProfile", value as GeneralSettingsState["operatingProfile"])}
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-success">
+                      <AutomationBoltIcon />
+                    </div>
+                    <h3>Operating Envelope</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <FormSelect
+                    label="Execution Environment"
+                    value={generalSettings.executionEnvironment}
+                    options={["paper", "demo", "real"]}
+                    onChange={(value) => updateGeneralSetting("executionEnvironment", value as GeneralSettingsState["executionEnvironment"])}
+                  />
+                  <FormSelect
+                    label="Automation Mode"
+                    value={generalSettings.automationMode}
+                    options={["observe", "assist", "auto"]}
+                    onChange={(value) => updateGeneralSetting("automationMode", value as GeneralSettingsState["automationMode"])}
+                  />
+                  <FormSelect
+                    label="Execution Overlap"
+                    value={generalSettings.executionOverlap}
+                    options={["block", "allow-with-approval", "allow"]}
+                    onChange={(value) => updateGeneralSetting("executionOverlap", value as GeneralSettingsState["executionOverlap"])}
+                  />
+                  <FormSelect
+                    label="Arbitration Mode"
+                    value={generalSettings.arbitrationMode}
+                    options={["priority", "exclusive", "shared"]}
+                    onChange={(value) => updateGeneralSetting("arbitrationMode", value as GeneralSettingsState["arbitrationMode"])}
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
                     <div className="botsettings-general-icon is-primary">
                       <SlidersHorizontalIcon />
                     </div>
@@ -847,6 +1106,88 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <div className="botsettings-general-head">
                   <div className="botsettings-general-title">
                     <div className="botsettings-general-icon is-warning">
+                      <ShieldTabIcon />
+                    </div>
+                    <h3>Universe, Style & Timeframes</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <FormSelect
+                    label="Universe Policy"
+                    value={generalSettings.universeKind}
+                    options={["watchlist", "custom-list", "hybrid", "market-filter"]}
+                    onChange={(value) => updateGeneralSetting("universeKind", value as GeneralSettingsState["universeKind"])}
+                  />
+                  {generalSettings.universeKind !== "watchlist" ? (
+                    <FormInput
+                      label="Custom Symbols"
+                      value={generalSettings.customSymbolsText}
+                      onChange={(value) => updateGeneralSetting("customSymbolsText", value)}
+                      note="Use comma-separated pairs, for example BTC/USDT, ETH/USDT."
+                    />
+                  ) : null}
+                  <FormSelect
+                    label="Dominant Style"
+                    value={generalSettings.dominantStyle}
+                    options={[...STYLE_OPTIONS]}
+                    onChange={(value) => updateGeneralSetting("dominantStyle", value as GeneralSettingsState["dominantStyle"])}
+                  />
+
+                  <div className="botsettings-field-block">
+                    <label className="botsettings-field-label">Allowed Styles</label>
+                    <div className="botsettings-day-row">
+                      {STYLE_OPTIONS.map((style) => (
+                        <button
+                          key={style}
+                          type="button"
+                          className={`botsettings-day-chip ${generalSettings.allowedStyles.includes(style) ? "active" : ""}`}
+                          onClick={() => toggleGeneralListItem("allowedStyles", style)}
+                        >
+                          {style}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="botsettings-field-block">
+                    <label className="botsettings-field-label">Preferred Timeframes</label>
+                    <div className="botsettings-day-row">
+                      {TIMEFRAME_OPTIONS.map((timeframe) => (
+                        <button
+                          key={timeframe}
+                          type="button"
+                          className={`botsettings-day-chip ${generalSettings.preferredTimeframes.includes(timeframe) ? "active" : ""}`}
+                          onClick={() => toggleGeneralListItem("preferredTimeframes", timeframe)}
+                        >
+                          {timeframe}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="botsettings-field-block">
+                    <label className="botsettings-field-label">Allowed Timeframes</label>
+                    <div className="botsettings-day-row">
+                      {TIMEFRAME_OPTIONS.map((timeframe) => (
+                        <button
+                          key={timeframe}
+                          type="button"
+                          className={`botsettings-day-chip ${generalSettings.allowedTimeframes.includes(timeframe) ? "active" : ""}`}
+                          onClick={() => toggleGeneralListItem("allowedTimeframes", timeframe)}
+                        >
+                          {timeframe}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-warning">
                       <AutomationBoltIcon />
                     </div>
                     <h3>Automation Settings</h3>
@@ -883,6 +1224,54 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                     note="Prevent execution at unfavorable prices"
                     checked={generalSettings.antiSlippageProtection}
                     onToggle={() => toggleGeneralSetting("antiSlippageProtection")}
+                  />
+                  <ToggleRow
+                    title="Analyst AI enabled"
+                    note="Allow analyst intelligence in the bot policy envelope"
+                    checked={generalSettings.analystEnabled}
+                    onToggle={() => toggleGeneralSetting("analystEnabled")}
+                  />
+                  <ToggleRow
+                    title="Supervisor AI enabled"
+                    note="Allow supervisor intervention inside the bot policy envelope"
+                    checked={generalSettings.supervisorEnabled}
+                    onToggle={() => toggleGeneralSetting("supervisorEnabled")}
+                  />
+                  <ToggleRow
+                    title="Adaptive adjustments"
+                    note="Let the strategy policy adapt over time"
+                    checked={generalSettings.adaptiveAdjustmentsEnabled}
+                    onToggle={() => toggleGeneralSetting("adaptiveAdjustmentsEnabled")}
+                  />
+                  <ToggleRow
+                    title="Human approval required"
+                    note="Keep a human gate before stronger execution actions"
+                    checked={generalSettings.requiresHumanApproval}
+                    onToggle={() => toggleGeneralSetting("requiresHumanApproval")}
+                  />
+                  <ToggleRow
+                    title="Auto execution enabled"
+                    note="Allow the bot to execute automatically when policy permits"
+                    checked={generalSettings.autoExecutionEnabled}
+                    onToggle={() => toggleGeneralSetting("autoExecutionEnabled")}
+                  />
+                  <ToggleRow
+                    title="Real execution enabled"
+                    note="Allow real-environment execution only when the environment is real"
+                    checked={generalSettings.realExecutionEnabled}
+                    onToggle={() => toggleGeneralSetting("realExecutionEnabled")}
+                  />
+                  <ToggleRow
+                    title="Isolated accounting"
+                    note="Keep this bot isolated from the rest of the bot family"
+                    checked={generalSettings.isIsolated}
+                    onToggle={() => toggleGeneralSetting("isIsolated")}
+                  />
+                  <ToggleRow
+                    title="Unrestricted AI mode"
+                    note="Reserved for isolated lab-style bots only"
+                    checked={generalSettings.unrestrictedModeEnabled}
+                    onToggle={() => toggleGeneralSetting("unrestrictedModeEnabled")}
                   />
                 </div>
               </article>
@@ -929,6 +1318,52 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                     displayValue={String(generalSettings.maxConcurrentBots)}
                     onChange={(value) => updateGeneralSetting("maxConcurrentBots", value)}
                   />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-info">
+                      <ShieldTabIcon />
+                    </div>
+                    <h3>Learning & Memory</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <FormInput
+                    label="Family Scope"
+                    value={generalSettings.familyScope}
+                    onChange={(value) => updateGeneralSetting("familyScope", value)}
+                    note="Controls which bot family can share learning with this bot."
+                  />
+                  <div className="botsettings-toggle-stack">
+                    <ToggleRow
+                      title="Family sharing enabled"
+                      note="Allow this bot to consume and contribute family-level learning."
+                      checked={generalSettings.familySharingEnabled}
+                      onToggle={() => toggleGeneralSetting("familySharingEnabled")}
+                    />
+                    <ToggleRow
+                      title="Global learning enabled"
+                      note="Allow this bot to contribute to platform-level memory."
+                      checked={generalSettings.globalLearningEnabled}
+                      onToggle={() => toggleGeneralSetting("globalLearningEnabled")}
+                    />
+                    <ToggleRow
+                      title="Promote outcomes to shared memory"
+                      note="Allow stronger outcomes to be promoted beyond local memory."
+                      checked={generalSettings.allowPromotionToShared}
+                      onToggle={() => toggleGeneralSetting("allowPromotionToShared")}
+                    />
+                    <ToggleRow
+                      title="Approval required for shared learning"
+                      note="Keep a governance gate before new shared-learning promotion."
+                      checked={generalSettings.requiresApprovalForSharedLearning}
+                      onToggle={() => toggleGeneralSetting("requiresApprovalForSharedLearning")}
+                    />
+                  </div>
                 </div>
               </article>
 
@@ -1275,10 +1710,10 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               </article>
 
               <div className="botsettings-general-actions">
-                <button type="button" className="botsettings-reset-button ui-button" onClick={() => setNotificationSettings(INITIAL_NOTIFICATION_SETTINGS)}>
+                <button type="button" className="botsettings-reset-button ui-button" onClick={handleResetNotificationSettings}>
                   Reset to Default
                 </button>
-                <button type="button" className="ui-button ui-button-primary">
+                <button type="button" className="ui-button ui-button-primary" onClick={() => void handleSaveNotificationSettings()}>
                   <SaveMiniIcon />
                   Save Notification Settings
                 </button>

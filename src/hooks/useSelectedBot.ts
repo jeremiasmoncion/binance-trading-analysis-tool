@@ -176,6 +176,7 @@ export async function updateBotProfile(botId: string, payload: Partial<Bot>) {
   patchBotInRegistry(botId, (bot) => ({
     ...bot,
     ...payload,
+    identity: payload.identity ? { ...bot.identity, ...payload.identity } : bot.identity,
     capital: payload.capital ? { ...bot.capital, ...payload.capital } : bot.capital,
     workspaceSettings: payload.workspaceSettings
       ? { ...bot.workspaceSettings, ...payload.workspaceSettings }
@@ -183,12 +184,47 @@ export async function updateBotProfile(botId: string, payload: Partial<Bot>) {
     generalSettings: payload.generalSettings
       ? { ...bot.generalSettings, ...payload.generalSettings }
       : bot.generalSettings,
+    notificationSettings: payload.notificationSettings
+      ? { ...bot.notificationSettings, ...payload.notificationSettings }
+      : bot.notificationSettings,
+    universePolicy: payload.universePolicy
+      ? {
+          ...bot.universePolicy,
+          ...payload.universePolicy,
+          watchlistIds: payload.universePolicy.watchlistIds ?? bot.universePolicy.watchlistIds,
+          symbols: payload.universePolicy.symbols ?? bot.universePolicy.symbols,
+          filters: payload.universePolicy.filters
+            ? { ...bot.universePolicy.filters, ...payload.universePolicy.filters }
+            : bot.universePolicy.filters,
+        }
+      : bot.universePolicy,
+    stylePolicy: payload.stylePolicy ? { ...bot.stylePolicy, ...payload.stylePolicy } : bot.stylePolicy,
+    timeframePolicy: payload.timeframePolicy
+      ? { ...bot.timeframePolicy, ...payload.timeframePolicy }
+      : bot.timeframePolicy,
+    strategyPolicy: payload.strategyPolicy
+      ? { ...bot.strategyPolicy, ...payload.strategyPolicy }
+      : bot.strategyPolicy,
     riskPolicy: payload.riskPolicy ? { ...bot.riskPolicy, ...payload.riskPolicy } : bot.riskPolicy,
     executionPolicy: payload.executionPolicy
       ? { ...bot.executionPolicy, ...payload.executionPolicy }
       : bot.executionPolicy,
+    aiPolicy: payload.aiPolicy ? { ...bot.aiPolicy, ...payload.aiPolicy } : bot.aiPolicy,
+    overlapPolicy: payload.overlapPolicy ? { ...bot.overlapPolicy, ...payload.overlapPolicy } : bot.overlapPolicy,
+    memoryPolicy: payload.memoryPolicy ? { ...bot.memoryPolicy, ...payload.memoryPolicy } : bot.memoryPolicy,
     performance: payload.performance ? { ...bot.performance, ...payload.performance } : bot.performance,
     localMemory: payload.localMemory ? { ...bot.localMemory, ...payload.localMemory } : bot.localMemory,
+    familyMemory: payload.familyMemory ? { ...bot.familyMemory, ...payload.familyMemory } : bot.familyMemory,
+    globalMemory: payload.globalMemory ? { ...bot.globalMemory, ...payload.globalMemory } : bot.globalMemory,
+    audit: payload.audit ? { ...bot.audit, ...payload.audit } : bot.audit,
+    activity: payload.activity
+      ? {
+          ...bot.activity,
+          ...payload.activity,
+          recentDecisionIds: payload.activity.recentDecisionIds ?? bot.activity.recentDecisionIds,
+          recentSymbols: payload.activity.recentSymbols ?? bot.activity.recentSymbols,
+        }
+      : bot.activity,
     updatedAt: new Date().toISOString(),
   }));
 

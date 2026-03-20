@@ -83,3 +83,69 @@ The system should support:
 9. [ai-context-pack.md](./ai-context-pack.md)
 10. [work-log.md](./work-log.md)
 11. [handoff.md](./handoff.md)
+
+## Active Bot Core Working Directive
+
+The active implementation directive for the current CRYPE round is:
+
+- continue on `main`
+- resume specifically from the current `Bot Core` state
+- do not rebuild CRYPE from zero
+- do not open a parallel architecture
+- do not introduce screen-local fetch paths when a shared seam already exists
+- do not introduce feature-local polling loops
+- do not solve runtime/data stability inside visual components
+- do not hide architectural issues behind defensive local memoization
+- implement by phases with:
+  - traceability
+  - updated documentation
+  - functional deliverables
+
+Task close-out rule for future contributors:
+
+- when a task or subphase is completed, do not stop at the code change alone
+- update the corresponding documentation and handoff notes
+- if the task changed the application, validate that:
+  - the code still passes validation
+  - the build still passes
+  - the application still runs and behaves correctly
+- if validation is successful, save the work properly in `main` and push the milestone when ready
+- explain clearly to the user what was done
+- keep the response concise instead of overly abundant
+- prefer two short summaries:
+  - a simple user-facing summary
+  - a short technical summary
+- explain any important validation, limitation, or risk
+- always end by stating the next recommended step
+- only provide the production review link when:
+  - the user explicitly asks for browser review
+  - or the change is primarily visual and browser review is part of acceptance
+- the canonical public review URL is:
+  - `https://binance-trading-analysis-tool.vercel.app`
+
+Mandatory documentation source of truth before further `Bot Core` work:
+
+- this folder `docs/next-signals-bots-ai/`
+- `docs/data-architecture.md`
+- `docs/realtime-core-service.md`
+- `docs/orchestration/README.md`
+- `docs/orchestration/workflow.md`
+
+Current implementation priority:
+
+1. review the real current `Bot Core` state
+2. map what is already real vs partial / placeholder
+3. deepen the bot entity into a real operating entity
+4. continue in disciplined phases without breaking the current system
+
+Current `Bot Core` focus areas:
+
+- real bot identity
+- real bot policies
+- bot memory
+- bot activity/history
+- bot-owned performance
+- missing persisted settings
+- stronger bridge between consumed signals and bot decisions
+
+`Signal Core` should be treated as already sufficiently separated for this round and should not be rebuilt unless a real structural problem is discovered.

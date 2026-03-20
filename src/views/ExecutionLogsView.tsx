@@ -3,31 +3,63 @@ import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useBotDecisionsState } from "../hooks/useBotDecisions";
-import { useExecutionLogsSelector } from "../data-platform/selectors";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import type { BotDecisionRecord } from "../domain";
-import type { ExecutionOrderRecord } from "../types";
 
 type ExecutionLogsTab = "all" | "trades" | "signals" | "errors" | "system";
+type ExecutionLogOrderEntry = {
+  id: string;
+  orderId: number;
+  botId: string | null;
+  botName: string | null;
+  symbol: string;
+  timeframe: string;
+  source: string;
+  mode: string;
+  status: string;
+  pnlUsd: number;
+  notionalUsd: number;
+  quantity: number;
+  entryPrice: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+type DecisionLogEntry = {
+  id: string;
+  botId: string;
+  botName?: string;
+  symbol: string;
+  timeframe: string;
+  action: string;
+  status: string;
+  source: string;
+  pnlUsd?: number;
+  entryPrice?: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
-  const executionData = useExecutionLogsSelector();
   const { decisions } = useBotDecisionsState();
+  const botsReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
-    const orders = executionData.recentOrders;
+    const orders = botsReadModel.allBotExecutionTimeline;
+    const botNameById = new Map(botsReadModel.botCards.map((bot) => [bot.id, bot.name]));
     const logs = [
-      ...decisions.map((decision) => ({ kind: "decision" as const, decision })),
+      ...botsReadModel.allBotDecisionTimeline.map((decision) => ({ kind: "decision" as const, decision })),
       ...orders.map((order) => ({ kind: "order" as const, order })),
     ].sort((left, right) => getLogTimestamp(right) - getLogTimestamp(left));
     return {
       logs,
       orders,
+      botNameById,
       successRate: calculateSuccessRate(orders, decisions),
       failed: orders.filter((order) => isFailedOrder(order)).length + decisions.filter((decision) => isFailedDecision(decision)).length,
-      totalVolume: orders.reduce((sum, order) => sum + Number(order.notional_usd || 0), 0),
+      totalVolume: orders.reduce((sum, order) => sum + Number(order.notionalUsd || 0), 0),
     };
-  }, [decisions, executionData.recentOrders]);
+  }, [botsReadModel.allBotDecisionTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.botCards, decisions]);
 
   const visibleLogs = readModel.logs.filter((entry) => matchesTab(entry, activeTab)).slice(0, 12);
 
@@ -101,43 +133,43 @@ export function ExecutionLogsView() {
               </thead>
               <tbody>
                 {visibleLogs.map((entry) => entry.kind === "order" ? (
-                  <tr key={`order-${entry.order.id}`}>
-                    <td>{formatTimestamp(entry.order.created_at)}</td>
-                    <td>#{entry.order.id}</td>
-                    <td>{inferBotLabel(entry.order)}</td>
+                  <tr key={`order-${entry.order.orderId}`}>
+                    <td>{formatTimestamp(entry.order.updatedAt || entry.order.createdAt)}</td>
+                    <td>#{entry.order.orderId}</td>
+                    <td>{entry.order.botName || (entry.order.botId ? readModel.botNameById.get(entry.order.botId) : null) || inferBotLabel(entry.order)}</td>
                     <td>{inferLogType(entry.order)}</td>
-                    <td>{entry.order.coin}</td>
-                    <td>{formatSide(entry.order.side)}</td>
+                    <td>{entry.order.symbol}</td>
+                    <td>{formatSide(entry.order.mode)}</td>
                     <td>{formatAmount(entry.order.quantity)}</td>
-                    <td>{formatUsd(Number(entry.order.current_price || 0))}</td>
+                    <td>{formatMaybeUsd(entry.order.entryPrice)}</td>
                     <td>{formatStatus(entry.order)}</td>
-                    <td className={Number(entry.order.realized_pnl || 0) >= 0 ? "is-positive" : "is-negative"}>
-                      {formatUsd(Number(entry.order.realized_pnl || 0))}
+                    <td className={Number(entry.order.pnlUsd || 0) >= 0 ? "is-positive" : "is-negative"}>
+                      {formatUsd(Number(entry.order.pnlUsd || 0))}
                     </td>
                     <td>
                       <div className="template-table-actions">
-                        <button type="button" className="template-inline-link">View</button>
+                        <button type="button" className="template-inline-link">{entry.order.source || "View"}</button>
                         <button type="button" className="template-inline-link">Copy</button>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   <tr key={`decision-${entry.decision.id}`}>
-                    <td>{formatTimestamp(entry.decision.createdAt)}</td>
+                    <td>{formatTimestamp(entry.decision.updatedAt || entry.decision.createdAt)}</td>
                     <td>{entry.decision.id}</td>
-                    <td>{entry.decision.botId}</td>
+                    <td>{entry.decision.botName || readModel.botNameById.get(entry.decision.botId) || entry.decision.botId}</td>
                     <td>{formatDecisionType(entry.decision)}</td>
                     <td>{entry.decision.symbol}</td>
                     <td>{entry.decision.action.toUpperCase()}</td>
-                    <td>-</td>
-                    <td>{formatMaybeUsd(entry.decision.metadata.entryPrice)}</td>
+                    <td>{entry.decision.timeframe || "-"}</td>
+                    <td>{formatMaybeUsd(("entryPrice" in entry.decision ? entry.decision.entryPrice : null))}</td>
                     <td>{formatDecisionStatus(entry.decision.status)}</td>
-                    <td className={Number(entry.decision.metadata.realizedPnlUsd || 0) >= 0 ? "is-positive" : "is-negative"}>
-                      {formatMaybeUsd(entry.decision.metadata.realizedPnlUsd)}
+                    <td className={Number(("pnlUsd" in entry.decision ? entry.decision.pnlUsd : 0) || 0) >= 0 ? "is-positive" : "is-negative"}>
+                      {formatMaybeUsd(("pnlUsd" in entry.decision ? entry.decision.pnlUsd : null))}
                     </td>
                     <td>
                       <div className="template-table-actions">
-                        <button type="button" className="template-inline-link">View</button>
+                        <button type="button" className="template-inline-link">{("source" in entry.decision ? entry.decision.source : "View")}</button>
                         <button type="button" className="template-inline-link">Copy</button>
                       </div>
                     </td>
@@ -152,7 +184,7 @@ export function ExecutionLogsView() {
   );
 }
 
-function matchesTab(entry: { kind: "order"; order: ExecutionOrderRecord } | { kind: "decision"; decision: BotDecisionRecord }, tab: ExecutionLogsTab) {
+function matchesTab(entry: { kind: "order"; order: ExecutionLogOrderEntry } | { kind: "decision"; decision: DecisionLogEntry }, tab: ExecutionLogsTab) {
   if (entry.kind === "decision") {
     if (tab === "all") return true;
     if (tab === "trades") return entry.decision.action === "execute" || entry.decision.action === "close";
@@ -163,37 +195,37 @@ function matchesTab(entry: { kind: "order"; order: ExecutionOrderRecord } | { ki
 
   const order = entry.order;
   if (tab === "all") return true;
-  if (tab === "trades") return order.mode === "execute";
+  if (tab === "trades") return order.mode === "execute" || order.mode === "demo" || order.mode === "real";
   if (tab === "signals") return order.mode !== "execute" && !isFailedOrder(order);
   if (tab === "errors") return isFailedOrder(order);
-  return order.origin === "system" || order.origin === "runtime";
+  return order.source === "system" || order.source === "runtime";
 }
 
-function isFailedDecision(decision: BotDecisionRecord) {
-  return decision.status === "blocked";
+function isFailedDecision(decision: { status: string }) {
+  return decision.status === "blocked" || decision.status === "dismissed";
 }
 
-function isFailedOrder(order: ExecutionOrderRecord) {
-  const status = String(order.lifecycle_status || order.status || "").toLowerCase();
+function isFailedOrder(order: ExecutionLogOrderEntry) {
+  const status = String(order.status || "").toLowerCase();
   return status.includes("fail") || status.includes("error") || status.includes("reject");
 }
 
-function getLogTimestamp(entry: { kind: "order"; order: ExecutionOrderRecord } | { kind: "decision"; decision: BotDecisionRecord }) {
+function getLogTimestamp(entry: { kind: "order"; order: ExecutionLogOrderEntry } | { kind: "decision"; decision: { createdAt?: string; updatedAt?: string } }) {
   return entry.kind === "order"
-    ? new Date(entry.order.created_at || 0).getTime()
-    : new Date(entry.decision.createdAt || 0).getTime();
+    ? new Date(entry.order.updatedAt || entry.order.createdAt || 0).getTime()
+    : new Date(entry.decision.updatedAt || entry.decision.createdAt || 0).getTime();
 }
 
-function inferBotLabel(order: ExecutionOrderRecord) {
-  if (String(order.strategy_name || "").toLowerCase().includes("signal")) return "Signal Bot";
-  if (String(order.strategy_name || "").toLowerCase().includes("dca")) return "DCA Bot";
-  if (String(order.strategy_name || "").toLowerCase().includes("arbitrage")) return "Arbitrage Bot";
-  return order.strategy_name || "System";
+function inferBotLabel(order: ExecutionLogOrderEntry) {
+  if (String(order.source || "").toLowerCase().includes("signal")) return "Signal Bot";
+  if (String(order.source || "").toLowerCase().includes("dca")) return "DCA Bot";
+  if (String(order.source || "").toLowerCase().includes("arbitrage")) return "Arbitrage Bot";
+  return "System";
 }
 
-function inferLogType(order: ExecutionOrderRecord) {
+function inferLogType(order: ExecutionLogOrderEntry) {
   if (isFailedOrder(order)) return "Error";
-  if (order.mode === "execute") return "Trade";
+  if (order.mode === "execute" || order.mode === "demo" || order.mode === "real") return "Trade";
   if (order.mode === "observe") return "Signal";
   return "System";
 }
@@ -203,15 +235,15 @@ function formatSide(value?: string) {
   return value.toUpperCase();
 }
 
-function formatStatus(order: ExecutionOrderRecord) {
-  const status = String(order.lifecycle_status || order.status || "").toLowerCase();
+function formatStatus(order: ExecutionLogOrderEntry) {
+  const status = String(order.status || "").toLowerCase();
   if (status.includes("fill") || status.includes("close") || status.includes("win")) return "Filled";
   if (status.includes("pending") || status.includes("open")) return "Pending";
   if (status.includes("fail") || status.includes("error") || status.includes("reject")) return "Failed";
   return "Success";
 }
 
-function calculateSuccessRate(orders: ExecutionOrderRecord[], decisions: BotDecisionRecord[]) {
+function calculateSuccessRate(orders: ExecutionLogOrderEntry[], decisions: BotDecisionRecord[]) {
   const total = orders.length + decisions.length;
   if (!total) return 0;
   const success = orders.filter((order) => !isFailedOrder(order)).length + decisions.filter((decision) => !isFailedDecision(decision)).length;
@@ -230,10 +262,11 @@ function formatAmount(value?: number) {
   return typeof value === "number" ? value.toFixed(4) : "-";
 }
 
-function formatDecisionType(decision: BotDecisionRecord) {
+function formatDecisionType(decision: { action: string }) {
   if (decision.action === "execute") return "Trade";
   if (decision.action === "block") return "Filter";
-  if (decision.action === "observe") return "Review";
+  if (decision.action === "observe") return "Signal Review";
+  if (decision.action === "assist") return "Assist";
   return "Bot";
 }
 
@@ -247,7 +280,7 @@ function formatDecisionStatus(status: string) {
 
 function formatMaybeUsd(value: unknown) {
   const nextValue = Number(value);
-  return Number.isFinite(nextValue) && nextValue > 0 ? formatUsd(nextValue) : "-";
+  return Number.isFinite(nextValue) ? formatUsd(nextValue) : "-";
 }
 
 function formatTimestamp(value?: string) {

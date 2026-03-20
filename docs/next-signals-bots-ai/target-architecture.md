@@ -29,7 +29,7 @@ Responsibilities:
 
 - generate global system signals
 - classify signals
-- separate informative vs operable signals
+- separate informational vs operable signals
 - publish signal feeds
 - expose market-wide and personalized views
 

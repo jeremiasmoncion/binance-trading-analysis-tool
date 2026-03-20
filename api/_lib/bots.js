@@ -69,6 +69,13 @@ function createDefaultBotPayload(overrides = {}) {
       overrides.description
       || "Bot principal para consumir señales del sistema con políticas estándar y ejecución controlada.",
     ),
+    identity: overrides.identity || {
+      family: slug,
+      operatingProfile: overrides.aiPolicy?.unrestrictedModeEnabled ? "unrestricted-ai" : overrides.automationMode === "auto" ? "automatic" : "manual-assisted",
+      ownerScope: overrides.identity?.ownerScope || "system",
+      isTemplate: overrides.identity?.isTemplate ?? true,
+      isIsolated: overrides.identity?.isIsolated ?? Boolean(overrides.aiPolicy?.isolationScope === "isolated"),
+    },
     status: String(overrides.status || "active"),
     executionEnvironment: String(overrides.executionEnvironment || "paper"),
     automationMode: String(overrides.automationMode || "assist"),
@@ -104,6 +111,22 @@ function createDefaultBotPayload(overrides = {}) {
       endTime: "05:00 PM",
       activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
       timezone: "UTC",
+    },
+    notificationSettings: overrides.notificationSettings || {
+      emailEnabled: true,
+      emailAddress: "john@example.com",
+      telegramEnabled: true,
+      telegramHandle: "@johndoe",
+      discordConnected: false,
+      discordLabel: "Not connected",
+      pushEnabled: true,
+      pushLabel: "Mobile app",
+      tradeExecuted: true,
+      takeProfitHit: true,
+      stopLossTriggered: true,
+      botStatusChange: true,
+      dailySummary: false,
+      errorAlerts: true,
     },
     universePolicy: overrides.universePolicy || {
       kind: "watchlist",
@@ -159,6 +182,13 @@ function createDefaultBotPayload(overrides = {}) {
       priority: Number(overrides.priority || 50),
       exclusiveUniverse: false,
     },
+    memoryPolicy: overrides.memoryPolicy || {
+      familySharingEnabled: false,
+      globalLearningEnabled: false,
+      allowPromotionToShared: false,
+      requiresApprovalForSharedLearning: true,
+      familyScope: "bot-family",
+    },
     localMemory: overrides.localMemory || {
       layer: "local",
       lastUpdatedAt: null,
@@ -198,6 +228,20 @@ function createDefaultBotPayload(overrides = {}) {
       lastExecutionAt: null,
       lastPolicyChangeAt: null,
     },
+    activity: overrides.activity || {
+      lastSignalConsumedAt: null,
+      lastSignalLayer: null,
+      lastDecisionAction: null,
+      lastDecisionStatus: null,
+      lastDecisionSymbol: null,
+      lastDecisionSource: null,
+      pendingCount: 0,
+      approvedCount: 0,
+      blockedCount: 0,
+      executedCount: 0,
+      recentDecisionIds: [],
+      recentSymbols: [],
+    },
     tags: Array.isArray(overrides.tags) && overrides.tags.length ? overrides.tags : ["system", "signals"],
     priority: Number(overrides.priority || 50),
     createdAt,
@@ -220,6 +264,7 @@ function normalizeBotPayload(value) {
     status: source.status,
     executionEnvironment: source.executionEnvironment,
     automationMode: source.automationMode,
+    identity: source.identity,
     allocatedUsd: source.capital?.allocatedUsd,
     availableUsd: source.capital?.availableUsd,
     primaryPair: source.workspaceSettings?.primaryPair || source.universePolicy?.symbols?.[0] || "BTC/USDT",
@@ -230,16 +275,32 @@ function normalizeBotPayload(value) {
     takeProfitPct: source.workspaceSettings?.takeProfitPct,
     autoCompoundProfits: source.workspaceSettings?.autoCompoundProfits,
     generalSettings: source.generalSettings,
+    notificationSettings: source.notificationSettings,
+    universePolicy: source.universePolicy,
+    stylePolicy: source.stylePolicy,
+    timeframePolicy: source.timeframePolicy,
+    executionPolicy: source.executionPolicy,
+    aiPolicy: source.aiPolicy,
+    overlapPolicy: source.overlapPolicy,
+    memoryPolicy: source.memoryPolicy,
+    familyMemory: source.familyMemory,
+    globalMemory: source.globalMemory,
+    audit: source.audit,
+    activity: source.activity,
     maxPositionUsd: source.riskPolicy?.maxPositionUsd,
     maxOpenPositions: source.riskPolicy?.maxOpenPositions,
     maxDailyLossPct: source.riskPolicy?.maxDailyLossPct,
     maxDrawdownPct: source.riskPolicy?.maxDrawdownPct,
     cooldownAfterLosses: source.riskPolicy?.cooldownAfterLosses,
     maxSymbolExposurePct: source.riskPolicy?.maxSymbolExposurePct,
+    riskPolicy: source.riskPolicy,
     priority: source.priority,
     tags: source.tags,
     createdAt: source.createdAt,
     updatedAt: source.updatedAt,
+    performance: source.performance,
+    localMemory: source.localMemory,
+    strategyPolicy: source.strategyPolicy,
   });
 }
 
@@ -366,14 +427,53 @@ async function updateBot(req, botId) {
   const nextBot = normalizeBotPayload({
     ...existingBot,
     ...body,
+    identity: body?.identity ? { ...existingBot.identity, ...body.identity } : existingBot.identity,
     capital: body?.capital ? { ...existingBot.capital, ...body.capital } : existingBot.capital,
     workspaceSettings: body?.workspaceSettings
       ? { ...existingBot.workspaceSettings, ...body.workspaceSettings }
       : existingBot.workspaceSettings,
+    generalSettings: body?.generalSettings
+      ? { ...existingBot.generalSettings, ...body.generalSettings }
+      : existingBot.generalSettings,
+    notificationSettings: body?.notificationSettings
+      ? { ...existingBot.notificationSettings, ...body.notificationSettings }
+      : existingBot.notificationSettings,
+    universePolicy: body?.universePolicy
+      ? {
+          ...existingBot.universePolicy,
+          ...body.universePolicy,
+          watchlistIds: body.universePolicy.watchlistIds || existingBot.universePolicy.watchlistIds,
+          symbols: body.universePolicy.symbols || existingBot.universePolicy.symbols,
+          filters: body.universePolicy.filters
+            ? { ...(existingBot.universePolicy.filters || {}), ...body.universePolicy.filters }
+            : existingBot.universePolicy.filters,
+        }
+      : existingBot.universePolicy,
+    stylePolicy: body?.stylePolicy ? { ...existingBot.stylePolicy, ...body.stylePolicy } : existingBot.stylePolicy,
+    timeframePolicy: body?.timeframePolicy
+      ? { ...existingBot.timeframePolicy, ...body.timeframePolicy }
+      : existingBot.timeframePolicy,
     riskPolicy: body?.riskPolicy ? { ...existingBot.riskPolicy, ...body.riskPolicy } : existingBot.riskPolicy,
     strategyPolicy: body?.strategyPolicy ? { ...existingBot.strategyPolicy, ...body.strategyPolicy } : existingBot.strategyPolicy,
+    executionPolicy: body?.executionPolicy
+      ? { ...existingBot.executionPolicy, ...body.executionPolicy }
+      : existingBot.executionPolicy,
+    aiPolicy: body?.aiPolicy ? { ...existingBot.aiPolicy, ...body.aiPolicy } : existingBot.aiPolicy,
+    overlapPolicy: body?.overlapPolicy ? { ...existingBot.overlapPolicy, ...body.overlapPolicy } : existingBot.overlapPolicy,
+    memoryPolicy: body?.memoryPolicy ? { ...existingBot.memoryPolicy, ...body.memoryPolicy } : existingBot.memoryPolicy,
     performance: body?.performance ? { ...existingBot.performance, ...body.performance } : existingBot.performance,
     localMemory: body?.localMemory ? { ...existingBot.localMemory, ...body.localMemory } : existingBot.localMemory,
+    familyMemory: body?.familyMemory ? { ...existingBot.familyMemory, ...body.familyMemory } : existingBot.familyMemory,
+    globalMemory: body?.globalMemory ? { ...existingBot.globalMemory, ...body.globalMemory } : existingBot.globalMemory,
+    audit: body?.audit ? { ...existingBot.audit, ...body.audit } : existingBot.audit,
+    activity: body?.activity
+      ? {
+          ...existingBot.activity,
+          ...body.activity,
+          recentDecisionIds: body.activity.recentDecisionIds || existingBot.activity.recentDecisionIds,
+          recentSymbols: body.activity.recentSymbols || existingBot.activity.recentSymbols,
+        }
+      : existingBot.activity,
     updatedAt: nowIso(),
   });
 

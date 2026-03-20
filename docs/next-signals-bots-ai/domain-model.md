@@ -135,7 +135,7 @@ Suggested taxonomy:
 
 Additional product labels should remain possible for the user-facing module:
 
-- informative
+- informational
 - observational
 - operable
 - AI-prioritized

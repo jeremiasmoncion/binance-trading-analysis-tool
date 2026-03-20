@@ -124,10 +124,21 @@ Current progress:
   - shared frontend bot decision runtime
   - first Signal Bot actions writing manual decisions
   - first Execution Logs integration for decision records
+  - bot runtime summaries now sync back into the persisted bot profile from the decision layer:
+    - local memory
+    - performance
+    - audit
+    - activity
+  - `Bot Settings -> Notifications` now persists through the same shared bot seam
+  - shared bot read-model now links execution orders back to bot ownership:
+    - per-bot execution timeline
+    - cross-bot execution timeline
+    - execution-first performance fallback when linked outcomes exist
+  - `Signal Bot` and `Execution Logs` now consume that shared execution ownership layer
 - pending:
   - Supabase `bot_decisions` table
-  - richer bot-owned outcomes and performance aggregation
-  - persistence for platform-wide bot settings tabs
+  - richer persisted execution outcomes and performance aggregation
+  - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:
 

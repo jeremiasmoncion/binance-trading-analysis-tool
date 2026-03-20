@@ -97,13 +97,32 @@ Practical consequence:
 - default close-out is:
   - implement
   - validate
+  - if the task changed the application, confirm:
+    - code/type validation is healthy
+    - build is healthy
+    - the app still runs correctly
   - commit/save to `main`
+  - push the validated milestone when it is ready for GitHub-visible completion
+  - explain clearly to the human what changed
+  - explain any meaningful verification, limitation, or risk
+  - state the next recommended step explicitly
 - only add:
   - Vercel deploy
   - production link delivery through `https://binance-trading-analysis-tool.vercel.app`
   when:
   - the human asks for review
   - or the task is explicitly visual and browser review is the natural completion step
+
+Close-out communication rule:
+
+- every meaningful task close-out should include a clear human-facing explanation of what was done
+- every meaningful task close-out should end with the next recommended step from the AI's point of view
+- do not force the human to infer progress only from low-level file lists or git context
+- keep the close-out concise instead of overly abundant
+- prefer two short summaries:
+  - a simple end-user/product-flow summary
+  - a short technical summary
+- both summaries should stay compact and easy to scan
 
 ## Supabase Help Rule
 

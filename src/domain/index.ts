@@ -2,6 +2,7 @@ export * from "./bots/adapters";
 export * from "./bots/contracts";
 export * from "./bots/defaults";
 export * from "./bots/registry";
+export * from "./bots/runtime";
 export * from "./bots/selectors";
 export * from "./signals/classification";
 export * from "./signals/contracts";

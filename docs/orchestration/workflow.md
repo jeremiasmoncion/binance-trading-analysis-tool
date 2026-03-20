@@ -46,11 +46,25 @@ A task is not done until:
 
 - scoped code work is complete
 - local validation passes for the scoped task
+- if the task changed the application, validate that:
+  - the code compiles cleanly
+  - the build passes
+  - the application still runs and behaves correctly
 - the validated work is saved in `main`
+- if validation passes, create a commit for the completed work
+- if the milestone is ready, push it so GitHub becomes the human-visible completion signal
 - task file status is updated
 - handoff notes are written
 - any phase-impacting decision is documented
 - meaningful progress is committed for GitHub visibility
+- the human operator receives a clear close-out summary explaining:
+  - what changed
+  - what was verified
+  - any important limitation or risk
+- the close-out also states the next recommended step explicitly, even when the task itself is complete
+- the close-out should stay concise and should preferably use:
+  - one short end-user summary
+  - one short technical summary
 
 ## Branch Handling Rule
 
@@ -69,6 +83,7 @@ By default:
 - do not deploy to Vercel automatically at the end of a task
 - do not send production/deployment links for logic/runtime/architecture work unless the human asked to review changes in the browser
 - for primarily visual work, a review link may be provided after validation because visual confirmation is part of the acceptance flow
+- if the human explicitly asks for the link, provide it even if the task was mainly logical
 
 When a deployment/review link is appropriate:
 
@@ -81,6 +96,13 @@ This applies when:
 
 - the human explicitly asks to see the changes
 - or the task is mainly visual and the AI is closing the loop for browser review
+
+Close-out rule for links:
+
+- for logic/runtime/architecture work, default close-out should explain the change without sending the production link unless the human asked for browser review
+- for primarily visual work, default close-out may include the production review link because visual inspection is part of acceptance
+- the canonical link to share is always:
+  - `https://binance-trading-analysis-tool.vercel.app`
 
 ## Shared Visual Primitive Rule
 

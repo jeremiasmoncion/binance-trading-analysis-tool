@@ -4,6 +4,202 @@
 
 ### Phase
 
+`Bot Core` execution ownership round
+
+### Completed
+
+- Extended the shared `signals + bots` read-model so execution orders from the shared execution plane now resolve back to bot ownership instead of staying only as unassigned system trades.
+- Added a controlled ownership bridge that prefers:
+  - direct `signal_id` matches against bot decisions
+  - then constrained heuristic matching by pair / timeframe / strategy context
+- Updated bot cards so performance can now prefer linked execution outcomes when they exist, instead of relying only on decision-level inference.
+- Updated `Signal Bot` so bot history and performance now expose owned execution outcomes in the same workspace.
+- Updated `Execution Logs` so bot labels for execution rows now come from the shared bot read-model instead of ad-hoc local inference.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids opening a second execution-history runtime just to make bot ownership visible.
+- It also avoids keeping bot execution outcomes as a purely visual guess inside `Execution Logs` while the shared read-model already has enough context to resolve them centrally.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - persist richer execution outcomes against bot decisions
+  - tighten performance contracts by origin / symbol / timeframe / strategy
+  - deepen learning from owned execution outcomes instead of only decisions
+
+### Phase
+
+`Bot Core` shared-learning governance round
+
+### Completed
+
+- Added an explicit `memoryPolicy` to the bot contract so shared learning is no longer only an inferred future idea.
+- The bot model can now persist governance for:
+  - family sharing
+  - global learning
+  - promotion to shared memory
+  - approval requirement for shared learning
+  - family scope label
+- Updated the shared bot read-model so family/global memory now respect those policy toggles instead of always behaving as if shared learning were enabled.
+- Extended `Bot Settings -> General Settings` with a dedicated `Learning & Memory` section on the same shared primitive language.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids making family/global memory visible in the product while still leaving their governance implicit.
+- It also avoids a future AI layer assuming shared learning is always on just because the memory layers exist.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - stronger outcome linkage per decision
+  - more explicit performance contracts
+  - better execution-history ownership per bot
+
+### Phase
+
+`Bot Core` layered memory round
+
+### Completed
+
+- Extended the shared bot read-model so each bot now derives explicit memory layers instead of only local runtime summaries:
+  - local memory
+  - family memory
+  - global/platform memory
+- Kept the learning boundaries explicit by deriving:
+  - family memory from bots that share the same bot family
+  - global memory from the wider platform bot decision set
+- Updated `Signal Bot -> Performance` so the selected bot now exposes that layered memory separation directly.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids collapsing all learning into one flat bot memory bucket.
+- It also avoids hiding family/global learning boundaries behind future AI assumptions before those boundaries are visible in the product/runtime model.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - stronger performance contracts
+  - richer outcome linkage per decision
+  - optional shared-learning governance controls
+
+### Phase
+
+`Bot Core` activity timeline round
+
+### Completed
+
+- Deepened the shared `signals + bots` read-model so bot decisions now hydrate a richer bot-owned activity timeline instead of staying only as raw records.
+- Added shared derived bot activity/performance slices from decisions:
+  - decision timeline
+  - top performance breakdowns by:
+    - symbol
+    - timeframe
+    - source
+- Updated `Signal Bot` history/performance surfaces to consume that shared bot activity layer first.
+- Updated `Execution Logs` to consume the richer cross-bot decision timeline instead of relying only on raw decision rows.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids pushing bot history logic down into `Signal Bot` and `Execution Logs` separately with slightly different local derivations.
+- It also avoids treating bot activity as only a flat table of raw decisions when the project already needs a clearer bot-owned operational history.
+
+### Recommended Next Step
+
+- Continue the next `Bot Core` round on top of this activity layer:
+  - richer performance breakdown contracts
+  - family/shared learning boundaries
+  - stronger execution outcome linkage per bot
+
+### Phase
+
+`Bot Core` policy controls round
+
+### Completed
+
+- Deepened `Bot Settings -> General Settings` so it now persists more of the real bot operating envelope instead of only generic preferences.
+- Added persisted editing for:
+  - bot family / owner scope / operating profile
+  - execution environment
+  - automation mode
+  - universe policy
+  - dominant + allowed styles
+  - preferred + allowed timeframes
+  - execution overlap / arbitration mode
+  - key execution and AI policy toggles
+- Kept the implementation on the same shared bot seam and same `Bot Settings` primitive language instead of opening a second policy runtime or a new visual family.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids leaving bot identity and policy in a half-modeled state where the contract exists but the user can only edit lightweight preferences.
+- It also avoids introducing a parallel bot-policy editor outside the current shared seam and `Bot Settings` surface.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` pass on top of these persisted controls:
+  - richer bot activity/history
+  - stronger performance breakdowns
+  - deeper strategy/family learning boundaries
+
+### Phase
+
+`Bot Core` operational identity + persisted activity round
+
+### Completed
+
+- Closed a real contract gap in the bot persistence seam:
+  - bot identity
+  - notification settings
+  - activity summary
+  - richer audit/runtime fields
+  are now preserved end-to-end instead of being silently normalized away.
+- Extended the shared bot domain so each bot can now carry:
+  - operating profile
+  - owner/isolation identity
+  - persisted notification settings
+  - persisted activity summary
+- Wired `Bot Settings -> Notifications` into the same persisted bot seam already used by:
+  - `General Settings`
+  - `Risk Management`
+- Strengthened the decision bridge so new bot decisions now push real bot-owned runtime state back into the selected bot profile:
+  - local memory summary
+  - performance summary
+  - audit timestamps
+  - recent activity snapshot
+- Deepened decision metadata from `Signal Bot` so a bot decision now keeps a richer consumed-signal trace:
+  - strategy id/version
+  - feed kinds
+  - scorer/adaptive evidence
+  - execution eligibility context
+- Updated shared read-model consumers so `Signal Bot` and `Execution Logs` can read the stronger bot identity/activity layer without opening a parallel runtime path.
+
+### Risk Avoided
+
+- This avoids a dangerous partial-contract situation where bot policies/settings looked modeled in TypeScript but were still getting reset or dropped by the API normalization layer.
+- It also avoids keeping bot activity/performance as purely visual inference after the platform already introduced dedicated bot decisions.
+
+### Recommended Next Step
+
+- Continue the same phase by moving from summary-level bot activity into richer bot-owned history/performance breakdowns per style, timeframe, symbol, and origin on top of the now-stable decision bridge.
+
+### Phase
+
 `Account settings` template + real-data migration round
 
 ### Completed

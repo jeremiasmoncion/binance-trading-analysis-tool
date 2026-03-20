@@ -2,16 +2,8 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useDashboardSystemSelector, useMemorySystemSelector } from "../data-platform/selectors";
-import {
-  INITIAL_BOT_REGISTRY_STATE,
-  createBotRegistrySnapshot,
-  createPublishedSignalFeedBundleFromMemory,
-  rankPublishedFeed,
-  selectBots,
-  selectHighConfidenceRankedSignals,
-  selectPriorityRankedSignals,
-} from "../domain";
+import { useControlPanelExecutionSelector } from "../data-platform/selectors";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import type { ViewName } from "../types";
 
 type OverviewTab = "performance" | "recent-trades" | "analytics";
@@ -22,27 +14,23 @@ interface ControlOverviewViewProps {
 
 export function ControlOverviewView({ onNavigateView }: ControlOverviewViewProps) {
   const [activeTab, setActiveTab] = useState<OverviewTab>("performance");
-  const dashboardSystem = useDashboardSystemSelector();
-  const memorySystem = useMemorySystemSelector();
-  const watchlist = memorySystem.watchlists.find((item) => item.name === memorySystem.activeWatchlistName)?.coins || [];
+  const executionData = useControlPanelExecutionSelector();
+  const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
-    const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
-    const bots = selectBots(registry.state);
-    const rankedFeed = rankPublishedFeed(createPublishedSignalFeedBundleFromMemory(memorySystem.signalMemory, { watchlistSymbols: watchlist }).all);
-    const priority = selectPriorityRankedSignals(rankedFeed);
-    const highConfidence = selectHighConfidenceRankedSignals(rankedFeed);
-    const recentOrders = dashboardSystem.execution?.recentOrders || dashboardSystem.dashboardSummary?.execution.recentOrders || [];
+    const recentOrders = executionData.executionRecentOrders.length
+      ? executionData.executionRecentOrders
+      : executionData.dashboardRecentOrders;
     const closedOrders = recentOrders.filter((order) => typeof order.realized_pnl === "number");
 
     return {
-      bots,
-      priority,
-      highConfidence,
+      bots: feedReadModel.bots,
+      priority: feedReadModel.prioritySignals,
+      highConfidence: feedReadModel.highConfidenceSignals,
       recentOrders,
       closedOrders,
     };
-  }, [dashboardSystem.dashboardSummary?.execution.recentOrders, dashboardSystem.execution?.recentOrders, memorySystem.signalMemory, watchlist]);
+  }, [executionData.dashboardRecentOrders, executionData.executionRecentOrders, feedReadModel.bots, feedReadModel.highConfidenceSignals, feedReadModel.prioritySignals]);
 
   return (
     <div id="controlOverviewView" className="view-panel active">

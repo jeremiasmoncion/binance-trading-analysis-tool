@@ -2,24 +2,24 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useMemorySystemSelector } from "../data-platform/selectors";
+import { useExecutionLogsSelector } from "../data-platform/selectors";
 import type { ExecutionOrderRecord } from "../types";
 
 type ExecutionLogsTab = "all" | "trades" | "signals" | "errors" | "system";
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
-  const systemData = useMemorySystemSelector();
+  const executionData = useExecutionLogsSelector();
 
   const readModel = useMemo(() => {
-    const orders = systemData.execution?.recentOrders || [];
+    const orders = executionData.recentOrders;
     return {
       orders,
       successRate: calculateSuccessRate(orders),
       failed: orders.filter((order) => isFailedOrder(order)).length,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notional_usd || 0), 0),
     };
-  }, [systemData.execution?.recentOrders]);
+  }, [executionData.recentOrders]);
 
   const visibleLogs = readModel.orders.filter((order) => matchesTab(order, activeTab)).slice(0, 12);
 

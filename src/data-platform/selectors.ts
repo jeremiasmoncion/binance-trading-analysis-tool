@@ -1,6 +1,11 @@
 import { useDataPlaneStore, shallowEqualSelection } from "./createDataPlaneStore";
+import type { SystemDataPlane } from "./contracts";
 import { marketDataPlaneStore } from "./marketDataPlane";
 import { systemDataPlaneStore } from "./systemDataPlane";
+
+const EMPTY_SIGNAL_MEMORY: SystemDataPlane["snapshot"]["signalMemory"] = [];
+const EMPTY_WATCHLIST_COINS: string[] = [];
+const EMPTY_EXECUTION_ORDERS: NonNullable<SystemDataPlane["overlay"]["execution"]>["recentOrders"] = [];
 
 export function useDashboardMarketSelector() {
   return useDataPlaneStore(marketDataPlaneStore, (state) => ({
@@ -55,15 +60,28 @@ export function useMemorySystemSelector() {
 
 export function useSignalsBotsFeedSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
-    signalMemory: state.snapshot.signalMemory,
+    signalMemory: state.snapshot.signalMemory || EMPTY_SIGNAL_MEMORY,
     activeWatchlistName: state.snapshot.activeWatchlistName,
-    activeWatchlistCoins: state.snapshot.watchlists.find((item) => item.name === state.snapshot.activeWatchlistName)?.coins || [],
+    activeWatchlistCoins: state.snapshot.watchlists.find((item) => item.name === state.snapshot.activeWatchlistName)?.coins || EMPTY_WATCHLIST_COINS,
   }), (left, right) => (
     left.signalMemory === right.signalMemory
     && left.activeWatchlistName === right.activeWatchlistName
     && left.activeWatchlistCoins.length === right.activeWatchlistCoins.length
     && left.activeWatchlistCoins.every((coin, index) => coin === right.activeWatchlistCoins[index])
   ));
+}
+
+export function useControlPanelExecutionSelector() {
+  return useDataPlaneStore(systemDataPlaneStore, (state) => ({
+    executionRecentOrders: state.overlay.execution?.recentOrders || EMPTY_EXECUTION_ORDERS,
+    dashboardRecentOrders: state.overlay.dashboardSummary?.execution.recentOrders || EMPTY_EXECUTION_ORDERS,
+  }), shallowEqualSelection);
+}
+
+export function useExecutionLogsSelector() {
+  return useDataPlaneStore(systemDataPlaneStore, (state) => ({
+    recentOrders: state.overlay.execution?.recentOrders || EMPTY_EXECUTION_ORDERS,
+  }), shallowEqualSelection);
 }
 
 export function usePortfolioSelector() {

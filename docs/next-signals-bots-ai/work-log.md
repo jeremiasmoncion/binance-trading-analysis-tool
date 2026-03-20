@@ -4,6 +4,32 @@
 
 ### Phase
 
+Phase 2 / Phase 3 bridge
+
+### Completed
+
+- Added a shared `signals + bots` read-model seam in `src/hooks/useSignalsBotsReadModel.ts`.
+- Moved `Signal Bot`, `Bots`, `Bot Settings` and `Control Panel -> Overview` away from rebuilding the same ranked feed pipeline inside each view.
+- Narrowed template control surfaces to dedicated selectors:
+  - `useControlPanelExecutionSelector`
+  - `useExecutionLogsSelector`
+- Removed `Control Panel -> Overview`, `Bot Settings` and `Execution Logs` from the broader `useMemorySystemSelector` dependency when they only needed a smaller shared slice.
+- Updated the architecture doc with the new rule so future template pages reuse the same shared feed/read-model seam instead of inventing local derivations.
+
+### Risk Avoided
+
+- As `Signal Bot`, `Control Panel`, `Bot Settings` and future template pages grow, duplicating the ranked-feed derivation per screen would create drift and make performance tuning harder.
+- Keeping those pages on broader runtime selectors would also wake them on unrelated scanner/admin churn even when their real inputs had not changed.
+
+### Recommended Next Step
+
+- Continue the same closure pattern on the next template page:
+  - narrow selector first
+  - shared read-model seam second
+  - page-local presentation logic last
+
+### Phase
+
 UX architecture clarification and template-flow lock
 
 ### Completed

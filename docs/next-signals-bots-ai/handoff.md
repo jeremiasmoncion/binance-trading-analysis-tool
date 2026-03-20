@@ -88,6 +88,8 @@ The redesign also now has dedicated documentation for:
 - added first dedicated end-user navigation surfaces for:
   - `Signals`
   - `Bots`
+- added a shared `signals + bots` read-model seam so template-facing pages can reuse one ranked-feed derivation path
+- narrowed `Control Panel -> Overview`, `Bot Settings` and `Execution Logs` away from the broader memory/runtime selector bundle when they only needed smaller shared slices
 - removed the redesign from depending only on the legacy `Signal Bot` page for discoverability
 - aligned navigation and dashboard entry points with a more template-like page distribution
 - established that "template-like" is no longer sufficient:
@@ -158,7 +160,8 @@ Continue replacing the legacy product flow with the new user-facing page structu
   - -> `published signal feed`
   - -> `ranked published feed`
   - -> `bot-consumable feed`
-  - -> user-facing `Signals` surface
+  - -> shared `signals + bots` read-model seam
+  - -> user-facing template pages
 - next step should stay focused on:
   - migrating the sidebar and page flow to the exact template hierarchy
   - replacing generic `Signals` / `Bots` interim flow with:

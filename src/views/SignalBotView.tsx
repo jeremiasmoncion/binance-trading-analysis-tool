@@ -1,20 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
-import { BoltIcon, CheckCircleIcon, InfoCircleIcon, TrendUpIcon, WarningTriangleIcon } from "../components/Icons";
+import { BoltIcon, CheckCircleIcon, DownloadIcon, SlidersHorizontalIcon, TrendUpIcon, WarningTriangleIcon } from "../components/Icons";
 import { SectionCard } from "../components/ui/SectionCard";
-import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
-import {
-  INITIAL_BOT_REGISTRY_STATE,
-  createBotConsumableFeed,
-  createBotRegistrySnapshot,
-  createPublishedSignalFeedBundleFromMemory,
-  rankPublishedFeed,
-  selectHighConfidenceRankedSignals,
-  selectPriorityRankedSignals,
-  selectRankedPublishedSignals,
-  selectWatchlistFirstRankedSignals,
-} from "../domain";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import type { SignalSnapshot, ViewName } from "../types";
+import type { RankedPublishedSignal } from "../domain";
 
 type SignalBotTab = "active-signals" | "signal-history" | "performance" | "settings";
 type SignalFilter = "all" | "buy" | "sell" | "btc" | "eth" | "alt" | "high";
@@ -26,24 +16,13 @@ interface SignalBotViewProps {
 export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const [activeTab, setActiveTab] = useState<SignalBotTab>("active-signals");
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("all");
-  const feedData = useSignalsBotsFeedSelector();
-  const signals = feedData.signalMemory;
-  const watchlist = feedData.activeWatchlistCoins;
+  const feedReadModel = useSignalsBotsReadModel();
+  const signals = feedReadModel.signalMemory;
 
   const readModel = useMemo(() => {
-    const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
-    const signalBot = registry.state.bots.find((bot) => bot.slug === "signal-bot-core") || registry.state.bots[0];
-    const publishedFeed = createPublishedSignalFeedBundleFromMemory(signals, { watchlistSymbols: watchlist }).all;
-    const rankedFeed = rankPublishedFeed(publishedFeed);
-    const rankedSignals = selectRankedPublishedSignals(rankedFeed);
-    const priority = selectPriorityRankedSignals(rankedFeed);
-    const highConfidence = selectHighConfidenceRankedSignals(rankedFeed);
-    const watchlistFirst = selectWatchlistFirstRankedSignals(rankedFeed);
-    const botFeed = createBotConsumableFeed(signalBot, rankedSignals, rankedFeed.generatedAt);
-    const botApproved = botFeed.items.filter((item) => item.acceptedByPolicy);
     const openSignals = signals.filter((signal) => signal.outcome_status === "pending");
     const closedSignals = signals.filter((signal) => signal.outcome_status !== "pending");
-    const activeCards = priority.slice(0, 12).map((signal) => {
+    const activeCards = feedReadModel.prioritySignals.slice(0, 12).map((signal) => {
       const snapshot = findSnapshotForSignal(signal.context.symbol, signal.context.timeframe, signals);
       return {
         signal,
@@ -58,50 +37,21 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
       .slice()
       .sort((left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime())
       .slice(0, 12);
-    const topPerformers = closedSignals
-      .filter((signal) => Number(signal.outcome_pnl || 0) > 0)
-      .sort((left, right) => Number(right.outcome_pnl || 0) - Number(left.outcome_pnl || 0))
-      .slice(0, 5);
-
-    const marketSentiment = buildMarketSentiment(priority, watchlistFirst);
-    const aiInsights = buildAiInsights(priority, highConfidence, botApproved);
-
     return {
-      signalBot,
-      priority,
-      highConfidence,
-      watchlistFirst,
-      botApproved,
+      priority: feedReadModel.prioritySignals,
+      highConfidence: feedReadModel.highConfidenceSignals,
+      watchlistFirst: feedReadModel.watchlistFirstSignals,
+      botApproved: feedReadModel.signalBotApprovedSignals,
       openSignals,
       closedSignals,
       filteredCards,
       closedHistory,
-      topPerformers,
-      marketSentiment,
-      aiInsights,
     };
-  }, [signals, watchlist, activeFilter]);
+  }, [activeFilter, feedReadModel, signals]);
 
   return (
     <div id="signalBotView" className="view-panel active">
       <section className="template-page-shell">
-        <div className="template-page-header">
-          <div className="template-page-header-copy">
-            <span className="template-page-kicker">AI Bot</span>
-            <h1 className="template-page-title">Signal Bot</h1>
-            <p className="template-page-subtitle">
-              Your signal workspace for active opportunities, signal history, performance and simple bot controls,
-              arranged with the same flow and naming used by the template.
-            </p>
-          </div>
-          <div className="template-page-actions">
-            <button type="button" className="premium-action-button is-ghost">Export</button>
-            <button type="button" className="premium-action-button is-primary" onClick={() => onNavigateView("control-bot-settings")}>
-              Bot Settings
-            </button>
-          </div>
-        </div>
-
         <div className="template-stats-grid template-signal-stats-grid">
           <SignalStatCard
             label="Active Signals"
@@ -136,151 +86,125 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
         </div>
 
         <SectionCard
-          className="template-panel"
-          actions={(
-            <div className="template-toolbar">
-              <button type="button" className="premium-action-button is-ghost">Export</button>
-              <button type="button" className="premium-action-button is-ghost">Filters</button>
-            </div>
-          )}
+          className="template-panel template-signal-panel"
         >
-          <ModuleTabs
-            items={[
-              { key: "active-signals", label: "Active Signals" },
-              { key: "signal-history", label: "Signal History" },
-              { key: "performance", label: "Performance" },
-              { key: "settings", label: "Bot Settings" },
-            ]}
-            activeKey={activeTab}
-            onChange={(key) => setActiveTab(key as SignalBotTab)}
-          />
+          <div className="template-signal-panel-head">
+            <ModuleTabs
+              items={[
+                { key: "active-signals", label: "Active Signals" },
+                { key: "signal-history", label: "Signal History" },
+                { key: "performance", label: "Performance" },
+                { key: "settings", label: "Bot Settings" },
+              ]}
+              activeKey={activeTab}
+              onChange={(key) => setActiveTab(key as SignalBotTab)}
+            />
+
+            <div className="template-toolbar">
+              <button type="button" className="premium-action-button is-ghost template-toolbar-button">
+                <DownloadIcon />
+                <span>Export</span>
+              </button>
+              <button type="button" className="premium-action-button is-ghost template-toolbar-button">
+                <SlidersHorizontalIcon />
+                <span>Filters</span>
+              </button>
+            </div>
+          </div>
 
           {activeTab === "active-signals" ? (
-            <div className="template-signal-page-grid">
-              <div>
-                <div className="template-chip-row">
-                  {FILTER_CHIPS.map((chip) => (
-                    <button
-                      key={chip.key}
-                      type="button"
-                      className={`template-chip ${activeFilter === chip.key ? "is-active" : ""}`}
-                      onClick={() => setActiveFilter(chip.key)}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
+            <div>
+              <div className="template-chip-row template-signal-filter-row">
+                {FILTER_CHIPS.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    className={`template-chip ${activeFilter === chip.key ? "is-active" : ""}`}
+                    onClick={() => setActiveFilter(chip.key)}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
 
-                <div className="template-card-grid template-signal-card-grid">
-                  {readModel.filteredCards.map(({ signal, snapshot, entry, target, stopLoss }) => (
-                    <article
-                      key={signal.id}
-                      className={`template-signal-card template-signal-card-premium ${signal.context.direction === "BUY" ? "is-buy" : signal.context.direction === "SELL" ? "is-sell" : ""}`}
-                    >
-                      <div className="template-signal-card-head">
+              <div className="template-card-grid template-signal-card-grid">
+                {readModel.filteredCards.slice(0, 6).map(({ signal, snapshot, entry, target, stopLoss }) => (
+                  <article
+                    key={signal.id}
+                    className={`template-signal-card template-signal-card-premium ${signal.context.direction === "BUY" ? "is-buy" : signal.context.direction === "SELL" ? "is-sell" : ""}`}
+                  >
+                    <div className="template-signal-card-head">
+                      <div className="template-signal-identity">
+                        <div className={`template-signal-asset-badge ${getAssetAccentClass(signal.context.symbol)}`}>
+                          {getAssetGlyph(signal.context.symbol)}
+                        </div>
                         <div>
                           <h3>{signal.context.symbol}</h3>
-                          <p>{getVenueLabel(snapshot)} • {signal.context.timeframe}</p>
-                        </div>
-                        <span className="template-signal-badge">{signal.context.direction}</span>
-                      </div>
-
-                      <div className="template-signal-levels">
-                        <div>
-                          <span>Entry</span>
-                          <strong>{formatUsd(entry)}</strong>
-                        </div>
-                        <div>
-                          <span>Target</span>
-                          <strong className="is-positive">{formatUsd(target)}</strong>
-                        </div>
-                        <div>
-                          <span>Stop Loss</span>
-                          <strong className="is-negative">{formatUsd(stopLoss)}</strong>
+                          <p>{getCardVenueLabel(signal, snapshot)}</p>
                         </div>
                       </div>
+                      <span className={`template-signal-badge ${signal.context.direction === "SELL" ? "is-sell" : "is-buy"}`}>
+                        {signal.context.direction}
+                      </span>
+                    </div>
 
-                      <div className="template-signal-confidence">
-                        <div className="template-signal-confidence-row">
-                          <div>
-                            <span>AI Confidence</span>
-                            <strong>{Math.min(signal.ranking.compositeScore, 100).toFixed(0)}%</strong>
-                          </div>
-                          <div className="template-signal-confidence-meta">
-                            <span>{signal.ranking.tier}</span>
-                            <span>{signal.ranking.lane === "watchlist-first" ? "Watchlist" : "Discovery"}</span>
-                          </div>
+                    <div className="template-signal-levels">
+                      <div>
+                        <span>Entry</span>
+                        <strong>{formatUsd(entry)}</strong>
+                      </div>
+                      <div>
+                        <span>Target</span>
+                        <strong className="is-positive">{formatUsd(target)}</strong>
+                      </div>
+                      <div>
+                        <span>Stop Loss</span>
+                        <strong className="is-negative">{formatUsd(stopLoss)}</strong>
+                      </div>
+                    </div>
+
+                    <div className="template-signal-confidence">
+                      <div className="template-signal-confidence-row">
+                        <div className="template-signal-confidence-label">
+                          <span className={`template-signal-dot ${getConfidenceToneClass(signal)}`} />
+                          <span>AI Confidence</span>
                         </div>
-                        <div className="template-progress-track">
-                          <div className="template-progress-fill" style={{ width: `${Math.min(signal.ranking.compositeScore, 100)}%` }} />
-                        </div>
+                        <strong className={getConfidenceTextClass(signal)}>
+                          {Math.min(signal.ranking.compositeScore, 100).toFixed(0)}%
+                        </strong>
                       </div>
-
-                      <p className="template-signal-summary">{buildUserFacingSummary(signal, snapshot)}</p>
-
-                      <div className="template-signal-foot">
-                        <span>{signal.ranking.primaryReason}</span>
-                        <span>{formatRelative(signal.context.observedAt)}</span>
+                      <div className="template-progress-track template-signal-progress-track">
+                        <div
+                          className={`template-progress-fill ${getConfidenceFillClass(signal)}`}
+                          style={{ width: `${Math.min(signal.ranking.compositeScore, 100)}%` }}
+                        />
                       </div>
+                    </div>
 
-                      <div className="template-button-row">
-                        <button type="button" className="premium-action-button is-ghost">View Details</button>
-                        <button type="button" className="premium-action-button">Execute</button>
-                        <button type="button" className="premium-action-button is-ghost">Dismiss</button>
+                    <div className="template-signal-foot template-signal-card-foot">
+                      <span>{formatRelative(signal.context.observedAt)}</span>
+                      <div className="template-signal-card-actions">
+                        <button type="button" className="template-signal-icon-button" aria-label={`View ${signal.context.symbol}`}>
+                          <SignalViewIcon />
+                        </button>
+                        <button type="button" className="template-signal-icon-button" aria-label={`Execute ${signal.context.symbol}`}>
+                          <SignalPlayIcon />
+                        </button>
+                        <button type="button" className="template-signal-icon-button" aria-label={`Dismiss ${signal.context.symbol}`}>
+                          <SignalCloseIcon />
+                        </button>
                       </div>
-                    </article>
-                  ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {!readModel.filteredCards.length ? (
+                <div className="template-signal-empty">
+                  <strong>No signals match this filter right now.</strong>
+                  <span>The shared ranked feed is live, but this subset is currently empty.</span>
                 </div>
-              </div>
-
-              <div className="template-side-stack">
-                <SectionCard title="Market Sentiment" subtitle="Live read of the strongest markets in the current signal feed." className="template-panel">
-                  <div className="template-sentiment-list">
-                    {readModel.marketSentiment.map((item) => (
-                      <div key={item.label} className="template-sentiment-row">
-                        <span>{item.label}</span>
-                        <div className="template-sentiment-meter">
-                          <div className="template-sentiment-track">
-                            <div className={`template-sentiment-fill ${item.tone}`} style={{ width: `${item.score}%` }} />
-                          </div>
-                          <strong className={item.tone}>{item.score}%</strong>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="AI Insights" subtitle="Short explanations translated for the user, not raw diagnostics." className="template-panel">
-                  <div className="template-insights-list">
-                    {readModel.aiInsights.map((insight) => (
-                      <article key={insight.title} className={`template-insight-card ${insight.tone}`}>
-                        <div className="template-insight-icon">
-                          {insight.tone === "positive" ? <TrendUpIcon /> : insight.tone === "info" ? <InfoCircleIcon /> : <WarningTriangleIcon />}
-                        </div>
-                        <div>
-                          <strong>{insight.title}</strong>
-                          <p>{insight.body}</p>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </SectionCard>
-
-                <SectionCard title="Top Signal Performers" subtitle="Best closed performers ranked by realized outcome." className="template-panel">
-                  <div className="template-performer-list">
-                    {readModel.topPerformers.map((signal, index) => (
-                      <div key={signal.id} className="template-performer-row">
-                        <div className="template-performer-rank">{index + 1}</div>
-                        <div className="template-performer-copy">
-                          <strong>{signal.coin}</strong>
-                          <span>{signal.timeframe} • {signal.setup_type || signal.signal_label}</span>
-                        </div>
-                        <strong className="is-positive">{formatUsd(Number(signal.outcome_pnl || 0))}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
-              </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -361,6 +285,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Minimum Confidence" value={`${Math.min(calculateMinimumConfidence(readModel.highConfidence), 100).toFixed(0)}%`} note="Only clearer opportunities are promoted into the strongest subset." />
               <SettingsCard title="Notifications" value="Enabled" note="New high-confidence ideas can stay visible without overwhelming the page." />
               <SettingsCard title="Trading Pairs" value={String(new Set(readModel.priority.map((signal) => signal.context.symbol)).size)} note="The current mix of pairs stays curated from watchlist and discovery." />
+              <div className="template-settings-cta">
+                <button type="button" className="premium-action-button is-primary" onClick={() => onNavigateView("control-bot-settings")}>
+                  Open Full Bot Settings
+                </button>
+              </div>
             </div>
           ) : null}
         </SectionCard>
@@ -427,7 +356,7 @@ function findSnapshotForSignal(symbol: string, timeframe: string, signals: Signa
   return signals.find((item) => item.coin.toUpperCase() === symbol.toUpperCase() && item.timeframe === timeframe);
 }
 
-function matchesFilter(signal: ReturnType<typeof rankPublishedFeed>["items"][number], filter: SignalFilter) {
+function matchesFilter(signal: RankedPublishedSignal, filter: SignalFilter) {
   if (filter === "all") return true;
   if (filter === "buy") return signal.context.direction === "BUY";
   if (filter === "sell") return signal.context.direction === "SELL";
@@ -437,69 +366,6 @@ function matchesFilter(signal: ReturnType<typeof rankPublishedFeed>["items"][num
   return signal.ranking.tier === "high-confidence";
 }
 
-function buildMarketSentiment(
-  priority: ReturnType<typeof rankPublishedFeed>["items"],
-  watchlistFirst: ReturnType<typeof rankPublishedFeed>["items"],
-) {
-  const candidates = [...watchlistFirst, ...priority]
-    .reduce<Array<{ label: string; score: number; tone: "positive" | "warning" | "negative" }>>((acc, signal) => {
-      if (acc.some((item) => item.label === signal.context.symbol)) return acc;
-      const score = Math.max(35, Math.min(95, Math.round(signal.ranking.compositeScore)));
-      acc.push({
-        label: signal.context.symbol,
-        score,
-        tone: score >= 70 ? "positive" : score >= 55 ? "warning" : "negative",
-      });
-      return acc;
-    }, []);
-
-  return candidates.slice(0, 5);
-}
-
-function buildAiInsights(
-  priority: ReturnType<typeof rankPublishedFeed>["items"],
-  highConfidence: ReturnType<typeof rankPublishedFeed>["items"],
-  botApproved: Array<{ context: { symbol: string } }>,
-) {
-  return [
-    {
-      title: highConfidence[0]
-        ? `${highConfidence[0].context.symbol} is leading the high-confidence set`
-        : "High-confidence ideas are limited",
-      body: highConfidence[0]
-        ? "The strongest opportunity today has enough clarity to stay near the top of the feed."
-        : "The bot is being selective right now to avoid showing noisy ideas as strong setups.",
-      tone: "positive" as const,
-    },
-    {
-      title: botApproved.length
-        ? `${botApproved.length} signals are already bot-ready`
-        : "Few signals fit the current bot rules",
-      body: botApproved.length
-        ? "That means the page is surfacing opportunities that are already closer to action, not just raw detections."
-        : "The current market is producing fewer clean matches, which helps keep the page disciplined.",
-      tone: "info" as const,
-    },
-    {
-      title: priority.at(-1)
-        ? `${priority.at(-1)?.context.symbol} needs more confirmation`
-        : "Discovery is staying quiet",
-      body: priority.at(-1)
-        ? "Some ranked ideas are still visible, but remain below the strongest subset because their setup is less complete."
-        : "The page is currently favoring only the clearest setups.",
-      tone: "neutral" as const,
-    },
-  ];
-}
-
-function buildUserFacingSummary(
-  signal: ReturnType<typeof rankPublishedFeed>["items"][number],
-  snapshot?: SignalSnapshot,
-) {
-  const setup = snapshot?.setup_type || snapshot?.signal_label || signal.context.strategyId;
-  return `${setup} on ${signal.context.symbol} stays visible because the setup is ${signal.ranking.primaryReason.toLowerCase()}.`;
-}
-
 function getVenueLabel(snapshot?: SignalSnapshot) {
   const mode = String(snapshot?.execution_mode || "").toLowerCase();
   if (mode.includes("real")) return "Binance Live";
@@ -507,7 +373,54 @@ function getVenueLabel(snapshot?: SignalSnapshot) {
   return "Binance Spot";
 }
 
-function calculateMinimumConfidence(highConfidence: ReturnType<typeof rankPublishedFeed>["items"]) {
+function getCardVenueLabel(signal: RankedPublishedSignal, snapshot?: SignalSnapshot) {
+  const venue = getVenueLabel(snapshot);
+  if (venue !== "Binance Spot") return venue;
+  return signal.context.direction === "SELL" ? "Binance Futures" : "Binance Spot";
+}
+
+function getAssetAccentClass(symbol: string) {
+  if (symbol.startsWith("BTC")) return "is-btc";
+  if (symbol.startsWith("ETH")) return "is-eth";
+  if (symbol.startsWith("SOL")) return "is-sol";
+  if (symbol.startsWith("BNB")) return "is-bnb";
+  if (symbol.startsWith("XRP")) return "is-xrp";
+  if (symbol.startsWith("ADA")) return "is-ada";
+  return "is-generic";
+}
+
+function getAssetGlyph(symbol: string) {
+  if (symbol.startsWith("BTC")) return "B";
+  if (symbol.startsWith("ETH")) return "E";
+  if (symbol.startsWith("SOL")) return "S";
+  if (symbol.startsWith("BNB")) return "B";
+  if (symbol.startsWith("XRP")) return "X";
+  if (symbol.startsWith("ADA")) return "A";
+  return symbol.slice(0, 1);
+}
+
+function getConfidenceToneClass(signal: RankedPublishedSignal) {
+  const score = Math.min(signal.ranking.compositeScore, 100);
+  if (score >= 85) return "is-high";
+  if (score >= 70) return "is-mid";
+  return "is-low";
+}
+
+function getConfidenceTextClass(signal: RankedPublishedSignal) {
+  const score = Math.min(signal.ranking.compositeScore, 100);
+  if (score >= 85) return "template-confidence-high";
+  if (score >= 70) return "template-confidence-mid";
+  return "template-confidence-low";
+}
+
+function getConfidenceFillClass(signal: RankedPublishedSignal) {
+  const score = Math.min(signal.ranking.compositeScore, 100);
+  if (score >= 85) return "is-high";
+  if (score >= 70) return "is-mid";
+  return "is-low";
+}
+
+function calculateMinimumConfidence(highConfidence: RankedPublishedSignal[]) {
   if (!highConfidence.length) return 70;
   return Math.min(...highConfidence.map((signal) => signal.ranking.compositeScore));
 }
@@ -576,4 +489,29 @@ function formatRelative(value: string) {
   const diffHours = Math.floor(diffMinutes / 60);
   if (diffHours < 24) return `${diffHours} h ago`;
   return `${Math.floor(diffHours / 24)} d ago`;
+}
+
+function SignalViewIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function SignalPlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m8 6 9 6-9 6V6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SignalCloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
 }

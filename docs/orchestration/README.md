@@ -105,6 +105,14 @@ Practical consequence:
   - the human asks for review
   - or the task is explicitly visual and browser review is the natural completion step
 
+## Supabase Help Rule
+
+When future AI threads reach a point where Supabase needs a manual schema or data operation that cannot be executed directly from the current environment:
+
+- provide the exact SQL query to the human
+- state briefly why the query is needed
+- prefer ready-to-run SQL instead of vague setup instructions
+
 ## User-Facing Review Rule
 
 Meaningful UI progress must be reviewable from a real end-user perspective, not only from an internal developer/lab perspective.

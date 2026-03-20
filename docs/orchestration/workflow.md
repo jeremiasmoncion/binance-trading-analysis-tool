@@ -82,6 +82,15 @@ This applies when:
 - the human explicitly asks to see the changes
 - or the task is mainly visual and the AI is closing the loop for browser review
 
+## Supabase Support Rule
+
+If a task needs a Supabase schema or data change that the AI cannot execute directly:
+
+- do not leave the requirement implicit
+- provide the exact SQL query for the human to run manually
+- explain briefly what that SQL is for
+- prefer a ready-to-run query over abstract instructions
+
 ## GitHub Notification Practice
 
 To make GitHub useful as a notification layer:

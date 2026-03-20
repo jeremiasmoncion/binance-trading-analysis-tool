@@ -122,6 +122,18 @@ These pages are the model for how to achieve template-level visuals with cleaner
 
 Future UI work should treat them as the implementation reference, not just as visual inspiration.
 
+More specific rule for template migration:
+
+- when implementing `Signal Bot`, `Bot Settings`, `Execution Logs`, or other new template pages, prefer the actual CRYPE implementation language already proven in `My Wallet`
+- that includes:
+  - display typography rhythm
+  - quick-stat card density
+  - chip/button treatment
+  - panel padding
+  - dark-surface contrast
+  - card radius and border treatment
+- in practice, `My Wallet` is the first implementation baseline and the template is the visual target to match through that baseline
+
 ## Core UX Rule
 
 The legacy `Signal Bot` page is no longer the future home of signals and bots.

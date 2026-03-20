@@ -4,6 +4,39 @@
 
 ### Phase
 
+Template-fidelity refinement for `Signal Bot`
+
+### Completed
+
+- Revisited `Signal Bot` with `My Wallet` treated as the live implementation baseline, not just the static template screenshot.
+- Reworked the `Signal Bot` visual system so it now leans on the same CRYPE visual language used by `My Wallet`:
+  - display typography rhythm
+  - quick-stat card treatment
+  - chip/button density
+  - dark panel contrast
+  - shared spacing discipline
+- Rebuilt the active-signal cards with stronger CRYPE-consistent panel treatment while keeping the template page flow.
+- Tightened signal direction display so cards can surface `BUY` / `SELL` more reliably from the shared signal snapshot instead of drifting into neutral-only presentation.
+- Updated UX/style documentation to make `My Wallet` the explicit implementation baseline for future template pages, especially `Signal Bot`.
+
+### Risk Avoided
+
+- Without locking `Signal Bot` to the same visual baseline as `My Wallet`, the redesign risked drifting into a second interface language:
+  - correct structure
+  - but visibly different product feel
+- That would make template migration harder to scale page by page and increase one-off styling debt.
+
+### Recommended Next Step
+
+- Review `Signal Bot` again against the reference and continue polishing:
+  - typography scale
+  - card icon fidelity
+  - spacing micro-alignment
+  - badge and action-row matching
+  until it feels visibly part of the same CRYPE family as `My Wallet`
+
+### Phase
+
 Phase 2 / Phase 3 bridge
 
 ### Completed

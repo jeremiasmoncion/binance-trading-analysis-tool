@@ -43,7 +43,7 @@ The visual target comes from the local `TradeBotX` template, especially:
 The correct CRYPE implementation reference is:
 
 - `src/views/DashboardView.tsx`
-- `src/views/WalletView.tsx`
+- `src/views/BalanceView.tsx`
 
 These pages show how to achieve template-faithful visuals using:
 
@@ -128,6 +128,18 @@ The CRYPE live visual baseline already exists in:
 - `My Wallet`
 
 Future pages should inherit from that implementation style while aiming at template-level visual fidelity.
+
+Specific enforcement for future AI contributors:
+
+- `Signal Bot` should be implemented using the same visual discipline already present in `My Wallet`
+- do not treat `Signal Bot` as a place to invent a parallel card system, tab system, or typography rhythm
+- prefer existing shared primitives such as:
+  - `ui-summary-card`
+  - `ui-chip`
+  - `ui-button`
+  - `ui-toolbar`
+  - CRYPE dark panel tokens
+- if `Signal Bot` still looks noticeably different from `My Wallet` in spacing, density, contrast, or typography, it is not visually closed yet
 
 In short:
 

@@ -55,6 +55,64 @@ function hasDecisionChanged(current: StrategyDecisionState | null, next: Strateg
   );
 }
 
+function hasScannerTargetsChanged(
+  current: WatchlistScannerStatus["targets"],
+  next: WatchlistScannerStatus["targets"],
+) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (
+      (currentItem.username || "") !== (nextItem.username || "")
+      || (currentItem.activeListName || "") !== (nextItem.activeListName || "")
+      || Number(currentItem.coinsCount || 0) !== Number(nextItem.coinsCount || 0)
+      || currentItem.coins.length !== nextItem.coins.length
+    ) {
+      return true;
+    }
+
+    for (let coinIndex = 0; coinIndex < currentItem.coins.length; coinIndex += 1) {
+      if ((currentItem.coins[coinIndex] || "") !== (nextItem.coins[coinIndex] || "")) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function hasScannerRunsChanged(
+  current: WatchlistScannerStatus["runs"],
+  next: WatchlistScannerStatus["runs"],
+) {
+  if (current === next) return false;
+  if (current.length !== next.length) return true;
+
+  for (let index = 0; index < current.length; index += 1) {
+    const currentItem = current[index];
+    const nextItem = next[index];
+    if (
+      currentItem.id !== nextItem.id
+      || (currentItem.status || "") !== (nextItem.status || "")
+      || Number(currentItem.coins_count || 0) !== Number(nextItem.coins_count || 0)
+      || Number(currentItem.frames_scanned || 0) !== Number(nextItem.frames_scanned || 0)
+      || Number(currentItem.signals_created || 0) !== Number(nextItem.signals_created || 0)
+      || Number(currentItem.signals_closed || 0) !== Number(nextItem.signals_closed || 0)
+      || Number(currentItem.auto_orders_placed || 0) !== Number(nextItem.auto_orders_placed || 0)
+      || Number(currentItem.auto_orders_blocked || 0) !== Number(nextItem.auto_orders_blocked || 0)
+      || (currentItem.auto_execution_cooldown_until || "") !== (nextItem.auto_execution_cooldown_until || "")
+      || (currentItem.created_at || "") !== (nextItem.created_at || "")
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function hasScannerStatusChanged(current: WatchlistScannerStatus | null, next: WatchlistScannerStatus | null) {
   if (current === next) return false;
   if (!current || !next) return current !== next;
@@ -65,8 +123,8 @@ function hasScannerStatusChanged(current: WatchlistScannerStatus | null, next: W
     && Number(current.summary?.schedulerRuns || 0) === Number(next.summary?.schedulerRuns || 0)
     && Boolean(current.summary?.autoExecutionCooldownActive) === Boolean(next.summary?.autoExecutionCooldownActive)
     && (current.summary?.autoExecutionCooldownUntil || "") === (next.summary?.autoExecutionCooldownUntil || "")
-    && current.targets.length === next.targets.length
-    && current.runs.length === next.runs.length
+    && !hasScannerTargetsChanged(current.targets, next.targets)
+    && !hasScannerRunsChanged(current.runs, next.runs)
     && (current.latestRun?.id || 0) === (next.latestRun?.id || 0)
     && (current.latestRun?.created_at || "") === (next.latestRun?.created_at || "")
     && (current.latestSchedulerRun?.id || 0) === (next.latestSchedulerRun?.id || 0)

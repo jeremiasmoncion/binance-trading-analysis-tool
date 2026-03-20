@@ -393,6 +393,42 @@ What implementers should avoid:
 - Do not default new template pages to `useMemorySystemSelector` or other broad selector bundles.
 - Do not subscribe a page to scanner/execution/admin state if it only needs feed/watchlist inputs.
 
+## Refinador Runtime - 2026-03-19 - Scanner Runtime Cohort Stability
+
+### What Was Done
+
+- Hardened `useMemoryRuntime` so scanner status equality is semantic instead of shallow.
+- Added cohort-level comparison for scanner targets and scanner runs.
+- Kept this stability rule in shared runtime infrastructure so future template pages do not need page-local churn workarounds.
+
+### Files Touched
+
+- `src/hooks/useMemoryRuntime.ts`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- Scanner/runtime state is better prepared for denser `Control Panel` and `Execution Logs` surfaces.
+- The remaining risk pattern is any other shared comparator that still relies on shallow array checks while future template pages plan to observe richer cohorts.
+
+### What Remains Pending
+
+- Continue auditing shared runtime comparators for shallow cohort checks.
+- Revisit validation/runtime reporting paths before those surfaces gain more real operational density.
+
+### What The Director Should Review
+
+- This round closes another infrastructure seam before the template pages attach heavier live/admin content.
+- No product-layer behavior changed.
+
+### What The Implementer Should Avoid
+
+- Do not fix scanner/runtime page churn with component-level memoization or local equality guards.
+- Reuse the shared comparator seam if new template pages read scanner history or operational runs.
+
 ## Warning For Future Contributors
 
 If you skip the explicit domain model and jump straight into feature work, the redesign is likely to become another layer of hidden coupling on top of the existing pipeline.

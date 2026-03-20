@@ -747,6 +747,37 @@ Selector-driven stability for template read-only pages
 - Keep selector granularity treated as runtime infrastructure, not as a view-by-view cleanup concern.
 - Require new template pages to ask for the smallest shared selector that matches their data contract.
 
+## 2026-03-19 - Scanner Runtime Cohort Stability
+
+### Area
+
+Shared scanner/runtime comparator hardening
+
+### Completed
+
+- Hardened `src/hooks/useMemoryRuntime.ts` so scanner status equality is semantic instead of shallow.
+- Added comparator coverage for:
+  - scanner target cohorts
+  - scanner run cohorts
+- Kept scanner/runtime stability in shared infrastructure rather than pushing compensation into future `Control Panel` or `Execution Logs` pages.
+- Updated architecture docs with the scanner comparator rule.
+
+### Risk Avoided
+
+- The template flow will eventually attach denser operational surfaces to scanner/runtime state.
+- With shallow equality, equivalent refreshes could still wake those pages simply because runs or targets were recreated with the same meaning.
+- That would encourage page-local memoization patches instead of fixing the shared runtime seam once.
+
+### Pending
+
+- Continue auditing other shared runtime comparators that may still use shallow array checks for denser cohorts.
+- Revisit whether validation/runtime reports need a similar narrowing once `Control Panel` grows real history and operations surfaces.
+
+### Recommendation To Director
+
+- Keep scanner/runtime comparator depth treated as protected infrastructure for the template migration.
+- Do not let future UI rounds solve scanner churn from the component layer.
+
 ## 2026-03-19 - User-Facing Signals And Bots Navigation Reform
 
 ### Phase

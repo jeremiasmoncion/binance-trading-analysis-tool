@@ -142,6 +142,9 @@ More specific rule for template migration:
 - for any tabbed page:
   - the selected tab must stay visibly highlighted after selection
   - that selected-state behavior should come from the shared tab/chip primitive, not a page-local exception
+- for global loading surfaces:
+  - preserve CRYPE identity in the loader itself
+  - prefer branded animated logo treatment over generic spinner-only presentation
 - for `All Bots` quick configuration:
   - the bot gear action should open an in-context right drawer
   - do not force a page transition for lightweight bot edits

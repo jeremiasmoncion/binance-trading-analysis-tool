@@ -1884,11 +1884,42 @@ body.dark-theme .domain-policy-pill.is-penalty {
   color: #93c5fd;
 }
 
-.system-loading-icon svg {
-  width: 20px;
-  height: 20px;
-  animation: crype-spin 0.9s linear infinite;
-  transform-origin: center;
+.system-loading-logo-mark {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.system-loading-logo-core {
+  position: relative;
+  z-index: 1;
+  color: currentColor;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.system-loading-logo-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 999px;
+  border: 2px solid rgba(191, 219, 254, 0.24);
+  border-top-color: rgba(255, 255, 255, 0.94);
+  border-right-color: rgba(147, 197, 253, 0.72);
+  animation: crype-spin 1s linear infinite;
+}
+
+.system-loading-logo-ring::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  opacity: 0.75;
+  animation: crype-pulse 1.6s ease-in-out infinite;
 }
 
 .system-loading-copy {
@@ -1925,6 +1956,19 @@ body.dark-theme .domain-policy-pill.is-penalty {
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes crype-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.04);
   }
 }
 

@@ -148,6 +148,24 @@ Global active-tab parity fix
 
 ### Phase
 
+System loading identity refinement
+
+### Completed
+
+- Replaced the generic spinner treatment inside the system loading dock with a branded loading animation around the CRYPE `C`.
+- Kept the same loading surface and wording, but made the logo itself carry the loading signal.
+- Implemented the change in the shared system UI host so future startup/loading states keep the same branded behavior.
+
+### Risk Avoided
+
+- This avoids drifting back to generic loading indicators that feel disconnected from the rest of the product identity.
+
+### Recommended Next Step
+
+- Reuse the same branded loader treatment for future global loading surfaces instead of reintroducing standalone spinners.
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

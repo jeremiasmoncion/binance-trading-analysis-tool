@@ -162,6 +162,14 @@ Continue replacing the legacy product flow with the new user-facing page structu
   - -> `bot-consumable feed`
   - -> shared `signals + bots` read-model seam
   - -> user-facing template pages
+- `Bot Settings -> General Settings` and `Bot Settings -> Risk Management` now share the same form/control implementation baseline:
+  - shared input/select shells
+  - shared toggle treatment
+  - shared bottom action row
+  - shared theme-parity handling
+- the implementation rule is now explicit:
+  - new settings tabs should extend the same shared form primitives
+  - they should not reintroduce page-local form styling or theme-specific hacks
 - next step should stay focused on:
   - migrating the sidebar and page flow to the exact template hierarchy
   - replacing generic `Signals` / `Bots` interim flow with:

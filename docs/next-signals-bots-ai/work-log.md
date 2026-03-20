@@ -4,6 +4,41 @@
 
 ### Phase
 
+`Bot Settings` risk-management template round
+
+### Completed
+
+- Replaced the old summary-card placeholder in `Bot Settings -> Risk Management` with a fuller control surface aligned to the template flow.
+- Added UI-stage sections for:
+  - `Global Risk Controls`
+  - `Stop Loss & Take Profit`
+  - `Emergency Controls`
+  - `Reset to Default`
+  - `Save Risk Settings`
+- Reused the same shared form primitives already established for `General Settings`:
+  - `ui-input-shell`
+  - shared select shell
+  - shared toggle row
+  - shared action-row pattern
+- Kept `Risk Management` on the same theme-parity discipline learned from `General Settings`:
+  - no local select hacks
+  - no theme-forced overrides
+  - clear/light mode covered in the same round
+
+### Risk Avoided
+
+- Building `Risk Management` as another one-off page-specific form system would repeat the same drift that already had to be corrected in `General Settings`.
+- Reusing the shared shells means the next settings tabs can keep converging on one form language instead of multiplying styling fixes per page.
+
+### Recommended Next Step
+
+- Continue with `Notifications` using the same rule:
+  - shared form primitives first
+  - theme parity in the same round
+  - page-specific layout only where structure is truly different
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

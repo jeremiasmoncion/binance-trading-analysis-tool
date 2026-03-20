@@ -5356,6 +5356,17 @@ body.dark-theme .market-score-track {
   gap: 12px;
 }
 
+.botsettings-input-shell:has(.botsettings-input-prefix) {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.botsettings-input-prefix,
+.botsettings-input-suffix {
+  color: #94a3b8;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 .botsettings-input-shell input {
   width: 100%;
   border: 0;
@@ -5376,6 +5387,12 @@ body.dark-theme .market-score-track {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.botsettings-field-note {
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .botsettings-choice-card {
@@ -5575,6 +5592,95 @@ body.dark-theme .market-score-track {
   min-width: 168px;
 }
 
+.botsettings-risk-card {
+  align-self: start;
+}
+
+.botsettings-risk-span {
+  grid-column: 1 / -1;
+}
+
+.botsettings-risk-emergency-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.botsettings-emergency-card {
+  min-height: 176px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 26px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(59, 130, 246, 0.14);
+  background: rgba(8, 15, 28, 0.54);
+  color: #f8fafc;
+  text-align: center;
+  transition: transform var(--crype-motion-fast), border-color var(--crype-motion-fast), box-shadow var(--crype-motion-fast), background-color var(--crype-motion-fast);
+}
+
+.botsettings-emergency-card:hover {
+  transform: translateY(-2px);
+}
+
+.botsettings-emergency-card strong {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.botsettings-emergency-card span {
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 280px;
+}
+
+.botsettings-emergency-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botsettings-emergency-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.botsettings-emergency-card.is-danger .botsettings-emergency-icon {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(127, 29, 29, 0.32));
+  color: #ff4d5f;
+}
+
+.botsettings-emergency-card.is-warning .botsettings-emergency-icon {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.18), rgba(120, 53, 15, 0.32));
+  color: #f97316;
+}
+
+.botsettings-emergency-card.is-caution .botsettings-emergency-icon {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.18), rgba(113, 63, 18, 0.32));
+  color: #eab308;
+}
+
+.botsettings-emergency-card.is-danger:hover {
+  border-color: rgba(239, 68, 68, 0.22);
+  box-shadow: 0 18px 30px rgba(127, 29, 29, 0.16);
+}
+
+.botsettings-emergency-card.is-warning:hover {
+  border-color: rgba(249, 115, 22, 0.22);
+  box-shadow: 0 18px 30px rgba(120, 53, 15, 0.16);
+}
+
+.botsettings-emergency-card.is-caution:hover {
+  border-color: rgba(234, 179, 8, 0.22);
+  box-shadow: 0 18px 30px rgba(113, 63, 18, 0.16);
+}
+
 body:not(.dark-theme) .botsettings-kicker {
   background: rgba(99, 102, 241, 0.1);
   color: #4338ca;
@@ -5768,6 +5874,9 @@ body:not(.dark-theme) .botsettings-input-shell input {
 
 body:not(.dark-theme) .botsettings-toggle-copy span,
 body:not(.dark-theme) .botsettings-slider-scale,
+body:not(.dark-theme) .botsettings-field-note,
+body:not(.dark-theme) .botsettings-input-prefix,
+body:not(.dark-theme) .botsettings-input-suffix,
 body:not(.dark-theme) .botsettings-select-shell svg,
 body:not(.dark-theme) .botsettings-input-suffix svg {
   color: #64748b;
@@ -5811,8 +5920,27 @@ body:not(.dark-theme) .botsettings-day-chip {
   color: #475569;
 }
 
+body:not(.dark-theme) .botsettings-emergency-card {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.04), transparent 46%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 14px 28px rgba(148, 163, 184, 0.1);
+  color: #0f172a;
+}
+
+body:not(.dark-theme) .botsettings-emergency-card span {
+  color: #64748b;
+}
+
 @media (max-width: 1180px) {
   .botsettings-general-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .botsettings-risk-emergency-grid {
     grid-template-columns: 1fr;
   }
 
@@ -5871,6 +5999,7 @@ body:not(.dark-theme) .botsettings-day-chip {
 
   .botsettings-general-grid,
   .botsettings-time-grid,
+  .botsettings-risk-emergency-grid,
   .botsettings-header,
   .botsettings-header-actions,
   .botsettings-status-filters,

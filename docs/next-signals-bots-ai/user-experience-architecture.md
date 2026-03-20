@@ -133,6 +133,10 @@ More specific rule for template migration:
   - dark-surface contrast
   - card radius and border treatment
 - in practice, `My Wallet` is the first implementation baseline and the template is the visual target to match through that baseline
+- for settings tabs specifically:
+  - reuse one shared form language across `General Settings`, `Risk Management`, `Notifications`, and `API Connections`
+  - shared select/input/toggle primitives should be the default
+  - do not solve theme parity with per-tab overrides when the fix belongs in the shared primitive
 
 ## Core UX Rule
 

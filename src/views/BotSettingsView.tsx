@@ -19,30 +19,45 @@ const BOT_TABS: Array<{ key: BotSettingsTab; label: string; icon: ReactNode }> =
   { key: "api-connections", label: "API Connections", icon: <ApiTabIcon /> },
 ];
 
+const INITIAL_GENERAL_SETTINGS = {
+  defaultTradingPair: "BTC/USDT",
+  defaultExchange: "Binance",
+  baseCurrency: "USDT",
+  orderSizeType: "fixed" as "fixed" | "percentage",
+  autoRestartOnError: true,
+  autoCompoundProfits: true,
+  paperTradingMode: false,
+  smartOrderRouting: true,
+  antiSlippageProtection: true,
+  executionSpeed: 50,
+  apiRateLimit: 1200,
+  maxConcurrentBots: 15,
+  tradingScheduleEnabled: false,
+  startTime: "09:00 AM",
+  endTime: "05:00 PM",
+  activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  timezone: "UTC",
+};
+
+const INITIAL_RISK_SETTINGS = {
+  maximumDailyLossLimit: "500",
+  maximumDrawdownPct: "15",
+  maximumPositionSizePct: "25",
+  maximumLeverage: "3x",
+  globalStopLossEnabled: true,
+  stopLossPct: "5",
+  takeProfitPct: "10",
+  trailingStopLossEnabled: true,
+  trailingDistancePct: "2",
+};
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
   const [layoutMode, setLayoutMode] = useState<BotLayoutMode>("grid");
   const [search, setSearch] = useState("");
-  const [generalSettings, setGeneralSettings] = useState({
-    defaultTradingPair: "BTC/USDT",
-    defaultExchange: "Binance",
-    baseCurrency: "USDT",
-    orderSizeType: "fixed" as "fixed" | "percentage",
-    autoRestartOnError: true,
-    autoCompoundProfits: true,
-    paperTradingMode: false,
-    smartOrderRouting: true,
-    antiSlippageProtection: true,
-    executionSpeed: 50,
-    apiRateLimit: 1200,
-    maxConcurrentBots: 15,
-    tradingScheduleEnabled: false,
-    startTime: "09:00 AM",
-    endTime: "05:00 PM",
-    activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-    timezone: "UTC",
-  });
+  const [generalSettings, setGeneralSettings] = useState(INITIAL_GENERAL_SETTINGS);
+  const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
   const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
@@ -200,6 +215,20 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       activeDays: current.activeDays.includes(day)
         ? current.activeDays.filter((item) => item !== day)
         : [...current.activeDays, day],
+    }));
+  };
+
+  const toggleRiskSetting = <TKey extends keyof typeof riskSettings>(key: TKey) => {
+    setRiskSettings((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  };
+
+  const updateRiskSetting = <TKey extends keyof typeof riskSettings>(key: TKey, value: (typeof riskSettings)[TKey]) => {
+    setRiskSettings((current) => ({
+      ...current,
+      [key]: value,
     }));
   };
 
@@ -627,25 +656,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <button
                   type="button"
                   className="botsettings-reset-button ui-button"
-                  onClick={() => setGeneralSettings({
-                    defaultTradingPair: "BTC/USDT",
-                    defaultExchange: "Binance",
-                    baseCurrency: "USDT",
-                    orderSizeType: "fixed",
-                    autoRestartOnError: true,
-                    autoCompoundProfits: true,
-                    paperTradingMode: false,
-                    smartOrderRouting: true,
-                    antiSlippageProtection: true,
-                    executionSpeed: 50,
-                    apiRateLimit: 1200,
-                    maxConcurrentBots: 15,
-                    tradingScheduleEnabled: false,
-                    startTime: "09:00 AM",
-                    endTime: "05:00 PM",
-                    activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-                    timezone: "UTC",
-                  })}
+                  onClick={() => setGeneralSettings(INITIAL_GENERAL_SETTINGS)}
                 >
                   Reset to Default
                 </button>
@@ -658,8 +669,142 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           ) : null}
 
           {activeTab === "risk-management" ? (
-            <div className="botsettings-settings-grid">
-              {readModel.tabs.risk.map((item) => <SettingsPanel key={item.title} {...item} icon={<WarningTriangleIcon />} />)}
+            <div className="botsettings-general-grid">
+              <article className="botsettings-general-card botsettings-risk-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-danger">
+                      <ShieldAlertIcon />
+                    </div>
+                    <h3>Global Risk Controls</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <FormInput
+                    label="Maximum Daily Loss Limit"
+                    value={riskSettings.maximumDailyLossLimit}
+                    onChange={(value) => updateRiskSetting("maximumDailyLossLimit", value)}
+                    prefix="$"
+                    note="Trading will stop if daily losses exceed this amount"
+                  />
+                  <FormInput
+                    label="Maximum Drawdown %"
+                    value={riskSettings.maximumDrawdownPct}
+                    onChange={(value) => updateRiskSetting("maximumDrawdownPct", value)}
+                    suffix="%"
+                  />
+                  <FormInput
+                    label="Maximum Position Size"
+                    value={riskSettings.maximumPositionSizePct}
+                    onChange={(value) => updateRiskSetting("maximumPositionSizePct", value)}
+                    suffix="%"
+                    note="Maximum % of portfolio in a single position"
+                  />
+                  <FormSelect
+                    label="Maximum Leverage"
+                    value={riskSettings.maximumLeverage}
+                    options={["1x", "2x", "3x", "5x", "10x"]}
+                    onChange={(value) => updateRiskSetting("maximumLeverage", value)}
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card botsettings-risk-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-success">
+                      <TargetSummaryIcon />
+                    </div>
+                    <h3>Stop Loss &amp; Take Profit</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-form-stack">
+                  <ToggleRow
+                    title="Global Stop Loss"
+                    note="Apply to all bots by default"
+                    checked={riskSettings.globalStopLossEnabled}
+                    onToggle={() => toggleRiskSetting("globalStopLossEnabled")}
+                  />
+
+                  <div className="botsettings-time-grid">
+                    <FormInput
+                      label="Stop Loss %"
+                      value={riskSettings.stopLossPct}
+                      onChange={(value) => updateRiskSetting("stopLossPct", value)}
+                      suffix="%"
+                    />
+                    <FormInput
+                      label="Take Profit %"
+                      value={riskSettings.takeProfitPct}
+                      onChange={(value) => updateRiskSetting("takeProfitPct", value)}
+                      suffix="%"
+                    />
+                  </div>
+
+                  <ToggleRow
+                    title="Trailing Stop Loss"
+                    note="Adjust stop loss as price moves in your favor"
+                    checked={riskSettings.trailingStopLossEnabled}
+                    onToggle={() => toggleRiskSetting("trailingStopLossEnabled")}
+                  />
+
+                  <FormInput
+                    label="Trailing Distance"
+                    value={riskSettings.trailingDistancePct}
+                    onChange={(value) => updateRiskSetting("trailingDistancePct", value)}
+                    suffix="%"
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card botsettings-risk-card botsettings-risk-span">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-caution">
+                      <WarningTriangleIcon />
+                    </div>
+                    <h3>Emergency Controls</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-risk-emergency-grid">
+                  <button type="button" className="botsettings-emergency-card is-danger">
+                    <div className="botsettings-emergency-icon">
+                      <StopShieldIcon />
+                    </div>
+                    <strong>Emergency Stop All</strong>
+                    <span>Immediately stop all running bots and cancel pending orders</span>
+                  </button>
+
+                  <button type="button" className="botsettings-emergency-card is-warning">
+                    <div className="botsettings-emergency-icon">
+                      <ClosePositionsIcon />
+                    </div>
+                    <strong>Close All Positions</strong>
+                    <span>Market sell all open positions across all bots</span>
+                  </button>
+
+                  <button type="button" className="botsettings-emergency-card is-caution">
+                    <div className="botsettings-emergency-icon">
+                      <PauseMiniIcon />
+                    </div>
+                    <strong>Pause All Bots</strong>
+                    <span>Temporarily pause all bots while keeping positions open</span>
+                  </button>
+                </div>
+              </article>
+
+              <div className="botsettings-general-actions">
+                <button type="button" className="botsettings-reset-button ui-button" onClick={() => setRiskSettings(INITIAL_RISK_SETTINGS)}>
+                  Reset to Default
+                </button>
+                <button type="button" className="ui-button ui-button-primary">
+                  <SaveMiniIcon />
+                  Save Risk Settings
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -742,14 +887,16 @@ function FormSelect(props: { label: string; value: string; options: string[]; on
   );
 }
 
-function FormInput(props: { label: string; value: string; onChange: (value: string) => void; suffix?: ReactNode }) {
+function FormInput(props: { label: string; value: string; onChange: (value: string) => void; prefix?: ReactNode; suffix?: ReactNode; note?: string }) {
   return (
     <div className="botsettings-field-block">
       <label className="botsettings-field-label">{props.label}</label>
       <label className="botsettings-input-shell ui-input-shell">
+        {props.prefix ? <span className="botsettings-input-prefix">{props.prefix}</span> : null}
         <input value={props.value} onChange={(event) => props.onChange(event.target.value)} aria-label={props.label} />
         {props.suffix ? <span className="botsettings-input-suffix">{props.suffix}</span> : null}
       </label>
+      {props.note ? <span className="botsettings-field-note">{props.note}</span> : null}
     </div>
   );
 }
@@ -954,6 +1101,16 @@ function ShieldTabIcon() {
   );
 }
 
+function ShieldAlertIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5 18 7v4.5c0 4.2-2.4 6.8-6 8-3.6-1.2-6-3.8-6-8V7l6-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 8.2v5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 function ApiTabIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1090,6 +1247,24 @@ function GearMiniIcon() {
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 0 0 0-6.4Z" stroke="currentColor" strokeWidth="1.8" />
       <path d="m19 13.1-.9.5.1 1a1 1 0 0 1-.6 1l-1 .4-.6.9a1 1 0 0 1-1 .4l-1-.2-.8.7a1 1 0 0 1-1 0l-.8-.7-1 .2a1 1 0 0 1-1-.4l-.6-.9-1-.4a1 1 0 0 1-.6-1l.1-1-.9-.5a1 1 0 0 1-.4-.9l.4-1-.4-1a1 1 0 0 1 .4-.9l.9-.5-.1-1a1 1 0 0 1 .6-1l1-.4.6-.9a1 1 0 0 1 1-.4l1 .2.8-.7a1 1 0 0 1 1 0l.8.7 1-.2a1 1 0 0 1 1 .4l.6.9 1 .4a1 1 0 0 1 .6 1l-.1 1 .9.5a1 1 0 0 1 .4.9l-.4 1 .4 1a1 1 0 0 1-.4.9Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StopShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5 18 7v4.5c0 4.2-2.4 6.8-6 8-3.6-1.2-6-3.8-6-8V7l6-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 9h6v6H9z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ClosePositionsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

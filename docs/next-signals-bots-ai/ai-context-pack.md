@@ -15,16 +15,17 @@ It is especially useful when:
 Recommended reading order:
 
 1. `docs/next-signals-bots-ai/README.md`
-2. `docs/data-architecture.md`
-3. `docs/realtime-core-service.md`
-4. `docs/next-signals-bots-ai/style-architecture.md`
-5. `docs/next-signals-bots-ai/user-experience-architecture.md`
-6. `docs/next-signals-bots-ai/product-operating-model.md`
-7. `docs/next-signals-bots-ai/target-architecture.md`
-8. `docs/next-signals-bots-ai/domain-model.md`
-9. `docs/next-signals-bots-ai/implementation-plan.md`
-10. `docs/next-signals-bots-ai/handoff.md`
-11. `docs/next-signals-bots-ai/work-log.md`
+2. `docs/next-signals-bots-ai/area-status.md`
+3. `docs/data-architecture.md`
+4. `docs/realtime-core-service.md`
+5. `docs/next-signals-bots-ai/style-architecture.md`
+6. `docs/next-signals-bots-ai/user-experience-architecture.md`
+7. `docs/next-signals-bots-ai/product-operating-model.md`
+8. `docs/next-signals-bots-ai/target-architecture.md`
+9. `docs/next-signals-bots-ai/domain-model.md`
+10. `docs/next-signals-bots-ai/implementation-plan.md`
+11. `docs/next-signals-bots-ai/handoff.md`
+12. `docs/next-signals-bots-ai/work-log.md`
 
 ## Current Truths
 

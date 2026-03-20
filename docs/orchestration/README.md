@@ -41,11 +41,12 @@ Threads do not coordinate by hidden memory. They coordinate through:
 ## Required Reading Order For Any New Thread
 
 1. `docs/next-signals-bots-ai/README.md`
-2. `docs/next-signals-bots-ai/ai-context-pack.md`
-3. `docs/next-signals-bots-ai/handoff.md`
-4. `docs/orchestration/phase-status.md`
-5. `docs/orchestration/ownership.md`
-6. the thread-specific task file if assigned
+2. `docs/next-signals-bots-ai/area-status.md`
+3. `docs/next-signals-bots-ai/ai-context-pack.md`
+4. `docs/next-signals-bots-ai/handoff.md`
+5. `docs/orchestration/phase-status.md`
+6. `docs/orchestration/ownership.md`
+7. the thread-specific task file if assigned
 
 ## Single-AI Rule
 
@@ -55,6 +56,7 @@ That AI should treat:
 
 - `docs/data-architecture.md`
 - `docs/realtime-core-service.md`
+- `docs/next-signals-bots-ai/area-status.md`
 - `docs/next-signals-bots-ai/style-architecture.md`
 - `docs/next-signals-bots-ai/user-experience-architecture.md`
 - `docs/next-signals-bots-ai/product-operating-model.md`

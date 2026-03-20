@@ -232,7 +232,8 @@ Current lane-state progression in the implementation:
 - `awaiting-approval`
 - `queued`
 - `dispatch-requested`
-- `dispatched`
+- `previewed`
+- `execution-submitted`
 - `blocked`
 - `linked`
 

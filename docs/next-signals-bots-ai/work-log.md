@@ -4,6 +4,43 @@
 
 ### Phase
 
+`Bot Core` paper-demo terminal semantics round
+
+### Completed
+
+- Split the generic post-dispatch lane into clearer terminal semantics for the safe operating path:
+  - `paper -> previewed`
+  - `demo -> execution-submitted`
+- The operational dispatch loop no longer collapses both paper preview and demo execute under the same generic `dispatched` label.
+- The lane normalizer now preserves those progressed states and does not pull them back into `queued`.
+- Shared execution-intent summaries now track:
+  - total dispatched aggregate
+  - previewed count
+  - execution-submitted count
+- `Execution Logs` now treats the `Dispatched` filter as the union of:
+  - `previewed`
+  - `execution-submitted`
+  while row labels themselves stay specific.
+- `Signal Bot` now also shows that split directly instead of one merged dispatched count.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids overclaiming that a paper preview and a demo execution submit are the same operational event.
+- It also avoids hiding the safer `paper` path under semantics that sound closer to order submission than they really are.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - expose richer adapter outcomes per terminal dispatch state
+  - decide whether `previewed` now needs its own closure path distinct from demo linkage
+  - keep real trading execution out of scope until the safe paper/demo loop is fully trustworthy
+
+### Phase
+
 `Bot Core` dispatch diagnostics round
 
 ### Completed

@@ -320,7 +320,7 @@ function buildIntentLanePatch(bot: Bot, decision: BotDecisionRecord): Partial<Bo
   if (
     currentLane === lane
     && intentStatus === "ready"
-    && ["dispatch-requested", "dispatched", "linked", "blocked"].includes(currentLaneStatus)
+    && ["dispatch-requested", "previewed", "execution-submitted", "linked", "blocked"].includes(currentLaneStatus)
     && currentIntentStatus === intentStatus
   ) {
     return null;
@@ -541,7 +541,7 @@ export function useBotOperationalLoop() {
             status: dispatchMode === "execute" && decision.status !== "closed" ? "pending" : decision.status,
             metadata: {
               ...decision.metadata,
-              executionIntentLaneStatus: "dispatched",
+              executionIntentLaneStatus: dispatchMode === "execute" ? "execution-submitted" : "previewed",
               executionIntentLastUpdatedAt: now,
               executionIntentDispatchAttemptedAt: now,
               executionIntentDispatchedAt: now,

@@ -183,6 +183,8 @@ export function ExecutionLogsView() {
         queuedCount: bot.executionIntentSummary?.queuedCount || 0,
         dispatchRequestedCount: bot.executionIntentSummary?.dispatchRequestedCount || 0,
         dispatchedCount: bot.executionIntentSummary?.dispatchedCount || 0,
+        previewedCount: bot.executionIntentSummary?.previewedCount || 0,
+        executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
         awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
         blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
         linkedCount: bot.executionIntentSummary?.linkedCount || 0,
@@ -337,7 +339,7 @@ export function ExecutionLogsView() {
                 <article key={`intent-${bot.id}`} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>
-                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.dispatchedCount} dispatched · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} previewed · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
                   </p>
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>
@@ -530,7 +532,7 @@ function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter) {
   if (!laneStatus) return false;
   if (filter === "queued") return laneStatus === "queued";
   if (filter === "dispatch-requested") return laneStatus === "dispatch-requested";
-  if (filter === "dispatched") return laneStatus === "dispatched";
+  if (filter === "dispatched") return laneStatus === "previewed" || laneStatus === "execution-submitted";
   if (filter === "awaiting-approval") return laneStatus === "awaiting-approval";
   if (filter === "blocked") return laneStatus === "blocked";
   return laneStatus === "linked";
@@ -668,7 +670,8 @@ function formatDecisionStatus(status: string, linkedOrderStatus?: string | null,
   if (linkedOrderStatus) return formatStatus({ status: linkedOrderStatus } as ExecutionLogOrderEntry);
   if (intentLaneStatus === "queued") return "Queued";
   if (intentLaneStatus === "dispatch-requested") return "Dispatch Requested";
-  if (intentLaneStatus === "dispatched") return "Dispatched";
+  if (intentLaneStatus === "previewed") return "Previewed";
+  if (intentLaneStatus === "execution-submitted") return "Execution Submitted";
   if (intentLaneStatus === "awaiting-approval") return "Awaiting Approval";
   if (intentLaneStatus === "blocked") return "Intent Blocked";
   if (intentLaneStatus === "linked") return "Linked";
@@ -689,7 +692,7 @@ function formatDecisionActionLink(decision: DecisionLogEntry, linkedOrder?: Exec
   if (decision.executionIntentLaneStatus === "blocked") {
     return decision.executionIntentReason || decision.source || "Blocked intent";
   }
-  if (decision.executionIntentLaneStatus === "dispatched") {
+  if (decision.executionIntentLaneStatus === "previewed" || decision.executionIntentLaneStatus === "execution-submitted") {
     return `${formatDispatchMode(decision.executionIntentDispatchMode)} · ${formatDispatchStatus(decision.executionIntentDispatchStatus)}`;
   }
   if (decision.executionIntentLaneStatus) {

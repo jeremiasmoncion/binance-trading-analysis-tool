@@ -252,6 +252,8 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
     executionOrderId: match.id,
     executionOrderMode: match.mode,
     executionLinkedAt: getOrderTimestamp(match),
+    executionIntentLaneStatus: "linked",
+    executionIntentLastUpdatedAt: getOrderTimestamp(match),
     executionStatus: String(match.lifecycle_status || match.status || ""),
     executionOutcomeStatus: match.signal_outcome_status || null,
     realizedPnlUsd: Number(match.realized_pnl || decision.metadata?.realizedPnlUsd || 0),

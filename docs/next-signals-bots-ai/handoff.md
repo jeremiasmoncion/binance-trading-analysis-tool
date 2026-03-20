@@ -320,6 +320,18 @@ The redesign also now has dedicated documentation for:
     - latest guardrail reason
     - top ready symbols
     - top blocked symbols
+  - the operational loop now also normalizes generated decisions into an explicit paper/demo execution-intent lane inside the shared decision seam:
+    - lane
+    - lane status
+    - queued timestamp
+    - paper/demo readiness
+    - approval requirement
+  - linked execution outcomes now also close that same lane into `linked` instead of leaving the intent state ambiguous
+  - `Signal Bot` now exposes queue-level intent lane state directly for the selected bot:
+    - queued intents
+    - awaiting approval
+    - linked intents
+    - latest lane state
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -346,8 +358,8 @@ The redesign also now has dedicated documentation for:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
   - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - bridge `ready` auto-bot decisions into a more explicit paper/demo execution-intent lane
-  - expose approval-needed and guardrail-blocked intent backlog where it helps diagnostics and execution review
+  - expose approval-needed and blocked paper/demo intent backlog where it helps diagnostics and execution review
+  - decide whether queued paper/demo intents now deserve a dedicated execution-review surface
   - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status

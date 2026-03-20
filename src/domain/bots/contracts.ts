@@ -20,6 +20,8 @@ export type BotDecisionStatus = "pending" | "approved" | "blocked" | "executed" 
 export type BotSignalLayer = "informational" | "observational" | "operable" | "ai-prioritized";
 export type BotPerformanceOrigin = "manual" | "signal" | "bot" | "auto";
 export type BotExecutionIntentStatus = "observe-only" | "assist-only" | "approval-needed" | "ready" | "guardrail-blocked";
+export type BotExecutionIntentLane = "paper" | "demo" | "real";
+export type BotExecutionIntentLaneStatus = "queued" | "awaiting-approval" | "assist-only" | "observe-only" | "blocked" | "linked";
 
 export interface BotIdentity {
   family: string;
@@ -205,7 +207,13 @@ export interface BotExecutionIntentSummary {
   observeOnlyCount: number;
   guardrailBlockedCount: number;
   autoExecutableCount: number;
+  queuedCount: number;
+  awaitingApprovalCount: number;
+  blockedLaneCount: number;
+  linkedCount: number;
   latestIntentStatus: BotExecutionIntentStatus | null;
+  latestLane: BotExecutionIntentLane | null;
+  latestLaneStatus: BotExecutionIntentLaneStatus | null;
   latestIntentSymbol: string | null;
   latestIntentAt: string | null;
   latestGuardrailCode: string | null;

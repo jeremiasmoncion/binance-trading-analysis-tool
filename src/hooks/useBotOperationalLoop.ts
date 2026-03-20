@@ -270,11 +270,66 @@ function buildOperationalDecision(bot: Bot, signal: RankedPublishedSignal, decis
   };
 }
 
+function getIntentLaneForBot(bot: Bot) {
+  if (bot.executionEnvironment === "real") return "real" as const;
+  if (bot.executionEnvironment === "demo") return "demo" as const;
+  return "paper" as const;
+}
+
+function getDecisionIntentStatus(decision: BotDecisionRecord) {
+  return String(decision.metadata?.executionIntentStatus || "").trim();
+}
+
+function getDecisionIntentLaneStatus(decision: BotDecisionRecord) {
+  return String(decision.metadata?.executionIntentLaneStatus || "").trim();
+}
+
+function buildIntentLanePatch(bot: Bot, decision: BotDecisionRecord): Partial<BotDecisionRecord> | null {
+  if (!decision.metadata?.generatedByOperationalLoop) return null;
+  if (decision.metadata?.executionOrderId) return null;
+
+  const lane = getIntentLaneForBot(bot);
+  const intentStatus = getDecisionIntentStatus(decision);
+  if (!intentStatus) return null;
+
+  let laneStatus = "";
+  if (intentStatus === "ready") laneStatus = "queued";
+  else if (intentStatus === "approval-needed") laneStatus = "awaiting-approval";
+  else if (intentStatus === "assist-only") laneStatus = "assist-only";
+  else if (intentStatus === "observe-only") laneStatus = "observe-only";
+  else if (intentStatus === "guardrail-blocked") laneStatus = "blocked";
+
+  if (!laneStatus) return null;
+
+  const currentLane = String(decision.metadata?.executionIntentLane || "").trim();
+  const currentLaneStatus = getDecisionIntentLaneStatus(decision);
+  const currentIntentStatus = String(decision.metadata?.executionIntentLastStatus || "").trim();
+  if (currentLane === lane && currentLaneStatus === laneStatus && currentIntentStatus === intentStatus) {
+    return null;
+  }
+
+  return {
+    metadata: {
+      ...decision.metadata,
+      executionIntentId: String(decision.metadata?.executionIntentId || `${bot.id}:${decision.id}`),
+      executionIntentLane: lane,
+      executionIntentLaneStatus: laneStatus,
+      executionIntentLastStatus: intentStatus,
+      executionIntentQueuedAt: String(decision.metadata?.executionIntentQueuedAt || new Date().toISOString()),
+      executionIntentLastUpdatedAt: new Date().toISOString(),
+      executionIntentReadyForPaperDemo: lane !== "real" && laneStatus === "queued",
+      executionIntentRequiresApproval: laneStatus === "awaiting-approval",
+      executionIntentReason: String(decision.metadata?.guardrailReason || decision.rationale || ""),
+    },
+  };
+}
+
 export function useBotOperationalLoop() {
   const { state: registryState, hydrated: botsHydrated } = useSelectedBotState();
-  const { decisions, hydrated: decisionsHydrated, createDecision } = useBotDecisionsState();
+  const { decisions, hydrated: decisionsHydrated, createDecision, updateDecision } = useBotDecisionsState();
   const core = useMarketSignalsCore();
   const loopFingerprintRef = useRef("");
+  const intentLaneFingerprintRef = useRef("");
 
   const candidates = useMemo(() => {
     const botReadyRankedSignals = dedupeRankedSignals([
@@ -328,4 +383,40 @@ export function useBotOperationalLoop() {
       cancelled = true;
     };
   }, [botsHydrated, candidates, createDecision, decisions, decisionsHydrated]);
+
+  const pendingIntentLanePatches = useMemo(() => {
+    if (!botsHydrated || !decisionsHydrated) return [];
+
+    const botById = new Map(registryState.bots.map((bot) => [bot.id, bot]));
+    return decisions
+      .map((decision) => {
+        const bot = botById.get(decision.botId);
+        if (!bot || bot.status !== "active") return null;
+        const patch = buildIntentLanePatch(bot, decision);
+        return patch ? { decision, patch } : null;
+      })
+      .filter((entry): entry is { decision: BotDecisionRecord; patch: Partial<BotDecisionRecord> } => Boolean(entry));
+  }, [botsHydrated, decisions, decisionsHydrated, registryState.bots]);
+
+  useEffect(() => {
+    if (!pendingIntentLanePatches.length) return;
+
+    const fingerprint = pendingIntentLanePatches
+      .map(({ decision, patch }) => `${decision.id}:${String(patch.metadata?.executionIntentLaneStatus || "")}:${String(patch.metadata?.executionIntentLane || "")}`)
+      .join("|");
+    if (!fingerprint || fingerprint === intentLaneFingerprintRef.current) return;
+    intentLaneFingerprintRef.current = fingerprint;
+
+    let cancelled = false;
+    void (async () => {
+      for (const { decision, patch } of pendingIntentLanePatches) {
+        if (cancelled) return;
+        await updateDecision(decision.id, patch);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingIntentLanePatches, updateDecision]);
 }

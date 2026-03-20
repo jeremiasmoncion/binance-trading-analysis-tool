@@ -4,6 +4,8 @@ import {
   EMPTY_MEMORY_SUMMARY,
   EMPTY_PERFORMANCE_SUMMARY,
   INITIAL_BOT_REGISTRY_STATE,
+  type BotExecutionIntentLane,
+  type BotExecutionIntentLaneStatus,
   type BotExecutionIntentStatus,
   type BotExecutionIntentSummary,
   type BotPerformanceBreakdown,
@@ -784,6 +786,16 @@ function getDecisionGuardrailReason(decision: { metadata?: Record<string, unknow
   return value || null;
 }
 
+function getDecisionExecutionIntentLane(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.executionIntentLane || "").trim() as BotExecutionIntentLane | "";
+  return value || null;
+}
+
+function getDecisionExecutionIntentLaneStatus(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.executionIntentLaneStatus || "").trim() as BotExecutionIntentLaneStatus | "";
+  return value || null;
+}
+
 function createExecutionIntentSummary<
   TDecision extends {
     symbol?: string | null;
@@ -796,6 +808,8 @@ function createExecutionIntentSummary<
     .map((decision) => ({
       decision,
       intentStatus: getDecisionExecutionIntentStatus(decision),
+      lane: getDecisionExecutionIntentLane(decision),
+      laneStatus: getDecisionExecutionIntentLaneStatus(decision),
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -811,7 +825,13 @@ function createExecutionIntentSummary<
     observeOnlyCount: ranked.filter((entry) => entry.intentStatus === "observe-only").length,
     guardrailBlockedCount: ranked.filter((entry) => entry.intentStatus === "guardrail-blocked").length,
     autoExecutableCount: ranked.filter((entry) => entry.intentStatus === "ready").length,
+    queuedCount: ranked.filter((entry) => entry.laneStatus === "queued").length,
+    awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
+    blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,
+    linkedCount: ranked.filter((entry) => entry.laneStatus === "linked").length,
     latestIntentStatus: latest?.intentStatus || null,
+    latestLane: latest?.lane || null,
+    latestLaneStatus: latest?.laneStatus || null,
     latestIntentSymbol: latest?.decision.symbol || null,
     latestIntentAt: latest?.updatedAt || null,
     latestGuardrailCode: latest ? getDecisionGuardrailCode(latest.decision) : null,

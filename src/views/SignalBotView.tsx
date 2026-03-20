@@ -504,6 +504,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     note={`${feedReadModel.selectedBotExecutionIntentSummary?.assistOnlyCount || 0} assist-only intents are still staying conservative.`}
                   />
                   <MetricTile
+                    label="Queued Lane"
+                    value={String(feedReadModel.selectedBotExecutionIntentSummary?.queuedCount || 0)}
+                    note={`${feedReadModel.selectedBotExecutionIntentSummary?.awaitingApprovalCount || 0} awaiting approval • ${feedReadModel.selectedBotExecutionIntentSummary?.linkedCount || 0} already linked to execution.`}
+                  />
+                  <MetricTile
                     label="Guardrail Blocks"
                     value={String(feedReadModel.selectedBotExecutionIntentSummary?.guardrailBlockedCount || 0)}
                     note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailReason || "No recent guardrail block is standing out."}
@@ -512,7 +517,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     label="Latest Intent"
                     value={formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)}
                     note={feedReadModel.selectedBotExecutionIntentSummary?.latestIntentSymbol
-                      ? `${feedReadModel.selectedBotExecutionIntentSummary.latestIntentSymbol} • ${formatRelative(feedReadModel.selectedBotExecutionIntentSummary.latestIntentAt || "")}`
+                      ? `${feedReadModel.selectedBotExecutionIntentSummary.latestIntentSymbol} • ${formatExecutionIntentLaneStatus(feedReadModel.selectedBotExecutionIntentSummary.latestLaneStatus)} • ${formatRelative(feedReadModel.selectedBotExecutionIntentSummary.latestIntentAt || "")}`
                       : "The operational loop has not produced an intent summary yet."}
                   />
                 </div>
@@ -639,7 +644,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Trading Pairs" value={String(selectedBotPairCount)} note="The current mix of pairs stays curated from watchlist and discovery." />
               <SettingsCard title="Identity" value={formatOperatingProfile(selectedBotCard)} note={`${selectedBotCard?.identity.family || "signal-core"} • ${selectedBotCard?.executionEnvironment || "paper"} • ${selectedBotCard?.automationMode || "observe"}`} />
               <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
-              <SettingsCard title="Execution Intent" value={`${formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)} • ${String(feedReadModel.selectedBotExecutionIntentSummary?.readyCount || 0)} ready`} note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailCode ? `Last block: ${feedReadModel.selectedBotExecutionIntentSummary.latestGuardrailCode}` : `${feedReadModel.selectedBotExecutionIntentSummary?.approvalNeededCount || 0} approval-needed • ${feedReadModel.selectedBotExecutionIntentSummary?.guardrailBlockedCount || 0} blocked`} />
+              <SettingsCard title="Execution Intent" value={`${formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)} • ${String(feedReadModel.selectedBotExecutionIntentSummary?.queuedCount || 0)} queued`} note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailCode ? `Last block: ${feedReadModel.selectedBotExecutionIntentSummary.latestGuardrailCode}` : `${feedReadModel.selectedBotExecutionIntentSummary?.awaitingApprovalCount || 0} awaiting approval • lane ${formatExecutionIntentLaneStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestLaneStatus)}`} />
               <SettingsCard title="Ownership Health" value={`${formatOwnershipHealthLabel(selectedBotCard?.ownership?.healthLabel)} • ${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${selectedBotCard?.ownership?.unresolvedOwnershipCount || 0} still need linkage`} />
               <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
               <div className="signalbot-settings-cta">
@@ -897,6 +902,12 @@ function formatOwnershipHealthLabel(value?: string | null) {
 function formatExecutionIntentStatus(value?: string | null) {
   const normalized = String(value || "").trim();
   if (!normalized) return "Waiting";
+  return normalized.split("-").map(capitalize).join(" ");
+}
+
+function formatExecutionIntentLaneStatus(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Pending";
   return normalized.split("-").map(capitalize).join(" ");
 }
 

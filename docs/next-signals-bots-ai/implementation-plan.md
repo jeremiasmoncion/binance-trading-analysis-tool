@@ -182,6 +182,13 @@ Current progress:
     - observe-only
     - guardrail-blocked
   - `Signal Bot` now exposes that execution-intent layer directly in the selected bot workspace
+  - the operational loop now also normalizes those intents into an explicit paper/demo execution-intent lane inside bot decisions:
+    - lane
+    - lane status
+    - queued timestamp
+    - paper/demo readiness
+    - approval requirement
+  - linked execution outcomes now close that same intent lane into `linked`
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
@@ -191,8 +198,8 @@ Current progress:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics
   - decide whether the fleet hub should also surface ranked recurring symbols
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - bridge `ready` operational bot decisions into an explicit paper/demo execution-intent lane
-  - expose approval-needed and guardrail-blocked intent backlog where they help diagnostics and execution review
+  - expose approval-needed and blocked paper/demo intent backlog where they help diagnostics and execution review
+  - decide whether queued paper/demo intents now deserve a dedicated execution-review surface
   - keep direct bot-driven order emission out of scope until that intent lane is governed end-to-end
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 

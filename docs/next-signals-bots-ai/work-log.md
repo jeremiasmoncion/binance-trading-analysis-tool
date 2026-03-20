@@ -4,6 +4,48 @@
 
 ### Phase
 
+`Bot Core` paper-demo intent lane round
+
+### Completed
+
+- Took the next operational step after intent summaries by turning `ready` bot decisions into an explicit paper/demo intent lane inside the shared decision seam.
+- Operational decisions now persist lane metadata instead of only intent labels:
+  - `executionIntentLane`
+  - `executionIntentLaneStatus`
+  - `executionIntentQueuedAt`
+  - `executionIntentReadyForPaperDemo`
+  - `executionIntentRequiresApproval`
+- The shared loop now auto-normalizes generated decisions into lane states such as:
+  - `queued`
+  - `awaiting-approval`
+  - `assist-only`
+  - `observe-only`
+  - `blocked`
+- When a linked execution outcome appears later, the same lane now closes into `linked` instead of staying ambiguous.
+- `Signal Bot` now exposes the queue-level picture of that lane:
+  - queued intents
+  - awaiting approval
+  - linked execution intents
+  - latest lane state
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating `ready` as if it were already an execution subsystem.
+- It also avoids letting paper/demo escalation remain invisible or ad-hoc once the bot starts auto-producing operational decisions.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - expose approval-needed and blocked intent backlog in execution review/logs
+  - decide whether paper/demo queued intents now deserve a dedicated execution-review surface
+  - keep direct order emission out of scope until that lane is governed end-to-end
+
+### Phase
+
 `Bot Core` execution intent summaries round
 
 ### Completed

@@ -4,6 +4,38 @@
 
 ### Phase
 
+`Bot Core` execution logs attention scope round
+
+### Completed
+
+- Moved bot-attention scoring into the shared `signals + bots` read-model so the hub and `Execution Logs` no longer depend on separate local prioritization paths.
+- The shared seam now exposes:
+  - compact `attentionBots` for the fleet hub
+  - full `attentionBotIds` for operational filtering
+- Updated `Bot Settings` so the weakest-bots panel now reuses the shared ranked list directly instead of rebuilding the same top-3 locally.
+- Updated `Execution Logs` so the toolbar now supports a bot-priority scope:
+  - `All Bots`
+  - `Attention Bots`
+- Kept the `Attention Bots` filter bound to the full shared attention set instead of only the top-3 cards shown in the hub.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids drifting into one weakest-bot scoring rule in `Bot Settings` and another in `Execution Logs`.
+- It also avoids treating the hub's compact top-3 display as if it were the full operational attention scope.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - add richer per-bot outcome summaries on top of the now-prioritized `Execution Logs`
+  - keep tightening recurring unresolved symbols that appear inside the attention scope
+  - decide whether any attention/adaptation summaries now deserve persistence or indexed backend support
+
+### Phase
+
 `Bot Core` fleet attention list round
 
 ### Completed

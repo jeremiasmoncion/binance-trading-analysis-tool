@@ -253,6 +253,14 @@ The redesign also now has dedicated documentation for:
     - unresolved ownership count
     - reconciliation percentage
     - adaptation confidence
+  - bot-attention scoring now lives in the shared bot read-model instead of being recomputed separately inside each surface
+  - the shared seam now exposes:
+    - `attentionBots` for compact fleet-level display
+    - `attentionBotIds` for operational filtering
+  - `Execution Logs` now supports a bot-priority scope on top of the shared activity stream:
+    - all bots
+    - attention bots
+  - `Bot Settings` weakest-bots panel now reuses the same shared ranked attention list instead of rebuilding a second local top-3
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -271,9 +279,9 @@ The redesign also now has dedicated documentation for:
 - next:
   - create the Supabase `bot_decisions` table
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
-  - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
+  - add richer per-bot outcome summaries on top of the now-prioritized `Execution Logs`
   - evaluate whether any owned-outcome/adaptation summaries now deserve persistence or indexed storage support
-  - decide whether `Execution Logs` should expose a bot-priority view tied to the same weakest-bots logic
+  - keep tightening recurring unresolved symbols surfaced by the shared attention scope
 
 ## Phase 4 Status
 

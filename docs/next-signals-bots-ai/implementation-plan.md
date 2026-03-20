@@ -159,9 +159,13 @@ Current progress:
   - selected-bot workspace now conditionally explains unresolved ownership backlog when health degrades
   - fleet-level bot hub now also exposes adaptation readiness from the same shared seam
   - fleet-level bot hub now also highlights the weakest bots needing attention
+  - bot-attention scoring now lives in the shared seam instead of per-surface local ranking
+  - `Execution Logs` now supports an `Attention Bots` scope on top of the shared activity stream
+  - the fleet hub now reuses the same shared ranked attention list for its compact weakest-bots panel
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
+  - richer per-bot outcome summaries on top of the now-prioritized execution activity stream
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

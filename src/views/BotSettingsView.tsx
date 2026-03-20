@@ -206,19 +206,6 @@ function summarizeAdaptationBias(value: string) {
   return value;
 }
 
-function getBotAttentionScore(bot: {
-  unresolvedOwnershipCount: number;
-  reconciliationPct: number;
-  adaptationConfidence: string;
-}) {
-  let score = 0;
-  score += bot.unresolvedOwnershipCount * 10;
-  score += Math.max(0, 100 - bot.reconciliationPct);
-  if (bot.adaptationConfidence === "low") score += 20;
-  if (bot.adaptationConfidence === "medium") score += 8;
-  return score;
-}
-
 function buildBotAttentionNote(bot: {
   unresolvedOwnershipCount: number;
   reconciliationPct: number;
@@ -276,6 +263,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         reconciliationPct: bot.ownership.reconciliationPct,
         adaptationConfidence: bot.adaptationSummary?.trainingConfidence || "low",
         adaptationBias: bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve.",
+        attentionScore: bot.attention?.score || 0,
       };
     });
 
@@ -297,14 +285,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     return {
       cards,
       filteredCards,
-      attentionBots: cards
-        .map((bot) => ({
-          ...bot,
-          attentionScore: getBotAttentionScore(bot),
-        }))
-        .filter((bot) => bot.attentionScore > 0)
-        .sort((left, right) => right.attentionScore - left.attentionScore)
-        .slice(0, 3),
+      attentionBots: (feedReadModel.attentionBots || [])
+        .map((attentionBot) => cards.find((bot) => bot.id === attentionBot.id) || null)
+        .filter((bot): bot is (typeof cards)[number] => Boolean(bot)),
       summary: feedReadModel.botSummary,
       tabs: {
         general: [

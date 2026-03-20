@@ -811,6 +811,32 @@ function summarizeFleetAdaptation(
   };
 }
 
+function createBotAttentionSummary(bot: {
+  ownership: {
+    unresolvedOwnershipCount: number;
+    reconciliationPct: number;
+  };
+  adaptationSummary?: {
+    trainingConfidence: string;
+    adaptationBias: string;
+  } | null;
+}) {
+  let score = 0;
+  score += bot.ownership.unresolvedOwnershipCount * 10;
+  score += Math.max(0, 100 - bot.ownership.reconciliationPct);
+
+  if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
+  if (bot.adaptationSummary?.trainingConfidence === "medium") score += 8;
+
+  const priority = score >= 90 ? "urgent" : score >= 45 ? "watch" : score > 0 ? "monitor" : "clear";
+
+  return {
+    score,
+    priority,
+    note: bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve.",
+  };
+}
+
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
   const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
   const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
@@ -1012,7 +1038,10 @@ export function useSignalsBotsReadModel() {
           bot.performance,
         ),
       };
-    });
+    }).map((bot) => ({
+      ...bot,
+      attention: createBotAttentionSummary(bot),
+    }));
 
     const selectedBotCard = botCardsWithSharedMemory.find((bot) => bot.id === selectedBotId) || botCardsWithSharedMemory[0] || null;
     const selectedBotFeed = selectedBotCard
@@ -1066,6 +1095,11 @@ export function useSignalsBotsReadModel() {
     );
     const ownedOutcomeCount = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.ownership.ownedOutcomeCount, 0);
     const fleetAdaptation = summarizeFleetAdaptation(botCardsWithSharedMemory);
+    const attentionCandidates = botCardsWithSharedMemory
+      .filter((bot) => bot.attention.score > 0)
+      .sort((left, right) => right.attention.score - left.attention.score);
+    const attentionBots = attentionCandidates
+      .slice(0, 3);
 
     return {
       signalMemory: core.signalCore.signalMemory,
@@ -1101,6 +1135,8 @@ export function useSignalsBotsReadModel() {
       selectedBotActivityTimeline,
       selectedBotPerformanceBreakdowns,
       selectedBotAdaptationSummary,
+      attentionBots,
+      attentionBotIds: attentionCandidates.map((bot) => bot.id),
       allBotDecisionTimeline,
       allBotExecutionTimeline,
       allBotActivityTimeline,

@@ -43,10 +43,12 @@ type ActivityLogEntry =
   | { kind: "order"; order: ExecutionLogOrderEntry }
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
+type ActivityBotScope = "all" | "attention";
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
   const [ownershipFilter, setOwnershipFilter] = useState<ActivityOwnershipFilter>("all");
+  const [botScope, setBotScope] = useState<ActivityBotScope>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { decisions } = useBotDecisionsState();
   const botsReadModel = useSignalsBotsReadModel();
@@ -57,19 +59,22 @@ export function ExecutionLogsView() {
     const logs = (botsReadModel.allBotActivityTimeline || []) as ActivityLogEntry[];
     const failedDecisions = logs.filter((entry) => entry.kind === "decision" && isFailedDecision(entry.decision)).length;
     const failedOrders = logs.filter((entry) => entry.kind === "order" && isFailedOrder(entry.order)).length;
+    const attentionBotIds = new Set(botsReadModel.attentionBotIds || []);
     return {
       logs,
       orders,
       botNameById,
+      attentionBotIds,
       successRate: calculateSuccessRate(logs, decisions.length),
       failed: failedOrders + failedDecisions,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notionalUsd || 0), 0),
     };
-  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.botCards, decisions.length]);
+  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.botCards, decisions.length]);
 
   const filteredLogs = readModel.logs
     .filter((entry) => matchesTab(entry, activeTab))
     .filter((entry) => matchesOwnership(entry, ownershipFilter))
+    .filter((entry) => matchesBotScope(entry, botScope, readModel.attentionBotIds))
     .filter((entry) => matchesSearch(entry, searchQuery, readModel.botNameById));
   const visibleLogs = filteredLogs.slice(0, 12);
 
@@ -124,11 +129,13 @@ export function ExecutionLogsView() {
               />
             </div>
             <div className="template-filter-row">
+              <button type="button" className={`template-chip ${botScope === "all" ? "is-active" : ""}`.trim()} onClick={() => setBotScope("all")}>All Bots</button>
+              <button type="button" className={`template-chip ${botScope === "attention" ? "is-active" : ""}`.trim()} onClick={() => setBotScope("attention")}>Attention Bots</button>
               <button type="button" className={`template-chip ${ownershipFilter === "all" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("all")}>All Activity</button>
               <button type="button" className={`template-chip ${ownershipFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("linked")}>Linked Outcomes</button>
               <button type="button" className={`template-chip ${ownershipFilter === "decision-only" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("decision-only")}>Decision Only</button>
               <button type="button" className={`template-chip ${ownershipFilter === "unlinked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("unlinked")}>Unlinked Orders</button>
-              <button type="button" className="template-chip" onClick={() => { setOwnershipFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
+              <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
 
@@ -234,6 +241,12 @@ function matchesOwnership(entry: ActivityLogEntry, filter: ActivityOwnershipFilt
   if (filter === "linked") return entry.kind === "decision" && Boolean(entry.linkedOrder);
   if (filter === "decision-only") return entry.kind === "decision" && !entry.linkedOrder;
   return entry.kind === "order";
+}
+
+function matchesBotScope(entry: ActivityLogEntry, scope: ActivityBotScope, attentionBotIds: Set<string>) {
+  if (scope === "all") return true;
+  const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
+  return Boolean(botId && attentionBotIds.has(botId));
 }
 
 function matchesSearch(entry: ActivityLogEntry, query: string, botNameById: Map<string, string>) {

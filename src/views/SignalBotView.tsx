@@ -432,10 +432,10 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 <div className="signalbot-mini-grid">
                   {readModel.performanceBreakdowns.length ? readModel.performanceBreakdowns.map((item) => (
                     <MetricTile
-                      key={`${item.dimension}:${item.label}`}
-                      label={`${capitalize(item.dimension)} • ${item.label}`}
-                      value={formatUsd(item.pnlUsd)}
-                      note={`${item.closed} closed • ${item.winRate.toFixed(0)}% win rate`}
+                      key={[item.origin, item.symbol, item.timeframe, item.strategyId, item.marketContext].filter(Boolean).join(":")}
+                      label={formatBreakdownLabel(item)}
+                      value={formatUsd(item.realizedPnlUsd)}
+                      note={formatBreakdownNote(item)}
                     />
                   )) : (
                     <MetricTile label="No activity yet" value="-" note="The bot still needs more owned decisions to build a richer breakdown." />
@@ -687,6 +687,33 @@ function isExecutionTimelineEntry(value: unknown): value is {
 
 function capitalize(value: string) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function formatBreakdownLabel(item: {
+  symbol?: string | null;
+  timeframe?: string | null;
+  strategyId?: string | null;
+  origin?: string | null;
+  style?: string | null;
+}) {
+  const parts = [
+    item.symbol,
+    item.timeframe,
+    item.strategyId ? capitalize(item.strategyId) : null,
+    item.origin ? capitalize(item.origin) : null,
+  ].filter(Boolean);
+  return parts.join(" • ") || "Performance Slice";
+}
+
+function formatBreakdownNote(item: {
+  closedSignals: number;
+  totalSignals: number;
+  winRate: number;
+  rrAverage?: number | null;
+  positivePct?: number | null;
+}) {
+  const rrNote = item.rrAverage != null ? ` • RR ${item.rrAverage.toFixed(2)}` : "";
+  return `${item.closedSignals}/${item.totalSignals} closed • ${item.winRate.toFixed(0)}% win rate${rrNote}`;
 }
 
 function formatDecisionAction(action: string) {

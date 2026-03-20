@@ -4,6 +4,7 @@ import {
   EMPTY_MEMORY_SUMMARY,
   EMPTY_PERFORMANCE_SUMMARY,
   INITIAL_BOT_REGISTRY_STATE,
+  type BotPerformanceBreakdown,
   createBotConsumableFeed,
   createBotRegistrySnapshot,
   selectAcceptedBotConsumableSignals,
@@ -24,6 +25,26 @@ function getDecisionPnl(decision: { metadata?: Record<string, unknown> }) {
 
 function getDecisionSummary(decision: { symbol: string; timeframe: string; action: string; status: string; source: string }) {
   return `${decision.action} • ${decision.symbol} • ${decision.timeframe} • ${decision.status} • ${decision.source}`;
+}
+
+function getDecisionRr(decision: { metadata?: Record<string, unknown> }) {
+  const value = Number(decision.metadata?.rrRatio || 0);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function getDecisionStyle(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.style || decision.metadata?.dominantStyle || "").trim();
+  return value || null;
+}
+
+function getDecisionStrategyId(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.strategyId || "").trim();
+  return value || null;
+}
+
+function getDecisionMarketContext(decision: { metadata?: Record<string, unknown>; marketContextSignature?: string | null }) {
+  const value = String(decision.metadata?.marketRegime || decision.marketContextSignature || "").trim();
+  return value || null;
 }
 
 function createDecisionTimeline(decisions: Array<{
@@ -68,51 +89,82 @@ function createPerformanceBreakdowns(decisions: Array<{
   timeframe: string;
   source: string;
   metadata: Record<string, unknown>;
+  marketContextSignature?: string | null;
   status: string;
-}>) {
+}>): BotPerformanceBreakdown[] {
   const groups = new Map<string, {
-    dimension: string;
-    label: string;
-    total: number;
-    closed: number;
+    origin: BotPerformanceBreakdown["origin"];
+    style: string | null;
+    strategyId: string | null;
+    timeframe: string | null;
+    symbol: string | null;
+    marketContext: string | null;
+    totalSignals: number;
+    closedSignals: number;
     wins: number;
-    pnlUsd: number;
+    losses: number;
+    realizedPnlUsd: number;
+    rrValues: number[];
   }>();
 
   for (const decision of decisions) {
     const pnlUsd = getDecisionPnl(decision);
     const closed = decision.status !== "pending";
-    const dimensions = [
-      { dimension: "symbol", label: decision.symbol || "Unknown" },
-      { dimension: "timeframe", label: decision.timeframe || "Unknown" },
-      { dimension: "source", label: decision.source || "Unknown" },
-    ];
+    const strategyId = getDecisionStrategyId(decision);
+    const style = getDecisionStyle(decision);
+    const rr = getDecisionRr(decision);
+    const marketContext = getDecisionMarketContext(decision);
+    const key = [
+      decision.source || "signal",
+      decision.symbol || "unknown",
+      decision.timeframe || "unknown",
+      strategyId || "none",
+      style || "none",
+      marketContext || "none",
+    ].join("|");
 
-    for (const item of dimensions) {
-      const key = `${item.dimension}:${item.label}`;
-      const current = groups.get(key) || {
-        dimension: item.dimension,
-        label: item.label,
-        total: 0,
-        closed: 0,
-        wins: 0,
-        pnlUsd: 0,
-      };
-      current.total += 1;
-      current.closed += closed ? 1 : 0;
-      current.wins += pnlUsd > 0 ? 1 : 0;
-      current.pnlUsd += pnlUsd;
-      groups.set(key, current);
-    }
+    const current = groups.get(key) || {
+      origin: decision.source === "manual" ? "manual" : decision.source === "signal-core" ? "signal" : decision.source.includes("ai") ? "auto" : "bot",
+      style,
+      strategyId,
+      timeframe: decision.timeframe || null,
+      symbol: decision.symbol || null,
+      marketContext,
+      totalSignals: 0,
+      closedSignals: 0,
+      wins: 0,
+      losses: 0,
+      realizedPnlUsd: 0,
+      rrValues: [],
+    };
+    current.totalSignals += 1;
+    current.closedSignals += closed ? 1 : 0;
+    current.wins += pnlUsd > 0 ? 1 : 0;
+    current.losses += pnlUsd < 0 ? 1 : 0;
+    current.realizedPnlUsd += pnlUsd;
+    if (rr != null) current.rrValues.push(rr);
+    groups.set(key, current);
   }
 
   return Array.from(groups.values())
     .map((item) => ({
-      ...item,
-      winRate: item.closed ? (item.wins / item.closed) * 100 : 0,
-      avgPnlUsd: item.closed ? item.pnlUsd / item.closed : 0,
+      origin: item.origin,
+      style: item.style,
+      strategyId: item.strategyId,
+      timeframe: item.timeframe,
+      symbol: item.symbol,
+      marketContext: item.marketContext,
+      totalSignals: item.totalSignals,
+      closedSignals: item.closedSignals,
+      winRate: item.closedSignals ? (item.wins / item.closedSignals) * 100 : 0,
+      realizedPnlUsd: item.realizedPnlUsd,
+      rrAverage: item.rrValues.length ? item.rrValues.reduce((sum, value) => sum + value, 0) / item.rrValues.length : null,
+      drawdownPct: null,
+      profitFactor: item.losses ? Math.max(item.realizedPnlUsd, 0) / Math.abs(Math.min(item.realizedPnlUsd, 0) || 1) : item.realizedPnlUsd > 0 ? item.realizedPnlUsd : null,
+      positivePct: item.closedSignals ? (item.wins / item.closedSignals) * 100 : null,
+      negativePct: item.closedSignals ? (item.losses / item.closedSignals) * 100 : null,
     }))
-    .sort((left, right) => Math.abs(right.pnlUsd) - Math.abs(left.pnlUsd));
+    .sort((left, right) => Math.abs(right.realizedPnlUsd) - Math.abs(left.realizedPnlUsd));
 }
 
 function createMemoryLayerSummary(
@@ -385,50 +437,79 @@ function resolveExecutionOwnership(
   };
 }
 
-function createExecutionBreakdowns(orders: ExecutionOrderRecord[]) {
+function createExecutionBreakdowns(orders: ExecutionOrderRecord[]): BotPerformanceBreakdown[] {
   const groups = new Map<string, {
-    dimension: string;
-    label: string;
-    total: number;
-    closed: number;
+    origin: BotPerformanceBreakdown["origin"];
+    style: string | null;
+    strategyId: string | null;
+    timeframe: string | null;
+    symbol: string | null;
+    marketContext: string | null;
+    totalSignals: number;
+    closedSignals: number;
     wins: number;
-    pnlUsd: number;
+    losses: number;
+    realizedPnlUsd: number;
+    rrValues: number[];
   }>();
 
   for (const order of orders) {
     const pnlUsd = getOrderPnl(order);
     const closed = hasClosedExecutionOutcome(order);
-    const dimensions = [
-      { dimension: "symbol", label: order.coin || "Unknown" },
-      { dimension: "timeframe", label: order.timeframe || "Unknown" },
-      { dimension: "source", label: getOrderSource(order) || "Unknown" },
-    ];
+    const learning = order.response_payload?.learning_snapshot;
+    const rrValue = Number(learning?.rrRatio || 0);
+    const strategyId = String(learning?.primaryStrategyId || order.strategy_name || "").trim() || null;
+    const marketContext = String(learning?.marketRegime || learning?.contextSignature || "").trim() || null;
+    const key = [
+      getOrderSource(order) || "runtime",
+      order.coin || "unknown",
+      order.timeframe || "unknown",
+      strategyId || "none",
+      marketContext || "none",
+    ].join("|");
 
-    for (const item of dimensions) {
-      const key = `${item.dimension}:${item.label}`;
-      const current = groups.get(key) || {
-        dimension: item.dimension,
-        label: item.label,
-        total: 0,
-        closed: 0,
-        wins: 0,
-        pnlUsd: 0,
-      };
-      current.total += 1;
-      current.closed += closed ? 1 : 0;
-      current.wins += pnlUsd > 0 ? 1 : 0;
-      current.pnlUsd += pnlUsd;
-      groups.set(key, current);
-    }
+    const current = groups.get(key) || {
+      origin: order.origin === "manual-user" ? "manual" : order.origin?.includes("signal") ? "signal" : order.origin === "runtime" ? "auto" : "bot",
+      style: null,
+      strategyId,
+      timeframe: order.timeframe || null,
+      symbol: order.coin || null,
+      marketContext,
+      totalSignals: 0,
+      closedSignals: 0,
+      wins: 0,
+      losses: 0,
+      realizedPnlUsd: 0,
+      rrValues: [],
+    };
+    current.totalSignals += 1;
+    current.closedSignals += closed ? 1 : 0;
+    current.wins += pnlUsd > 0 ? 1 : 0;
+    current.losses += pnlUsd < 0 ? 1 : 0;
+    current.realizedPnlUsd += pnlUsd;
+    if (Number.isFinite(rrValue) && rrValue > 0) current.rrValues.push(rrValue);
+    groups.set(key, current);
   }
 
   return Array.from(groups.values())
     .map((item) => ({
-      ...item,
-      winRate: item.closed ? (item.wins / item.closed) * 100 : 0,
-      avgPnlUsd: item.closed ? item.pnlUsd / item.closed : 0,
+      origin: item.origin,
+      style: item.style,
+      strategyId: item.strategyId,
+      timeframe: item.timeframe,
+      symbol: item.symbol,
+      marketContext: item.marketContext,
+      totalSignals: item.totalSignals,
+      closedSignals: item.closedSignals,
+      winRate: item.closedSignals ? (item.wins / item.closedSignals) * 100 : 0,
+      realizedPnlUsd: item.realizedPnlUsd,
+      rrAverage: item.rrValues.length ? item.rrValues.reduce((sum, value) => sum + value, 0) / item.rrValues.length : null,
+      drawdownPct: null,
+      profitFactor: item.losses ? Math.max(item.realizedPnlUsd, 0) / Math.abs(Math.min(item.realizedPnlUsd, 0) || 1) : item.realizedPnlUsd > 0 ? item.realizedPnlUsd : null,
+      positivePct: item.closedSignals ? (item.wins / item.closedSignals) * 100 : null,
+      negativePct: item.closedSignals ? (item.losses / item.closedSignals) * 100 : null,
     }))
-    .sort((left, right) => Math.abs(right.pnlUsd) - Math.abs(left.pnlUsd));
+    .sort((left, right) => Math.abs(right.realizedPnlUsd) - Math.abs(left.realizedPnlUsd));
 }
 
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {

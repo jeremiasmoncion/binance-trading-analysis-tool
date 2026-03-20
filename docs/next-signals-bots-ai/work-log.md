@@ -4,6 +4,37 @@
 
 ### Phase
 
+`Bot Core` performance contracts round
+
+### Completed
+
+- Aligned the shared bot read-model with the explicit `BotPerformanceBreakdown` contract instead of keeping only generic `dimension / label` breakdowns.
+- Bot performance slices can now derive richer operational breakdowns by:
+  - origin
+  - symbol
+  - timeframe
+  - strategy
+  - market context
+- `Signal Bot -> Performance` now reads those richer bot-owned breakdowns directly from the shared seam.
+- Kept execution-first preference where linked execution outcomes exist, while still falling back to decision-level slices when needed.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids pretending the bot has a real performance contract while still exposing only generic UI buckets.
+- It also avoids pushing strategy/origin/timeframe performance logic down into the visual layer.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - persist richer outcome linkage between decision and execution
+  - expose stronger bot-owned outcome history in `Execution Logs`
+  - let learning/memory consume those richer outcome slices
+
+### Phase
+
 `Bot Core` registry hydration fix
 
 ### Completed

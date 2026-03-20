@@ -171,7 +171,7 @@ The redesign also now has dedicated documentation for:
     - recent activity
   - the shared `signals + bots` read-model now exposes a richer bot-owned activity layer from decisions:
     - per-bot decision timeline
-    - top performance breakdowns by symbol / timeframe / source
+    - richer performance breakdowns by origin / symbol / timeframe / strategy / market context
   - `Signal Bot` and `Execution Logs` now consume that richer activity layer instead of relying only on raw decision rows
   - the shared bot read-model now also derives layered bot memory boundaries:
     - local
@@ -183,6 +183,8 @@ The redesign also now has dedicated documentation for:
   - stale local bot cache now also ignores malformed pre-contract bot registries that are missing current bot runtime fields
   - `Bot Settings` now renders explicit loading / empty / error states when the persisted registry is unavailable instead of showing template bots
   - `Create New Bot` now opens a local quick-edit draft first and only persists the bot when the user confirms with `Save Changes`
+  - the shared bot read-model now aligns with the explicit `BotPerformanceBreakdown` contract instead of only generic UI buckets
+  - `Signal Bot -> Performance` now exposes richer bot-owned slices by strategy/origin/timeframe/symbol
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

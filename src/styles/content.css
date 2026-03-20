@@ -5349,7 +5349,7 @@ body.dark-theme .market-score-track {
 
 .botsettings-card-foot {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 54px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) 54px;
   gap: 12px;
 }
 
@@ -5365,6 +5365,23 @@ body.dark-theme .market-score-track {
   font-size: 16px;
   font-weight: 800;
   transition: transform var(--crype-motion-fast), filter var(--crype-motion-fast);
+}
+
+.botsettings-secondary-action {
+  min-height: 48px;
+  border-radius: 16px;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: rgba(9, 15, 28, 0.82);
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 800;
+  transition: transform var(--crype-motion-fast), border-color var(--crype-motion-fast), color var(--crype-motion-fast);
+}
+
+.botsettings-secondary-action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(96, 165, 250, 0.44);
+  color: #93c5fd;
 }
 
 .botsettings-primary-action:hover {
@@ -6381,6 +6398,18 @@ body:not(.dark-theme) .botsettings-gear-button {
   background: rgba(255, 255, 255, 0.92);
   color: #475569;
   box-shadow: 0 8px 18px rgba(148, 163, 184, 0.1);
+}
+
+body:not(.dark-theme) .botsettings-secondary-action {
+  border-color: rgba(148, 163, 184, 0.22);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  box-shadow: 0 8px 18px rgba(148, 163, 184, 0.1);
+}
+
+body:not(.dark-theme) .botsettings-secondary-action:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #2563eb;
 }
 
 body:not(.dark-theme) .botsettings-menu-button:hover,

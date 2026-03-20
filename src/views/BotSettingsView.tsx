@@ -495,6 +495,14 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         </button>
                         <button
                           type="button"
+                          className="botsettings-secondary-action"
+                          onClick={() => openBotWorkspace(bot)}
+                          aria-label={`Open full workspace for ${bot.name}`}
+                        >
+                          Open Bot
+                        </button>
+                        <button
+                          type="button"
                           className="botsettings-gear-button"
                           aria-label={`Open settings for ${bot.name}`}
                           onClick={() => openQuickEdit(bot)}

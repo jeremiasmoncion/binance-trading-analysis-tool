@@ -137,6 +137,7 @@ More specific rule for template migration:
   - reuse one shared form language across `General Settings`, `Risk Management`, `Notifications`, and `API Connections`
   - shared select/input/toggle primitives should be the default
   - repeated channel rows and settings actions should also stay shared when they recur across tabs
+  - exchange cards, security cards, and status/action treatments should stay inside the same `Bot Settings` visual family
   - do not solve theme parity with per-tab overrides when the fix belongs in the shared primitive
 
 ## Core UX Rule

@@ -68,6 +68,29 @@ const INITIAL_NOTIFICATION_SETTINGS = {
   errorAlerts: true,
 };
 
+const INITIAL_API_CONNECTIONS = [
+  {
+    id: "binance-main",
+    name: "Binance",
+    accountLabel: "Main Account",
+    maskedKey: "••••x7Kf3",
+    permissions: "Read, Trade",
+    lastSync: "2 min ago",
+    status: "Connected",
+    tone: "binance" as const,
+  },
+  {
+    id: "coinbase-pro",
+    name: "Coinbase Pro",
+    accountLabel: "Trading Account",
+    maskedKey: "••••m2Zb8",
+    permissions: "Read, Trade",
+    lastSync: "5 min ago",
+    status: "Connected",
+    tone: "coinbase" as const,
+  },
+];
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
@@ -76,6 +99,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [generalSettings, setGeneralSettings] = useState(INITIAL_GENERAL_SETTINGS);
   const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
+  const [apiConnections] = useState(INITIAL_API_CONNECTIONS);
   const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
@@ -974,8 +998,114 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           ) : null}
 
           {activeTab === "api-connections" ? (
-            <div className="botsettings-settings-grid">
-              {readModel.tabs.api.map((item) => <SettingsPanel key={item.title} {...item} icon={<ApiTabIcon />} />)}
+            <div className="botsettings-general-grid">
+              <article className="botsettings-general-card botsettings-api-card botsettings-risk-span">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-info">
+                      <ApiTabIcon />
+                    </div>
+                    <h3>Connected Exchanges</h3>
+                  </div>
+                  <button type="button" className="ui-button ui-button-primary">
+                    <PlusMiniIcon />
+                    Add Exchange
+                  </button>
+                </div>
+
+                <div className="botsettings-api-grid">
+                  {apiConnections.map((connection) => (
+                    <article key={connection.id} className="botsettings-api-exchange-card">
+                      <div className="botsettings-api-card-head">
+                        <div className="botsettings-api-card-identity">
+                          <div className={`botsettings-api-logo is-${connection.tone}`}>
+                            <ExchangeBadgeIcon />
+                          </div>
+                          <div className="botsettings-api-card-copy">
+                            <strong>{connection.name}</strong>
+                            <span>{connection.accountLabel}</span>
+                          </div>
+                        </div>
+                        <span className="botsettings-status-pill is-running">{connection.status}</span>
+                      </div>
+
+                      <div className="botsettings-api-metadata">
+                        <div className="botsettings-api-meta-row">
+                          <span>API Key</span>
+                          <strong>{connection.maskedKey}</strong>
+                        </div>
+                        <div className="botsettings-api-meta-row">
+                          <span>Permissions</span>
+                          <strong>{connection.permissions}</strong>
+                        </div>
+                        <div className="botsettings-api-meta-row">
+                          <span>Last Sync</span>
+                          <strong>{connection.lastSync}</strong>
+                        </div>
+                      </div>
+
+                      <div className="botsettings-api-actions">
+                        <button type="button" className="botsettings-api-sync-button ui-button">
+                          <SyncMiniIcon />
+                          Sync
+                        </button>
+                        <button type="button" className="botsettings-api-icon-button" aria-label={`Open ${connection.name} settings`}>
+                          <GearMiniIcon />
+                        </button>
+                        <button type="button" className="botsettings-api-icon-button is-danger" aria-label={`Delete ${connection.name}`}>
+                          <TrashMiniIcon />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+
+                  <button type="button" className="botsettings-api-add-card">
+                    <span className="botsettings-api-add-icon">
+                      <PlusMiniIcon />
+                    </span>
+                    <strong>Add Exchange</strong>
+                    <span>Connect another exchange</span>
+                  </button>
+                </div>
+              </article>
+
+              <article className="botsettings-general-card botsettings-api-card botsettings-risk-span">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-success">
+                      <ShieldTabIcon />
+                    </div>
+                    <h3>API Security Best Practices</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-api-practices-grid">
+                  <SecurityPracticeCard
+                    tone="success"
+                    icon={<CheckShieldIcon />}
+                    title="IP Whitelisting"
+                    note="Restrict API access to specific IP addresses"
+                  />
+                  <SecurityPracticeCard
+                    tone="success"
+                    icon={<CheckShieldIcon />}
+                    title="No Withdrawals"
+                    note="API keys should not have withdrawal permissions"
+                  />
+                  <SecurityPracticeCard
+                    tone="warning"
+                    icon={<RotationAlertIcon />}
+                    title="Key Rotation"
+                    note="Rotate your API keys every 90 days"
+                  />
+                  <SecurityPracticeCard
+                    tone="success"
+                    icon={<CheckShieldIcon />}
+                    title="Encrypted Storage"
+                    note="All API keys are encrypted at rest"
+                  />
+                </div>
+              </article>
             </div>
           ) : null}
         </section>
@@ -1104,6 +1234,18 @@ function NotificationChannelRow(props: { icon: ReactNode; tone: "email" | "teleg
   );
 }
 
+function SecurityPracticeCard(props: { tone: "success" | "warning"; icon: ReactNode; title: string; note: string }) {
+  return (
+    <article className="botsettings-security-card">
+      <div className={`botsettings-security-icon is-${props.tone}`}>{props.icon}</div>
+      <div className="botsettings-security-copy">
+        <strong>{props.title}</strong>
+        <span>{props.note}</span>
+      </div>
+    </article>
+  );
+}
+
 function SliderField(props: {
   label: string;
   value: number;
@@ -1136,21 +1278,6 @@ function SliderField(props: {
         <span>{props.maxLabel}</span>
       </div>
     </div>
-  );
-}
-
-function SettingsPanel(props: { title: string; value: string; note: string; icon: ReactNode }) {
-  return (
-    <article className="botsettings-settings-card">
-      <div className="botsettings-settings-head">
-        <div className="botsettings-settings-icon">{props.icon}</div>
-        <div>
-          <span>{props.title}</span>
-          <strong>{props.value}</strong>
-        </div>
-      </div>
-      <p>{props.note}</p>
-    </article>
   );
 }
 
@@ -1432,6 +1559,64 @@ function AlertChannelIcon() {
       <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
       <path d="M12 7.7v5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ExchangeBadgeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 6h10v12H7z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9.5 9.2h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9.5 12h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9.5 14.8h3.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SyncMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 7h10m0 0-2.6-2.6M17 7l-2.6 2.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 17H7m0 0 2.6-2.6M7 17l2.6 2.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrashMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 7.5h8M10 7.5V6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M7.5 8.5 8.2 18a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9l.7-9.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10.2 11.3v4.4M13.8 11.3v4.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlusMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5.5v13M5.5 12h13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5 18 7v4.5c0 4.2-2.4 6.8-6 8-3.6-1.2-6-3.8-6-8V7l6-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m9.4 12.1 1.7 1.7 3.5-3.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RotationAlertIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5a7 7 0 0 1 6.4 4.2M18.4 9.2V5.6M18.4 9.2h-3.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 19a7 7 0 0 1-6.4-4.2M5.6 14.8v3.6M5.6 14.8h3.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 10v2.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="15.7" r="1" fill="currentColor" />
     </svg>
   );
 }

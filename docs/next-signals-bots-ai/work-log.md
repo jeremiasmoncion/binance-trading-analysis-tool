@@ -68,6 +68,32 @@
 
 ### Phase
 
+`Bot Settings` api-connections template round
+
+### Completed
+
+- Replaced the old API placeholder cards with a fuller `API Connections` surface.
+- Added UI-stage sections for:
+  - `Connected Exchanges`
+  - exchange cards with sync/settings/delete actions
+  - `Add Exchange`
+  - `API Security Best Practices`
+- Kept the tab on the same shared visual/control architecture used across the rest of `Bot Settings`:
+  - shared cards
+  - shared button language
+  - shared status pills
+  - same dark/light theme parity discipline
+
+### Risk Avoided
+
+- This avoids leaving `API Connections` as the only shallow tab in the `Bot Settings` family and prevents another round of one-off visual fixes later.
+
+### Recommended Next Step
+
+- Review the full `Bot Settings` tab family together and tighten any remaining spacing or typography mismatches as one cohesive surface instead of per-tab patching.
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

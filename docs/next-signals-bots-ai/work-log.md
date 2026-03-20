@@ -4,6 +4,38 @@
 
 ### Phase
 
+`Bot Core` fleet adaptation visibility round
+
+### Completed
+
+- Extended the shared bot read-model so the bot hub can now summarize adaptation readiness across the fleet instead of leaving adaptation only inside the selected bot workspace.
+- Added fleet-level adaptation aggregates:
+  - learning-ready bots
+  - high / medium / low adaptation-confidence counts
+- Updated `Bot Settings` so the summary area now includes adaptation readiness for the fleet.
+- Updated bot cards with compact adaptation cues:
+  - adaptation confidence
+  - short adaptive-bias summary
+- Reused the existing hub cards and summary primitives instead of adding another dashboard surface.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids making adaptation look important in the selected bot workspace while staying invisible at the fleet-management level.
+- It also avoids adding another fleet-only runtime summary path separate from the shared bot seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - evaluate which owned-outcome/adaptation summaries deserve persistence or indexed support
+  - keep tightening recurring unresolved symbols highlighted by the drill-down
+  - decide whether the fleet hub also needs a compact attention list for weakest bots
+
+### Phase
+
 `Bot Core` ownership drill-down round
 
 ### Completed

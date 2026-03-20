@@ -195,6 +195,17 @@ function slugifyBotName(value: string) {
     .replace(/(^-|-$)/g, "") || "signal-bot";
 }
 
+function capitalize(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function summarizeAdaptationBias(value: string) {
+  if (!value) return "Adaptation still converging";
+  if (value.includes("keeping adaptive adjustments enabled")) return "Adaptive posture looks supported";
+  if (value.includes("stay cautious")) return "Adaptive posture still cautious";
+  return value;
+}
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
@@ -231,6 +242,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         ownedOutcomeCount: bot.ownership.ownedOutcomeCount,
         unresolvedOwnershipCount: bot.ownership.unresolvedDecisionCount + bot.ownership.unlinkedExecutionCount,
         reconciliationPct: bot.ownership.reconciliationPct,
+        adaptationConfidence: bot.adaptationSummary?.trainingConfidence || "low",
+        adaptationBias: bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve.",
       };
     });
 
@@ -812,6 +825,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             icon={<TargetSummaryIcon />}
             progress={readModel.summary.averageWinRate}
           />
+          <BotSummaryCard
+            label="Adaptation Ready"
+            value={String(readModel.summary.learningReadyBots || 0)}
+            note={`${readModel.summary.highConfidenceBots || 0} high / ${readModel.summary.mediumConfidenceBots || 0} medium / ${readModel.summary.lowConfidenceBots || 0} low confidence`}
+            tone="info"
+            icon={<AutomationBoltIcon />}
+          />
         </div>
 
         <section className="botsettings-panel card">
@@ -915,6 +935,10 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                       <div className="botsettings-card-meta" style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>
                         <span>{bot.reconciliationPct.toFixed(0)}% reconciled activity</span>
                         <span>{bot.acceptedCount} accepted / {bot.blockedCount} blocked</span>
+                      </div>
+                      <div className="botsettings-card-meta" style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                        <span>{capitalize(bot.adaptationConfidence)} adaptation confidence</span>
+                        <span>{summarizeAdaptationBias(bot.adaptationBias)}</span>
                       </div>
 
                       <div className="botsettings-allocation">

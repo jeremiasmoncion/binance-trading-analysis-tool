@@ -245,6 +245,10 @@ The redesign also now has dedicated documentation for:
     - leading backlog type
     - top unresolved decision symbols
     - top unlinked execution symbols
+  - the bot hub now also exposes fleet-level adaptation readiness:
+    - learning-ready bot count
+    - high / medium / low adaptation-confidence counts
+  - bot cards now include compact adaptation cues so the hub can show which bots are actually learning from owned outcomes
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -263,9 +267,9 @@ The redesign also now has dedicated documentation for:
 - next:
   - create the Supabase `bot_decisions` table
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
-  - expose adaptation summaries at fleet level where it materially helps the operator
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
   - evaluate whether any owned-outcome/adaptation summaries now deserve persistence or indexed storage support
+  - decide whether the fleet hub also needs a compact weakest-bots attention list
 
 ## Phase 4 Status
 

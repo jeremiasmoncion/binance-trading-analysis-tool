@@ -787,6 +787,30 @@ function createAdaptationSummary(
   };
 }
 
+function summarizeFleetAdaptation(
+  bots: Array<{
+    adaptationSummary?: {
+      trainingConfidence: string;
+    } | null;
+    ownership: {
+      ownedOutcomeCount: number;
+      healthLabel: string;
+    };
+  }>,
+) {
+  const highConfidenceBots = bots.filter((bot) => bot.adaptationSummary?.trainingConfidence === "high").length;
+  const mediumConfidenceBots = bots.filter((bot) => bot.adaptationSummary?.trainingConfidence === "medium").length;
+  const lowConfidenceBots = bots.filter((bot) => bot.adaptationSummary?.trainingConfidence === "low").length;
+  const learningReadyBots = bots.filter((bot) => bot.ownership.ownedOutcomeCount > 0 && bot.ownership.healthLabel !== "needs-attention").length;
+
+  return {
+    highConfidenceBots,
+    mediumConfidenceBots,
+    lowConfidenceBots,
+    learningReadyBots,
+  };
+}
+
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
   const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
   const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
@@ -982,6 +1006,11 @@ export function useSignalsBotsReadModel() {
             ? createOwnedMemorySummary("global", "Platform", globalDecisionTimeline, globalExecutionTimeline)
             : createDisabledMemoryLayerSummary("global", "Global")),
         },
+        adaptationSummary: createAdaptationSummary(
+          bot.executionBreakdowns?.length ? bot.executionBreakdowns : bot.performanceBreakdowns,
+          bot.ownership,
+          bot.performance,
+        ),
       };
     });
 
@@ -1036,6 +1065,7 @@ export function useSignalsBotsReadModel() {
       0,
     );
     const ownedOutcomeCount = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.ownership.ownedOutcomeCount, 0);
+    const fleetAdaptation = summarizeFleetAdaptation(botCardsWithSharedMemory);
 
     return {
       signalMemory: core.signalCore.signalMemory,
@@ -1084,6 +1114,10 @@ export function useSignalsBotsReadModel() {
         averageWinRate,
         unresolvedOwnershipCount,
         ownedOutcomeCount,
+        learningReadyBots: fleetAdaptation.learningReadyBots,
+        highConfidenceBots: fleetAdaptation.highConfidenceBots,
+        mediumConfidenceBots: fleetAdaptation.mediumConfidenceBots,
+        lowConfidenceBots: fleetAdaptation.lowConfidenceBots,
       },
     };
   }, [core, decisions, executionLogs.recentOrders, registryState, selectedBotId]);

@@ -73,9 +73,12 @@ The system should support:
 ## Suggested Reading Order
 
 1. [current-state.md](./current-state.md)
-2. [target-architecture.md](./target-architecture.md)
-3. [domain-model.md](./domain-model.md)
-4. [user-experience-architecture.md](./user-experience-architecture.md)
-5. [implementation-plan.md](./implementation-plan.md)
-6. [work-log.md](./work-log.md)
-7. [handoff.md](./handoff.md)
+2. [product-operating-model.md](./product-operating-model.md)
+3. [target-architecture.md](./target-architecture.md)
+4. [domain-model.md](./domain-model.md)
+5. [style-architecture.md](./style-architecture.md)
+6. [user-experience-architecture.md](./user-experience-architecture.md)
+7. [implementation-plan.md](./implementation-plan.md)
+8. [ai-context-pack.md](./ai-context-pack.md)
+9. [work-log.md](./work-log.md)
+10. [handoff.md](./handoff.md)

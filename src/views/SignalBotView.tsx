@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
+import { BoltIcon, CheckCircleIcon, InfoCircleIcon, TrendUpIcon, WarningTriangleIcon } from "../components/Icons";
 import { SectionCard } from "../components/ui/SectionCard";
-import { StatCard } from "../components/ui/StatCard";
 import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
 import {
   INITIAL_BOT_REGISTRY_STATE,
@@ -28,7 +28,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("all");
   const feedData = useSignalsBotsFeedSelector();
   const signals = feedData.signalMemory;
-  const watchlist = feedData.watchlists.find((item) => item.name === feedData.activeWatchlistName)?.coins || [];
+  const watchlist = feedData.activeWatchlistCoins;
 
   const readModel = useMemo(() => {
     const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
@@ -102,11 +102,37 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
           </div>
         </div>
 
-        <div className="template-stats-grid">
-          <StatCard label="Active Signals" value={String(readModel.priority.length)} sub={`+${Math.max(readModel.openSignals.length - readModel.priority.length, 0)} waiting outside the main feed`} accentClass="accent-green" />
-          <StatCard label="Win Rate" value={`${calculateWinRate(readModel.closedSignals).toFixed(1)}%`} sub="Completed signal outcomes with positive close" accentClass="accent-blue" />
-          <StatCard label="Total Profit (30d)" value={formatUsd(sumPnl(readModel.closedSignals))} sub="Closed signal performance for the current period" accentClass="accent-emerald" />
-          <StatCard label="Pending Signals" value={String(readModel.openSignals.length)} sub="Signals still awaiting execution or closure" accentClass="accent-amber" />
+        <div className="template-stats-grid template-signal-stats-grid">
+          <SignalStatCard
+            label="Active Signals"
+            value={String(readModel.priority.length)}
+            note={`+${Math.max(readModel.openSignals.length - readModel.priority.length, 0)} today`}
+            status="Live"
+            tone="success"
+            icon={<BoltIcon />}
+          />
+          <SignalStatCard
+            label="Win Rate"
+            value={`${calculateWinRate(readModel.closedSignals).toFixed(1)}%`}
+            note={`${calculateWinRateDelta(readModel.closedSignals).toFixed(1)}%`}
+            tone="info"
+            icon={<TrendUpIcon />}
+          />
+          <SignalStatCard
+            label="Total Profit (30d)"
+            value={formatUsd(sumPnl(readModel.closedSignals))}
+            note={formatPct(calculateAveragePnl(readModel.closedSignals))}
+            tone="primary"
+            icon={<CheckCircleIcon />}
+          />
+          <SignalStatCard
+            label="Pending Signals"
+            value={String(readModel.openSignals.length)}
+            note="awaiting execution"
+            status="Pending"
+            tone="warning"
+            icon={<WarningTriangleIcon />}
+          />
         </div>
 
         <SectionCard
@@ -145,7 +171,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   ))}
                 </div>
 
-                <div className="template-card-grid">
+                <div className="template-card-grid template-signal-card-grid">
                   {readModel.filteredCards.map(({ signal, snapshot, entry, target, stopLoss }) => (
                     <article
                       key={signal.id}
@@ -228,6 +254,9 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   <div className="template-insights-list">
                     {readModel.aiInsights.map((insight) => (
                       <article key={insight.title} className={`template-insight-card ${insight.tone}`}>
+                        <div className="template-insight-icon">
+                          {insight.tone === "positive" ? <TrendUpIcon /> : insight.tone === "info" ? <InfoCircleIcon /> : <WarningTriangleIcon />}
+                        </div>
                         <div>
                           <strong>{insight.title}</strong>
                           <p>{insight.body}</p>
@@ -360,6 +389,30 @@ function MetricTile(props: { label: string; value: string; note: string }) {
   );
 }
 
+function SignalStatCard(props: {
+  label: string;
+  value: string;
+  note: string;
+  tone: "success" | "info" | "primary" | "warning";
+  icon: ReactNode;
+  status?: string;
+}) {
+  return (
+    <div className="template-signal-stat-card">
+      <div className="template-signal-stat-head">
+        <div className={`template-signal-stat-icon ${props.tone}`}>{props.icon}</div>
+        {props.status ? <span className={`template-signal-stat-status ${props.tone}`}>{props.status}</span> : <span className={`template-signal-stat-note ${props.tone}`}>{props.note}</span>}
+      </div>
+      <p className="template-signal-stat-label">{props.label}</p>
+      <div className="template-signal-stat-value-row">
+        <h3>{props.value}</h3>
+        {!props.status ? <span>{props.note}</span> : null}
+      </div>
+      {props.label === "Win Rate" ? <div className="template-progress-track"><div className="template-progress-fill" style={{ width: props.value }} /></div> : null}
+    </div>
+  );
+}
+
 function SettingsCard(props: { title: string; value: string; note: string }) {
   return (
     <div className="template-settings-card">
@@ -472,6 +525,10 @@ function calculateAveragePnl(signals: Array<{ outcome_pnl: number }>) {
   return signals.length ? signals.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0) / signals.length : 0;
 }
 
+function calculateWinRateDelta(signals: Array<{ outcome_status: string }>) {
+  const recent = signals.slice(-10);
+  return calculateWinRate(recent) - calculateWinRate(signals);
+}
 function formatUsd(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "--";
   return new Intl.NumberFormat("en-US", {

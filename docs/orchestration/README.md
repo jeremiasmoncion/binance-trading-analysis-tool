@@ -9,6 +9,14 @@ Current target model:
 - 1 director thread
 - 2 implementation threads
 
+It should also be useful when a single new AI thread must take over the whole project and quickly understand:
+
+- current architecture
+- current UX direction
+- current work split
+- current phase
+- current constraints
+
 The repository itself is used as the shared coordination surface.
 
 ## Main Rule
@@ -33,10 +41,27 @@ Threads do not coordinate by hidden memory. They coordinate through:
 ## Required Reading Order For Any New Thread
 
 1. `docs/next-signals-bots-ai/README.md`
-2. `docs/next-signals-bots-ai/handoff.md`
-3. `docs/orchestration/phase-status.md`
-4. `docs/orchestration/ownership.md`
-5. the thread-specific task file if assigned
+2. `docs/next-signals-bots-ai/ai-context-pack.md`
+3. `docs/next-signals-bots-ai/handoff.md`
+4. `docs/orchestration/phase-status.md`
+5. `docs/orchestration/ownership.md`
+6. the thread-specific task file if assigned
+
+## Single-AI Rule
+
+If only one AI thread is working the project, it should still use the same documentation as if it were replacing the director, implementer, and refiner roles at once.
+
+That AI should treat:
+
+- `docs/data-architecture.md`
+- `docs/realtime-core-service.md`
+- `docs/next-signals-bots-ai/style-architecture.md`
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+- `docs/next-signals-bots-ai/product-operating-model.md`
+- `docs/next-signals-bots-ai/implementation-plan.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+as the minimum context set before making major changes.
 
 ## Notification Rule
 

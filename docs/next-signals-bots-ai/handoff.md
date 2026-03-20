@@ -22,6 +22,12 @@ The redesign also now has an explicit UX architecture source of truth under:
 
 - `docs/next-signals-bots-ai/user-experience-architecture.md`
 
+The redesign also now has dedicated documentation for:
+
+- product/business operating model
+- visual/style architecture
+- single-AI onboarding/context pack
+
 ## What Has Been Done
 
 - mapped major current components related to:
@@ -94,6 +100,9 @@ The redesign also now has an explicit UX architecture source of truth under:
   - `Bot Settings`
   - `Execution Logs`
 - documented the rule that end-user surfaces must show only the minimum useful information and translate technical concepts into simpler product language when possible
+- added a dedicated style architecture document explaining how CRYPE should match the template visually while using CRYPE's shared CSS architecture
+- added a dedicated product operating model document explaining the agreed business/product logic of `signals + bots + AI`
+- added a dedicated AI context pack so a single new AI can onboard into the whole project quickly without relying on thread memory
 - verified the new domain layer with `npm run typecheck`
 
 ## What Has Not Been Done Yet
@@ -261,6 +270,19 @@ Future work should be split like this:
   - shared-state stability
   - anti-churn work while new surfaces are mounted
   - prevention of page-local fetch/polling or equivalent writes
+
+## Single-AI Onboarding Rule
+
+If a future phase is handled by a single AI instead of separate director/implementer/refiner threads, that AI should treat the following as the minimum operating context:
+
+- `docs/data-architecture.md`
+- `docs/realtime-core-service.md`
+- `docs/next-signals-bots-ai/product-operating-model.md`
+- `docs/next-signals-bots-ai/style-architecture.md`
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+- `docs/next-signals-bots-ai/implementation-plan.md`
+- `docs/next-signals-bots-ai/ai-context-pack.md`
+- `docs/next-signals-bots-ai/handoff.md`
 
 ## Runtime Refinement Note
 
@@ -707,6 +729,62 @@ Keep the work phased.
 - Whether `Signal Bot` now sets the quality bar for the next page-by-page closure rounds.
 - Whether the next page should be `Control Panel -> Overview` or `Execution Logs`.
 
+## Implementador - 2026-03-19 - Signal Bot Literal Fidelity Pass
+
+### What Was Done
+
+- Pushed `Signal Bot` closer to the template visually in a more literal way.
+- Reworked the top stats into page-specific cards with stronger hierarchy and badge treatment.
+- Rebuilt `Active Signals` with stronger internal proportions for:
+  - entry
+  - target
+  - stop loss
+  - confidence
+  - actions
+- Kept `Signal History` in a denser template-shaped table.
+- Strengthened:
+  - `Market Sentiment`
+  - `AI Insights`
+  - `Top Signal Performers`
+  as more complete lower modules.
+
+### Functional Improvement
+
+- Kept the page on `useSignalsBotsFeedSelector` instead of reverting to a larger selector bundle.
+- Continued to use real derived domain data for:
+  - ranked signals
+  - high-confidence
+  - policy-approved signals
+  - history rows
+  - performers
+  - side summaries
+
+### What Was Simplified For The User
+
+- Continued translating ranking and policy mechanics into friendlier page language.
+- Avoided exposing raw internal system detail unless it improved user decisions.
+- Kept the in-page `Bot Settings` section minimal and understandable.
+
+### Files Touched
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- `Signal Bot` is now closer to a near-closed product page.
+- The page has a stronger claim to being the visual and functional benchmark for the next closure rounds.
+
+### What Remains Pending
+
+- If direction wants absolute final polish later, remaining work would mostly be:
+  - micro-interaction refinement
+  - drawer behavior
+  - export behavior
+  - final spacing polish against preview review
 ### Coordination Note For Refinador
 
 - No runtime wiring or new per-screen fetch/polling was introduced.

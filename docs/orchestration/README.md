@@ -86,7 +86,8 @@ Future AI threads should assume this delivery workflow unless the human owner sa
 - do not treat `codex` as the default development branch
 - `codex` is reserved for explicit human-requested checkpoints only
 - do not deploy to Vercel automatically after every task
-- deploy to Vercel only when the human explicitly asks to see/review the changes
+- for logic/runtime/architecture tasks, deploy to Vercel only when the human explicitly asks to see/review the changes
+- for primarily visual UI changes, it is acceptable to provide the review link once the task is validated, because browser review is part of the work itself
 - when the human asks to review changes in the browser, the default review link should be the public production alias:
   - `https://binance-trading-analysis-tool.vercel.app`
 - deployment-specific Vercel URLs can be shared as supporting detail, but the public alias is the canonical review URL unless the human asks for something else
@@ -100,7 +101,9 @@ Practical consequence:
 - only add:
   - Vercel deploy
   - production link delivery through `https://binance-trading-analysis-tool.vercel.app`
-  when the human asks for visual review
+  when:
+  - the human asks for review
+  - or the task is explicitly visual and browser review is the natural completion step
 
 ## User-Facing Review Rule
 

@@ -67,14 +67,20 @@ If a future AI finds itself on another local branch by accident, it should reali
 By default:
 
 - do not deploy to Vercel automatically at the end of a task
-- do not send production/deployment links unless the human asked to review changes in the browser
+- do not send production/deployment links for logic/runtime/architecture work unless the human asked to review changes in the browser
+- for primarily visual work, a review link may be provided after validation because visual confirmation is part of the acceptance flow
 
-Only when the human explicitly asks to see the changes:
+When a deployment/review link is appropriate:
 
 - deploy the validated state
 - provide the public production review URL:
   - `https://binance-trading-analysis-tool.vercel.app`
 - optionally include the deployment-specific Vercel URL as supporting detail when useful
+
+This applies when:
+
+- the human explicitly asks to see the changes
+- or the task is mainly visual and the AI is closing the loop for browser review
 
 ## GitHub Notification Practice
 

@@ -193,7 +193,8 @@ Future AI contributors should preserve this operating rule:
 - after completing a scoped task and verifying it locally, save/commit that work in `main`
 - `codex` is not the default place to leave current development; it is reserved for explicit human-requested checkpoints
 - do not deploy to Vercel automatically after every completed task
-- deploy to Vercel only when the human explicitly asks to review the changes in the browser
+- for logic/runtime/architecture work, deploy to Vercel only when the human explicitly asks to review the changes in the browser
+- for primarily visual work, a review deployment/link may be provided after validation because visual review is part of the deliverable
 - only then provide the production/deployment link
 - when a review link is requested, the canonical public URL is:
   - `https://binance-trading-analysis-tool.vercel.app`

@@ -1532,3 +1532,29 @@ Phase 3 - Signal Bot hard-close refinement
 - `src/services/api.ts`
 - `src/views/BotSettingsView.tsx`
 - `src/views/SignalBotView.tsx`
+
+## First Real Bot Metrics Round
+
+### What Changed
+
+- The first real bot path now stops showing purely empty placeholder performance.
+- `Bot Settings` and `Signal Bot` now derive bot-level runtime metrics from the real shared `signalMemory` snapshots already stored for the user.
+- The derivation is scoped by each bot's persisted `workspaceSettings.primaryPair`, so the first bot can behave as a real bot profile without waiting for a separate bot-decisions table.
+
+### Data Continuity
+
+- No page-local fetches were added.
+- The read path remains:
+  - shared signal memory
+  - shared ranked feed seam
+  - shared persisted bot registry seam
+- Bot cards now enrich the registry with:
+  - real signal count
+  - real closed outcome count
+  - real realized PnL from stored snapshots
+  - real win rate from stored outcomes
+
+### Files Updated
+
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/views/BotSettingsView.tsx`

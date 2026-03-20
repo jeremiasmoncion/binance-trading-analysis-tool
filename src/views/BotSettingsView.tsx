@@ -24,6 +24,27 @@ interface QuickEditDraft {
   accentClass: string;
 }
 
+interface QuickEditSource {
+  id: string;
+  name: string;
+  pair: string;
+  strategy: string;
+  capital: {
+    allocatedUsd: number;
+  };
+  workspaceSettings: {
+    rangeLower: number | null;
+    rangeUpper: number | null;
+    gridCount: number | null;
+    stopLossPct: number | null;
+    takeProfitPct: number | null;
+    autoCompoundProfits: boolean;
+  };
+  riskPolicy: {
+    maxDrawdownPct: number;
+  };
+}
+
 interface BotSettingsViewProps {
   onNavigateView: (view: ViewName) => void;
 }
@@ -300,7 +321,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     }));
   };
 
-  const openQuickEdit = (bot: (typeof readModel.filteredCards)[number]) => {
+  const openQuickEdit = (bot: QuickEditSource) => {
     setQuickEditDraft({
       botId: bot.id,
       botName: bot.name,
@@ -352,17 +373,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         message: `${createdBot.name} ya forma parte del registro real.`,
       });
       openQuickEdit({
-        ...readModel.cards[0],
-        ...createdBot,
+        id: createdBot.id,
+        name: createdBot.name,
         pair: createdBot.workspaceSettings.primaryPair,
         strategy: formatStrategyLabel(createdBot.strategyPolicy.preferredStrategyIds[0] || createdBot.tags[1] || createdBot.stylePolicy.dominantStyle),
-        trades24h: createdBot.localMemory.outcomeCount,
-        profit24h: createdBot.performance.realizedPnlUsd,
-        winRate: createdBot.performance.winRate,
-        allocationPct: 0,
-        capacityUsd: Math.max(createdBot.riskPolicy.maxPositionUsd * createdBot.riskPolicy.maxOpenPositions, 1),
-        acceptedCount: 0,
-        blockedCount: 0,
+        capital: createdBot.capital,
+        workspaceSettings: createdBot.workspaceSettings,
+        riskPolicy: createdBot.riskPolicy,
       });
     } catch (error) {
       showToast({

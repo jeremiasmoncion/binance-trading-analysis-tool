@@ -110,6 +110,7 @@ The redesign also now has dedicated documentation for:
 ## What Has Not Been Done Yet
 
 - the first bot registry persistence seam now exists, but platform-level settings tabs still need to move from local UI state into that same persisted contract
+- the first real bot now derives runtime card/workspace metrics from persisted signal snapshots through the shared read-model seam, but a dedicated bot-decision log table still remains pending
 - no global shell wiring has been added for the domain module
 - no signal feed has been wired into the existing market/runtime pipeline beyond read-only/domain-driven surfaces
 - no AI conversational layer has been implemented yet

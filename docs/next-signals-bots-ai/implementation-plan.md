@@ -141,6 +141,10 @@ Current progress:
   - `Execution Logs` toolbar now filters that shared owned activity stream directly:
     - search by id / pair / bot / source
     - linked vs decision-only vs unlinked ownership filters
+  - bot memory layers now derive from owned activity timelines instead of decision-only aggregation:
+    - local owned memory
+    - family owned memory
+    - global owned memory
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

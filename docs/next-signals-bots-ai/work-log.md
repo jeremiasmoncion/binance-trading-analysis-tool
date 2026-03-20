@@ -4,6 +4,39 @@
 
 ### Phase
 
+`Bot Core` owned-memory outcomes round
+
+### Completed
+
+- Reworked bot memory-layer derivation so `local`, `family`, and `global` memory now summarize owned activity and owned outcomes instead of leaning mostly on flat decision counts.
+- Added a shared owned-memory summary that now tracks per layer:
+  - total activity count
+  - decision count
+  - owned outcome count
+  - unresolved decisions still waiting for execution ownership
+  - unlinked execution rows still outside a decision bridge
+- Updated local bot memory to derive from the same owned activity timeline used by `Signal Bot` and `Execution Logs`, so memory no longer drifts from bot-owned history.
+- Updated family/global memory to derive from combined family/platform decision + execution timelines instead of decision-only aggregation.
+- Updated `Signal Bot -> Memory Layers` so the visible metric now emphasizes owned outcomes rather than plain decision totals.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids presenting layered memory as if it were learning from real outcomes while still counting mostly raw decisions.
+- It also avoids teaching the bot one activity truth in `Execution Logs` and a different memory truth in `Signal Bot`.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - reduce unresolved execution ownership so memory learns from fewer unlinked rows
+  - add per-bot outcome summaries and ratios on top of the owned memory layer
+  - start using owned outcomes more directly in training/adaptation inputs
+
+### Phase
+
 `Bot Core` execution logs filters round
 
 ### Completed

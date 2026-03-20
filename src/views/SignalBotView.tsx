@@ -493,17 +493,17 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 <div className="signalbot-mini-grid">
                   <MetricTile
                     label="Local Memory"
-                    value={String(selectedBotCard?.localMemory.decisionCount || 0)}
-                    note={selectedBotCard?.localMemory.notes?.[0] || "This bot's own owned decisions."}
+                    value={String(selectedBotCard?.localMemory.outcomeCount || 0)}
+                    note={selectedBotCard?.localMemory.notes?.[0] || "This bot's owned outcomes."}
                   />
                   <MetricTile
                     label="Family Memory"
-                    value={String(selectedBotCard?.familyMemory.decisionCount || 0)}
+                    value={String(selectedBotCard?.familyMemory.outcomeCount || 0)}
                     note={selectedBotCard?.familyMemory.notes?.[0] || "No family learning yet."}
                   />
                   <MetricTile
                     label="Global Memory"
-                    value={String(selectedBotCard?.globalMemory.decisionCount || 0)}
+                    value={String(selectedBotCard?.globalMemory.outcomeCount || 0)}
                     note={selectedBotCard?.globalMemory.notes?.[0] || "No platform memory yet."}
                   />
                 </div>

@@ -204,6 +204,14 @@ The redesign also now has dedicated documentation for:
     - ownership filters for linked outcomes, decision-only rows, and unlinked orders
     - empty state when no activity matches the current view
   - `Signal Bot` history now reads the same owned activity shape instead of locally reconstructing decision/execution overlap
+  - bot memory layers now derive from owned activity + owned outcomes instead of mostly flat decision totals
+  - local, family, and global memory now track:
+    - activity count
+    - decision count
+    - owned outcome count
+    - unresolved decision count
+    - unlinked execution count
+  - `Signal Bot -> Memory Layers` now emphasizes owned outcomes at the UI level while still keeping notes from the shared seam
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -222,8 +230,8 @@ The redesign also now has dedicated documentation for:
 - next:
   - create the Supabase `bot_decisions` table
   - tighten unresolved execution ownership for orders that still lack a direct decision bridge
-  - deepen performance/training off the owned activity layer with stronger contracts
-  - feed layered memory/training from owned outcomes instead of only flat decision sets
+  - deepen performance/training off the owned activity and owned memory layers with stronger contracts
+  - use owned outcomes more directly in training/adaptation inputs
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
 
 ## Phase 4 Status

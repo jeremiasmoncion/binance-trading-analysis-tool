@@ -172,40 +172,6 @@ function createPerformanceBreakdowns(decisions: Array<{
     .sort((left, right) => Math.abs(right.realizedPnlUsd) - Math.abs(left.realizedPnlUsd));
 }
 
-function createMemoryLayerSummary(
-  layer: "family" | "global",
-  decisions: Array<{
-    symbol: string;
-    timeframe: string;
-    action: string;
-    status: string;
-    updatedAt: string;
-    createdAt: string;
-  }>,
-  label: string,
-) {
-  const orderedDecisions = decisions
-    .slice()
-    .sort((left, right) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime());
-  const latestDecision = orderedDecisions[0] || null;
-  const closedCount = orderedDecisions.filter((decision) => decision.status !== "pending").length;
-  const symbols = [...new Set(orderedDecisions.map((decision) => decision.symbol).filter(Boolean))];
-
-  return {
-    layer,
-    lastUpdatedAt: latestDecision?.updatedAt || latestDecision?.createdAt || null,
-    signalCount: orderedDecisions.length,
-    decisionCount: orderedDecisions.length,
-    outcomeCount: closedCount,
-    notes: latestDecision
-      ? [
-          `${label} last action: ${latestDecision.action} on ${latestDecision.symbol} (${latestDecision.timeframe}).`,
-          `${symbols.length} symbols covered in this layer.`,
-        ]
-      : [`No ${label.toLowerCase()} memory yet.`],
-  };
-}
-
 function createDisabledMemoryLayerSummary(layer: "family" | "global", label: string) {
   return {
     layer,
@@ -568,6 +534,74 @@ function createBotActivityTimeline<
     ).getTime());
 }
 
+function formatOwnedOutcomePnl(pnlUsd: number | null | undefined) {
+  const value = Number(pnlUsd || 0);
+  if (!Number.isFinite(value)) return "$0.00";
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}$${value.toFixed(Math.abs(value) >= 100 ? 0 : 2)}`;
+}
+
+function createOwnedMemorySummary<
+  TDecision extends {
+    id: string;
+    symbol?: string | null;
+    updatedAt?: string;
+    createdAt?: string;
+  },
+  TOrder extends {
+    orderId: number;
+    symbol?: string | null;
+    status?: string | null;
+    hasOutcome?: boolean;
+    pnlUsd?: number;
+    updatedAt?: string;
+    createdAt?: string;
+  },
+>(
+  layer: "local" | "family" | "global",
+  label: string,
+  decisionTimeline: TDecision[],
+  executionTimeline: TOrder[],
+) {
+  const activityTimeline = createBotActivityTimeline(decisionTimeline, executionTimeline);
+  const latestEntry = activityTimeline[0] || null;
+  const linkedOutcomeCount = activityTimeline.filter((entry) => entry.kind === "decision" && entry.linkedOrder?.hasOutcome).length;
+  const standaloneOutcomeCount = activityTimeline.filter((entry) => entry.kind === "order" && entry.order.hasOutcome).length;
+  const outcomeCount = linkedOutcomeCount + standaloneOutcomeCount;
+  const decisionCount = activityTimeline.filter((entry) => entry.kind === "decision").length;
+  const unresolvedDecisionCount = activityTimeline.filter((entry) => entry.kind === "decision" && !entry.linkedOrder).length;
+  const unlinkedOrderCount = activityTimeline.filter((entry) => entry.kind === "order").length;
+  const symbols = [...new Set(activityTimeline
+    .map((entry) => entry.kind === "decision" ? entry.decision.symbol : entry.order.symbol)
+    .filter(Boolean))];
+  const latestEntryAt = latestEntry
+    ? latestEntry.kind === "decision"
+      ? latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt || null
+      : latestEntry.order.updatedAt || latestEntry.order.createdAt || null
+    : null;
+  const latestNote = latestEntry
+    ? latestEntry.kind === "decision"
+      ? latestEntry.linkedOrder?.hasOutcome
+        ? `${label} latest owned outcome: ${latestEntry.decision.symbol} ${String(latestEntry.linkedOrder.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.linkedOrder.pnlUsd)}.`
+        : `${label} latest decision: ${latestEntry.decision.symbol} still awaiting owned execution linkage.`
+      : `${label} latest unlinked execution: ${latestEntry.order.symbol} ${String(latestEntry.order.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.order.pnlUsd)}.`
+    : `No ${label.toLowerCase()} memory yet.`;
+
+  return {
+    layer,
+    lastUpdatedAt: latestEntryAt,
+    signalCount: activityTimeline.length,
+    decisionCount,
+    outcomeCount,
+    notes: [
+      latestNote,
+      `${decisionCount} decisions, ${outcomeCount} owned outcomes, ${unlinkedOrderCount} unlinked executions.`,
+      `${symbols.length} symbols touched across this ${label.toLowerCase()} layer.`,
+      unresolvedDecisionCount ? `${unresolvedDecisionCount} decisions still need execution ownership.` : `${label} decisions are currently reconciled against owned execution history.`,
+    ],
+  };
+}
+
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
   const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
   const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
@@ -711,10 +745,7 @@ export function useSignalsBotsReadModel() {
         ...bot,
         localMemory: {
           ...bot.localMemory,
-          outcomeCount: Math.max(bot.localMemory.outcomeCount, executionTimeline.filter((item) => item.hasOutcome).length),
-          notes: executionTimeline.length
-            ? [`${executionTimeline.length} execution outcomes linked back to this bot.`]
-            : bot.localMemory.notes,
+          ...createOwnedMemorySummary("local", "Local", bot.decisionTimeline, executionTimeline),
         },
         performance: executionPerformance
           ? {
@@ -746,21 +777,23 @@ export function useSignalsBotsReadModel() {
     });
     const botCardsWithSharedMemory = botCardsWithExecution.map((bot) => {
       const familyBots = botCardsWithExecution.filter((candidate) => candidate.identity.family === bot.identity.family);
-      const familyDecisions = familyBots.flatMap((candidate) => candidate.decisions);
-      const globalDecisions = botCardsWithExecution.flatMap((candidate) => candidate.decisions);
+      const familyDecisionTimeline = familyBots.flatMap((candidate) => candidate.decisionTimeline);
+      const familyExecutionTimeline = familyBots.flatMap((candidate) => candidate.executionTimeline);
+      const globalDecisionTimeline = botCardsWithExecution.flatMap((candidate) => candidate.decisionTimeline);
+      const globalExecutionTimeline = botCardsWithExecution.flatMap((candidate) => candidate.executionTimeline);
 
       return {
         ...bot,
         familyMemory: {
           ...bot.familyMemory,
           ...(bot.memoryPolicy.familySharingEnabled
-            ? createMemoryLayerSummary("family", familyDecisions, `Family ${bot.memoryPolicy.familyScope || bot.identity.family}`)
+            ? createOwnedMemorySummary("family", "Family", familyDecisionTimeline, familyExecutionTimeline)
             : createDisabledMemoryLayerSummary("family", "Family")),
         },
         globalMemory: {
           ...bot.globalMemory,
           ...(bot.memoryPolicy.globalLearningEnabled
-            ? createMemoryLayerSummary("global", globalDecisions, "Platform")
+            ? createOwnedMemorySummary("global", "Platform", globalDecisionTimeline, globalExecutionTimeline)
             : createDisabledMemoryLayerSummary("global", "Global")),
         },
       };

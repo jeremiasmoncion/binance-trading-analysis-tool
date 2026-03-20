@@ -10,6 +10,7 @@
 
 - Fixed the bot registry runtime so `Bot Settings` no longer falls back to showing the template/default 5-bot catalog as if it were the user's real bot list.
 - The local cache now ignores template-only bot registries and clears that stale fallback instead of rehydrating it into the live app.
+- The local cache now also ignores malformed pre-contract bot registries that are missing current required bot runtime fields, so stale browser state cannot block fresh hydration from Supabase.
 - The shared bot read-model now keeps an internal fallback bot only for workspace continuity, without leaking that template bot family into the user-visible bot registry list.
 - `Bot Settings` now shows an explicit loading / empty / error state when the persisted registry is not available, instead of rendering fake bot cards.
 - Validated the fix with:

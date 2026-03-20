@@ -43,6 +43,22 @@ function isTemplateRegistry(state: BotRegistryState | null | undefined) {
   return state.bots.every((bot) => TEMPLATE_BOT_IDS.has(bot.id));
 }
 
+function isCacheBotShapeValid(bot: unknown) {
+  if (!bot || typeof bot !== "object") return false;
+  const candidate = bot as Record<string, unknown>;
+  return Boolean(
+    candidate.identity
+    && candidate.generalSettings
+    && candidate.notificationSettings
+    && candidate.activity
+    && Array.isArray((candidate.activity as { recentDecisionIds?: unknown }).recentDecisionIds)
+    && Array.isArray((candidate.activity as { recentSymbols?: unknown }).recentSymbols)
+    && candidate.localMemory
+    && candidate.familyMemory
+    && candidate.globalMemory,
+  );
+}
+
 function readCachedRegistry() {
   if (typeof window === "undefined") return null;
 
@@ -52,7 +68,7 @@ function readCachedRegistry() {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.bots)) return null;
     const nextRegistry = parsed as BotRegistryState;
-    if (isTemplateRegistry(nextRegistry)) {
+    if (isTemplateRegistry(nextRegistry) || !nextRegistry.bots.every(isCacheBotShapeValid)) {
       window.localStorage.removeItem(BOT_REGISTRY_STORAGE_KEY);
       return null;
     }
@@ -120,7 +136,13 @@ async function hydrateBotRegistry(forceFresh = false) {
   if (!forceFresh) {
     const cachedRegistry = readCachedRegistry();
     if (cachedRegistry) {
-      setRegistry(cachedRegistry);
+      try {
+        setRegistry(cachedRegistry);
+      } catch {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(BOT_REGISTRY_STORAGE_KEY);
+        }
+      }
       setRuntimePatch({
         hydrated: true,
         loading: true,

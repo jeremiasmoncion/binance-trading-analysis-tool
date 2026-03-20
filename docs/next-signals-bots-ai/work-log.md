@@ -4,6 +4,40 @@
 
 ### Phase
 
+`Bot Core` execution intent review actions round
+
+### Completed
+
+- Turned the new execution-intent review lane into an actionable flow by adding explicit approve/reject controls for intents waiting on approval.
+- `Execution Logs` now lets the operator:
+  - approve an `awaiting-approval` intent
+  - reject an `awaiting-approval` intent
+- Approval now pushes the same decision back into the shared intent lane as:
+  - `executionIntentStatus = ready`
+  - `executionIntentLaneStatus = queued`
+- Rejection now keeps the decision inside the same seam but moves it into:
+  - `executionIntentLaneStatus = blocked`
+  - review metadata explaining the rejection
+- The shared intent summary now counts blocked symbols from lane state, not only guardrail-originated intent status.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids exposing a review lane that can only be observed but not governed.
+- It also avoids splitting approval/rejection into a second control path outside the shared bot-decision seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - surface row-level blocked intent reasons more explicitly
+  - decide whether queued intents should now support a second-stage `dispatch` action for paper/demo only
+  - keep real order emission out of scope until that dispatch path is fully governed
+
+### Phase
+
 `Bot Core` execution intent review logs round
 
 ### Completed

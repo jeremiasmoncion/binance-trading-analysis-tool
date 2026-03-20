@@ -4,6 +4,7 @@ import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useBotDecisionsState } from "../hooks/useBotDecisions";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 
 type ExecutionLogsTab = "all" | "trades" | "signals" | "errors" | "system";
 type ExecutionLogOrderEntry = {
@@ -55,8 +56,46 @@ export function ExecutionLogsView() {
   const [botScope, setBotScope] = useState<ActivityBotScope>("all");
   const [intentFilter, setIntentFilter] = useState<ActivityIntentFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const { decisions } = useBotDecisionsState();
+  const { decisions, updateDecision } = useBotDecisionsState();
   const botsReadModel = useSignalsBotsReadModel();
+
+  const handleIntentReview = async (decision: DecisionLogEntry, outcome: "approve" | "reject") => {
+    const loaderId = startLoading({
+      label: outcome === "approve" ? "Approving intent" : "Rejecting intent",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: outcome === "approve" ? "approved" : "blocked",
+        metadata: {
+          executionIntentStatus: outcome === "approve" ? "ready" : decision.executionIntentStatus || "approval-needed",
+          executionIntentLaneStatus: outcome === "approve" ? "queued" : "blocked",
+          executionIntentLastUpdatedAt: now,
+          executionIntentApprovedAt: outcome === "approve" ? now : null,
+          executionIntentRejectedAt: outcome === "reject" ? now : null,
+          executionIntentReviewOutcome: outcome,
+          executionIntentReason: outcome === "approve"
+            ? "Approved during execution review."
+            : "Rejected during execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: outcome === "approve" ? "Intent approved" : "Intent rejected",
+        message: `${decision.symbol} was ${outcome === "approve" ? "queued for paper/demo review" : "blocked in execution review"}.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Intent review failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
 
   const readModel = useMemo(() => {
     const orders = botsReadModel.allBotExecutionTimeline;
@@ -358,7 +397,14 @@ export function ExecutionLogsView() {
                     </td>
                     <td>
                       <div className="template-table-actions">
-                        <button type="button" className="template-inline-link">{formatDecisionActionLink(entry.decision, entry.linkedOrder)}</button>
+                        {entry.decision.executionIntentLaneStatus === "awaiting-approval" ? (
+                          <>
+                            <button type="button" className="template-inline-link" onClick={() => void handleIntentReview(entry.decision, "approve")}>Approve</button>
+                            <button type="button" className="template-inline-link" onClick={() => void handleIntentReview(entry.decision, "reject")}>Reject</button>
+                          </>
+                        ) : (
+                          <button type="button" className="template-inline-link">{formatDecisionActionLink(entry.decision, entry.linkedOrder)}</button>
+                        )}
                         <button type="button" className="template-inline-link">Copy</button>
                       </div>
                     </td>

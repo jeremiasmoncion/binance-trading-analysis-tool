@@ -846,7 +846,7 @@ function createExecutionIntentSummary<
     ),
     topBlockedSymbols: summarizeSymbolFrequency(
       ranked
-        .filter((entry) => entry.intentStatus === "guardrail-blocked")
+        .filter((entry) => entry.laneStatus === "blocked")
         .map((entry) => entry.decision.symbol),
     ),
   };

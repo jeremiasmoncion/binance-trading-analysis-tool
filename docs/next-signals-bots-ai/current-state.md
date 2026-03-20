@@ -163,7 +163,9 @@ The project can save and act on signals, but it still needs a stronger separatio
 The current bridge state is:
 
 - bot cards and bot workspaces now derive first real metrics from persisted `signalMemory`
-- but the system still does not persist a dedicated `bot decision` layer yet
+- the bot-decision API/runtime seam now exists
+- a dedicated shared `market + signal core` seam now also exists
+- but the system still needs deeper persistence and execution outcomes around that new split
 
 ### 4. AI Exists More As Governance Than As Product Interface
 
@@ -188,6 +190,8 @@ The following areas should be evolved, not discarded:
 - watchlist scanner
 - strategy engine adaptive governance
 - performance snapshots
+- market plane active opportunity context
+- ranked feed and bot-consumable feed derivations already living in `src/domain/signals/`
 
 The following areas need a stronger conceptual redesign:
 

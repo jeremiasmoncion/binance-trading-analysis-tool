@@ -150,6 +150,22 @@ Suggested deliverables:
 - page flow aligned with template `AI Bot -> Signal Bot`
 - active-signals-first surface with lower supporting insight blocks
 
+Current progress:
+
+- done:
+  - shared `market + signal core` seam
+  - explicit feed subsets exposed from one hook:
+    - watchlist
+    - market-wide
+    - operable
+    - bot-consumable
+  - `SignalsView` now reads those feeds from the shared seam
+  - `signals + bots` read-model now consumes that seam instead of rebuilding the feed pipeline alone
+- pending:
+  - connect market-wide feeds more directly to backend scanner/execution-candidate flows
+  - promote operable feed from ranked-memory inference into a stronger runtime contract
+  - route more surfaces through `Signal Core` instead of direct signal-memory derivation
+
 ## Phase 4.5 - UX Flow Migration
 
 Goals:

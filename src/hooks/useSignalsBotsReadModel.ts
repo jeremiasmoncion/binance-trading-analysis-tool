@@ -1,23 +1,16 @@
 import { useMemo } from "react";
-import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
 import type { SignalSnapshot } from "../types";
 import {
   EMPTY_MEMORY_SUMMARY,
   EMPTY_PERFORMANCE_SUMMARY,
   createBotConsumableFeed,
   createBotRegistrySnapshot,
-  createPublishedSignalFeedBundleFromMemory,
-  rankPublishedFeed,
   selectAcceptedBotConsumableSignals,
   selectBlockedBotConsumableSignals,
   selectBots,
-  selectHighConfidenceRankedSignals,
-  selectMarketDiscoveryRankedSignals,
-  selectPriorityRankedSignals,
-  selectRankedPublishedSignals,
-  selectWatchlistFirstRankedSignals,
 } from "../domain";
 import type { BotDecisionRecord } from "../domain";
+import { useMarketSignalsCore } from "./useMarketSignalsCore";
 import { useBotDecisionsState } from "./useBotDecisions";
 import { useSelectedBotState } from "./useSelectedBot";
 
@@ -109,7 +102,7 @@ function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSn
 }
 
 export function useSignalsBotsReadModel() {
-  const feedData = useSignalsBotsFeedSelector();
+  const core = useMarketSignalsCore();
   const { selectedBotId, state: registryState } = useSelectedBotState();
   const { decisions } = useBotDecisionsState();
 
@@ -119,15 +112,13 @@ export function useSignalsBotsReadModel() {
     const registry = createBotRegistrySnapshot(registryState);
     const bots = selectBots(registry.state);
     const signalBot = registry.state.bots.find((bot) => bot.slug === "signal-bot-core") || registry.state.bots[0];
-    const publishedFeed = createPublishedSignalFeedBundleFromMemory(feedData.signalMemory, {
-      watchlistSymbols: feedData.activeWatchlistCoins,
-    }).all;
-    const rankedFeed = rankPublishedFeed(publishedFeed);
-    const rankedSignals = selectRankedPublishedSignals(rankedFeed);
-    const prioritySignals = selectPriorityRankedSignals(rankedFeed);
-    const highConfidenceSignals = selectHighConfidenceRankedSignals(rankedFeed);
-    const watchlistFirstSignals = selectWatchlistFirstRankedSignals(rankedFeed);
-    const marketDiscoverySignals = selectMarketDiscoveryRankedSignals(rankedFeed);
+    const publishedFeed = core.signalCore.feeds.published;
+    const rankedFeed = core.signalCore.feeds.ranked;
+    const rankedSignals = core.signalCore.subsets.rankedSignals;
+    const prioritySignals = core.signalCore.subsets.operableSignals;
+    const highConfidenceSignals = core.signalCore.subsets.highConfidenceSignals;
+    const watchlistFirstSignals = core.signalCore.subsets.watchlistSignals;
+    const marketDiscoverySignals = core.signalCore.subsets.marketWideSignals;
     const signalBotFeed = createBotConsumableFeed(signalBot, rankedSignals, rankedFeed.generatedAt);
     const signalBotApprovedSignals = selectAcceptedBotConsumableSignals(signalBotFeed);
     const signalBotBlockedSignals = selectBlockedBotConsumableSignals(signalBotFeed);
@@ -143,7 +134,7 @@ export function useSignalsBotsReadModel() {
       const leadingSignal = acceptedSignals[0] || blockedSignals[0] || scopedRankedSignals[0] || null;
       const derivedRuntime = botDecisions.length
         ? summarizeDecisionPerformance(botDecisions)
-        : summarizeSignalsPerformance(primaryPair, feedData.signalMemory);
+        : summarizeSignalsPerformance(primaryPair, core.signalCore.signalMemory);
       return {
         ...bot,
         localMemory: {
@@ -186,8 +177,10 @@ export function useSignalsBotsReadModel() {
       : 0;
 
     return {
-      signalMemory: feedData.signalMemory,
-      activeWatchlistCoins: feedData.activeWatchlistCoins,
+      signalMemory: core.signalCore.signalMemory,
+      activeWatchlistCoins: core.signalCore.activeWatchlistCoins,
+      marketCore: core.marketCore,
+      signalCore: core.signalCore,
       registry,
       bots,
       botCards,
@@ -218,5 +211,5 @@ export function useSignalsBotsReadModel() {
         averageWinRate,
       },
     };
-  }, [feedData, registryState, selectedBotId]);
+  }, [core, decisions, registryState, selectedBotId]);
 }

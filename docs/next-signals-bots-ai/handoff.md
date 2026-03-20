@@ -130,6 +130,28 @@ The redesign also now has dedicated documentation for:
   - move platform settings tabs from local UI state into shared persisted contracts
   - deepen performance/training off the decision layer
 
+## Phase 4 Status
+
+- done:
+  - first shared `market + signal core` seam exists
+  - market context is now isolated from signal feed derivation in a reusable hook
+  - the signal core now exposes explicit feed subsets for:
+    - watchlist
+    - market-wide
+    - operable
+    - bot-consumable
+  - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
+- reuse anchor:
+  - market plane active opportunity context
+  - signal memory
+  - watchlist scanner
+  - ranked feed logic already under `src/domain/signals/`
+  - execution candidates remain the next bridge for deeper operable feeds
+- next:
+  - connect scanner/execution-candidate outputs into the new signal core more directly
+  - stop treating operable signals as only ranked-memory inference
+  - continue moving bot logic to consume the cleaner feed taxonomy
+
 ## Files Added
 
 - `docs/next-signals-bots-ai/README.md`

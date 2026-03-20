@@ -1639,3 +1639,40 @@ Phase 3 - Signal Bot hard-close refinement
 - `src/hooks/useSignalsBotsReadModel.ts`
 - `src/views/SignalBotView.tsx`
 - `src/views/ExecutionLogsView.tsx`
+
+## Market Core And Signal Core Split
+
+### What Changed
+
+- Started the first concrete `Phase 4` split instead of letting bots keep stretching the old mixed signal module.
+- Added two new selector seams:
+  - `useMarketCoreSelector`
+  - `useSignalCoreSelector`
+- Added a shared hook:
+  - `src/hooks/useMarketSignalsCore.ts`
+- The new shared hook now exposes:
+  - market context
+  - watchlist feed
+  - market-wide feed
+  - operable feed
+  - bot-consumable subset for the currently selected bot
+- Refactored `SignalsView` to read from that shared market/signal seam.
+- Refactored the shared `signals + bots` read-model to consume that seam instead of rebuilding the full feed pipeline by itself.
+
+### Why This Matters
+
+- `Market Core`, `Signal Core`, and `Bot Core` now have a cleaner boundary.
+- This keeps us from finishing bots on top of a still-mixed signal module.
+- It also clarifies what we are reusing from the old project instead of discarding:
+  - market plane context
+  - signal memory
+  - watchlist scanner
+  - ranked feed logic
+  - future execution-candidate bridge
+
+### Files Updated
+
+- `src/data-platform/selectors.ts`
+- `src/hooks/useMarketSignalsCore.ts`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/views/SignalsView.tsx`

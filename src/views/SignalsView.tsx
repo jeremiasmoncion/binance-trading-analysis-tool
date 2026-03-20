@@ -2,48 +2,39 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
 import {
-  INITIAL_BOT_REGISTRY_STATE,
   createBotConsumableFeed,
-  createBotRegistrySnapshot,
-  createPublishedSignalFeedBundleFromMemory,
-  rankPublishedFeed,
-  selectHighConfidenceRankedSignals,
-  selectMarketDiscoveryRankedSignals,
-  selectPriorityRankedSignals,
-  selectPublishedSignals,
-  selectRankedPublishedSignals,
-  selectWatchlistFirstRankedSignals,
 } from "../domain";
+import { useMarketSignalsCore } from "../hooks/useMarketSignalsCore";
+import { useSelectedBotState } from "../hooks/useSelectedBot";
 
 type SignalsWorkspaceTab = "overview" | "watchlist" | "discovery" | "high-confidence" | "history";
 
 export function SignalsView() {
-  const feedData = useSignalsBotsFeedSelector();
+  const core = useMarketSignalsCore();
+  const { state: registryState, selectedBot } = useSelectedBotState();
   const [activeTab, setActiveTab] = useState<SignalsWorkspaceTab>("overview");
-  const signals = feedData.signalMemory;
-  const watchlist = feedData.activeWatchlistCoins;
+  const signals = core.signalCore.signalMemory;
 
   const readModel = useMemo(() => {
-    const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
-    const publishedFeed = createPublishedSignalFeedBundleFromMemory(signals, { watchlistSymbols: watchlist }).all;
-    const rankedFeed = rankPublishedFeed(publishedFeed);
-    const rankedSignals = selectRankedPublishedSignals(rankedFeed);
-    const acceptedByBots = registry.state.bots.reduce((count, bot) => (
-      count + createBotConsumableFeed(bot, rankedSignals, rankedFeed.generatedAt).items.filter((signal) => signal.policyMatches.universe && signal.policyMatches.timeframe && signal.policyMatches.strategy).length
+    const activeBot = selectedBot || registryState.bots[0] || null;
+    const acceptedByBots = registryState.bots.reduce((count, bot) => (
+      count + createBotConsumableFeed(bot, core.signalCore.subsets.rankedSignals, core.signalCore.feeds.ranked.generatedAt).items.filter((signal) => signal.policyMatches.universe && signal.policyMatches.timeframe && signal.policyMatches.strategy).length
     ), 0);
 
     return {
-      raw: selectPublishedSignals(publishedFeed),
-      ranked: rankedSignals,
-      watchlistFirst: selectWatchlistFirstRankedSignals(rankedFeed),
-      marketDiscovery: selectMarketDiscoveryRankedSignals(rankedFeed),
-      highConfidence: selectHighConfidenceRankedSignals(rankedFeed),
-      priority: selectPriorityRankedSignals(rankedFeed),
+      raw: core.signalCore.subsets.publishedSignals,
+      ranked: core.signalCore.subsets.rankedSignals,
+      watchlistFirst: core.signalCore.subsets.watchlistSignals,
+      marketDiscovery: core.signalCore.subsets.marketWideSignals,
+      highConfidence: core.signalCore.subsets.highConfidenceSignals,
+      priority: core.signalCore.subsets.operableSignals,
+      activeBotConsumable: core.signalCore.subsets.botConsumableSignals,
       acceptedByBots,
+      activeOpportunity: core.marketCore.activeOpportunity,
+      activeBotName: activeBot?.name || "Signal Bot",
     };
-  }, [signals, watchlist]);
+  }, [core, registryState.bots, selectedBot]);
 
   const watchlistVisible = readModel.watchlistFirst.filter((signal) => signal.ranking.tier !== "low-visibility");
   const discoveryVisible = readModel.marketDiscovery.filter((signal) => signal.ranking.tier !== "low-visibility");
@@ -94,31 +85,39 @@ export function SignalsView() {
             >
               <div className="workspace-list">
                 {readModel.priority.slice(0, 4).map((signal) => (
-                  <SignalCard
-                    key={signal.id}
-                    title={`${signal.context.symbol} · ${signal.context.timeframe}`}
+                <SignalCard
+                  key={signal.id}
+                  title={`${signal.context.symbol} · ${signal.context.timeframe}`}
                     lane={signal.ranking.lane === "watchlist-first" ? "Watchlist" : "Discovery"}
                     value={`${signal.ranking.compositeScore.toFixed(0)} pts`}
                     detail={signal.ranking.summary}
                     meta={`${signal.ranking.tier} · ${signal.ranking.primaryReason}`}
-                  />
-                ))}
+                />
+              ))}
+            </div>
+            {readModel.activeOpportunity ? (
+              <div className="workspace-mini-metrics with-top-gap">
+                <MetricTile label="Mercado activo" value={core.marketCore.currentCoin} note={`Timeframe ${core.marketCore.timeframe} • precio ${formatCompactUsd(core.marketCore.currentPrice)}`} />
+                <MetricTile label="Oportunidad líder" value={readModel.activeOpportunity.strategy.label} note={`${readModel.activeOpportunity.signal.label} • score ${Math.round(readModel.activeOpportunity.rankScore)}`} />
+                <MetricTile label="Bias MTF" value={String(core.marketCore.multiTimeframes.filter((item) => item.aligned).length)} note="timeframes alineados con la oportunidad principal" />
               </div>
-            </SectionCard>
+            ) : null}
+          </SectionCard>
 
-            <SectionCard
-              title="Lo que puede consumir un bot"
-              subtitle="Traducido para el usuario: cuántas señales ya están lo bastante limpias para alimentar bots."
-              className="workspace-panel"
-            >
-              <div className="workspace-mini-metrics">
-                <MetricTile label="Señales publicadas" value={String(readModel.raw.length)} note="Base total leída desde signal memory" />
-                <MetricTile label="Señales rankeadas" value={String(readModel.ranked.length)} note="Ordenadas para reducir ruido" />
-                <MetricTile label="Aptas para bots" value={String(readModel.acceptedByBots)} note="Coinciden con políticas de bots actuales" />
-              </div>
-            </SectionCard>
-          </div>
-        ) : null}
+          <SectionCard
+            title="Lo que puede consumir un bot"
+            subtitle="Traducido para el usuario: cuántas señales ya están lo bastante limpias para alimentar bots."
+            className="workspace-panel"
+          >
+            <div className="workspace-mini-metrics">
+              <MetricTile label="Señales publicadas" value={String(readModel.raw.length)} note="Base total leída desde signal memory" />
+              <MetricTile label="Señales rankeadas" value={String(readModel.ranked.length)} note="Ordenadas para reducir ruido" />
+              <MetricTile label="Aptas para bots" value={String(readModel.acceptedByBots)} note="Coinciden con políticas de bots actuales" />
+              <MetricTile label="Feed del bot activo" value={String(readModel.activeBotConsumable.length)} note={`Subset consumible para ${readModel.activeBotName}`} />
+            </div>
+          </SectionCard>
+        </div>
+      ) : null}
 
         {activeTab === "watchlist" ? (
           <SectionCard
@@ -209,6 +208,14 @@ export function SignalsView() {
       </section>
     </div>
   );
+}
+
+function formatCompactUsd(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: value >= 1000 ? 0 : 2,
+  }).format(Number(value || 0));
 }
 
 function SignalCard(props: {

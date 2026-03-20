@@ -610,6 +610,62 @@ Keep the work phased.
 - hooks sensibles
 - `api/_lib/*`
 
+## Implementador - 2026-03-19 - Signal Bot Page Closure Pass
+
+### What Was Done
+
+- Closed a much fuller version of `AI Bot -> Signal Bot` as the first page-specific closure pass.
+- Moved the page to the narrower existing selector:
+  - `useSignalsBotsFeedSelector`
+- Kept the page away from the broader memory bundle.
+- Strengthened `Active Signals` into the dominant subview with:
+  - real chips/filters
+  - stronger cards
+  - clearer entry/target/stop hierarchy
+  - visible actions
+- Deepened `Signal History` into a denser table aligned to the template naming.
+- Expanded `Performance` with a more user-readable summary.
+- Simplified `Bot Settings` to user-facing essentials only.
+- Added the lower template blocks:
+  - `Market Sentiment`
+  - `AI Insights`
+  - `Top Signal Performers`
+
+### Files Touched
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### What Was Reused
+
+- ranked feed and high-confidence logic from `src/domain/`
+- bot-consumable feed derivation
+- signal memory snapshots as the approved read source
+- shared CRYPE style system
+
+### Where This Round Ended
+
+- `Signal Bot` is now the strongest page in the new template flow.
+- The page reads closer to a real product page than to an intermediate scaffold.
+- The page also respects the new selector discipline instead of overreading broader screen bundles.
+
+### What Remains Pending
+
+- If direction wants, later rounds can still add:
+  - richer interactions
+  - drawers
+  - more detailed exports
+  - more dynamic filters
+- But the page is now strong enough to serve as the reference closure standard for the next pages.
+
+### What The Director Should Review
+
+- Whether `Signal Bot` now sets the quality bar for the next page-by-page closure rounds.
+- Whether the next page should be `Control Panel -> Overview` or `Execution Logs`.
+
 ### Coordination Note For Refinador
 
 - No runtime wiring or new per-screen fetch/polling was introduced.

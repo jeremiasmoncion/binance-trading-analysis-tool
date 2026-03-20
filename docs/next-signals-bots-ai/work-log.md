@@ -987,3 +987,72 @@ Phase 3 - template naming and deeper product surfaces
 
 - keep deepening the template-faithful pages already opened
 - decide when to retire the transitional legacy views that no longer represent the target UX
+
+## 2026-03-19 - Signal Bot Page Closure Pass
+
+### Phase
+
+Phase 3 - page-by-page closure
+
+### Completed
+
+- Treated `AI Bot -> Signal Bot` as the first page to close as a real product surface.
+- Switched the page to the narrower selector already available for signals/bots feed reading:
+  - `useSignalsBotsFeedSelector`
+- Stopped relying on the broader memory selector bundle for this page.
+- Strengthened `Active Signals` as the main subview:
+  - live chips/filters
+  - stronger signal cards
+  - entry / target / stop loss hierarchy
+  - visible user actions
+  - cleaner user-facing summaries
+- Deepened `Signal History` into a denser template-aligned table with:
+  - pair
+  - type
+  - entry
+  - exit
+  - P/L
+  - duration
+  - status
+  - date
+- Expanded `Performance` into a more complete user-facing summary.
+- Simplified `Bot Settings` to the minimum useful controls for the end user.
+- Added the lower product blocks from the template:
+  - `Market Sentiment`
+  - `AI Insights`
+  - `Top Signal Performers`
+
+### Reused
+
+- signal memory snapshots as the base read source
+- ranked published feed from the new domain
+- high-confidence subset
+- bot-consumable feed for policy-fit awareness
+- CRYPE shared style architecture instead of template CSS copy
+
+### Why This Matters
+
+- `Signal Bot` is now the most mature page in the new flow.
+- It can serve as the reference page for closing the rest of the template one page at a time.
+- The page now feels closer to product and less like a transitional scaffold.
+
+### Files Updated
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Pending
+
+- The page can still get richer later with deeper interaction patterns if direction wants:
+  - drawers
+  - richer exports
+  - more interactive filters
+- But the core visible page architecture and user-facing logic are now substantially closer to closed.
+
+### Recommended Next Step
+
+- use `Signal Bot` as the benchmark page for the next page-closure rounds
+- choose the next page and close it with the same full-page discipline

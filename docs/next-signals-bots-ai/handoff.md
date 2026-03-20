@@ -192,6 +192,14 @@ The redesign also now has dedicated documentation for:
     - linked pnl / notional / quantity / hold minutes
     - linkage reason
   - `Execution Logs` now surfaces that decision-side execution linkage more clearly
+  - the shared bot read-model now exposes a bot-owned activity timeline that folds linked decisions and linked executions into one shared history shape
+  - decision timeline entries now also expose explicit execution linkage metadata directly from the shared seam:
+    - `executionOrderId`
+    - execution status / outcome status
+    - execution linked timestamp
+    - linkage reason
+  - `Execution Logs` now prefers that shared activity timeline so linked decision + execution pairs are not shown as two unrelated stories
+  - `Signal Bot` history now reads the same owned activity shape instead of locally reconstructing decision/execution overlap
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -209,9 +217,9 @@ The redesign also now has dedicated documentation for:
   - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - persist more bot-owned execution outcomes against those decisions
-  - deepen performance/training off the decision + execution layer with stronger contracts
-  - tighten execution ownership further for unresolved orders that still lack a direct signal bridge
+  - tighten unresolved execution ownership for orders that still lack a direct decision bridge
+  - deepen performance/training off the owned activity layer with stronger contracts
+  - add richer bot-owned filters and outcome views in `Execution Logs`
 
 ## Phase 4 Status
 

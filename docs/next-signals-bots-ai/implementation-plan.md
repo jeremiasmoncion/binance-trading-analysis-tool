@@ -135,9 +135,12 @@ Current progress:
     - cross-bot execution timeline
     - execution-first performance fallback when linked outcomes exist
   - `Signal Bot` and `Execution Logs` now consume that shared execution ownership layer
+  - shared bot activity now exposes a unified owned timeline that folds linked decisions and linked executions into one history shape
+  - decision timeline entries now carry explicit execution linkage metadata directly from the shared seam
+  - `Execution Logs` now prefers that owned activity timeline instead of concatenating linked decisions and linked orders as separate stories
 - pending:
   - Supabase `bot_decisions` table
-  - richer persisted execution outcomes and performance aggregation
+  - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

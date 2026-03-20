@@ -76,6 +76,11 @@ function createDecisionTimeline(decisions: Array<{
       entryPrice: Number(decision.metadata?.entryPrice || 0) || null,
       targetPrice: Number(decision.metadata?.targetPrice || 0) || null,
       strategyId: String(decision.metadata?.strategyId || ""),
+      executionOrderId: normalizeSignalId(decision.metadata?.executionOrderId) || null,
+      executionStatus: String(decision.metadata?.executionStatus || ""),
+      executionOutcomeStatus: String(decision.metadata?.executionOutcomeStatus || ""),
+      executionLinkedAt: String(decision.metadata?.executionLinkedAt || ""),
+      linkedBy: String(decision.metadata?.linkedBy || ""),
       rankingTier: String(decision.metadata?.rankingTier || ""),
       observedAt: String(decision.metadata?.signalObservedAt || decision.createdAt),
       createdAt: decision.createdAt,
@@ -512,6 +517,57 @@ function createExecutionBreakdowns(orders: ExecutionOrderRecord[]): BotPerforman
     .sort((left, right) => Math.abs(right.realizedPnlUsd) - Math.abs(left.realizedPnlUsd));
 }
 
+function createBotActivityTimeline<
+  TDecision extends {
+    id: string;
+    executionOrderId?: number | null;
+    updatedAt?: string;
+    createdAt?: string;
+  },
+  TOrder extends {
+    orderId: number;
+    updatedAt?: string;
+    createdAt?: string;
+  },
+>(decisionTimeline: TDecision[], executionTimeline: TOrder[]) {
+  const executionByOrderId = new Map(
+    executionTimeline
+      .filter((entry) => Number.isFinite(Number(entry.orderId)) && Number(entry.orderId) > 0)
+      .map((entry) => [Number(entry.orderId), entry]),
+  );
+  const linkedOrderIds = new Set<number>();
+
+  const logs = decisionTimeline.map((decision) => {
+    const linkedOrderId = Number(decision.executionOrderId || 0);
+    const linkedOrder = linkedOrderId ? executionByOrderId.get(linkedOrderId) || null : null;
+    if (linkedOrderId) linkedOrderIds.add(linkedOrderId);
+
+    return {
+      kind: "decision" as const,
+      decision,
+      linkedOrder,
+    };
+  });
+
+  const unmatchedOrders = executionTimeline
+    .filter((order) => !linkedOrderIds.has(Number(order.orderId || 0)))
+    .map((order) => ({
+      kind: "order" as const,
+      order,
+    }));
+
+  return [...logs, ...unmatchedOrders]
+    .sort((left, right) => new Date(
+      (right.kind === "decision"
+        ? right.linkedOrder?.updatedAt || right.decision.updatedAt || right.decision.createdAt
+        : right.order.updatedAt || right.order.createdAt) || 0,
+    ).getTime() - new Date(
+      (left.kind === "decision"
+        ? left.linkedOrder?.updatedAt || left.decision.updatedAt || left.decision.createdAt
+        : left.order.updatedAt || left.order.createdAt) || 0,
+    ).getTime());
+}
+
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
   const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
   const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
@@ -723,12 +779,10 @@ export function useSignalsBotsReadModel() {
     const selectedBotDecisions = selectedBotCard?.decisions || [];
     const selectedBotDecisionTimeline = selectedBotCard?.decisionTimeline?.slice(0, 12) || [];
     const selectedBotExecutionTimeline = selectedBotCard?.executionTimeline?.slice(0, 12) || [];
-    const selectedBotActivityTimeline = [
-      ...selectedBotDecisionTimeline.map((entry) => ({ kind: "decision" as const, ...entry })),
-      ...selectedBotExecutionTimeline.map((entry) => ({ kind: "execution" as const, ...entry })),
-    ]
-      .sort((left, right) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime())
-      .slice(0, 12);
+    const selectedBotActivityTimeline = createBotActivityTimeline(
+      selectedBotDecisionTimeline,
+      selectedBotExecutionTimeline,
+    ).slice(0, 12);
     const selectedBotPerformanceBreakdowns = (selectedBotCard?.executionBreakdowns?.length
       ? selectedBotCard.executionBreakdowns
       : selectedBotCard?.performanceBreakdowns) || [];
@@ -745,6 +799,7 @@ export function useSignalsBotsReadModel() {
       })))
       .sort((left, right) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime());
     const allBotExecutionTimeline = executionOwnership.allEntries;
+    const allBotActivityTimeline = createBotActivityTimeline(allBotDecisionTimeline, allBotExecutionTimeline);
     const totalTrades = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0);
     const totalProfit = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0);
     const averageWinRate = botCardsWithSharedMemory.length
@@ -786,6 +841,7 @@ export function useSignalsBotsReadModel() {
       selectedBotPerformanceBreakdowns,
       allBotDecisionTimeline,
       allBotExecutionTimeline,
+      allBotActivityTimeline,
       botSummary: {
         totalBots: botCardsWithSharedMemory.length,
         activeBots: activeBots.length,

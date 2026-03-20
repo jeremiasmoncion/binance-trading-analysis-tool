@@ -340,7 +340,33 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {readModel.closedHistory.map((entry: BotDecisionRecord | SignalSnapshot | (typeof readModel.closedHistory)[number]) => isExecutionTimelineEntry(entry) ? (
+                  {readModel.closedHistory.map((entry: BotDecisionRecord | SignalSnapshot | (typeof readModel.closedHistory)[number]) => isActivityOrderEntry(entry) ? (
+                    <tr key={entry.order.id}>
+                      <td>{entry.order.symbol}</td>
+                      <td>{formatExecutionType(entry.order.mode)}</td>
+                      <td>{formatMaybeUsd(entry.order.entryPrice)}</td>
+                      <td>-</td>
+                      <td className={Number(entry.order.pnlUsd || 0) >= 0 ? "wallet-positive" : "wallet-negative"}>
+                        {formatMaybeUsd(entry.order.pnlUsd)}
+                      </td>
+                      <td>{formatDuration(entry.order.createdAt, entry.order.updatedAt || entry.order.createdAt)}</td>
+                      <td>{formatExecutionStatus(entry.order.status)}</td>
+                      <td>{formatDate(entry.order.updatedAt || entry.order.createdAt)}</td>
+                    </tr>
+                  ) : isActivityDecisionEntry(entry) ? (
+                    <tr key={entry.decision.id}>
+                      <td>{entry.decision.symbol}</td>
+                      <td>{formatDecisionAction(entry.decision.action)}</td>
+                      <td>{formatMaybeUsd(entry.linkedOrder?.entryPrice ?? entry.decision.entryPrice)}</td>
+                      <td>{formatMaybeUsd(entry.decision.targetPrice)}</td>
+                      <td className={Number(entry.linkedOrder?.pnlUsd ?? entry.decision.pnlUsd ?? 0) >= 0 ? "wallet-positive" : "wallet-negative"}>
+                        {formatMaybeUsd(entry.linkedOrder?.pnlUsd ?? entry.decision.pnlUsd)}
+                      </td>
+                      <td>{formatDuration(entry.decision.createdAt, entry.linkedOrder?.updatedAt || entry.decision.updatedAt || entry.decision.createdAt)}</td>
+                      <td>{formatDecisionStatus(entry.linkedOrder?.status || entry.decision.status)}</td>
+                      <td>{formatDate(entry.linkedOrder?.updatedAt || entry.decision.updatedAt || entry.decision.createdAt)}</td>
+                    </tr>
+                  ) : isExecutionTimelineEntry(entry) ? (
                     <tr key={entry.id}>
                       <td>{entry.symbol}</td>
                       <td>{formatExecutionType(entry.mode)}</td>
@@ -682,6 +708,57 @@ function isExecutionTimelineEntry(value: unknown): value is {
     && "status" in value
     && "pnlUsd" in value
     && "createdAt" in value,
+  );
+}
+
+function isActivityDecisionEntry(value: unknown): value is {
+  kind: "decision";
+  decision: {
+    id: string;
+    symbol: string;
+    action: string;
+    status: string;
+    entryPrice: number | null;
+    targetPrice: number | null;
+    pnlUsd: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+  linkedOrder?: {
+    status: string;
+    pnlUsd: number;
+    entryPrice: number | null;
+    updatedAt: string;
+  } | null;
+} {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && "kind" in value
+    && (value as { kind?: string }).kind === "decision"
+    && "decision" in value,
+  );
+}
+
+function isActivityOrderEntry(value: unknown): value is {
+  kind: "order";
+  order: {
+    id: string;
+    symbol: string;
+    mode: string;
+    status: string;
+    pnlUsd: number;
+    entryPrice: number | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+} {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && "kind" in value
+    && (value as { kind?: string }).kind === "order"
+    && "order" in value,
   );
 }
 

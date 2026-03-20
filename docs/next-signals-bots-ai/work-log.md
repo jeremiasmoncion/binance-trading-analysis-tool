@@ -4,6 +4,41 @@
 
 ### Phase
 
+`Bot Core` bot-owned execution logs round
+
+### Completed
+
+- Reworked the shared `signals + bots` read-model so bot activity can now expose one owned timeline instead of always concatenating decision rows and execution rows as parallel stories.
+- Decision timeline entries now carry explicit persisted execution linkage fields directly in the shared seam:
+  - `executionOrderId`
+  - execution status / outcome status
+  - execution linked timestamp
+  - linkage reason
+- Added a shared `allBotActivityTimeline` that:
+  - keeps linked decision rows
+  - folds in the matched execution order when one exists
+  - leaves unmatched orders visible as standalone execution rows
+- Updated `Execution Logs` so the page now consumes that owned activity timeline first instead of double-counting linked decisions and orders.
+- Updated `Signal Bot` history so the selected bot reads the same owned activity shape and can show linked outcomes without needing local timeline reconstruction.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids telling the same bot story twice in `Execution Logs` once as a decision and once again as a raw execution row.
+- It also avoids teaching `Signal Bot` and `Execution Logs` two different activity shapes when they should be reading one shared bot-owned history seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - tighten the remaining unresolved execution matches
+  - start surfacing bot-owned outcome filters in `Execution Logs`
+  - feed layered memory/training from the owned activity timeline instead of only from flat decision sets
+
+### Phase
+
 `Bot Core` decision outcome linkage round
 
 ### Completed

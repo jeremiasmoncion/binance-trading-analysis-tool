@@ -711,6 +711,12 @@ function createOwnershipSummary<
   const unresolvedRate = activityTimeline.length
     ? (unresolvedOwnershipCount / activityTimeline.length) * 100
     : 0;
+  const unresolvedDecisionRanking = summarizeSymbolFrequency(
+    unresolvedDecisions.map((entry) => entry.decision.symbol),
+  );
+  const unlinkedExecutionRanking = summarizeSymbolFrequency(
+    unlinkedExecutions.map((entry) => entry.order.symbol),
+  );
   const unresolvedDecisionSymbols = [...new Set(unresolvedDecisions
     .map((entry) => entry.decision.symbol)
     .filter(Boolean))].slice(0, 3);
@@ -742,7 +748,23 @@ function createOwnershipSummary<
     primaryIssue,
     unresolvedDecisionSymbols,
     unlinkedExecutionSymbols,
+    unresolvedDecisionRanking,
+    unlinkedExecutionRanking,
   };
+}
+
+function summarizeSymbolFrequency(symbols: Array<string | null | undefined>) {
+  const counts = new Map<string, number>();
+  symbols
+    .filter((value): value is string => Boolean(value))
+    .forEach((symbol) => {
+      counts.set(symbol, (counts.get(symbol) || 0) + 1);
+    });
+
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([symbol, count]) => ({ symbol, count }));
 }
 
 function createAdaptationSummary(

@@ -4,6 +4,34 @@
 
 ### Phase
 
+`Bot Core` fleet recurring-symbol rankings round
+
+### Completed
+
+- Moved recurring backlog symbol ranking into the shared ownership seam so fleet-level bot diagnostics can reuse the same ranking contract instead of flattening symbol lists in the hub.
+- `Bot Settings -> Bots Needing Attention` now shows ranked recurring symbols for:
+  - decision backlog
+  - execution backlog
+- Kept the ranking owned by `createOwnershipSummary(...)` so both the bot hub and future surfaces can reuse the same ownership diagnostic shape.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids teaching the fleet hub a weaker flat-symbol model while `Execution Logs` already understands repetition.
+- It also avoids growing another local ranking rule inside `Bot Settings`.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - evaluate whether weakest-bot cards should deep-link into `Execution Logs` filtered context
+  - decide whether ranked recurring symbols now deserve persistence or backend indexing
+  - keep tightening the ownership bridge for bots dominated by the same repeated backlog symbols
+
+### Phase
+
 `Bot Core` fleet attention diagnostics round
 
 ### Completed

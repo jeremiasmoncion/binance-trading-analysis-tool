@@ -237,9 +237,9 @@ function formatHealthLabel(value: string) {
   return capitalize(value);
 }
 
-function formatSymbolList(values: Array<string | null | undefined>) {
-  const items = values.filter((value): value is string => Boolean(value));
-  return items.length ? items.join(", ") : "clear";
+function formatSymbolRanking(items: Array<{ symbol: string; count: number }> | undefined) {
+  if (!items?.length) return "clear";
+  return items.map((item) => `${item.symbol} (${item.count})`).join(", ");
 }
 
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
@@ -283,6 +283,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         adaptationBias: bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve.",
         unresolvedDecisionSymbols: bot.ownership.unresolvedDecisionSymbols || [],
         unlinkedExecutionSymbols: bot.ownership.unlinkedExecutionSymbols || [],
+        unresolvedDecisionRanking: bot.ownership.unresolvedDecisionRanking || [],
+        unlinkedExecutionRanking: bot.ownership.unlinkedExecutionRanking || [],
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,
@@ -895,9 +897,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>{buildBotAttentionNote(bot)}</p>
                   <p>
-                    Decision backlog: {formatSymbolList(bot.unresolvedDecisionSymbols)}
+                    Decision backlog: {formatSymbolRanking(bot.unresolvedDecisionRanking)}
                     {" · "}
-                    Execution backlog: {formatSymbolList(bot.unlinkedExecutionSymbols)}
+                    Execution backlog: {formatSymbolRanking(bot.unlinkedExecutionRanking)}
                   </p>
                   <p>
                     Best pocket: {bot.bestPocketSymbol || "forming"}

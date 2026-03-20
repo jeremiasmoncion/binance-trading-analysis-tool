@@ -1895,6 +1895,7 @@ Phase 3 - Signal Bot hard-close refinement
 - Removed the extra hero/status block above the account tabs.
 - Removed the visible `Binance` tab from the account settings surface.
 - Redirected any account entry that still targets `binance` into `Security & API Keys`.
+- Replaced the old account tabs bar with the same tab architecture already used in `Bot Settings`.
 
 ### Why This Matters
 

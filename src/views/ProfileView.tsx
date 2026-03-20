@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ModuleTabs } from "../components/ModuleTabs";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
@@ -12,6 +11,20 @@ interface ProfileViewProps {
   user: UserSession;
   initialTab?: "account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner";
 }
+
+const PROFILE_TABS: Array<{
+  key: "account" | "notifications" | "security" | "users" | "backtesting" | "scanner";
+  label: string;
+  icon: ReactNode;
+  adminOnly?: boolean;
+}> = [
+  { key: "account", label: "Cuenta", icon: <ProfileTabIcon /> },
+  { key: "notifications", label: "Notifications", icon: <BellIconMini /> },
+  { key: "security", label: "Security & API Keys", icon: <ApiConnectionsIcon /> },
+  { key: "scanner", label: "Vigilante", icon: <ScannerTabIcon />, adminOnly: true },
+  { key: "backtesting", label: "Backtesting", icon: <BacktestingTabIcon />, adminOnly: true },
+  { key: "users", label: "Usuarios", icon: <UsersTabIcon />, adminOnly: true },
+];
 
 export function ProfileView(props: ProfileViewProps) {
   const systemData = useProfileSystemSelector();
@@ -57,14 +70,7 @@ export function ProfileView(props: ProfileViewProps) {
   const users = systemData.availableUsers || [];
   const pagedUsers = paginateRows(users, usersPage);
   const realtimeCore = systemData.realtimeCore;
-  const tabs = [
-    { key: "account", label: "Cuenta" },
-    { key: "notifications", label: "Notifications" },
-    { key: "security", label: "Security & API Keys" },
-    ...(props.user.role === "admin" ? [{ key: "scanner", label: "Vigilante" }] : []),
-    ...(props.user.role === "admin" ? [{ key: "backtesting", label: "Backtesting" }] : []),
-    ...(props.user.role === "admin" ? [{ key: "users", label: "Usuarios" }] : []),
-  ];
+  const tabs = PROFILE_TABS.filter((tab) => !tab.adminOnly || props.user.role === "admin");
 
   const profileEmail = `${props.user.username}@crype.app`;
   const connectionStatus = connection?.connected ? "Connected" : "Pending";
@@ -202,7 +208,19 @@ export function ProfileView(props: ProfileViewProps) {
 
   return (
     <div id="profileView" className="view-panel active">
-      <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner")} />
+      <div className="botsettings-tab-bar">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`botsettings-tab-button ui-chip ${activeTab === tab.key ? "active" : ""}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
       <div className="profile-panel-grid">
         {activeTab === "account" ? (
@@ -1332,6 +1350,55 @@ function NotificationTypeIcon() {
       <path d="M12 4 18.5 7.5V12c0 4-2.3 6.4-6.5 8-4.2-1.6-6.5-4-6.5-8V7.5L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="M12 8v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <circle cx="12" cy="15.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ProfileTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6.5 18.5c1.4-2.6 3.4-3.9 5.5-3.9s4.1 1.3 5.5 3.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BellIconMini() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5a4 4 0 0 0-4 4v2.6L6.8 14c-.5 1 .2 2.2 1.3 2.2h7.8c1.1 0 1.8-1.2 1.3-2.2L16 11.6V9a4 4 0 0 0-4-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10.2 18a2 2 0 0 0 3.6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ScannerTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 12c2.1-3.33 4.77-5 8-5s5.9 1.67 8 5c-2.1 3.33-4.77 5-8 5s-5.9-1.67-8-5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function BacktestingTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 18V9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 18V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19 18v-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UsersTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M17 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4.5 18a4.5 4.5 0 0 1 9 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M14.5 17.5a3.5 3.5 0 0 1 5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

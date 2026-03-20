@@ -1102,6 +1102,7 @@ Keep the work phased.
 - Removed the top summary block that sat above the account tabs.
 - Hid the standalone `Binance` tab from the account settings surface.
 - Mapped any legacy `binance` entry point into `Security & API Keys`.
+- Swapped the old account tabs bar for the same tab primitive used by `Bot Settings`.
 
 ### Why This Was Correct
 
@@ -1119,3 +1120,4 @@ Keep the work phased.
 
 - The account page should now open directly into the tab surface without the upper summary band.
 - `Binance` should no longer appear as a visible tab.
+- The tabs should now look like the same family used in `Bot Settings`, not like the older generic `ModuleTabs`.

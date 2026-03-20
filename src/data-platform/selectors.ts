@@ -187,6 +187,8 @@ export function useWatchlistSelector() {
 export function useProfileSystemSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     connection: state.snapshot.connection,
+    signalMemoryCount: state.snapshot.signalMemory?.length || 0,
+    watchlistsCount: state.snapshot.watchlists?.length || 0,
     scannerStatus: state.snapshot.scannerStatus,
     validationReport: state.snapshot.validationReport,
     backtestRuns: state.snapshot.backtestRuns,

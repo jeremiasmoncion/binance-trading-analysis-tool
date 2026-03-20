@@ -396,6 +396,192 @@
   gap: 1rem;
 }
 
+.profile-settings-shell {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.35rem;
+}
+
+.profile-settings-card {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.35rem;
+  border-radius: 1.2rem;
+  border: 1px solid var(--panel-border);
+  background: linear-gradient(180deg, rgba(11, 16, 32, 0.98), rgba(8, 12, 24, 0.96));
+  box-shadow: var(--shadow-soft);
+}
+
+.profile-settings-head {
+  display: flex;
+  align-items: center;
+  gap: 0.95rem;
+}
+
+.profile-settings-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.profile-settings-head p {
+  margin: 0.2rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.profile-settings-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  color: #fff;
+}
+
+.profile-settings-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.profile-settings-icon.is-accent {
+  background: linear-gradient(135deg, rgba(121, 102, 255, 0.96), rgba(236, 72, 153, 0.84));
+}
+
+.profile-settings-icon.is-info {
+  background: linear-gradient(135deg, rgba(50, 176, 255, 0.96), rgba(80, 130, 255, 0.84));
+}
+
+.profile-settings-icon.is-success {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.96), rgba(38, 190, 120, 0.84));
+}
+
+.profile-settings-icon.is-warning {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.96), rgba(251, 191, 36, 0.84));
+}
+
+.profile-profile-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
+}
+
+.profile-toggle-list {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.profile-toggle-row,
+.profile-select-row,
+.profile-storage-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.05rem;
+  border-radius: 1rem;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.profile-toggle-row strong,
+.profile-select-row strong,
+.profile-storage-row strong {
+  display: block;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.profile-toggle-row span,
+.profile-select-row span,
+.profile-storage-row span {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.profile-select-row select {
+  min-width: 9rem;
+  min-height: 2.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(103, 137, 255, 0.18);
+  background: rgba(8, 12, 24, 0.82);
+  color: var(--text);
+  padding: 0.75rem 0.95rem;
+}
+
+.settings-toggle {
+  position: relative;
+  width: 3.4rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(51, 65, 85, 0.92);
+  cursor: pointer;
+  transition: background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.settings-toggle span {
+  position: absolute;
+  top: 0.18rem;
+  left: 0.18rem;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
+  transition: transform 0.18s ease;
+}
+
+.settings-toggle.is-on {
+  background: linear-gradient(135deg, rgba(121, 102, 255, 0.96), rgba(99, 102, 241, 0.92));
+}
+
+.settings-toggle.is-on span {
+  transform: translateX(1.5rem);
+}
+
+.profile-storage-shell {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-storage-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.profile-storage-topline strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.profile-storage-bar {
+  width: 100%;
+  height: 0.8rem;
+  border-radius: 999px;
+  background: rgba(59, 68, 90, 0.75);
+  overflow: hidden;
+}
+
+.profile-storage-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(110, 96, 255, 0.96), rgba(236, 72, 153, 0.86));
+}
+
+.profile-storage-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
 .profile-identity-header,
 .profile-user-head {
   display: flex;
@@ -686,7 +872,8 @@
   .compare-summary-grid,
   .learn-shell-grid,
   .profile-panel-grid,
-  .profile-validation-grid {
+  .profile-validation-grid,
+  .profile-settings-shell {
     grid-template-columns: 1fr;
   }
 
@@ -711,7 +898,11 @@
 
   .profile-data-row,
   .binance-connection-banner,
-  .compare-spotlight-head {
+  .compare-spotlight-head,
+  .profile-toggle-row,
+  .profile-select-row,
+  .profile-storage-row,
+  .profile-storage-topline {
     flex-direction: column;
     align-items: flex-start;
   }

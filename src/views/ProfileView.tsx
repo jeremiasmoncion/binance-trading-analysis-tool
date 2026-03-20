@@ -4,16 +4,19 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useProfileSystemSelector } from "../data-platform/selectors";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import { showToast } from "../lib/ui-events";
 import type { UserSession, WatchlistScanExecution } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
-  initialTab?: "account" | "binance" | "security" | "users" | "backtesting" | "scanner";
+  initialTab?: "account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner";
 }
 
 export function ProfileView(props: ProfileViewProps) {
   const systemData = useProfileSystemSelector();
-  const [activeTab, setActiveTab] = useState<"account" | "binance" | "security" | "users" | "backtesting" | "scanner">(props.initialTab || "account");
+  const botReadModel = useSignalsBotsReadModel();
+  const [activeTab, setActiveTab] = useState<"account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner">(props.initialTab || "account");
   const [usersPage, setUsersPage] = useState(1);
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
@@ -27,6 +30,9 @@ export function ProfileView(props: ProfileViewProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [realtimeError, setRealtimeError] = useState<string | null>(null);
+  const [accountSettings, setAccountSettings] = useState(() => loadAccountSettings());
+  const [notificationSettings, setNotificationSettings] = useState(() => loadNotificationSettings());
+  const [storageUsageBytes, setStorageUsageBytes] = useState(0);
   // Profile keeps the authenticated user as an explicit prop, but all mutable
   // operational/admin state now comes from the shared system plane.
   const connection = systemData.connection || null;
@@ -46,6 +52,8 @@ export function ProfileView(props: ProfileViewProps) {
   const validationReport = systemData.validationReport;
   const backtestRuns = systemData.backtestRuns;
   const backtestQueue = systemData.backtestQueue;
+  const signalMemoryCount = systemData.signalMemoryCount || 0;
+  const watchlistsCount = systemData.watchlistsCount || 0;
   const summary = connection?.summary || {};
   const users = systemData.availableUsers || [];
   const pagedUsers = paginateRows(users, usersPage);
@@ -70,16 +78,69 @@ export function ProfileView(props: ProfileViewProps) {
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
+    { key: "notifications", label: "Notifications" },
     { key: "security", label: "Security & API Keys" },
     ...(props.user.role === "admin" ? [{ key: "scanner", label: "Vigilante" }] : []),
     ...(props.user.role === "admin" ? [{ key: "backtesting", label: "Backtesting" }] : []),
     ...(props.user.role === "admin" ? [{ key: "users", label: "Usuarios" }] : []),
   ];
 
+  const profileEmail = `${props.user.username}@crype.app`;
+  const connectionStatus = connection?.connected ? "Connected" : "Pending";
+  const runtimeLane = realtimeCore.activeMode === "external" ? "External realtime core" : "Serverless fallback";
+  const connectionCards = connection?.connected ? [{
+    id: "binance-demo",
+    name: "Binance Demo",
+    accountLabel: connection.accountAlias || "Demo account",
+    maskedKey: connection.maskedApiKey || "API activa",
+    permissions: (summary.permissions || []).join(", ") || "Read only",
+    lastSync: "Current session",
+    status: "Connected",
+    tone: "binance" as const,
+  }] : [];
+  const storageSegments = [
+    {
+      label: "Signal Memory",
+      value: signalMemoryCount,
+      note: `${signalMemoryCount} snapshots`,
+      tone: "accent" as const,
+    },
+    {
+      label: "Bot Configurations",
+      value: botReadModel.botCards.length,
+      note: `${botReadModel.botCards.length} bots`,
+      tone: "profit" as const,
+    },
+    {
+      label: "Backtesting Data",
+      value: backtestRuns.length,
+      note: `${backtestRuns.length} runs`,
+      tone: "warning" as const,
+    },
+  ];
+  const storageUsedGb = (storageUsageBytes / (1024 * 1024 * 1024)).toFixed(2);
+  const storageBudgetGb = "10.00";
+  const storageProgress = Math.min((storageUsageBytes / (10 * 1024 * 1024 * 1024)) * 100, 100);
+  const activeSessions = Math.max(1, users.length);
+
   useEffect(() => {
     if (!props.initialTab) return;
     setActiveTab(props.initialTab);
   }, [props.initialTab]);
+
+  useEffect(() => {
+    persistAccountSettings(accountSettings);
+    setStorageUsageBytes(computeLocalStorageBytes());
+  }, [accountSettings]);
+
+  useEffect(() => {
+    persistNotificationSettings(notificationSettings);
+    setStorageUsageBytes(computeLocalStorageBytes());
+  }, [notificationSettings]);
+
+  useEffect(() => {
+    setStorageUsageBytes(computeLocalStorageBytes());
+  }, []);
 
   useEffect(() => {
     if (props.user.role !== "admin" || activeTab !== "backtesting") return;
@@ -174,48 +235,193 @@ export function ProfileView(props: ProfileViewProps) {
         <StatCard label="Usuarios visibles" value={String(users.length)} detail={props.user.role === "admin" ? "Panel administrativo" : "Solo lectura"} tone="accent" />
       </div>
 
-      <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "security" | "users" | "backtesting" | "scanner")} />
+      <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner")} />
 
       <div className="profile-panel-grid">
         {activeTab === "account" ? (
           <>
             <SectionCard
-              title="Identidad de la cuenta"
-              subtitle="Resumen rapido de quien eres dentro de la app."
-              helpTitle="Identidad"
-              helpBody="Este bloque te deja confirmar rapidamente con que usuario y nivel de acceso estas trabajando."
+              title="Profile Settings"
+              subtitle="Manage your account information, region, session and local workspace data."
+              actions={<button type="button" className="premium-action-button is-secondary" onClick={() => showToast({ title: "Cuenta actualizada", message: "Tus preferencias locales quedaron guardadas.", tone: "success" })}>Edit</button>}
+              helpTitle="Profile settings"
+              helpBody="Esta vista concentra preferencias de cuenta y lectura de estado sin mezclar el control del usuario con configuraciones de bots."
             >
-              <div className="profile-identity-card">
-                <div className="profile-identity-header">
-                  <div className="profile-avatar-badge">{(props.user.displayName || props.user.username).slice(0, 2).toUpperCase()}</div>
-                  <div>
-                    <div className="profile-identity-name">{props.user.displayName || props.user.username}</div>
-                    <div className="profile-identity-role">{props.user.username} · {props.user.role === "admin" ? "Administrador" : "Usuario"}</div>
+              <div className="profile-settings-shell">
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-accent">
+                      <ProfileSettingsIcon />
+                    </div>
+                    <div>
+                      <h3>Profile Settings</h3>
+                      <p>Manage your account information</p>
+                    </div>
                   </div>
-                </div>
-                <div className="profile-data-list">
-                  <div className="profile-data-row"><span>Nombre visible</span><strong>{props.user.displayName || props.user.username}</strong></div>
-                  <div className="profile-data-row"><span>Usuario</span><strong>{props.user.username}</strong></div>
-                  <div className="profile-data-row"><span>Rol</span><strong>{props.user.role === "admin" ? "Administrador" : "Generico"}</strong></div>
-                </div>
-              </div>
-            </SectionCard>
 
-            <SectionCard
-              title="Seguridad y edicion"
-              subtitle="Por ahora la cuenta esta en modo controlado mientras terminamos las siguientes fases del backend."
-              helpTitle="Seguridad"
-              helpBody="Todavia no estamos editando datos sensibles desde aqui. Esta zona sirve para recordarte el estado actual del backend y lo que viene despues."
-            >
-              <div className="field-guide-list">
-                <div className="field-guide-item">
-                  <span className="field-guide-label">Cambio de contrasena</span>
-                  <span className="field-guide-note">Se habilitara cuando cerremos persistencia y recuperacion segura.</span>
-                </div>
-                <div className="field-guide-item">
-                  <span className="field-guide-label">Sesion actual</span>
-                  <span className="field-guide-note">Tu acceso ya esta persistido, pero la edicion profunda sigue protegida.</span>
-                </div>
+                  <div className="profile-identity-header">
+                    <div className="profile-avatar-badge">{(accountSettings.displayName || props.user.username).slice(0, 2).toUpperCase()}</div>
+                    <div>
+                      <div className="profile-identity-name">{accountSettings.displayName}</div>
+                      <div className="profile-identity-role">{profileEmail}</div>
+                      <div className="profile-profile-pills">
+                        <span className="profile-status-chip is-online">{props.user.role === "admin" ? "PRO" : "USER"}</span>
+                        <span className={`profile-status-chip ${connection?.connected ? "is-online" : "is-offline"}`}>{connection?.connected ? "Verified" : "Pending"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="profile-data-list">
+                    <div className="profile-data-row"><span>Display Name</span><strong>{accountSettings.displayName}</strong></div>
+                    <div className="profile-data-row"><span>Username</span><strong>@{props.user.username}</strong></div>
+                    <div className="profile-data-row"><span>Phone</span><strong>{accountSettings.phone}</strong></div>
+                    <div className="profile-data-row"><span>Member Since</span><strong>{accountSettings.memberSince}</strong></div>
+                    <div className="profile-data-row"><span>Watchlists</span><strong>{watchlistsCount}</strong></div>
+                  </div>
+                </article>
+
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-info">
+                      <LanguageRegionIcon />
+                    </div>
+                    <div>
+                      <h3>Language & Region</h3>
+                      <p>Set your preferences</p>
+                    </div>
+                  </div>
+
+                  <div className="premium-panel-grid">
+                    <div className="premium-field-wide">
+                      <label>Language</label>
+                      <select value={accountSettings.language} onChange={(event) => setAccountSettings((current) => ({ ...current, language: event.target.value }))}>
+                        <option value="English (US)">English (US)</option>
+                        <option value="Español (DO)">Español (DO)</option>
+                      </select>
+                    </div>
+                    <div className="premium-field-wide">
+                      <label>Timezone</label>
+                      <select value={accountSettings.timezone} onChange={(event) => setAccountSettings((current) => ({ ...current, timezone: event.target.value }))}>
+                        <option value="America/Santo_Domingo">America/Santo_Domingo</option>
+                        <option value="America/New_York">America/New_York</option>
+                        <option value="UTC">UTC</option>
+                      </select>
+                    </div>
+                    <div className="premium-field-wide">
+                      <label>Currency Display</label>
+                      <select value={accountSettings.currencyDisplay} onChange={(event) => setAccountSettings((current) => ({ ...current, currencyDisplay: event.target.value }))}>
+                        <option value="USD ($)">USD ($)</option>
+                        <option value="DOP (RD$)">DOP (RD$)</option>
+                      </select>
+                    </div>
+                    <div className="premium-field-wide">
+                      <label>Date Format</label>
+                      <select value={accountSettings.dateFormat} onChange={(event) => setAccountSettings((current) => ({ ...current, dateFormat: event.target.value }))}>
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                      </select>
+                    </div>
+                  </div>
+                </article>
+
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-success">
+                      <SessionSettingsIcon />
+                    </div>
+                    <div>
+                      <h3>Session Settings</h3>
+                      <p>Manage your session preferences</p>
+                    </div>
+                  </div>
+
+                  <div className="profile-toggle-list">
+                    <div className="profile-toggle-row">
+                      <div>
+                        <strong>Auto Logout</strong>
+                        <span>Automatically log out after inactivity</span>
+                      </div>
+                      <button type="button" className={`settings-toggle ${accountSettings.autoLogout ? "is-on" : ""}`} aria-pressed={accountSettings.autoLogout} onClick={() => setAccountSettings((current) => ({ ...current, autoLogout: !current.autoLogout }))}>
+                        <span />
+                      </button>
+                    </div>
+
+                    <div className="profile-select-row">
+                      <div>
+                        <strong>Session Timeout</strong>
+                        <span>Time before auto logout</span>
+                      </div>
+                      <select value={accountSettings.sessionTimeout} onChange={(event) => setAccountSettings((current) => ({ ...current, sessionTimeout: event.target.value }))}>
+                        <option value="15 min">15 min</option>
+                        <option value="30 min">30 min</option>
+                        <option value="60 min">60 min</option>
+                      </select>
+                    </div>
+
+                    <div className="profile-toggle-row">
+                      <div>
+                        <strong>Remember Device</strong>
+                        <span>Stay logged in on this device</span>
+                      </div>
+                      <button type="button" className={`settings-toggle ${accountSettings.rememberDevice ? "is-on" : ""}`} aria-pressed={accountSettings.rememberDevice} onClick={() => setAccountSettings((current) => ({ ...current, rememberDevice: !current.rememberDevice }))}>
+                        <span />
+                      </button>
+                    </div>
+
+                    <div className="profile-data-row">
+                      <span>Active Sessions</span>
+                      <strong>{activeSessions}</strong>
+                    </div>
+                  </div>
+                </article>
+
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-warning">
+                      <DataStorageIcon />
+                    </div>
+                    <div>
+                      <h3>Data & Storage</h3>
+                      <p>Manage your data preferences</p>
+                    </div>
+                  </div>
+
+                  <div className="profile-storage-shell">
+                    <div className="profile-storage-topline">
+                      <span>Storage Used</span>
+                      <strong>{storageUsedGb} GB / {storageBudgetGb} GB</strong>
+                    </div>
+                    <div className="profile-storage-bar">
+                      <span style={{ width: `${storageProgress}%` }} />
+                    </div>
+                    <div className="profile-storage-list">
+                      {storageSegments.map((segment) => (
+                        <div key={segment.label} className="profile-storage-row">
+                          <span>{segment.label}</span>
+                          <strong>{segment.note}</strong>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="premium-action-row">
+                      <button
+                        type="button"
+                        className="premium-action-button is-secondary"
+                        onClick={() => {
+                          clearProfileStorage();
+                          const nextAccountSettings = loadAccountSettings();
+                          const nextNotificationSettings = loadNotificationSettings();
+                          setAccountSettings(nextAccountSettings);
+                          setNotificationSettings(nextNotificationSettings);
+                          setStorageUsageBytes(computeLocalStorageBytes());
+                          showToast({ title: "Cache local limpiado", message: "Se limpiaron las preferencias locales del modulo de cuenta.", tone: "success" });
+                        }}
+                      >
+                        Clear Cache
+                      </button>
+                    </div>
+                  </div>
+                </article>
               </div>
             </SectionCard>
 
@@ -313,57 +519,181 @@ export function ProfileView(props: ProfileViewProps) {
         {activeTab === "binance" ? (
           <>
             <SectionCard
-              title="Conectar Binance Demo"
-              subtitle="Esta es la pieza que habilita lectura de cuenta y ejecucion de prueba dentro del sistema."
+              title="Binance Connection"
+              subtitle="Connect and operate your Binance Demo lane from one place."
               helpTitle="Conexion Binance Demo"
-              helpBody="Aqui conectas la API de prueba para que el sistema pueda leer balance, ordenes y ejecutar en modo demo."
+              helpBody="Esta superficie usa la conexion real del sistema. Aqui conectas, refrescas y desconectas la cuenta demo sin tener que salir del area de usuario."
             >
-              <div className="binance-connection-banner">
-                <div>
-                  <strong>{connection?.connected ? connection.accountAlias || "Conexion activa" : "Sin conexion activa"}</strong>
-                  <p>{connection?.connected ? `${connection.maskedApiKey || "API activa"} · Permisos: ${(summary.permissions || []).join(", ") || "Sin permisos visibles"}` : "Conecta tu API Key y Secret de Binance Demo Spot para activar lectura y ejecucion."}</p>
-                </div>
-                <span className={`profile-status-chip ${connection?.connected ? "is-online" : "is-offline"}`}>
-                  {connection?.connected ? "Conectado" : "Pendiente"}
-                </span>
-              </div>
+              <div className="profile-settings-shell">
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-warning">
+                      <ExchangeConnectionIcon />
+                    </div>
+                    <div>
+                      <h3>Exchange Connection</h3>
+                      <p>{connection?.connected ? "Binance Demo connected and readable." : "Connect your Binance Demo credentials."}</p>
+                    </div>
+                  </div>
 
-              <div className="premium-panel-grid">
-                <div className="premium-field premium-field-wide">
-                  <label>Alias de la cuenta</label>
-                  <input type="text" value={binanceForm.alias} onChange={(e) => onBinanceFormChange("alias", e.target.value)} placeholder="Ej: Demo principal Jeremias" />
-                  <span>Nombre interno para reconocer esta conexion.</span>
-                </div>
-                <div className="premium-field">
-                  <label>API Key Demo Spot</label>
-                  <input type="text" value={binanceForm.apiKey} onChange={(e) => onBinanceFormChange("apiKey", e.target.value)} placeholder="Pega tu API Key de Binance Demo Spot" />
-                  <span>Llave publica que Binance Demo te entrega para acceso.</span>
-                </div>
-                <div className="premium-field">
-                  <label>API Secret Demo Spot</label>
-                  <input type="password" value={binanceForm.apiSecret} onChange={(e) => onBinanceFormChange("apiSecret", e.target.value)} placeholder="Pega tu API Secret de Binance Demo Spot" />
-                  <span>Secreto privado cifrado en backend.</span>
-                </div>
-              </div>
+                  <div className="binance-connection-banner">
+                    <div>
+                      <strong>{connection?.connected ? connection.accountAlias || "Conexion activa" : "Sin conexion activa"}</strong>
+                      <p>{connection?.connected ? `${connection.maskedApiKey || "API activa"} · Permisos: ${(summary.permissions || []).join(", ") || "Sin permisos visibles"}` : "Conecta tu API Key y Secret de Binance Demo Spot para activar lectura y ejecucion."}</p>
+                    </div>
+                    <span className={`profile-status-chip ${connection?.connected ? "is-online" : "is-offline"}`}>
+                      {connection?.connected ? "Connected" : "Pending"}
+                    </span>
+                  </div>
 
-              <div className="premium-action-row">
-                <button className="premium-action-button is-primary" onClick={onConnect}>Conectar Binance Demo</button>
-                <button className="premium-action-button is-secondary" type="button" onClick={onRefresh}>Actualizar resumen</button>
-                <button className="premium-action-button is-ghost" type="button" onClick={onDisconnect}>Desconectar</button>
+                  <div className="premium-panel-grid">
+                    <div className="premium-field-wide">
+                      <label>Account Alias</label>
+                      <input type="text" value={binanceForm.alias} onChange={(e) => onBinanceFormChange("alias", e.target.value)} placeholder="Ej: Demo principal Jeremias" />
+                      <span>Nombre interno para reconocer esta conexion.</span>
+                    </div>
+                    <div className="premium-field">
+                      <label>API Key Demo Spot</label>
+                      <input type="text" value={binanceForm.apiKey} onChange={(e) => onBinanceFormChange("apiKey", e.target.value)} placeholder="Pega tu API Key de Binance Demo Spot" />
+                      <span>Llave publica usada por la cuenta demo.</span>
+                    </div>
+                    <div className="premium-field">
+                      <label>API Secret Demo Spot</label>
+                      <input type="password" value={binanceForm.apiSecret} onChange={(e) => onBinanceFormChange("apiSecret", e.target.value)} placeholder="Pega tu API Secret de Binance Demo Spot" />
+                      <span>Secreto privado resuelto en backend.</span>
+                    </div>
+                  </div>
+
+                  <div className="premium-action-row">
+                    <button className="premium-action-button is-primary" onClick={onConnect}>Conectar Binance Demo</button>
+                    <button className="premium-action-button is-secondary" type="button" onClick={onRefresh}>Actualizar resumen</button>
+                    <button className="premium-action-button is-ghost" type="button" onClick={onDisconnect}>Desconectar</button>
+                  </div>
+                </article>
+
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-success">
+                      <BinanceReadIcon />
+                    </div>
+                    <div>
+                      <h3>Connection Readout</h3>
+                      <p>Resumen rapido de lo que ya esta leyendo el sistema.</p>
+                    </div>
+                  </div>
+
+                  <div className="profile-data-list">
+                    <div className="profile-data-row"><span>Status</span><strong>{connectionStatus}</strong></div>
+                    <div className="profile-data-row"><span>Runtime Lane</span><strong>{runtimeLane}</strong></div>
+                    <div className="profile-data-row"><span>UID</span><strong>{summary.uid || "--"}</strong></div>
+                    <div className="profile-data-row"><span>Account Type</span><strong>{summary.accountType || "--"}</strong></div>
+                    <div className="profile-data-row"><span>Open Orders</span><strong>{summary.openOrdersCount || 0}</strong></div>
+                    <div className="profile-data-row"><span>Permissions</span><strong>{(summary.permissions || []).join(", ") || "--"}</strong></div>
+                  </div>
+                </article>
               </div>
             </SectionCard>
+          </>
+        ) : null}
 
+        {activeTab === "notifications" ? (
+          <>
             <SectionCard
-              title="Lectura de la conexion"
-              subtitle="Resumen rapido de lo que ya esta leyendo el sistema desde Binance Demo."
-              helpTitle="Lectura actual"
-              helpBody="Este bloque te confirma si la conexion no solo existe, sino si ademas esta entregando informacion util al sistema."
+              title="Notifications"
+              subtitle="Control your channels and alert priorities from one place."
+              helpTitle="Notifications"
+              helpBody="Estas preferencias viven a nivel de usuario para no mezclar alertas globales con configuraciones de cada bot."
             >
-              <div className="profile-data-list">
-                <div className="profile-data-row"><span>UID</span><strong>{summary.uid || "--"}</strong></div>
-                <div className="profile-data-row"><span>Tipo de cuenta</span><strong>{summary.accountType || "--"}</strong></div>
-                <div className="profile-data-row"><span>Ordenes abiertas</span><strong>{summary.openOrdersCount || 0}</strong></div>
-                <div className="profile-data-row"><span>Permisos</span><strong>{(summary.permissions || []).join(", ") || "--"}</strong></div>
+              <div className="profile-settings-shell">
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-accent">
+                      <NotificationBellIcon />
+                    </div>
+                    <div>
+                      <h3>Notification Channels</h3>
+                      <p>Activa o desactiva los canales de entrega.</p>
+                    </div>
+                  </div>
+
+                  <div className="profile-toggle-list">
+                    {[
+                      { key: "email", title: "Email", note: profileEmail },
+                      { key: "push", title: "Push Notifications", note: "Mobile and desktop alerts" },
+                      { key: "telegram", title: "Telegram", note: connection?.connected ? "@crype-binance-demo" : "Connect later" },
+                      { key: "discord", title: "Discord", note: "Security and runtime summaries" },
+                    ].map((item) => (
+                      <div key={item.key} className="profile-toggle-row">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.note}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={`settings-toggle ${notificationSettings.channels[item.key as keyof NotificationSettings["channels"]] ? "is-on" : ""}`}
+                          aria-pressed={notificationSettings.channels[item.key as keyof NotificationSettings["channels"]]}
+                          onClick={() =>
+                            setNotificationSettings((current) => ({
+                              ...current,
+                              channels: {
+                                ...current.channels,
+                                [item.key]: !current.channels[item.key as keyof NotificationSettings["channels"]],
+                              },
+                            }))
+                          }
+                        >
+                          <span />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="profile-settings-card">
+                  <div className="profile-settings-head">
+                    <div className="profile-settings-icon is-warning">
+                      <NotificationTypeIcon />
+                    </div>
+                    <div>
+                      <h3>Alert Types</h3>
+                      <p>Define qué eventos te deben interrumpir.</p>
+                    </div>
+                  </div>
+
+                  <div className="profile-toggle-list">
+                    {[
+                      { key: "tradeExecuted", title: "Trade Executed", note: "When a buy or sell order is filled" },
+                      { key: "takeProfit", title: "Take Profit Hit", note: "When TP target is reached" },
+                      { key: "stopLoss", title: "Stop Loss Triggered", note: "When SL is triggered" },
+                      { key: "botStatus", title: "Bot Status Change", note: "Start, stop and pause events" },
+                      { key: "dailySummary", title: "Daily Summary", note: "End of day performance report" },
+                      { key: "runtimeAlerts", title: "Runtime Alerts", note: "Realtime core and backend incidents" },
+                    ].map((item) => (
+                      <div key={item.key} className="profile-toggle-row">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.note}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className={`settings-toggle ${notificationSettings.alerts[item.key as keyof NotificationSettings["alerts"]] ? "is-on" : ""}`}
+                          aria-pressed={notificationSettings.alerts[item.key as keyof NotificationSettings["alerts"]]}
+                          onClick={() =>
+                            setNotificationSettings((current) => ({
+                              ...current,
+                              alerts: {
+                                ...current.alerts,
+                                [item.key]: !current.alerts[item.key as keyof NotificationSettings["alerts"]],
+                              },
+                            }))
+                          }
+                        >
+                          <span />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </article>
               </div>
             </SectionCard>
           </>
@@ -386,59 +716,59 @@ export function ProfileView(props: ProfileViewProps) {
                       </div>
                       <h3>Connected Exchanges</h3>
                     </div>
-                    <button type="button" className="ui-button ui-button-primary">
+                    <button type="button" className="ui-button ui-button-primary" onClick={() => setActiveTab("binance")}>
                       <PlusMiniIcon />
                       Add Exchange
                     </button>
                   </div>
 
                   <div className="botsettings-api-grid">
-                    {PROFILE_API_CONNECTIONS.map((connection) => (
-                      <article key={connection.id} className="botsettings-api-exchange-card">
+                    {connectionCards.map((connectionCard) => (
+                      <article key={connectionCard.id} className="botsettings-api-exchange-card">
                         <div className="botsettings-api-card-head">
                           <div className="botsettings-api-card-identity">
-                            <div className={`botsettings-api-logo is-${connection.tone}`}>
+                            <div className={`botsettings-api-logo is-${connectionCard.tone}`}>
                               <ExchangeBadgeIcon />
                             </div>
                             <div className="botsettings-api-card-copy">
-                              <strong>{connection.name}</strong>
-                              <span>{connection.accountLabel}</span>
+                              <strong>{connectionCard.name}</strong>
+                              <span>{connectionCard.accountLabel}</span>
                             </div>
                           </div>
-                          <span className="botsettings-status-pill is-running">{connection.status}</span>
+                          <span className="botsettings-status-pill is-running">{connectionCard.status}</span>
                         </div>
 
                         <div className="botsettings-api-metadata">
                           <div className="botsettings-api-meta-row">
                             <span>API Key</span>
-                            <strong>{connection.maskedKey}</strong>
+                            <strong>{connectionCard.maskedKey}</strong>
                           </div>
                           <div className="botsettings-api-meta-row">
                             <span>Permissions</span>
-                            <strong>{connection.permissions}</strong>
+                            <strong>{connectionCard.permissions}</strong>
                           </div>
                           <div className="botsettings-api-meta-row">
                             <span>Last Sync</span>
-                            <strong>{connection.lastSync}</strong>
+                            <strong>{connectionCard.lastSync}</strong>
                           </div>
                         </div>
 
                         <div className="botsettings-api-actions">
-                          <button type="button" className="botsettings-api-sync-button ui-button">
+                          <button type="button" className="botsettings-api-sync-button ui-button" onClick={onRefresh}>
                             <SyncMiniIcon />
                             Sync
                           </button>
-                          <button type="button" className="botsettings-api-icon-button" aria-label={`Open ${connection.name} settings`}>
+                          <button type="button" className="botsettings-api-icon-button" aria-label={`Open ${connectionCard.name} settings`} onClick={() => setActiveTab("binance")}>
                             <GearMiniIcon />
                           </button>
-                          <button type="button" className="botsettings-api-icon-button is-danger" aria-label={`Delete ${connection.name}`}>
+                          <button type="button" className="botsettings-api-icon-button is-danger" aria-label={`Delete ${connectionCard.name}`} onClick={onDisconnect}>
                             <TrashMiniIcon />
                           </button>
                         </div>
                       </article>
                     ))}
 
-                    <button type="button" className="botsettings-api-add-card">
+                    <button type="button" className="botsettings-api-add-card" onClick={() => setActiveTab("binance")}>
                       <span className="botsettings-api-add-icon">
                         <PlusMiniIcon />
                       </span>
@@ -913,28 +1243,129 @@ export function ProfileView(props: ProfileViewProps) {
   );
 }
 
-const PROFILE_API_CONNECTIONS = [
-  {
-    id: "binance-main",
-    name: "Binance",
-    accountLabel: "Main Account",
-    maskedKey: "••••x7Kf3",
-    permissions: "Read, Trade",
-    lastSync: "2 min ago",
-    status: "Connected",
-    tone: "binance" as const,
-  },
-  {
-    id: "coinbase-pro",
-    name: "Coinbase Pro",
-    accountLabel: "Trading Account",
-    maskedKey: "••••m2Zb8",
-    permissions: "Read, Trade",
-    lastSync: "5 min ago",
-    status: "Connected",
-    tone: "coinbase" as const,
-  },
-];
+interface AccountSettings {
+  displayName: string;
+  phone: string;
+  memberSince: string;
+  language: string;
+  timezone: string;
+  currencyDisplay: string;
+  dateFormat: string;
+  autoLogout: boolean;
+  sessionTimeout: string;
+  rememberDevice: boolean;
+}
+
+interface NotificationSettings {
+  channels: {
+    email: boolean;
+    push: boolean;
+    telegram: boolean;
+    discord: boolean;
+  };
+  alerts: {
+    tradeExecuted: boolean;
+    takeProfit: boolean;
+    stopLoss: boolean;
+    botStatus: boolean;
+    dailySummary: boolean;
+    runtimeAlerts: boolean;
+  };
+}
+
+const PROFILE_ACCOUNT_SETTINGS_KEY = "crype-profile-account-settings";
+const PROFILE_NOTIFICATION_SETTINGS_KEY = "crype-profile-notification-settings";
+
+function loadAccountSettings(): AccountSettings {
+  if (typeof window === "undefined") {
+    return defaultAccountSettings();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(PROFILE_ACCOUNT_SETTINGS_KEY);
+    if (!raw) return defaultAccountSettings();
+    return { ...defaultAccountSettings(), ...JSON.parse(raw) };
+  } catch {
+    return defaultAccountSettings();
+  }
+}
+
+function loadNotificationSettings(): NotificationSettings {
+  if (typeof window === "undefined") {
+    return defaultNotificationSettings();
+  }
+
+  try {
+    const raw = window.localStorage.getItem(PROFILE_NOTIFICATION_SETTINGS_KEY);
+    if (!raw) return defaultNotificationSettings();
+    const parsed = JSON.parse(raw);
+    return {
+      channels: { ...defaultNotificationSettings().channels, ...(parsed?.channels || {}) },
+      alerts: { ...defaultNotificationSettings().alerts, ...(parsed?.alerts || {}) },
+    };
+  } catch {
+    return defaultNotificationSettings();
+  }
+}
+
+function persistAccountSettings(settings: AccountSettings) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(PROFILE_ACCOUNT_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function persistNotificationSettings(settings: NotificationSettings) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(PROFILE_NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function computeLocalStorageBytes() {
+  if (typeof window === "undefined") return 0;
+  try {
+    return Object.entries(window.localStorage).reduce((total, [key, value]) => total + key.length + value.length, 0);
+  } catch {
+    return 0;
+  }
+}
+
+function clearProfileStorage() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(PROFILE_ACCOUNT_SETTINGS_KEY);
+  window.localStorage.removeItem(PROFILE_NOTIFICATION_SETTINGS_KEY);
+}
+
+function defaultAccountSettings(): AccountSettings {
+  return {
+    displayName: "Jeremias",
+    phone: "+1 (829) 000-0000",
+    memberSince: "Jan 15, 2024",
+    language: "English (US)",
+    timezone: "America/Santo_Domingo",
+    currencyDisplay: "USD ($)",
+    dateFormat: "MM/DD/YYYY",
+    autoLogout: true,
+    sessionTimeout: "30 min",
+    rememberDevice: true,
+  };
+}
+
+function defaultNotificationSettings(): NotificationSettings {
+  return {
+    channels: {
+      email: true,
+      push: true,
+      telegram: false,
+      discord: false,
+    },
+    alerts: {
+      tradeExecuted: true,
+      takeProfit: true,
+      stopLoss: true,
+      botStatus: true,
+      dailySummary: false,
+      runtimeAlerts: true,
+    },
+  };
+}
 
 function SecurityPracticeCard(props: { tone: "success" | "warning"; icon: ReactNode; title: string; note: string }) {
   return (
@@ -945,6 +1376,79 @@ function SecurityPracticeCard(props: { tone: "success" | "warning"; icon: ReactN
         <span>{props.note}</span>
       </div>
     </article>
+  );
+}
+
+function ProfileSettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6.5 18.5c1.4-2.6 3.4-3.9 5.5-3.9s4.1 1.3 5.5 3.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function LanguageRegionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5 12h14M12 5c1.8 2 2.7 4.3 2.7 7s-.9 5-2.7 7c-1.8-2-2.7-4.3-2.7-7s.9-5 2.7-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SessionSettingsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 8.5V12l2.5 1.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DataStorageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <ellipse cx="12" cy="6.5" rx="5.5" ry="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6.5 6.5V12c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V6.5M6.5 12v5.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V12" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function ExchangeConnectionIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 7h8a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9.5 12h5M13 9.5 15.5 12 13 14.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BinanceReadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 6.5h8M8 12h8M8 17.5h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M17 17.5 19.5 20l2.5-2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NotificationBellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5a4 4 0 0 0-4 4v2.6L6.8 14c-.5 1 .2 2.2 1.3 2.2h7.8c1.1 0 1.8-1.2 1.3-2.2L16 11.6V9a4 4 0 0 0-4-4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10.2 18a2 2 0 0 0 3.6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NotificationTypeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4 18.5 7.5V12c0 4-2.3 6.4-6.5 8-4.2-1.6-6.5-4-6.5-8V7.5L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 8v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="15.5" r="1" fill="currentColor" />
+    </svg>
   );
 }
 

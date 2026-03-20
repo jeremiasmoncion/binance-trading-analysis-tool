@@ -113,10 +113,20 @@ export function AppView(props: AppViewProps) {
       content = <TemplatePlaceholderView title="Bot Templates" subtitle="Section reserved for the template library flow defined in the marketplace." />;
       break;
     case "preferences":
-      content = <TemplatePlaceholderView title="Preferences" subtitle="Account settings surface aligned to the template account section." />;
+      content = (
+        <ProfileView
+          user={props.user}
+          initialTab="account"
+        />
+      );
       break;
     case "notifications":
-      content = <TemplatePlaceholderView title="Notifications" subtitle="Account notifications surface aligned to the template account section." />;
+      content = (
+        <ProfileView
+          user={props.user}
+          initialTab="notifications"
+        />
+      );
       break;
     case "security-api-keys":
       content = (

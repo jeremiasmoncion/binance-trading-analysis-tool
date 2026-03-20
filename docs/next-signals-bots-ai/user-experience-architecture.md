@@ -157,6 +157,17 @@ More specific rule for template migration:
   - selected bot context should travel through a shared seam, not ad hoc component state
   - `API Connections` does not belong inside `Bot Settings`
   - exchange credentials and API security belong to the account/admin area under `Security & API Keys`
+ - for the account/settings module:
+   - `Cuenta`, `Notifications`, `Binance`, and `Security & API Keys` belong to the user/admin profile area, not the bot area
+   - that area should follow the same template language used for profile/settings surfaces:
+     - profile summary
+     - language and region
+     - session preferences
+     - storage/data view
+     - notification channels and alert types
+   - `Security & API Keys` must read the real exchange connection currently owned by the user
+   - do not render fake exchange cards when the system already has a real Binance Demo connection available
+   - exchange connect / refresh / disconnect actions should reuse the existing shared profile/binance actions, not a second API path
 
 ## Core UX Rule
 

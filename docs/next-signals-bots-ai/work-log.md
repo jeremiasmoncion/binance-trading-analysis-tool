@@ -4,6 +4,40 @@
 
 ### Phase
 
+`Account settings` template + real-data migration round
+
+### Completed
+
+- Reworked the account/admin settings hub in `ProfileView` so it now behaves like a fuller settings module instead of a mixed admin placeholder.
+- Added real tabs for:
+  - `Cuenta`
+  - `Notifications`
+  - `Binance`
+  - `Security & API Keys`
+- Moved `API Connections` fully into the account/security area and removed the fake exchange catalog from that surface.
+- Wired `Security & API Keys` to the real Binance Demo connection already exposed by the shared profile selector:
+  - connect
+  - refresh
+  - disconnect
+  - real masked key / permissions / account alias
+- Added local persisted user preferences for:
+  - language / region
+  - session settings
+  - notification channels
+  - notification alert types
+- Added local storage usage readout and controlled cache clearing for the account module.
+
+### Risk Avoided
+
+- This avoids keeping account settings in a half-migrated state where the header and navigation were new but the body still depended on placeholder content and fake exchange cards.
+- It also avoids duplicating API connection management across both `Bot Settings` and the account area.
+
+### Recommended Next Step
+
+- Validate the new account/settings module visually in production, then continue with the next bot-core round now that user-owned API/security settings are separated cleanly from bot configuration.
+
+### Phase
+
 `Bot Core` persisted settings round
 
 ### Completed

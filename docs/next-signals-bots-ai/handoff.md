@@ -106,6 +106,14 @@ The redesign also now has dedicated documentation for:
 - added a dedicated product operating model document explaining the agreed business/product logic of `signals + bots + AI`
 - added a dedicated AI context pack so a single new AI can onboard into the whole project quickly without relying on thread memory
 - verified the new domain layer with `npm run typecheck`
+- moved `API Connections` out of `Bot Settings` and into the account/security module where exchange credentials actually belong
+- expanded `ProfileView` into a real settings hub for:
+  - account
+  - notifications
+  - Binance
+  - security / API keys
+- replaced fake API connection cards in the account area with the real Binance Demo connection already owned by the current user session
+- kept account-level preferences local/persisted without opening a second bot/platform settings runtime
 
 ## What Has Not Been Done Yet
 
@@ -115,6 +123,7 @@ The redesign also now has dedicated documentation for:
 - no global shell wiring has been added for the domain module
 - no signal feed has been wired into the existing market/runtime pipeline beyond read-only/domain-driven surfaces
 - no AI conversational layer has been implemented yet
+- the account/settings module now has a stronger UX and real Binance wiring, but deeper user-profile persistence still remains intentionally limited to local preferences plus the existing Binance connection seam
 
 ## Phase 3.5 Status
 
@@ -218,6 +227,14 @@ Continue replacing the legacy product flow with the new user-facing page structu
 - the first visible user-facing pages now exist for:
   - `Signals`
   - `Bots`
+
+Immediate next step:
+
+- resume `Bot Core` now that account/security/API ownership has been moved out of the bot surface
+- focus on:
+  - notifications persistence strategy if it must become backend-owned later
+  - bot memory / activity / performance
+  - cleaner bot identity and policy controls
 - feed ranking/prioritization is now in place as a read-only layer over published feed
 - current hydration source is intentionally:
   - `signal memory snapshots`

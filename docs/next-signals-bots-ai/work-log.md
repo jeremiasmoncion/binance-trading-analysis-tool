@@ -4,6 +4,38 @@
 
 ### Phase
 
+`Bot Core` execution ownership hardening round
+
+### Completed
+
+- Hardened decision-to-execution and bot-to-execution ownership matching so unresolved orders have more chances to reconcile through stronger existing bridges instead of looser pair-only heuristics.
+- Added stronger direct / high-confidence ownership signals:
+  - persisted `executionOrderId`
+  - shared `marketContextSignature` vs execution `contextSignature`
+  - controlled observed-time vs execution-time proximity
+- Updated both the decision outcome sync seam and the shared bot read-model to reuse those stronger ownership hints instead of relying only on:
+  - `signal_id`
+  - symbol / timeframe / strategy
+- Direct ownership confidence now also recognizes `executionOrderId` matches as first-class direct linkage.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids lowering ownership thresholds blindly just to hide `unlinked` rows.
+- It also avoids keeping the decision sync seam and the shared bot read-model on slightly different ownership logic.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - surface unresolved ownership counts per bot
+  - expose per-bot owned outcome summaries and ratios
+  - start routing adaptation/training summaries from the hardened owned outcomes set
+
+### Phase
+
 `Bot Core` owned-memory outcomes round
 
 ### Completed

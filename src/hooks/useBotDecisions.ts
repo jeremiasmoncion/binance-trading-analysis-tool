@@ -156,8 +156,33 @@ function getOrderStrategyId(order: ExecutionOrderRecord) {
   return normalizeToken(order.response_payload?.learning_snapshot?.primaryStrategyId || order.strategy_name || "");
 }
 
+function getOrderContextSignature(order: ExecutionOrderRecord) {
+  return normalizeToken(order.response_payload?.learning_snapshot?.contextSignature || "");
+}
+
 function getDecisionStrategyId(decision: BotDecisionRecord) {
   return normalizeToken(decision.metadata?.strategyId || "");
+}
+
+function getDecisionExecutionOrderId(decision: BotDecisionRecord) {
+  const nextValue = Number(decision.metadata?.executionOrderId || 0);
+  return Number.isFinite(nextValue) && nextValue > 0 ? nextValue : 0;
+}
+
+function getDecisionObservedAt(decision: BotDecisionRecord) {
+  const value = String(decision.metadata?.signalObservedAt || decision.createdAt || "").trim();
+  return value || "";
+}
+
+function getDecisionContextSignature(decision: BotDecisionRecord) {
+  return normalizeToken(decision.marketContextSignature || decision.metadata?.marketContextSignature || "");
+}
+
+function isWithinMinutes(left: string, right: string, maxMinutes: number) {
+  const leftTime = new Date(left || 0).getTime();
+  const rightTime = new Date(right || 0).getTime();
+  if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return false;
+  return Math.abs(leftTime - rightTime) <= maxMinutes * 60_000;
 }
 
 function hasClosedOutcome(order: ExecutionOrderRecord) {
@@ -183,6 +208,9 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
   const decisionSymbol = normalizeToken(decision.symbol);
   const decisionTimeframe = normalizeToken(decision.timeframe);
   const decisionStrategyId = getDecisionStrategyId(decision);
+  const decisionExecutionOrderId = getDecisionExecutionOrderId(decision);
+  const decisionObservedAt = getDecisionObservedAt(decision);
+  const decisionContextSignature = getDecisionContextSignature(decision);
 
   const rankedOrders = orders
     .map((order) => {
@@ -191,6 +219,11 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
       const orderSymbol = normalizeToken(order.coin);
       const orderTimeframe = normalizeToken(order.timeframe);
       const orderStrategyId = getOrderStrategyId(order);
+      const orderContextSignature = getOrderContextSignature(order);
+      const orderTimestamp = getOrderTimestamp(order);
+
+      if (decisionExecutionOrderId && Number(order.id) === decisionExecutionOrderId) score += 160;
+      if (decisionContextSignature && orderContextSignature && orderContextSignature === decisionContextSignature) score += 40;
 
       if (orderSignalId && decisionSignalIds.has(orderSignalId)) score += 100;
       if (decisionSymbol && orderSymbol === decisionSymbol) score += 20;
@@ -198,6 +231,7 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
       if (decisionStrategyId && orderStrategyId === decisionStrategyId) score += 10;
       if (normalizeToken(order.mode) === normalizeToken(decision.executionEnvironment)) score += 6;
       if (hasClosedOutcome(order)) score += 8;
+      if (decisionObservedAt && orderTimestamp && isWithinMinutes(decisionObservedAt, orderTimestamp, 360)) score += 10;
 
       return { order, score };
     })

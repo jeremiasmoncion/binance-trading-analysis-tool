@@ -145,6 +145,10 @@ Current progress:
     - local owned memory
     - family owned memory
     - global owned memory
+  - execution ownership is now hardened with stronger bridge signals:
+    - persisted `executionOrderId`
+    - market-context signature
+    - controlled time-window proximity
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

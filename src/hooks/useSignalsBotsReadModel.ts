@@ -220,6 +220,31 @@ function getOrderStrategyId(order: ExecutionOrderRecord) {
   );
 }
 
+function getOrderContextSignature(order: ExecutionOrderRecord) {
+  return normalizeToken(String(order.response_payload?.learning_snapshot?.contextSignature || ""));
+}
+
+function getDecisionContextSignature(decision: { marketContextSignature?: string | null; metadata?: Record<string, unknown> }) {
+  return normalizeToken(String(decision.marketContextSignature || decision.metadata?.marketContextSignature || ""));
+}
+
+function getDecisionExecutionOrderId(decision: { metadata?: Record<string, unknown> }) {
+  const nextValue = Number(decision.metadata?.executionOrderId || 0);
+  return Number.isFinite(nextValue) && nextValue > 0 ? nextValue : 0;
+}
+
+function getDecisionObservedAt(decision: { metadata?: Record<string, unknown>; createdAt?: string }) {
+  const value = String(decision.metadata?.signalObservedAt || decision.createdAt || "").trim();
+  return value || "";
+}
+
+function isWithinMinutes(left: string, right: string, maxMinutes: number) {
+  const leftTime = new Date(left || 0).getTime();
+  const rightTime = new Date(right || 0).getTime();
+  if (!Number.isFinite(leftTime) || !Number.isFinite(rightTime)) return false;
+  return Math.abs(leftTime - rightTime) <= maxMinutes * 60_000;
+}
+
 function getOrderSource(order: ExecutionOrderRecord) {
   return String(
     order.response_payload?.learning_snapshot?.decisionSource
@@ -264,22 +289,37 @@ function scoreExecutionOrderForBot(
     timeframePolicy: { allowedTimeframes: string[] };
   },
   decisionSignalIds: Set<number>,
+  decisionExecutionOrderIds: Set<number>,
   decisionPairs: Set<string>,
   strategyIds: Set<string>,
+  contextSignatures: Set<string>,
+  decisionObservedAtValues: string[],
 ) {
   const orderSignalId = normalizeSignalId(order.signal_id);
   const orderPair = normalizePair(order.coin);
   const orderTimeframe = normalizeToken(order.timeframe);
   const orderStrategyId = getOrderStrategyId(order);
   const orderStrategyName = normalizeToken(order.strategy_name);
+  const orderContextSignature = getOrderContextSignature(order);
+  const orderTimestamp = getOrderTimestamp(order);
   const pairKey = orderPair && orderTimeframe ? `${orderPair}:${orderTimeframe}` : "";
 
   let score = 0;
   let reason = "unmatched";
 
+  if (decisionExecutionOrderIds.has(Number(order.id))) {
+    score += 180;
+    reason = "execution-order-id";
+  }
+
   if (orderSignalId && decisionSignalIds.has(orderSignalId)) {
     score += 100;
     reason = "signal-id";
+  }
+
+  if (orderContextSignature && contextSignatures.has(orderContextSignature)) {
+    score += 42;
+    reason = reason === "unmatched" ? "context-signature" : reason;
   }
 
   if (pairKey && decisionPairs.has(pairKey)) {
@@ -304,6 +344,11 @@ function scoreExecutionOrderForBot(
     score += 6;
   }
 
+  if (orderTimestamp && decisionObservedAtValues.some((value) => isWithinMinutes(value, orderTimestamp, 360))) {
+    score += 10;
+    reason = reason === "unmatched" ? "time-window" : reason;
+  }
+
   const botTerms = [bot.slug, bot.name, bot.identity.family].map(normalizeToken).filter(Boolean);
   if (botTerms.some((term) => orderStrategyName.includes(term))) {
     score += 12;
@@ -313,7 +358,7 @@ function scoreExecutionOrderForBot(
   return {
     score,
     reason,
-    direct: reason === "signal-id",
+    direct: reason === "signal-id" || reason === "execution-order-id",
   };
 }
 
@@ -331,7 +376,9 @@ function resolveExecutionOwnership(
       id: string;
       symbol: string;
       timeframe: string;
+      marketContextSignature?: string | null;
       metadata: Record<string, unknown>;
+      createdAt?: string;
     }>;
   }>,
   executionOrders: ExecutionOrderRecord[],
@@ -349,6 +396,11 @@ function resolveExecutionOwnership(
             normalizeSignalId(decision.metadata.signalId),
             normalizeSignalId(decision.metadata.publishedSignalId),
           ]).filter(Boolean));
+          const decisionExecutionOrderIds = new Set(
+            bot.decisions
+              .map((decision) => getDecisionExecutionOrderId(decision))
+              .filter(Boolean),
+          );
           const decisionPairs = new Set(
             bot.decisions
               .map((decision) => {
@@ -363,9 +415,26 @@ function resolveExecutionOwnership(
               .map(normalizeToken)
               .filter(Boolean),
           );
+          const contextSignatures = new Set(
+            bot.decisions
+              .map((decision) => getDecisionContextSignature(decision))
+              .filter(Boolean),
+          );
+          const decisionObservedAtValues = bot.decisions
+            .map((decision) => getDecisionObservedAt(decision))
+            .filter(Boolean);
           return {
             bot,
-            match: scoreExecutionOrderForBot(order, bot, decisionSignalIds, decisionPairs, strategyIds),
+            match: scoreExecutionOrderForBot(
+              order,
+              bot,
+              decisionSignalIds,
+              decisionExecutionOrderIds,
+              decisionPairs,
+              strategyIds,
+              contextSignatures,
+              decisionObservedAtValues,
+            ),
           };
         })
         .sort((left, right) => right.match.score - left.match.score);

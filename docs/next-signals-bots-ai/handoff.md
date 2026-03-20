@@ -212,6 +212,14 @@ The redesign also now has dedicated documentation for:
     - unresolved decision count
     - unlinked execution count
   - `Signal Bot -> Memory Layers` now emphasizes owned outcomes at the UI level while still keeping notes from the shared seam
+  - execution ownership matching is now hardened with stronger existing bridges instead of only light heuristic overlap:
+    - persisted `executionOrderId`
+    - shared market-context signature
+    - controlled observed-time vs execution-time proximity
+  - that hardening now exists in both:
+    - the decision outcome sync seam
+    - the shared bot read-model ownership resolver
+  - `executionOrderId` now also counts as a direct ownership match, not only `signal_id`
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -229,7 +237,7 @@ The redesign also now has dedicated documentation for:
   - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - tighten unresolved execution ownership for orders that still lack a direct decision bridge
+  - surface unresolved execution ownership counts per bot
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
   - use owned outcomes more directly in training/adaptation inputs
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`

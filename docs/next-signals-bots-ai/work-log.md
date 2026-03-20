@@ -4,6 +4,38 @@
 
 ### Phase
 
+`Bot Core` selected-bot ownership workspace round
+
+### Completed
+
+- Extended `Signal Bot` so the selected bot workspace now exposes ownership health directly instead of forcing the operator to infer it from `Execution Logs` or only from the bot hub.
+- Added a dedicated ownership-health section in the performance workspace with:
+  - reconciled activity percentage
+  - unresolved linkage backlog
+  - owned outcomes count
+- Added an ownership-health settings card so the selected bot surface now carries the same reconciliation story in both:
+  - performance
+  - settings
+- Reused the existing `SectionCard`, `MetricTile`, and `SettingsCard` primitives without opening a separate workspace family.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids making ownership health visible only at the fleet level while the selected bot workspace still hides its own reconciliation state.
+- It also avoids pushing operators back to `Execution Logs` for something the bot workspace should already explain simply.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - add per-bot outcome ratios and health indicators beyond raw counts
+  - start surfacing adaptation/training summaries from owned outcomes
+  - evaluate whether unresolved linkage details need a compact drill-down inside `Signal Bot`
+
+### Phase
+
 `Bot Core` ownership summaries round
 
 ### Completed

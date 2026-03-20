@@ -153,6 +153,7 @@ Current progress:
     - per-bot owned outcomes
     - unresolved ownership count
     - reconciliation percentage
+  - selected-bot workspace now also exposes ownership health directly in `Signal Bot`
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

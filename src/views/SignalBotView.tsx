@@ -489,6 +489,26 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 </div>
               </SectionCard>
 
+              <SectionCard title="Ownership Health" subtitle="How much of this bot's activity is already reconciled." className="signalbot-subcard">
+                <div className="signalbot-mini-grid">
+                  <MetricTile
+                    label="Reconciled Activity"
+                    value={`${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}%`}
+                    note="Share of tracked bot decisions that already resolve into owned execution history."
+                  />
+                  <MetricTile
+                    label="Needs Link"
+                    value={String((selectedBotCard?.ownership?.unresolvedDecisionCount || 0) + (selectedBotCard?.ownership?.unlinkedExecutionCount || 0))}
+                    note={`${selectedBotCard?.ownership?.unresolvedDecisionCount || 0} unresolved decisions / ${selectedBotCard?.ownership?.unlinkedExecutionCount || 0} unlinked executions.`}
+                  />
+                  <MetricTile
+                    label="Owned Outcomes"
+                    value={String(selectedBotCard?.ownership?.ownedOutcomeCount || 0)}
+                    note={`${selectedBotCard?.ownership?.linkedDecisionCount || 0} decisions already carry linked execution ownership.`}
+                  />
+                </div>
+              </SectionCard>
+
               <SectionCard title="Memory Layers" subtitle="Local, family and platform learning stay separate." className="signalbot-subcard">
                 <div className="signalbot-mini-grid">
                   <MetricTile
@@ -519,6 +539,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Trading Pairs" value={String(selectedBotPairCount)} note="The current mix of pairs stays curated from watchlist and discovery." />
               <SettingsCard title="Identity" value={formatOperatingProfile(selectedBotCard)} note={`${selectedBotCard?.identity.family || "signal-core"} • ${selectedBotCard?.executionEnvironment || "paper"} • ${selectedBotCard?.automationMode || "observe"}`} />
               <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
+              <SettingsCard title="Ownership Health" value={`${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${(selectedBotCard?.ownership?.unresolvedDecisionCount || 0) + (selectedBotCard?.ownership?.unlinkedExecutionCount || 0)} still need linkage`} />
               <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
               <div className="signalbot-settings-cta">
                 <button type="button" className="ui-button ui-button-primary" onClick={() => onNavigateView("control-bot-settings")}>

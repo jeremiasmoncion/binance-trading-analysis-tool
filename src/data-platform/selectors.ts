@@ -56,9 +56,14 @@ export function useMemorySystemSelector() {
 export function useSignalsBotsFeedSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     signalMemory: state.snapshot.signalMemory,
-    watchlists: state.snapshot.watchlists,
     activeWatchlistName: state.snapshot.activeWatchlistName,
-  }), shallowEqualSelection);
+    activeWatchlistCoins: state.snapshot.watchlists.find((item) => item.name === state.snapshot.activeWatchlistName)?.coins || [],
+  }), (left, right) => (
+    left.signalMemory === right.signalMemory
+    && left.activeWatchlistName === right.activeWatchlistName
+    && left.activeWatchlistCoins.length === right.activeWatchlistCoins.length
+    && left.activeWatchlistCoins.every((coin, index) => coin === right.activeWatchlistCoins[index])
+  ));
 }
 
 export function usePortfolioSelector() {

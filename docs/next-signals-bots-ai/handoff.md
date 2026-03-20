@@ -429,6 +429,47 @@ What implementers should avoid:
 - Do not fix scanner/runtime page churn with component-level memoization or local equality guards.
 - Reuse the shared comparator seam if new template pages read scanner history or operational runs.
 
+## Refinador Runtime - 2026-03-19 - Signal Bot Active Watchlist Narrowing
+
+### What Was Done
+
+- Narrowed the shared selector used by `SignalsView` and `BotsView` so they now observe only:
+  - `signalMemory`
+  - `activeWatchlistName`
+  - `activeWatchlistCoins`
+- Removed the dependency on the full watchlist collection for these pages.
+- Added selector-level equality so non-active watchlist edits do not wake the Signal Bot feed surface.
+
+### Files Touched
+
+- `src/data-platform/selectors.ts`
+- `src/views/SignalsView.tsx`
+- `src/views/BotsView.tsx`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- `Signal Bot` now has a narrower feed seam before it grows denser cards/tables/filters.
+- The page should only wake when the active feed or active list context changes, not when some other watchlist is edited elsewhere.
+
+### What Remains Pending
+
+- Continue auditing Signal Bot seams as more real content lands.
+- Revisit whether feed/ranking derivation needs its own shared memo seam once the page has more tabs and summaries.
+
+### What The Director Should Review
+
+- This round is directly targeted at the first full page being closed: `AI Bot -> Signal Bot`.
+- No product behavior changed; it is purely runtime protection.
+
+### What The Implementer Should Avoid
+
+- Do not resubscribe Signal Bot to the full watchlist collection by convenience.
+- Do not compensate future watchlist-driven churn with local memoization inside Signal Bot components.
+
 ## Warning For Future Contributors
 
 If you skip the explicit domain model and jump straight into feature work, the redesign is likely to become another layer of hidden coupling on top of the existing pipeline.

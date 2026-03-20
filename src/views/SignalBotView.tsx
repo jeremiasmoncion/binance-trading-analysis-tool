@@ -524,6 +524,31 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 </div>
               </SectionCard>
 
+              <SectionCard title="Adaptation Readiness" subtitle="What owned outcomes are currently teaching this bot." className="signalbot-subcard">
+                <div className="signalbot-mini-grid">
+                  <MetricTile
+                    label="Training Confidence"
+                    value={capitalize(feedReadModel.selectedBotAdaptationSummary?.trainingConfidence || "low")}
+                    note={`${feedReadModel.selectedBotAdaptationSummary?.trustedOutcomeCount || 0} owned outcomes currently support adaptation.`}
+                  />
+                  <MetricTile
+                    label="Best Learned Edge"
+                    value={feedReadModel.selectedBotAdaptationSummary?.bestSymbol || "Waiting"}
+                    note={feedReadModel.selectedBotAdaptationSummary?.bestEdge || "The bot still needs clearer owned outcomes."}
+                  />
+                  <MetricTile
+                    label="Weakest Pocket"
+                    value={feedReadModel.selectedBotAdaptationSummary?.weakestSymbol || "None yet"}
+                    note={feedReadModel.selectedBotAdaptationSummary?.weakness || "No weak flow is obvious yet."}
+                  />
+                  <MetricTile
+                    label="Adaptive Bias"
+                    value={feedReadModel.selectedBotAdaptationSummary?.trainingConfidence === "high" ? "Lean In" : feedReadModel.selectedBotAdaptationSummary?.trainingConfidence === "medium" ? "Balanced" : "Cautious"}
+                    note={feedReadModel.selectedBotAdaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve."}
+                  />
+                </div>
+              </SectionCard>
+
               <SectionCard title="Memory Layers" subtitle="Local, family and platform learning stay separate." className="signalbot-subcard">
                 <div className="signalbot-mini-grid">
                   <MetricTile

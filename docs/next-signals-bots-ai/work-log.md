@@ -4,6 +4,41 @@
 
 ### Phase
 
+`Bot Core` adaptation summaries round
+
+### Completed
+
+- Added a first bot-owned adaptation summary on top of owned outcomes instead of leaving learning/adaptation only as an abstract future layer.
+- The shared read-model can now derive a compact adaptation summary for the selected bot from:
+  - owned outcome rate
+  - ownership health
+  - best/weakest performance pockets
+  - current average realized result
+- Updated `Signal Bot` with an `Adaptation Readiness` section that exposes:
+  - training confidence
+  - strongest learned edge
+  - weakest pocket
+  - adaptive bias
+- Kept the summary on the shared seam and reused the existing performance workspace primitives.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids pretending the bot is learning from outcomes while keeping all adaptation language hidden or purely theoretical.
+- It also avoids making the UI invent adaptation narratives locally without a shared read-model source.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - add compact drill-down context when ownership health falls into `watch` or `needs-attention`
+  - expose the same adaptation summary at fleet level where useful
+  - decide whether any of these derived summaries now deserve persistence or SQL indexing support
+
+### Phase
+
 `Bot Core` ownership ratios round
 
 ### Completed

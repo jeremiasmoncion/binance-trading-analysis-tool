@@ -236,6 +236,11 @@ The redesign also now has dedicated documentation for:
     - owned outcome rate
     - unresolved rate
     - health label (`healthy`, `stable`, `watch`, `needs-attention`)
+  - the selected bot workspace now also exposes a first owned-outcome adaptation summary:
+    - training confidence
+    - strongest learned edge
+    - weakest pocket
+    - adaptive bias
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -253,9 +258,9 @@ The redesign also now has dedicated documentation for:
   - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - start surfacing adaptation / training summaries from owned outcomes
-  - deepen performance/training off the owned activity and owned memory layers with stronger contracts
   - add compact unresolved-linkage drill-down when ownership health falls into `watch` or `needs-attention`
+  - deepen performance/training off the owned activity and owned memory layers with stronger contracts
+  - expose adaptation summaries at fleet level where it materially helps the operator
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
 
 ## Phase 4 Status

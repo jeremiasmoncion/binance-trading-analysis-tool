@@ -731,6 +731,48 @@ function createOwnershipSummary<
   };
 }
 
+function createAdaptationSummary(
+  performanceBreakdowns: BotPerformanceBreakdown[],
+  ownership: {
+    ownedOutcomeRate: number;
+    unresolvedRate: number;
+    healthLabel: string;
+    ownedOutcomeCount: number;
+  },
+  performance: {
+    avgPnlUsd: number;
+    bestSymbol?: string | null;
+    worstSymbol?: string | null;
+  },
+) {
+  const strongestBreakdown = performanceBreakdowns[0] || null;
+  const weakestBreakdown = performanceBreakdowns
+    .slice()
+    .sort((left, right) => left.realizedPnlUsd - right.realizedPnlUsd)[0] || null;
+  const trainingConfidence = ownership.ownedOutcomeRate >= 70 && ownership.healthLabel !== "needs-attention"
+    ? "high"
+    : ownership.ownedOutcomeRate >= 40
+      ? "medium"
+      : "low";
+
+  return {
+    trainingConfidence,
+    bestEdge: strongestBreakdown
+      ? `${strongestBreakdown.symbol || strongestBreakdown.strategyId || strongestBreakdown.timeframe || "Owned flow"} is leading.`
+      : "The bot still needs more owned outcomes before a leading edge is clear.",
+    weakness: weakestBreakdown && weakestBreakdown.realizedPnlUsd < 0
+      ? `${weakestBreakdown.symbol || weakestBreakdown.strategyId || weakestBreakdown.timeframe || "One flow"} is still underperforming.`
+      : "No persistent weak pocket is standing out yet.",
+    adaptationBias: performance.avgPnlUsd > 0
+      ? "Owned outcomes support keeping adaptive adjustments enabled."
+      : "Adaptive adjustments should stay cautious until outcomes improve.",
+    trustedOutcomeCount: ownership.ownedOutcomeCount,
+    unresolvedRate: ownership.unresolvedRate,
+    bestSymbol: performance.bestSymbol || strongestBreakdown?.symbol || null,
+    weakestSymbol: performance.worstSymbol || weakestBreakdown?.symbol || null,
+  };
+}
+
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
   const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
   const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
@@ -949,6 +991,13 @@ export function useSignalsBotsReadModel() {
     const selectedBotPerformanceBreakdowns = (selectedBotCard?.executionBreakdowns?.length
       ? selectedBotCard.executionBreakdowns
       : selectedBotCard?.performanceBreakdowns) || [];
+    const selectedBotAdaptationSummary = selectedBotCard
+      ? createAdaptationSummary(
+          selectedBotPerformanceBreakdowns,
+          selectedBotCard.ownership,
+          selectedBotCard.performance,
+        )
+      : null;
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
@@ -1007,6 +1056,7 @@ export function useSignalsBotsReadModel() {
       selectedBotExecutionTimeline,
       selectedBotActivityTimeline,
       selectedBotPerformanceBreakdowns,
+      selectedBotAdaptationSummary,
       allBotDecisionTimeline,
       allBotExecutionTimeline,
       allBotActivityTimeline,

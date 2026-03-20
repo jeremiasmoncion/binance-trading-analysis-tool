@@ -1069,3 +1069,28 @@ Keep the work phased.
 
 - `Control Panel -> Bot Settings` should no longer show an `API Connections` tab.
 - `Security & API Keys` in the account area should now display the exchange connection cards and security practices.
+
+## Implementador - 2026-03-20 - Account Tab Template Alignment
+
+### What Was Done
+
+- Rebuilt the `Cuenta` tab layout inside `ProfileView` so it follows the template account screen more closely.
+- Kept the account page in four cards instead of one mixed admin/settings block.
+- Removed the runtime/admin card from the account tab and left the surface focused on actual account settings.
+
+### Why This Was Correct
+
+- The template expects the account area to feel like a clean settings page, not a backend observability surface.
+- This keeps the visual architecture closer to the model page without losing the live settings behavior already wired in.
+
+### Files Touched
+
+- `src/views/ProfileView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### What To Review
+
+- `Cuenta` should now feel much closer to the template composition.
+- The top-left card should read as a profile/settings card with an inline edit action, not as a generic admin panel.

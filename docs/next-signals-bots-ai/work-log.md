@@ -1863,3 +1863,27 @@ Phase 3 - Signal Bot hard-close refinement
 - `src/hooks/useMarketSignalsCore.ts`
 - `src/hooks/useSignalsBotsReadModel.ts`
 - `src/views/SignalsView.tsx`
+
+## Account Tab Template Alignment
+
+### What Changed
+
+- Reworked the `Cuenta` tab inside `ProfileView` so it reads closer to the template account screen.
+- Split the surface into four independent cards:
+  - `Profile Settings`
+  - `Language & Region`
+  - `Session Settings`
+  - `Data & Storage`
+- Removed the extra runtime/admin block from the account tab so the page stops feeling like an operations dashboard.
+- Kept the already-working local account settings and storage actions on top of the new card composition.
+
+### Why This Matters
+
+- The prior version still mixed account settings with internal runtime reporting.
+- The template uses a cleaner four-card settings layout with stronger scanability.
+- This improves UX fidelity without introducing a second visual system.
+
+### Files Updated
+
+- `src/views/ProfileView.tsx`
+- `src/styles/content.css`

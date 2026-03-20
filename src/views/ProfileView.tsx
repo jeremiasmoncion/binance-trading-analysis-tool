@@ -25,11 +25,9 @@ export function ProfileView(props: ProfileViewProps) {
   const [backtestQueueRunning, setBacktestQueueRunning] = useState(false);
   const [scannerLoading, setScannerLoading] = useState(false);
   const [scannerRunning, setScannerRunning] = useState(false);
-  const [realtimeChecking, setRealtimeChecking] = useState(false);
   const [lastBackfillSummary, setLastBackfillSummary] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
-  const [realtimeError, setRealtimeError] = useState<string | null>(null);
   const [accountSettings, setAccountSettings] = useState(() => loadAccountSettings());
   const [notificationSettings, setNotificationSettings] = useState(() => loadNotificationSettings());
   const [storageUsageBytes, setStorageUsageBytes] = useState(0);
@@ -41,7 +39,6 @@ export function ProfileView(props: ProfileViewProps) {
   const onConnect = systemData.connectBinance || (() => undefined);
   const onRefresh = systemData.refreshProfileDataWithFeedback || (() => undefined);
   const onDisconnect = systemData.disconnectBinance || (() => undefined);
-  const onRefreshRealtimeRuntime = systemData.refreshRealtimeCoreStatus || (async () => null);
   const onRefreshScannerStatus = systemData.refreshScannerStatus || (async () => null);
   const onRunScannerNow = systemData.runScannerNow || (async () => null);
   const onRefreshValidationLab = systemData.refreshValidationLab || (async () => null);
@@ -58,23 +55,6 @@ export function ProfileView(props: ProfileViewProps) {
   const users = systemData.availableUsers || [];
   const pagedUsers = paginateRows(users, usersPage);
   const realtimeCore = systemData.realtimeCore;
-  const realtimeReadiness = [
-    {
-      label: "URL externa configurada",
-      ok: realtimeCore.configured,
-      note: realtimeCore.configured ? realtimeCore.targetLabel : "Todavía no hay un host realtime externo configurado",
-    },
-    {
-      label: "Servicio saludable",
-      ok: realtimeCore.healthy,
-      note: realtimeCore.healthy ? "El runtime respondió saludable en la última verificación" : "La app degradó al fallback porque el core externo no respondió bien",
-    },
-    {
-      label: "Modo activo externo",
-      ok: realtimeCore.activeMode === "external",
-      note: realtimeCore.activeMode === "external" ? "Producción ya está entrando por el core persistente" : "La app sigue usando el fallback interno de Vercel",
-    },
-  ];
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
@@ -240,15 +220,11 @@ export function ProfileView(props: ProfileViewProps) {
       <div className="profile-panel-grid">
         {activeTab === "account" ? (
           <>
-            <SectionCard
-              title="Profile Settings"
-              subtitle="Manage your account information, region, session and local workspace data."
-              actions={<button type="button" className="premium-action-button is-secondary" onClick={() => showToast({ title: "Cuenta actualizada", message: "Tus preferencias locales quedaron guardadas.", tone: "success" })}>Edit</button>}
-              helpTitle="Profile settings"
-              helpBody="Esta vista concentra preferencias de cuenta y lectura de estado sin mezclar el control del usuario con configuraciones de bots."
-            >
-              <div className="profile-settings-shell">
-                <article className="profile-settings-card">
+            <div className="profile-settings-shell">
+              <SectionCard
+                className="profile-settings-card"
+              >
+                <div className="profile-template-card-header">
                   <div className="profile-settings-head">
                     <div className="profile-settings-icon is-accent">
                       <ProfileSettingsIcon />
@@ -258,261 +234,182 @@ export function ProfileView(props: ProfileViewProps) {
                       <p>Manage your account information</p>
                     </div>
                   </div>
+                  <button type="button" className="profile-inline-action" onClick={() => showToast({ title: "Cuenta actualizada", message: "Tus preferencias locales quedaron guardadas.", tone: "success" })}><EditMiniIcon />Edit</button>
+                </div>
 
-                  <div className="profile-identity-header">
-                    <div className="profile-avatar-badge">{(accountSettings.displayName || props.user.username).slice(0, 2).toUpperCase()}</div>
-                    <div>
-                      <div className="profile-identity-name">{accountSettings.displayName}</div>
-                      <div className="profile-identity-role">{profileEmail}</div>
-                      <div className="profile-profile-pills">
-                        <span className="profile-status-chip is-online">{props.user.role === "admin" ? "PRO" : "USER"}</span>
-                        <span className={`profile-status-chip ${connection?.connected ? "is-online" : "is-offline"}`}>{connection?.connected ? "Verified" : "Pending"}</span>
-                      </div>
+                <div className="profile-identity-header">
+                  <div className="profile-avatar-badge">{(accountSettings.displayName || props.user.username).slice(0, 2).toUpperCase()}</div>
+                  <div>
+                    <div className="profile-identity-name">{accountSettings.displayName}</div>
+                    <div className="profile-identity-role">{profileEmail}</div>
+                    <div className="profile-profile-pills">
+                      <span className="profile-status-chip is-online">{props.user.role === "admin" ? "PRO" : "USER"}</span>
+                      <span className={`profile-status-chip ${connection?.connected ? "is-online" : "is-offline"}`}>{connection?.connected ? "Verified" : "Pending"}</span>
                     </div>
                   </div>
-
-                  <div className="profile-data-list">
-                    <div className="profile-data-row"><span>Display Name</span><strong>{accountSettings.displayName}</strong></div>
-                    <div className="profile-data-row"><span>Username</span><strong>@{props.user.username}</strong></div>
-                    <div className="profile-data-row"><span>Phone</span><strong>{accountSettings.phone}</strong></div>
-                    <div className="profile-data-row"><span>Member Since</span><strong>{accountSettings.memberSince}</strong></div>
-                    <div className="profile-data-row"><span>Watchlists</span><strong>{watchlistsCount}</strong></div>
-                  </div>
-                </article>
-
-                <article className="profile-settings-card">
-                  <div className="profile-settings-head">
-                    <div className="profile-settings-icon is-info">
-                      <LanguageRegionIcon />
-                    </div>
-                    <div>
-                      <h3>Language & Region</h3>
-                      <p>Set your preferences</p>
-                    </div>
-                  </div>
-
-                  <div className="premium-panel-grid">
-                    <div className="premium-field-wide">
-                      <label>Language</label>
-                      <select value={accountSettings.language} onChange={(event) => setAccountSettings((current) => ({ ...current, language: event.target.value }))}>
-                        <option value="English (US)">English (US)</option>
-                        <option value="Español (DO)">Español (DO)</option>
-                      </select>
-                    </div>
-                    <div className="premium-field-wide">
-                      <label>Timezone</label>
-                      <select value={accountSettings.timezone} onChange={(event) => setAccountSettings((current) => ({ ...current, timezone: event.target.value }))}>
-                        <option value="America/Santo_Domingo">America/Santo_Domingo</option>
-                        <option value="America/New_York">America/New_York</option>
-                        <option value="UTC">UTC</option>
-                      </select>
-                    </div>
-                    <div className="premium-field-wide">
-                      <label>Currency Display</label>
-                      <select value={accountSettings.currencyDisplay} onChange={(event) => setAccountSettings((current) => ({ ...current, currencyDisplay: event.target.value }))}>
-                        <option value="USD ($)">USD ($)</option>
-                        <option value="DOP (RD$)">DOP (RD$)</option>
-                      </select>
-                    </div>
-                    <div className="premium-field-wide">
-                      <label>Date Format</label>
-                      <select value={accountSettings.dateFormat} onChange={(event) => setAccountSettings((current) => ({ ...current, dateFormat: event.target.value }))}>
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                      </select>
-                    </div>
-                  </div>
-                </article>
-
-                <article className="profile-settings-card">
-                  <div className="profile-settings-head">
-                    <div className="profile-settings-icon is-success">
-                      <SessionSettingsIcon />
-                    </div>
-                    <div>
-                      <h3>Session Settings</h3>
-                      <p>Manage your session preferences</p>
-                    </div>
-                  </div>
-
-                  <div className="profile-toggle-list">
-                    <div className="profile-toggle-row">
-                      <div>
-                        <strong>Auto Logout</strong>
-                        <span>Automatically log out after inactivity</span>
-                      </div>
-                      <button type="button" className={`settings-toggle ${accountSettings.autoLogout ? "is-on" : ""}`} aria-pressed={accountSettings.autoLogout} onClick={() => setAccountSettings((current) => ({ ...current, autoLogout: !current.autoLogout }))}>
-                        <span />
-                      </button>
-                    </div>
-
-                    <div className="profile-select-row">
-                      <div>
-                        <strong>Session Timeout</strong>
-                        <span>Time before auto logout</span>
-                      </div>
-                      <select value={accountSettings.sessionTimeout} onChange={(event) => setAccountSettings((current) => ({ ...current, sessionTimeout: event.target.value }))}>
-                        <option value="15 min">15 min</option>
-                        <option value="30 min">30 min</option>
-                        <option value="60 min">60 min</option>
-                      </select>
-                    </div>
-
-                    <div className="profile-toggle-row">
-                      <div>
-                        <strong>Remember Device</strong>
-                        <span>Stay logged in on this device</span>
-                      </div>
-                      <button type="button" className={`settings-toggle ${accountSettings.rememberDevice ? "is-on" : ""}`} aria-pressed={accountSettings.rememberDevice} onClick={() => setAccountSettings((current) => ({ ...current, rememberDevice: !current.rememberDevice }))}>
-                        <span />
-                      </button>
-                    </div>
-
-                    <div className="profile-data-row">
-                      <span>Active Sessions</span>
-                      <strong>{activeSessions}</strong>
-                    </div>
-                  </div>
-                </article>
-
-                <article className="profile-settings-card">
-                  <div className="profile-settings-head">
-                    <div className="profile-settings-icon is-warning">
-                      <DataStorageIcon />
-                    </div>
-                    <div>
-                      <h3>Data & Storage</h3>
-                      <p>Manage your data preferences</p>
-                    </div>
-                  </div>
-
-                  <div className="profile-storage-shell">
-                    <div className="profile-storage-topline">
-                      <span>Storage Used</span>
-                      <strong>{storageUsedGb} GB / {storageBudgetGb} GB</strong>
-                    </div>
-                    <div className="profile-storage-bar">
-                      <span style={{ width: `${storageProgress}%` }} />
-                    </div>
-                    <div className="profile-storage-list">
-                      {storageSegments.map((segment) => (
-                        <div key={segment.label} className="profile-storage-row">
-                          <span>{segment.label}</span>
-                          <strong>{segment.note}</strong>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="premium-action-row">
-                      <button
-                        type="button"
-                        className="premium-action-button is-secondary"
-                        onClick={() => {
-                          clearProfileStorage();
-                          const nextAccountSettings = loadAccountSettings();
-                          const nextNotificationSettings = loadNotificationSettings();
-                          setAccountSettings(nextAccountSettings);
-                          setNotificationSettings(nextNotificationSettings);
-                          setStorageUsageBytes(computeLocalStorageBytes());
-                          showToast({ title: "Cache local limpiado", message: "Se limpiaron las preferencias locales del modulo de cuenta.", tone: "success" });
-                        }}
-                      >
-                        Clear Cache
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </SectionCard>
-
-            {props.user.role === "admin" ? (
-              <SectionCard
-                title="Runtime realtime"
-                subtitle="Lectura operativa del camino realtime que está usando CRYPE ahora mismo."
-                helpTitle="Realtime runtime"
-                helpBody="Este bloque confirma si la app está entrando por el realtime core externo o por el fallback interno de Vercel. Sirve para validar el cutover sin abrir la red del navegador."
-              >
+                </div>
                 <div className="profile-data-list">
-                  <div className="profile-data-row">
-                    <span>Destino configurado</span>
-                    <strong>{realtimeCore.targetLabel}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Modo preferido</span>
-                    <strong>{realtimeCore.preferredMode === "external" ? "Realtime core externo" : "Fallback interno"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Modo activo</span>
-                    <strong>{realtimeCore.activeMode === "external" ? "External core" : "Serverless fallback"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Servicio saludable</span>
-                    <strong>{realtimeCore.healthy ? "Sí" : "No"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Core configurado</span>
-                    <strong>{realtimeCore.configured ? "Sí" : "No"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Última verificación</span>
-                    <strong>{realtimeCore.lastCheckedAt ? new Date(realtimeCore.lastCheckedAt).toLocaleString("es-DO") : "--"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Modo del servicio</span>
-                    <strong>{realtimeCore.serviceMode || "--"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Canales activos</span>
-                    <strong>{realtimeCore.activeChannels ?? "--"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Subscribers activos</span>
-                    <strong>{realtimeCore.activeSubscribers ?? "--"}</strong>
-                  </div>
-                  <div className="profile-data-row">
-                    <span>Polling del core</span>
-                    <strong>{realtimeCore.pollIntervalMs ? `${realtimeCore.pollIntervalMs} ms` : "--"}</strong>
-                  </div>
-                </div>
-
-                <div className="profile-runtime-checklist">
-                  {realtimeReadiness.map((item) => (
-                    <div key={item.label} className="profile-runtime-check">
-                      <span className={`profile-validation-chip ${item.ok ? "is-pass" : "is-warn"}`}>{item.ok ? "OK" : "Pendiente"}</span>
-                      <div>
-                        <strong>{item.label}</strong>
-                        <p>{item.note}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {realtimeError ? (
-                  <div className="profile-runtime-error">{realtimeError}</div>
-                ) : null}
-
-                <div className="premium-action-row">
-                  <button
-                    className="premium-action-button is-secondary"
-                    type="button"
-                    onClick={() => {
-                      setRealtimeChecking(true);
-                      setRealtimeError(null);
-                      void onRefreshRealtimeRuntime()
-                        .catch((error) => {
-                          setRealtimeError(error instanceof Error ? error.message : "No se pudo revalidar el runtime realtime");
-                        })
-                        .finally(() => {
-                          setRealtimeChecking(false);
-                        });
-                    }}
-                    disabled={realtimeChecking}
-                  >
-                    {realtimeChecking ? "Verificando..." : "Revalidar runtime"}
-                  </button>
+                  <div className="profile-data-row"><span>Display Name</span><strong>{accountSettings.displayName}</strong></div>
+                  <div className="profile-data-row"><span>Username</span><strong>@{props.user.username}</strong></div>
+                  <div className="profile-data-row"><span>Phone</span><strong>{accountSettings.phone}</strong></div>
+                  <div className="profile-data-row"><span>Member Since</span><strong>{accountSettings.memberSince}</strong></div>
                 </div>
               </SectionCard>
-            ) : null}
+
+              <SectionCard
+                className="profile-settings-card"
+              >
+                <div className="profile-settings-head">
+                  <div className="profile-settings-icon is-info">
+                    <LanguageRegionIcon />
+                  </div>
+                  <div>
+                    <h3>Language & Region</h3>
+                    <p>Set your preferences</p>
+                  </div>
+                </div>
+
+                <div className="premium-panel-grid">
+                  <div className="premium-field-wide">
+                    <label>Language</label>
+                    <select value={accountSettings.language} onChange={(event) => setAccountSettings((current) => ({ ...current, language: event.target.value }))}>
+                      <option value="English (US)">English (US)</option>
+                      <option value="Español (DO)">Español (DO)</option>
+                    </select>
+                  </div>
+                  <div className="premium-field-wide">
+                    <label>Timezone</label>
+                    <select value={accountSettings.timezone} onChange={(event) => setAccountSettings((current) => ({ ...current, timezone: event.target.value }))}>
+                      <option value="America/Santo_Domingo">America/Santo_Domingo</option>
+                      <option value="America/New_York">America/New_York</option>
+                      <option value="UTC">UTC</option>
+                    </select>
+                  </div>
+                  <div className="premium-field-wide">
+                    <label>Currency Display</label>
+                    <select value={accountSettings.currencyDisplay} onChange={(event) => setAccountSettings((current) => ({ ...current, currencyDisplay: event.target.value }))}>
+                      <option value="USD ($)">USD ($)</option>
+                      <option value="DOP (RD$)">DOP (RD$)</option>
+                    </select>
+                  </div>
+                  <div className="premium-field-wide">
+                    <label>Date Format</label>
+                    <select value={accountSettings.dateFormat} onChange={(event) => setAccountSettings((current) => ({ ...current, dateFormat: event.target.value }))}>
+                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    </select>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                className="profile-settings-card"
+              >
+                <div className="profile-settings-head">
+                  <div className="profile-settings-icon is-success">
+                    <SessionSettingsIcon />
+                  </div>
+                  <div>
+                    <h3>Session Settings</h3>
+                    <p>Manage your session preferences</p>
+                  </div>
+                </div>
+
+                <div className="profile-toggle-list">
+                  <div className="profile-toggle-row">
+                    <div>
+                      <strong>Auto Logout</strong>
+                      <span>Automatically log out after inactivity</span>
+                    </div>
+                    <button type="button" className={`settings-toggle ${accountSettings.autoLogout ? "is-on" : ""}`} aria-pressed={accountSettings.autoLogout} onClick={() => setAccountSettings((current) => ({ ...current, autoLogout: !current.autoLogout }))}>
+                      <span />
+                    </button>
+                  </div>
+
+                  <div className="profile-select-row">
+                    <div>
+                      <strong>Session Timeout</strong>
+                      <span>Time before auto logout</span>
+                    </div>
+                    <select value={accountSettings.sessionTimeout} onChange={(event) => setAccountSettings((current) => ({ ...current, sessionTimeout: event.target.value }))}>
+                      <option value="15 min">15 min</option>
+                      <option value="30 min">30 min</option>
+                      <option value="60 min">60 min</option>
+                    </select>
+                  </div>
+
+                  <div className="profile-toggle-row">
+                    <div>
+                      <strong>Remember Device</strong>
+                      <span>Stay logged in on this device</span>
+                    </div>
+                    <button type="button" className={`settings-toggle ${accountSettings.rememberDevice ? "is-on" : ""}`} aria-pressed={accountSettings.rememberDevice} onClick={() => setAccountSettings((current) => ({ ...current, rememberDevice: !current.rememberDevice }))}>
+                      <span />
+                    </button>
+                  </div>
+
+                  <div className="profile-data-row">
+                    <span>Active Sessions</span>
+                    <strong>{activeSessions}</strong>
+                  </div>
+                </div>
+              </SectionCard>
+
+              <SectionCard
+                className="profile-settings-card"
+              >
+                <div className="profile-settings-head">
+                  <div className="profile-settings-icon is-warning">
+                    <DataStorageIcon />
+                  </div>
+                  <div>
+                    <h3>Data & Storage</h3>
+                    <p>Manage your data preferences</p>
+                  </div>
+                </div>
+
+                <div className="profile-storage-shell">
+                  <div className="profile-storage-topline">
+                    <span>Storage Used</span>
+                    <strong>{storageUsedGb} GB / {storageBudgetGb} GB</strong>
+                  </div>
+                  <div className="profile-storage-bar">
+                    <span style={{ width: `${storageProgress}%` }} />
+                  </div>
+                  <div className="profile-storage-list">
+                    {storageSegments.map((segment) => (
+                      <div key={segment.label} className="profile-storage-row">
+                        <span>{segment.label}</span>
+                        <strong>{segment.note}</strong>
+                      </div>
+                    ))}
+                    <div className="profile-storage-row">
+                      <span>Watchlists</span>
+                      <strong>{watchlistsCount}</strong>
+                    </div>
+                  </div>
+                  <div className="premium-action-row">
+                    <button
+                      type="button"
+                      className="premium-action-button is-secondary"
+                      onClick={() => {
+                        clearProfileStorage();
+                        const nextAccountSettings = loadAccountSettings();
+                        const nextNotificationSettings = loadNotificationSettings();
+                        setAccountSettings(nextAccountSettings);
+                        setNotificationSettings(nextNotificationSettings);
+                        setStorageUsageBytes(computeLocalStorageBytes());
+                        showToast({ title: "Cache local limpiado", message: "Se limpiaron las preferencias locales del modulo de cuenta.", tone: "success" });
+                      }}
+                    >
+                      <TrashMiniIcon />
+                      Clear Cache
+                    </button>
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
           </>
         ) : null}
 
@@ -1448,6 +1345,15 @@ function NotificationTypeIcon() {
       <path d="M12 4 18.5 7.5V12c0 4-2.3 6.4-6.5 8-4.2-1.6-6.5-4-6.5-8V7.5L12 4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="M12 8v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       <circle cx="12" cy="15.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function EditMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4.5 19.5h3l9.1-9.1-3-3L4.5 16.5v3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m12.9 5.1 3 3 1.5-1.5a1.1 1.1 0 0 0 0-1.6L15.9 3.6a1.1 1.1 0 0 0-1.6 0L12.9 5.1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
     </svg>
   );
 }

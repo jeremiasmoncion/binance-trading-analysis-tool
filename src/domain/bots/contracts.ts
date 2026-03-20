@@ -13,6 +13,11 @@ export type BotExecutionArbitrationMode = "exclusive" | "priority" | "shared";
 export type BotExecutionOverlapMode = "block" | "allow-with-approval" | "allow";
 
 export type BotMemoryLayer = "local" | "family" | "global";
+export type BotDecisionAction = "observe" | "accept" | "block" | "assist" | "execute" | "close" | "adjust";
+export type BotDecisionSource = "signal-core" | "market-core" | "manual" | "ai-analyst" | "ai-adjuster" | "ai-supervisor";
+export type BotDecisionStatus = "pending" | "approved" | "blocked" | "executed" | "dismissed" | "closed";
+export type BotSignalLayer = "informative" | "observational" | "operable" | "ai-prioritized";
+export type BotPerformanceOrigin = "manual" | "signal" | "bot" | "auto";
 
 export interface BotUniversePolicy {
   kind: BotUniversePolicyKind;
@@ -120,6 +125,57 @@ export interface BotAuditSummary {
   lastDecisionAt: string | null;
   lastExecutionAt: string | null;
   lastPolicyChangeAt: string | null;
+}
+
+export interface BotDecisionRecord {
+  id: string;
+  botId: string;
+  signalSnapshotId: number | null;
+  symbol: string;
+  timeframe: string;
+  signalLayer: BotSignalLayer;
+  action: BotDecisionAction;
+  status: BotDecisionStatus;
+  source: BotDecisionSource;
+  rationale: string;
+  executionEnvironment: BotExecutionEnvironment;
+  automationMode: BotAutomationMode;
+  marketContextSignature: string | null;
+  contextTags: string[];
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BotPerformanceBreakdown {
+  origin: BotPerformanceOrigin;
+  style: string | null;
+  strategyId: string | null;
+  timeframe: string | null;
+  symbol: string | null;
+  marketContext: string | null;
+  totalSignals: number;
+  closedSignals: number;
+  winRate: number;
+  realizedPnlUsd: number;
+  rrAverage: number | null;
+  drawdownPct: number | null;
+  profitFactor: number | null;
+  positivePct: number | null;
+  negativePct: number | null;
+}
+
+export interface BotConversationAction {
+  id: string;
+  botId: string | null;
+  threadScope: "platform" | "bot";
+  intentLabel: string;
+  structuredAction: string;
+  requiresConfirmation: boolean;
+  approvalStatus: "pending" | "approved" | "rejected" | "executed";
+  payload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Bot {

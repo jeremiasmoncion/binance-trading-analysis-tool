@@ -88,6 +88,37 @@ Suggested deliverables:
 - page flow aligned with template `Control Panel -> Bot Settings`
 - search, chips, card grid, and edit-drawer behavior aligned with template
 
+Current validated state:
+
+- first persisted bot registry seam exists
+- first real bot create/update path exists
+- selected bot travels through a shared seam into the full bot workspace
+- quick edit now writes into the same persisted bot registry seam
+
+## Phase 3.5 - Bot Decision And Activity Layer
+
+Goals:
+
+- stop treating bot performance as only pair-scoped inference
+- introduce dedicated bot decision/activity records
+- prepare execution logs and training on top of real bot-owned history
+
+Suggested deliverables:
+
+- bot decision contract
+- bot activity persistence seam
+- bot history read-model
+- first real bridge between consumed signals and bot-owned outcomes
+- phase-safe metrics path for:
+  - history
+  - performance
+  - training
+
+Suggested first implementation rule:
+
+- reuse persisted `signalMemory` where useful
+- but do not collapse bot history back into raw signal snapshots once bot decisions become available
+
 ## Phase 4 - Signal Core Separation
 
 Goals:

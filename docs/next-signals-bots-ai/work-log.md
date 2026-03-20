@@ -1558,3 +1558,41 @@ Phase 3 - Signal Bot hard-close refinement
 
 - `src/hooks/useSignalsBotsReadModel.ts`
 - `src/views/BotSettingsView.tsx`
+
+## Product Logic Alignment Round
+
+### What Changed
+
+- Reconciled the local redesign docs with the updated product direction:
+  - dual `signals + bots`
+  - stronger AI role separation
+  - governed overlap
+  - watchlist-first signal priority
+  - conversational future through structured actions
+- Added the next structural step explicitly to the plan:
+  - `Phase 3.5 - Bot Decision And Activity Layer`
+- Extended the domain contracts with the next entities needed for that phase:
+  - `BotDecisionRecord`
+  - `BotPerformanceBreakdown`
+  - `BotConversationAction`
+
+### Why This Matters
+
+- The repo now already has:
+  - a persisted bot registry
+  - a selected-bot seam
+  - a full bot workspace
+- The next true blocker is no longer visual architecture.
+- It is the missing bot-owned decision/activity layer that should power:
+  - real history
+  - real bot performance
+  - training
+  - future conversational audit
+
+### Files Updated
+
+- `docs/next-signals-bots-ai/current-state.md`
+- `docs/next-signals-bots-ai/target-architecture.md`
+- `docs/next-signals-bots-ai/domain-model.md`
+- `docs/next-signals-bots-ai/implementation-plan.md`
+- `src/domain/bots/contracts.ts`

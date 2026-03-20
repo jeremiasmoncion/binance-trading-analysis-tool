@@ -45,6 +45,14 @@ Today the system can:
 - `src/hooks/useWatchlist.ts`
   - watchlist hydration
   - local cache + remote persistence
+- `src/hooks/useSelectedBot.ts`
+  - shared selected-bot seam
+  - persisted bot-registry hydration
+  - real bot create/update path
+- `src/hooks/useSignalsBotsReadModel.ts`
+  - shared signals+bots read-model
+  - ranked feed seam
+  - first real bot metrics derived from stored signal memory
 
 ### Strategies and Market Logic
 
@@ -91,6 +99,10 @@ Current strategy generation is still heuristic and threshold-based. It uses:
   - scorer policy
   - context bias
   - feature model evaluation
+- `api/_lib/bots.js`
+  - first bot-registry persistence seam
+  - first real bot create/update path
+  - user-scoped bot hydration
 
 ## What The Current System Is Good At
 
@@ -120,15 +132,23 @@ than at creating superior edge from a modern signal generation perspective.
 
 ### 2. Bots Are Not Yet First-Class Entities
 
-The system has automation, scanner behavior, and demo execution, but not yet a clean explicit domain model for:
+This is no longer completely true.
 
-- bot identity
-- bot policy
-- bot memory
-- bot universe
-- bot overlap policy
-- bot-level AI policy
-- bot-level accounting isolation
+The project now has:
+
+- explicit bot contracts
+- a shared selected-bot seam
+- persisted bot registry hydration
+- a first real create/update path for bots
+- a full bot workspace flow from `Bot Settings` into `Signal Bot`
+
+What is still missing is the deeper operational layer for:
+
+- bot decisions
+- bot activity history
+- bot-native execution history
+- bot-native learning snapshots
+- platform-wide settings persistence across all bot tabs
 
 ### 3. Signals and Bots Are Still Too Intertwined
 
@@ -139,6 +159,11 @@ The project can save and act on signals, but it still needs a stronger separatio
 - signals consumed by bots
 - bot decisions
 - execution candidates
+
+The current bridge state is:
+
+- bot cards and bot workspaces now derive first real metrics from persisted `signalMemory`
+- but the system still does not persist a dedicated `bot decision` layer yet
 
 ### 4. AI Exists More As Governance Than As Product Interface
 

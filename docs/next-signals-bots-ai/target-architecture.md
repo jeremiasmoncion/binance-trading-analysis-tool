@@ -35,6 +35,7 @@ Responsibilities:
 
 Signal Core should support at least:
 
+- watchlist-first prioritized feed
 - watchlist signal feed
 - market-wide signal feed
 - bot-consumable signal feed
@@ -49,6 +50,8 @@ Responsibilities:
 - consume selected signal feeds
 - decide observe / assist / auto behavior
 - isolate per-bot capital, positions, orders, and metrics
+- persist bot decisions and activity history
+- expose a quick-settings path and a full-workspace path for the same bot identity
 
 ### 4. AI Core
 
@@ -84,6 +87,7 @@ Responsibilities:
 - measure outcomes at bot level
 - build per-style, per-timeframe, per-coin and per-context metrics
 - supply learning snapshots to AI/governance
+- keep local / family / global learning boundaries explicit instead of merging all bot learning blindly
 
 ## Key Structural Separations
 
@@ -104,6 +108,7 @@ The redesign must make these boundaries explicit:
 - AI recommendation
 - governance approval/block
 - execution action
+- conversational intent -> structured action proposal -> approval -> execution receipt
 
 ### Environments and Modes
 
@@ -163,6 +168,12 @@ The signal module should evolve toward a feed-oriented product with sections suc
 - High-Confidence Signals
 
 The signal ranking layer becomes crucial because market-wide feeds can otherwise become noisy.
+
+Operational priority should remain:
+
+- watchlist / personalized signals first
+- market discovery second
+- bots consume a distinct bot-consumable feed instead of the raw user-facing feed
 
 ## Future Conversational Layer
 

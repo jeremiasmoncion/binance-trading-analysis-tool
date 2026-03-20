@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useMemorySystemSelector } from "../data-platform/selectors";
+import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
 import {
   INITIAL_BOT_REGISTRY_STATE,
   createBotConsumableFeed,
@@ -17,13 +17,16 @@ type BotsWorkspaceTab = "all-bots" | "performance" | "how-it-works";
 
 export function BotsView() {
   const [activeTab, setActiveTab] = useState<BotsWorkspaceTab>("all-bots");
-  const systemData = useMemorySystemSelector();
-  const watchlist = systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || [];
+  const feedData = useSignalsBotsFeedSelector();
+  const watchlist = feedData.watchlists.find((item) => item.name === feedData.activeWatchlistName)?.coins || [];
 
   const readModel = useMemo(() => {
     const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
     const bots = selectBots(registry.state);
-    const rankedFeed = rankPublishedFeed(createPublishedSignalFeedBundleFromMemory(systemData.signalMemory, { watchlistSymbols: watchlist }).all);
+    // The template now opens more read-only bot surfaces, so this page should
+    // subscribe only to the feed inputs it actually uses instead of the whole
+    // memory/runtime selector surface.
+    const rankedFeed = rankPublishedFeed(createPublishedSignalFeedBundleFromMemory(feedData.signalMemory, { watchlistSymbols: watchlist }).all);
 
     const cards = bots.map((bot) => {
       const feed = createBotConsumableFeed(bot, rankedFeed.items, rankedFeed.generatedAt);
@@ -37,7 +40,7 @@ export function BotsView() {
     });
 
     return { cards };
-  }, [systemData.signalMemory, watchlist]);
+  }, [feedData.signalMemory, watchlist]);
 
   const activeBots = readModel.cards.filter((bot) => bot.status === "active").length;
 

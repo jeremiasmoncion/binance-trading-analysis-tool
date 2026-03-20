@@ -8,7 +8,7 @@ import {
 import { useMarketSignalsCore } from "../hooks/useMarketSignalsCore";
 import { useSelectedBotState } from "../hooks/useSelectedBot";
 
-type SignalsWorkspaceTab = "overview" | "watchlist" | "discovery" | "operational" | "high-confidence" | "history";
+type SignalsWorkspaceTab = "overview" | "watchlist" | "discovery" | "operational" | "ai-prioritized" | "history";
 
 export function SignalsView() {
   const core = useMarketSignalsCore();
@@ -30,6 +30,8 @@ export function SignalsView() {
       highConfidence: core.signalCore.subsets.highConfidenceSignals,
       priority: core.signalCore.subsets.operableSignals,
       observational: core.signalCore.subsets.observationalSignals,
+      informational: core.signalCore.subsets.informationalSignals,
+      aiPrioritized: core.signalCore.subsets.aiPrioritizedSignals,
       eligibleCandidates: core.signalCore.subsets.eligibleExecutionCandidates,
       blockedCandidates: core.signalCore.subsets.blockedExecutionCandidates,
       activeBotConsumable: core.signalCore.subsets.botConsumableSignals,
@@ -65,7 +67,7 @@ export function SignalsView() {
           <StatCard label="Señales visibles" value={String(readModel.priority.length)} sub="Lo más útil ahora mismo" accentClass="accent-blue" />
           <StatCard label="Watchlist-first" value={String(watchlistVisible.length)} sub="Prioridad para lo que ya sigues" accentClass="accent-emerald" />
           <StatCard label="Discovery" value={String(discoveryVisible.length)} sub="Mercado general, con poda más dura" accentClass="accent-amber" />
-          <StatCard label="Alta confianza" value={String(readModel.highConfidence.length)} sub="Subset pequeño y defendible" accentClass="accent-green" />
+          <StatCard label="AI-prioritized" value={String(readModel.aiPrioritized.length)} sub="Promovidas por la capa adaptativa actual" accentClass="accent-green" />
         </div>
 
         <ModuleTabs
@@ -74,7 +76,7 @@ export function SignalsView() {
             { key: "watchlist", label: "Watchlist" },
             { key: "discovery", label: "Market discovery" },
             { key: "operational", label: "Operational" },
-            { key: "high-confidence", label: "Alta confianza" },
+            { key: "ai-prioritized", label: "AI prioritized" },
             { key: "history", label: "Historial" },
           ]}
           activeKey={activeTab}
@@ -119,6 +121,7 @@ export function SignalsView() {
               <MetricTile label="Señales publicadas" value={String(readModel.raw.length)} note="Base total leída desde signal memory" />
               <MetricTile label="Señales rankeadas" value={String(readModel.ranked.length)} note="Ordenadas para reducir ruido" />
               <MetricTile label="Observacionales" value={String(readModel.observational.length)} note="Visibles, pero todavía no pasan al cohort operativo" />
+              <MetricTile label="Informativas" value={String(readModel.informational.length)} note="Lectura útil, pero sin prioridad operativa todavía" />
               <MetricTile label="Aptas para bots" value={String(readModel.acceptedByBots)} note="Coinciden con políticas de bots actuales" />
               <MetricTile label="Feed del bot activo" value={String(readModel.activeBotConsumable.length)} note={`Subset consumible para ${readModel.activeBotName}`} />
             </div>
@@ -168,21 +171,21 @@ export function SignalsView() {
           </SectionCard>
         ) : null}
 
-        {activeTab === "high-confidence" ? (
+        {activeTab === "ai-prioritized" ? (
           <SectionCard
-            title="Alta confianza"
-            subtitle="El subconjunto pequeño que mejor traduce la lógica nueva a un flujo claro para usuario."
+            title="AI-prioritized"
+            subtitle="Señales que la capa adaptativa actual está empujando con más convicción dentro del sistema."
             className="workspace-panel"
           >
             <div className="signal-card-grid signal-card-grid-spotlight">
-              {readModel.highConfidence.slice(0, 6).map((signal) => (
+              {readModel.aiPrioritized.slice(0, 6).map((signal) => (
                 <SignalCard
                   key={signal.id}
                   title={`${signal.context.symbol} · ${signal.context.strategyId}`}
                   lane={signal.context.timeframe}
                   value={`${signal.ranking.compositeScore.toFixed(0)} pts`}
                   detail={signal.ranking.summary}
-                  meta={`Pasa a alta confianza por ${signal.ranking.primaryReason}`}
+                  meta={`Promovida por ${signal.ranking.primaryReason}`}
                   spotlight
                 />
               ))}

@@ -42,6 +42,31 @@ export function selectMarketDiscoveryRankedSignals(feed: SignalFeed<RankedPublis
   return feed.items.filter((signal) => signal.ranking.lane === "market-discovery");
 }
 
+export function selectInformationalRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => {
+    const hasAdaptivePush = Number(signal.intelligence?.adaptiveScore || 0) > Number(signal.context.score || 0);
+    return !signal.intelligence?.executionEligible && !hasAdaptivePush && (
+      signal.ranking.tier === "standard" || signal.ranking.tier === "low-visibility"
+    );
+  });
+}
+
+export function selectAiPrioritizedRankedSignals(feed: SignalFeed<RankedPublishedSignal>): RankedPublishedSignal[] {
+  return feed.items.filter((signal) => {
+    const adaptiveScore = Number(signal.intelligence?.adaptiveScore || 0);
+    const baseScore = Number(signal.context.score || 0);
+    const scorerConfidence = Number(signal.intelligence?.scorerConfidence || 0);
+    const boostedByAdaptiveScore = adaptiveScore > baseScore;
+    const scoredByAdaptiveModel = Boolean(signal.intelligence?.scorerLabel);
+    const highConfidenceModel = scorerConfidence >= 60;
+    const promotedByRanking = signal.ranking.movement === "promoted" && signal.ranking.boosts.some((boost) => (
+      boost === "Visibility score alto" || boost === "Contexto de mercado identificado"
+    ));
+
+    return boostedByAdaptiveScore || (scoredByAdaptiveModel && highConfidenceModel) || promotedByRanking;
+  });
+}
+
 export function selectBotConsumableSignals(feed: SignalFeed<BotConsumableSignal>): BotConsumableSignal[] {
   return feed.items;
 }

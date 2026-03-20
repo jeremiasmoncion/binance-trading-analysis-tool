@@ -168,9 +168,12 @@ Current progress:
     - eligible
     - blocked
     - observational
+  - explicit informational and AI-prioritized subsets now exist in the signal seam
+  - AI-prioritized no longer depends only on ranking boosts:
+    - it now reuses real `adaptiveScore`, scorer label/confidence, and execution metadata already stored in `signalMemory`
 - pending:
   - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
-  - deepen the operable contract with richer scanner/runtime context and later AI-prioritized slices
+  - deepen the operable contract with richer scanner/runtime context and later explicit informational / AI-prioritized contracts
   - route more surfaces through `Signal Core` instead of direct signal-memory derivation
 
 ## Phase 4.5 - UX Flow Migration

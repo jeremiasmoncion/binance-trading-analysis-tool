@@ -151,6 +151,8 @@ The redesign also now has dedicated documentation for:
     - eligible execution candidates
     - blocked execution candidates
     - observational ranked signals
+  - explicit informational and AI-prioritized ranked subsets now also travel in the same seam
+  - AI-prioritized now reuses real adaptive/scorer metadata preserved from `signalMemory`, not only ranking boosts
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context
@@ -160,7 +162,8 @@ The redesign also now has dedicated documentation for:
   - execution candidates are now the first live bridge for deeper operable feeds
 - next:
   - connect scanner outputs into the new signal core more directly
-  - deepen operable feeds with richer scanner/runtime context and later AI-prioritized slices
+  - deepen market-wide and operable feeds with richer scanner/runtime context
+  - turn informational / AI-prioritized into even more explicit contracts if those cohorts spread to more product surfaces
   - continue moving bot logic to consume the cleaner feed taxonomy
 
 ## Files Added

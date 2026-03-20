@@ -41,6 +41,14 @@ export interface PublishedSignal {
   audience: "watchlist" | "market";
   visibilityScore: number;
   feedKinds: SignalFeedKind[];
+  intelligence?: {
+    executionEligible: boolean;
+    decisionSource?: string;
+    adaptiveScore?: number | null;
+    scorerLabel?: string;
+    scorerConfidence?: number | null;
+    contextSignature?: string;
+  };
 }
 
 export interface RankedPublishedSignal extends PublishedSignal {

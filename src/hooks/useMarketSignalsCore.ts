@@ -5,7 +5,9 @@ import {
   createPublishedSignalFeedBundleFromMemory,
   rankPublishedFeed,
   selectAcceptedBotConsumableSignals,
+  selectAiPrioritizedRankedSignals,
   selectHighConfidenceRankedSignals,
+  selectInformationalRankedSignals,
   selectMarketDiscoveryRankedSignals,
   selectPriorityRankedSignals,
   selectPublishedSignals,
@@ -55,6 +57,8 @@ export function useMarketSignalsCore() {
     const operableRankedFeed = operablePublishedBundle.all.items.length ? rankPublishedFeed(operablePublishedFeed) : rankedFeed;
     const operableSignals = selectPriorityRankedSignals(operableRankedFeed);
     const highConfidenceSignals = selectHighConfidenceRankedSignals(rankedFeed);
+    const informationalSignals = selectInformationalRankedSignals(rankedFeed);
+    const aiPrioritizedSignals = selectAiPrioritizedRankedSignals(rankedFeed);
     const observationalSignals = rankedSignals.filter((signal) => !operableSignals.some((candidate) => candidate.id === signal.id));
     const activeBot = selectedBot || registryState.bots[0] || null;
     const botSignalBase = operablePublishedBundle.all.items.length ? operableRankedFeed.items : rankedSignals;
@@ -110,6 +114,8 @@ export function useMarketSignalsCore() {
           marketWideSignals,
           operableSignals,
           observationalSignals,
+          informationalSignals,
+          aiPrioritizedSignals,
           highConfidenceSignals,
           botConsumableSignals,
           eligibleExecutionCandidates: operationalCandidates.filter((candidate) => candidate.status === "eligible"),

@@ -1,5 +1,30 @@
 # Work Log
 
+## 2026-03-20
+
+### Phase
+
+`Signal Core` informational + AI-prioritized separation
+
+### Completed
+
+- Extended the shared signal contracts so published/ranked signals can carry decision/scorer intelligence already stored in `signalMemory`.
+- Promoted `AI-prioritized` from a ranking-only heuristic into a real subset informed by:
+  - `adaptiveScore`
+  - scorer label/confidence
+  - execution metadata
+- Added an explicit `informational` subset so low-pressure signals stay visible without being confused with the operational funnel.
+- Kept the implementation inside the shared `Signal Core` seam instead of rebuilding this classification in views.
+
+### Risk Avoided
+
+- This avoids turning `AI-prioritized` into a cosmetic tag disconnected from the real adaptive/scorer layer the platform already records.
+- It also avoids letting informational signals bleed into operable or bot-consumable cohorts simply because they still rank visibly in the feed.
+
+### Recommended Next Step
+
+- Continue deepening `market-wide` and `operable` with more explicit scanner/runtime evidence so the signal funnel can stabilize before the next strong bot-core round.
+
 ## 2026-03-19
 
 ### Phase

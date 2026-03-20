@@ -148,3 +148,22 @@ The technical/orchestration summary should explain:
 - what the next big milestone is
 
 Do not deliver only low-level technical notes when the operator is trying to understand actual product progress.
+
+## Visual Primitive Rule
+
+For visual work, future AI threads should treat the existing template visual primitives as the first implementation option, not as inspiration only.
+
+That means:
+
+- first reuse the shared visual primitives already established in the app
+- first match the tab, chip, card, form, and panel patterns already proven in template-aligned surfaces
+- only create page-local visual variants when the primitive layer truly cannot express the needed behavior
+- if a page-local variant is necessary, it should still extend the same visual family instead of creating a parallel design language
+
+Practical consequence:
+
+- `My Wallet`
+- `Dashboard`
+- `Bot Settings`
+
+should be treated as the primary visual architecture references before inventing a new page-specific solution.

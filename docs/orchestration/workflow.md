@@ -82,6 +82,23 @@ This applies when:
 - the human explicitly asks to see the changes
 - or the task is mainly visual and the AI is closing the loop for browser review
 
+## Shared Visual Primitive Rule
+
+For UI work:
+
+- start from the shared primitives already used by template-aligned pages
+- do not build a new tab bar, chip family, card shell, or control styling if an equivalent shared primitive already exists
+- prefer extending the shared primitive layer over solving the same pattern inside one page
+- page-local CSS should be the second step, not the first
+
+In practice, future AI threads should look first at:
+
+- `My Wallet`
+- `Dashboard`
+- `Bot Settings`
+
+before introducing a new visual treatment.
+
 ## Supabase Support Rule
 
 If a task needs a Supabase schema or data change that the AI cannot execute directly:

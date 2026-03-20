@@ -583,6 +583,24 @@ Replace the legacy user flow around `Signal Bot` with a full template-matching p
   - hover treatment on cards
   - spacing density and control sizing
 
+### Shared Primitive First Rule
+
+- visual implementation should start from the shared primitives already present in the template-aligned CRYPE architecture
+- do not create a new page-specific tab system, chip system, card shell, or input treatment if the same pattern already exists in shared surfaces
+- first reuse or extend the primitives already proven in:
+  - `My Wallet`
+  - `Dashboard`
+  - `Bot Settings`
+- only after that should page-local visual variants be introduced
+
+This rule exists to protect:
+
+- visual consistency
+- implementation speed
+- maintainability
+- theme parity
+- lower visual churn across future template pages
+
 ### Form Controls Rule
 
 - selects/comboboxes should not be solved ad hoc per page

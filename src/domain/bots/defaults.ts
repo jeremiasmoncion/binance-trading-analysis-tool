@@ -9,6 +9,7 @@ import type {
   BotStylePolicy,
   BotTimeframePolicy,
   BotUniversePolicy,
+  BotWorkspaceSettings,
   MemorySummary,
   PerformanceSummary,
 } from "./contracts";
@@ -75,6 +76,16 @@ export const DEFAULT_BOT_OVERLAP_POLICY: BotOverlapPolicy = {
   exclusiveUniverse: false,
 };
 
+export const DEFAULT_BOT_WORKSPACE_SETTINGS: BotWorkspaceSettings = {
+  primaryPair: "BTC/USDT",
+  rangeLower: null,
+  rangeUpper: null,
+  gridCount: null,
+  stopLossPct: null,
+  takeProfitPct: null,
+  autoCompoundProfits: false,
+};
+
 export const EMPTY_MEMORY_SUMMARY: MemorySummary = {
   layer: "local",
   lastUpdatedAt: null,
@@ -135,6 +146,7 @@ export function createBotDraft(overrides: Partial<Bot> & Pick<Bot, "id" | "slug"
       availableUsd: 0,
       accountingScope: overrides.slug,
     },
+    workspaceSettings: overrides.workspaceSettings ?? DEFAULT_BOT_WORKSPACE_SETTINGS,
     universePolicy: cloneUniversePolicy(overrides.universePolicy ?? DEFAULT_BOT_UNIVERSE_POLICY),
     stylePolicy: overrides.stylePolicy ?? DEFAULT_BOT_STYLE_POLICY,
     timeframePolicy: overrides.timeframePolicy ?? DEFAULT_BOT_TIMEFRAME_POLICY,
@@ -173,6 +185,12 @@ export const INITIAL_BOT_REGISTRY_STATE: BotRegistryState = {
         availableUsd: 0,
         accountingScope: "signal-bot-core",
       },
+      workspaceSettings: {
+        ...DEFAULT_BOT_WORKSPACE_SETTINGS,
+        primaryPair: "BTC/USDT",
+        stopLossPct: 5,
+        takeProfitPct: 10,
+      },
       tags: ["system", "signals", "phase-2"],
     }),
     createBotDraft({
@@ -197,6 +215,11 @@ export const INITIAL_BOT_REGISTRY_STATE: BotRegistryState = {
         availableUsd: 0,
         accountingScope: "dca-bot-core",
       },
+      workspaceSettings: {
+        ...DEFAULT_BOT_WORKSPACE_SETTINGS,
+        primaryPair: "ETH/USDT",
+        autoCompoundProfits: true,
+      },
       tags: ["system", "dca", "accumulation"],
       priority: 60,
     }),
@@ -216,6 +239,10 @@ export const INITIAL_BOT_REGISTRY_STATE: BotRegistryState = {
         allocatedUsd: 0,
         availableUsd: 0,
         accountingScope: "arbitrage-bot-core",
+      },
+      workspaceSettings: {
+        ...DEFAULT_BOT_WORKSPACE_SETTINGS,
+        primaryPair: "BTC/USDT",
       },
       tags: ["system", "arbitrage", "safe-mode"],
       priority: 55,
@@ -243,6 +270,10 @@ export const INITIAL_BOT_REGISTRY_STATE: BotRegistryState = {
         availableUsd: 0,
         accountingScope: "pump-screener-core",
       },
+      workspaceSettings: {
+        ...DEFAULT_BOT_WORKSPACE_SETTINGS,
+        primaryPair: "SOL/USDT",
+      },
       tags: ["system", "momentum", "scanner"],
       priority: 58,
     }),
@@ -269,6 +300,10 @@ export const INITIAL_BOT_REGISTRY_STATE: BotRegistryState = {
         allocatedUsd: 0,
         availableUsd: 0,
         accountingScope: "ai-unrestricted-lab",
+      },
+      workspaceSettings: {
+        ...DEFAULT_BOT_WORKSPACE_SETTINGS,
+        primaryPair: "BTC/USDT",
       },
       tags: ["lab", "isolated", "ai"],
       priority: 100,

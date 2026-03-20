@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { DownloadIcon, SearchIcon, SlidersHorizontalIcon, WarningTriangleIcon, BellIcon } from "../components/Icons";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import { useSelectedBotState } from "../hooks/useSelectedBot";
+import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { ViewName } from "../types";
 
 type BotSettingsTab = "all-bots" | "general-settings" | "risk-management" | "notifications" | "api-connections";
@@ -118,12 +119,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [apiConnections] = useState(INITIAL_API_CONNECTIONS);
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
   const feedReadModel = useSignalsBotsReadModel();
-  const { selectBot } = useSelectedBotState();
+  const { createBot, selectBot, updateBot } = useSelectedBotState();
 
   const readModel = useMemo(() => {
     const cards = feedReadModel.botCards.map((bot) => {
       const topSignal = bot.leadingSignal;
-      const pair = topSignal?.context.symbol || inferBotPair(bot.slug, bot.name);
+      const pair = bot.workspaceSettings.primaryPair || topSignal?.context.symbol || inferBotPair(bot.slug, bot.name);
       const strategy = formatStrategyLabel(bot.strategyPolicy.preferredStrategyIds[0] || bot.tags[1] || bot.stylePolicy.dominantStyle);
       const trades24h = bot.localMemory.outcomeCount;
       const profit24h = bot.performance.realizedPnlUsd;
@@ -305,13 +306,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       botName: bot.name,
       pair: bot.pair,
       strategy: bot.strategy,
-      investmentAmount: String(Math.max(1000, Math.round(bot.capital.allocatedUsd || 10000))),
-      rangeLower: String(Math.max(1000, Math.round((bot.riskPolicy.maxPositionUsd || 25000) * 2))),
-      rangeUpper: String(Math.max(5000, Math.round((bot.riskPolicy.maxPositionUsd || 25000) * 3.6))),
-      gridCount: String(Math.max(10, bot.riskPolicy.maxOpenPositions * 5)),
-      stopLossPct: String(Math.max(2, Math.round(bot.riskPolicy.maxDrawdownPct || 5))),
-      takeProfitPct: String(Math.max(4, Math.round((bot.performance.winRate || 50) / 7))),
-      autoCompoundProfits: bot.status === "active",
+      investmentAmount: String(Math.round(bot.capital.allocatedUsd || 0)),
+      rangeLower: String(bot.workspaceSettings.rangeLower ?? ""),
+      rangeUpper: String(bot.workspaceSettings.rangeUpper ?? ""),
+      gridCount: String(bot.workspaceSettings.gridCount ?? ""),
+      stopLossPct: String(bot.workspaceSettings.stopLossPct ?? bot.riskPolicy.maxDrawdownPct ?? ""),
+      takeProfitPct: String(bot.workspaceSettings.takeProfitPct ?? ""),
+      autoCompoundProfits: bot.workspaceSettings.autoCompoundProfits,
       accentClass: getAssetAccentClass(bot.pair.split("/")[0] || bot.name),
     });
   };
@@ -325,6 +326,112 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     // workspace stay aligned without introducing a second local runtime.
     selectBot(bot.id);
     onNavigateView(resolveBotTarget(bot.slug));
+  };
+
+  const handleCreateBot = async () => {
+    const loaderId = startLoading({ label: "Creando bot", detail: "Signal Bot Core" });
+    try {
+      const createdBot = await createBot({
+        name: `Signal Bot ${readModel.cards.length + 1}`,
+        status: "draft",
+        automationMode: "observe",
+        executionEnvironment: "paper",
+        workspaceSettings: {
+          primaryPair: "BTC/USDT",
+          rangeLower: null,
+          rangeUpper: null,
+          gridCount: null,
+          stopLossPct: 5,
+          takeProfitPct: 10,
+          autoCompoundProfits: false,
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Bot creado",
+        message: `${createdBot.name} ya forma parte del registro real.`,
+      });
+      openQuickEdit({
+        ...readModel.cards[0],
+        ...createdBot,
+        pair: createdBot.workspaceSettings.primaryPair,
+        strategy: formatStrategyLabel(createdBot.strategyPolicy.preferredStrategyIds[0] || createdBot.tags[1] || createdBot.stylePolicy.dominantStyle),
+        trades24h: createdBot.localMemory.outcomeCount,
+        profit24h: createdBot.performance.realizedPnlUsd,
+        winRate: createdBot.performance.winRate,
+        allocationPct: 0,
+        capacityUsd: Math.max(createdBot.riskPolicy.maxPositionUsd * createdBot.riskPolicy.maxOpenPositions, 1),
+        acceptedCount: 0,
+        blockedCount: 0,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo crear el bot",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleToggleBotStatus = async (bot: (typeof readModel.filteredCards)[number]) => {
+    const nextStatus = bot.status === "active" ? "paused" : "active";
+    const loaderId = startLoading({ label: "Actualizando bot", detail: `${bot.name} → ${getBotStatusLabel(nextStatus)}` });
+    try {
+      await updateBot(bot.id, { status: nextStatus });
+      showToast({
+        tone: "success",
+        title: "Estado actualizado",
+        message: `${bot.name} ahora está ${getBotStatusLabel(nextStatus).toLowerCase()}.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo actualizar el bot",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleSaveQuickEdit = async () => {
+    if (!quickEditDraft) return;
+    const loaderId = startLoading({ label: "Guardando bot", detail: quickEditDraft.botName });
+    try {
+      await updateBot(quickEditDraft.botId, {
+        name: quickEditDraft.botName.trim() || "Signal Bot",
+        capital: {
+          allocatedUsd: Number(quickEditDraft.investmentAmount || 0),
+          availableUsd: Number(quickEditDraft.investmentAmount || 0),
+          accountingScope: quickEditDraft.botId,
+        },
+        workspaceSettings: {
+          primaryPair: quickEditDraft.pair.trim() || "BTC/USDT",
+          rangeLower: quickEditDraft.rangeLower ? Number(quickEditDraft.rangeLower) : null,
+          rangeUpper: quickEditDraft.rangeUpper ? Number(quickEditDraft.rangeUpper) : null,
+          gridCount: quickEditDraft.gridCount ? Number(quickEditDraft.gridCount) : null,
+          stopLossPct: quickEditDraft.stopLossPct ? Number(quickEditDraft.stopLossPct) : null,
+          takeProfitPct: quickEditDraft.takeProfitPct ? Number(quickEditDraft.takeProfitPct) : null,
+          autoCompoundProfits: quickEditDraft.autoCompoundProfits,
+        },
+      });
+      setQuickEditDraft(null);
+      showToast({
+        tone: "success",
+        title: "Bot actualizado",
+        message: "Los cambios rápidos ya viven en el registro real del bot.",
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo guardar",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
   };
 
   return (
@@ -345,7 +452,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               <DownloadIcon />
               Export
             </button>
-            <button type="button" className="ui-button ui-button-primary">Create New Bot</button>
+            <button type="button" className="ui-button ui-button-primary" onClick={() => void handleCreateBot()}>Create New Bot</button>
           </div>
         </div>
 
@@ -489,7 +596,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                       </div>
 
                       <div className="botsettings-card-foot">
-                        <button type="button" className={`botsettings-primary-action ${bot.status === "active" ? "is-pause" : "is-start"}`}>
+                        <button
+                          type="button"
+                          className={`botsettings-primary-action ${bot.status === "active" ? "is-pause" : "is-start"}`}
+                          onClick={() => void handleToggleBotStatus(bot)}
+                        >
                           {bot.status === "active" ? <PauseMiniIcon /> : <PlayMiniIcon />}
                           {bot.status === "active" ? "Pause" : "Start"}
                         </button>
@@ -1243,7 +1354,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <button type="button" className="botsettings-reset-button ui-button" onClick={() => setQuickEditDraft(null)}>
                   Cancel
                 </button>
-                <button type="button" className="ui-button ui-button-primary">
+                <button type="button" className="ui-button ui-button-primary" onClick={() => void handleSaveQuickEdit()}>
                   <SaveMiniIcon />
                   Save Changes
                 </button>

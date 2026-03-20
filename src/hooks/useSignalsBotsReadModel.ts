@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
 import {
-  INITIAL_BOT_REGISTRY_STATE,
   createBotConsumableFeed,
   createBotRegistrySnapshot,
   createPublishedSignalFeedBundleFromMemory,
@@ -17,26 +16,16 @@ import {
 } from "../domain";
 import { useSelectedBotState } from "./useSelectedBot";
 
-function findSignalBot() {
-  const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
-  const bots = selectBots(registry.state);
-  const signalBot = registry.state.bots.find((bot) => bot.slug === "signal-bot-core") || registry.state.bots[0];
-
-  return {
-    registry,
-    bots,
-    signalBot,
-  };
-}
-
 export function useSignalsBotsReadModel() {
   const feedData = useSignalsBotsFeedSelector();
-  const { selectedBotId } = useSelectedBotState();
+  const { selectedBotId, state: registryState } = useSelectedBotState();
 
   return useMemo(() => {
     // Keep the feed/ranking derivation in one shared seam so template pages do
     // not each rebuild the same domain pipeline with slightly different rules.
-    const { registry, bots, signalBot } = findSignalBot();
+    const registry = createBotRegistrySnapshot(registryState);
+    const bots = selectBots(registry.state);
+    const signalBot = registry.state.bots.find((bot) => bot.slug === "signal-bot-core") || registry.state.bots[0];
     const publishedFeed = createPublishedSignalFeedBundleFromMemory(feedData.signalMemory, {
       watchlistSymbols: feedData.activeWatchlistCoins,
     }).all;
@@ -114,5 +103,5 @@ export function useSignalsBotsReadModel() {
         averageWinRate,
       },
     };
-  }, [feedData, selectedBotId]);
+  }, [feedData, registryState, selectedBotId]);
 }

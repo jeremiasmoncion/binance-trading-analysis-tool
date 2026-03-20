@@ -25,6 +25,7 @@ import type {
   WatchlistScanExecution,
   WatchlistScannerStatus,
 } from "../types";
+import type { Bot } from "../domain";
 import type { RealtimeCoreBootstrapPayload, RealtimeCoreEventEnvelope, RealtimeCoreHealthPayload } from "../realtime-core/contracts";
 
 export type RealtimeCoreRuntimeMode = "external" | "serverless";
@@ -508,6 +509,24 @@ export const signalService = {
   },
   update(id: number, payload: { outcomeStatus: SignalOutcomeStatus; outcomePnl: number; note: string }) {
     return apiRequest<{ signal: SignalSnapshot }>(`/api/signals/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+};
+
+export const botService = {
+  list() {
+    return apiRequest<{ bots: Bot[]; lastHydratedAt: string | null }>("/api/bots");
+  },
+  create(payload: Partial<Bot> & { name?: string }) {
+    return apiRequest<{ bot: Bot }>("/api/bots", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  update(id: string, payload: Partial<Bot>) {
+    return apiRequest<{ bot: Bot }>(`/api/bots/${id}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     });

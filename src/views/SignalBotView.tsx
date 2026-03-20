@@ -67,7 +67,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   }, [activeFilter, feedReadModel, selectedBotBlockedCount, selectedBotSignals, signals]);
 
   const selectedBotName = selectedBotCard?.name || "Signal Bot";
-  const selectedBotPair = selectedBotCard?.leadingSignal?.context.symbol || inferBotWorkspacePair(selectedBotCard);
+  const selectedBotPair = selectedBotCard?.workspaceSettings.primaryPair || selectedBotCard?.leadingSignal?.context.symbol || inferBotWorkspacePair(selectedBotCard);
   const selectedBotStrategy = formatBotWorkspaceStrategy(selectedBotCard);
   const selectedBotStatus = selectedBotCard ? getBotStatusLabel(selectedBotCard.status) : "Running";
   const selectedBotWinRate = selectedBotCard?.performance.winRate ?? calculateWinRate(readModel.closedSignals);

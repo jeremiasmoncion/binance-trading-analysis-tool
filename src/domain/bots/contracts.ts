@@ -106,6 +106,16 @@ export interface BotCapitalAllocation {
   accountingScope: string;
 }
 
+export interface BotWorkspaceSettings {
+  primaryPair: string;
+  rangeLower: number | null;
+  rangeUpper: number | null;
+  gridCount: number | null;
+  stopLossPct: number | null;
+  takeProfitPct: number | null;
+  autoCompoundProfits: boolean;
+}
+
 export interface BotAuditSummary {
   lastDecisionAt: string | null;
   lastExecutionAt: string | null;
@@ -121,6 +131,7 @@ export interface Bot {
   executionEnvironment: BotExecutionEnvironment;
   automationMode: BotAutomationMode;
   capital: BotCapitalAllocation;
+  workspaceSettings: BotWorkspaceSettings;
   universePolicy: BotUniversePolicy;
   stylePolicy: BotStylePolicy;
   timeframePolicy: BotTimeframePolicy;

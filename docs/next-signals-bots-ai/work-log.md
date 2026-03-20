@@ -1490,3 +1490,45 @@ Phase 3 - Signal Bot hard-close refinement
 - `src/styles/ui-primitives.css`
 - `src/styles/theme.css`
 - `src/views/BotSettingsView.tsx`
+
+## Bot Registry Persistence Activation
+
+### What Changed
+
+- Activated the first real bot persistence path instead of keeping `Bot Settings` fully backed by the initial registry seed.
+- Added a shared `/api/bots` persistence seam with:
+  - `GET /api/bots`
+  - `POST /api/bots`
+  - `PATCH /api/bots/[id]`
+- Moved the shared bot registry runtime into the existing selected-bot seam so:
+  - `All Bots`
+  - quick edit
+  - selected bot context
+  - full bot workspace
+  all read/write against the same registry state.
+
+### Data Continuity
+
+- The registry now treats local storage only as a warm cache.
+- Remote bot payloads are canonical when available, matching the same continuity pattern already used by watchlists.
+- `Signal Bot` now prefers the bot's persisted `workspaceSettings.primaryPair` before falling back to feed-derived context.
+
+### Product Continuity
+
+- `Create New Bot` now creates a real persisted bot profile instead of remaining a visual-only CTA.
+- quick edit now saves back into the same bot registry seam instead of staying as local drawer state only
+- start/pause actions now update the real bot status path
+
+### Files Updated
+
+- `api/_lib/bots.js`
+- `api/bots/index.js`
+- `api/bots/[id].js`
+- `src/domain/bots/contracts.ts`
+- `src/domain/bots/defaults.ts`
+- `src/domain/bots/registry.ts`
+- `src/hooks/useSelectedBot.ts`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/services/api.ts`
+- `src/views/BotSettingsView.tsx`
+- `src/views/SignalBotView.tsx`

@@ -15,6 +15,7 @@ function cloneBot(bot: Bot): Bot {
   return {
     ...bot,
     capital: { ...bot.capital },
+    workspaceSettings: { ...bot.workspaceSettings },
     universePolicy: {
       ...bot.universePolicy,
       watchlistIds: [...bot.universePolicy.watchlistIds],

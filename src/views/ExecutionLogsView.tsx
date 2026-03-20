@@ -162,12 +162,13 @@ export function ExecutionLogsView() {
     return scopedBots
       .filter((bot) => (
         (bot.executionIntentSummary?.queuedCount || 0)
+        || (bot.executionIntentSummary?.dispatchRequestedCount || 0)
         || (bot.executionIntentSummary?.awaitingApprovalCount || 0)
         || (bot.executionIntentSummary?.blockedLaneCount || 0)
       ))
       .sort((left, right) => (
-        ((right.executionIntentSummary?.queuedCount || 0) + (right.executionIntentSummary?.awaitingApprovalCount || 0) + (right.executionIntentSummary?.blockedLaneCount || 0))
-        - ((left.executionIntentSummary?.queuedCount || 0) + (left.executionIntentSummary?.awaitingApprovalCount || 0) + (left.executionIntentSummary?.blockedLaneCount || 0))
+        ((right.executionIntentSummary?.queuedCount || 0) + (right.executionIntentSummary?.dispatchRequestedCount || 0) + (right.executionIntentSummary?.awaitingApprovalCount || 0) + (right.executionIntentSummary?.blockedLaneCount || 0))
+        - ((left.executionIntentSummary?.queuedCount || 0) + (left.executionIntentSummary?.dispatchRequestedCount || 0) + (left.executionIntentSummary?.awaitingApprovalCount || 0) + (left.executionIntentSummary?.blockedLaneCount || 0))
       ))
       .slice(0, 4)
       .map((bot) => ({

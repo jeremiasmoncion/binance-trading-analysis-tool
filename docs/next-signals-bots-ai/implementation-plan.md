@@ -199,6 +199,7 @@ Current progress:
   - `Execution Logs` now also supports explicit approve/reject review actions for `awaiting-approval` intents inside the same bot-decision seam
   - queued paper/demo intents can now also move into an explicit `dispatch-requested` lane from the same review surface
   - blocked intent rows now also surface the shared intent reason more directly
+  - intent summaries now also count and prioritize dispatch backlog explicitly
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

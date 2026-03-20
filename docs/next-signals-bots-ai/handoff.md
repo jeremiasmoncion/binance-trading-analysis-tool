@@ -354,6 +354,7 @@ The redesign also now has dedicated documentation for:
     - approval
     - linked execution outcome
   - blocked intent rows now also surface the shared intent reason more directly during execution review
+  - intent summaries now also count and prioritize dispatch backlog instead of treating it as hidden queue state
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

@@ -42,7 +42,6 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
 
     return {
       signalBot,
-      rankedSignals,
       watchlistFirst,
       priority,
       highConfidence,
@@ -60,8 +59,8 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
             <span className="template-page-kicker">AI Bot</span>
             <h1 className="template-page-title">Signal Bot</h1>
             <p className="template-page-subtitle">
-              Flujo principal de señales orientado al usuario final: primero oportunidades activas, después historial,
-              rendimiento y ajustes del bot.
+              Product-facing signal workflow with the exact template tab language, but translated into CRYPE's shared
+              style system and data seams.
             </p>
           </div>
           <div className="template-page-actions">
@@ -73,10 +72,10 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
         </div>
 
         <div className="template-stats-grid">
-          <StatCard label="Active Signals" value={String(readModel.priority.length)} sub="Feed priorizado listo para revisar" accentClass="accent-green" />
-          <StatCard label="Win Rate" value={`${calculateWinRate(readModel.closedSignals).toFixed(1)}%`} sub="Historial cerrado de signal memory" accentClass="accent-blue" />
-          <StatCard label="Total Profit (30d)" value={formatUsd(sumPnl(readModel.closedSignals))} sub="Resultado acumulado visible para el usuario" accentClass="accent-emerald" />
-          <StatCard label="Pending Signals" value={String(readModel.openSignals.length)} sub="Todavía esperando resolución" accentClass="accent-amber" />
+          <StatCard label="Active Signals" value={String(readModel.priority.length)} sub="Signals promoted into the main signal feed" accentClass="accent-green" />
+          <StatCard label="Win Rate" value={`${calculateWinRate(readModel.closedSignals).toFixed(1)}%`} sub="Closed signal outcomes from signal memory" accentClass="accent-blue" />
+          <StatCard label="Total Profit (30d)" value={formatUsd(sumPnl(readModel.closedSignals))} sub="Closed signal performance for the period" accentClass="accent-emerald" />
+          <StatCard label="Pending Signals" value={String(readModel.openSignals.length)} sub="Signals still waiting for resolution" accentClass="accent-amber" />
         </div>
 
         <SectionCard className="template-panel" actions={(
@@ -102,7 +101,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 <button type="button" className="template-chip is-active">All Signals</button>
                 <button type="button" className="template-chip">Buy Only</button>
                 <button type="button" className="template-chip">Sell Only</button>
-                <button type="button" className="template-chip">Watchlist First</button>
+                <button type="button" className="template-chip">BTC Pairs</button>
                 <button type="button" className="template-chip">High Confidence</button>
               </div>
               <div className="template-card-grid">
@@ -111,18 +110,18 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     <div className="template-signal-card-head">
                       <div>
                         <h3>{signal.context.symbol}</h3>
-                        <p>{signal.context.strategyId} · {signal.context.timeframe}</p>
+                        <p>{signal.context.strategyId} • {signal.context.timeframe}</p>
                       </div>
                       <span className="template-signal-badge">{signal.context.direction}</span>
                     </div>
                     <div className="template-signal-metrics">
                       <div>
-                        <span>Raw</span>
-                        <strong>{signal.ranking.rawScore.toFixed(0)}</strong>
+                        <span>AI Confidence</span>
+                        <strong>{Math.min(signal.ranking.compositeScore, 100).toFixed(0)}%</strong>
                       </div>
                       <div>
-                        <span>Ranked</span>
-                        <strong>{signal.ranking.compositeScore.toFixed(0)}</strong>
+                        <span>Feed Tier</span>
+                        <strong>{signal.ranking.tier}</strong>
                       </div>
                       <div>
                         <span>Lane</span>
@@ -134,8 +133,12 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     </div>
                     <p className="template-signal-summary">{signal.ranking.summary}</p>
                     <div className="template-signal-foot">
-                      <span>{signal.ranking.tier}</span>
                       <span>{signal.ranking.primaryReason}</span>
+                      <span>{signal.context.observedAt ? formatRelative(signal.context.observedAt) : "Now"}</span>
+                    </div>
+                    <div className="template-button-row">
+                      <button type="button" className="premium-action-button is-ghost">View Details</button>
+                      <button type="button" className="premium-action-button">Execute</button>
                     </div>
                   </article>
                 ))}
@@ -144,35 +147,50 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
           ) : null}
 
           {activeTab === "signal-history" ? (
-            <div className="template-list-card">
-              {readModel.closedSignals.slice(0, 10).map((signal) => (
-                <div key={signal.id} className="template-list-row">
-                  <div>
-                    <strong>{signal.coin}</strong>
-                    <span>{signal.timeframe} · {signal.setup_type || signal.signal_label}</span>
-                  </div>
-                  <div>
-                    <strong>{Number(signal.signal_score || 0).toFixed(0)}</strong>
-                    <span>{signal.outcome_status}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="template-table-shell">
+              <table className="template-table">
+                <thead>
+                  <tr>
+                    <th>Pair</th>
+                    <th>Timeframe</th>
+                    <th>Setup</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th>P/L</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {readModel.closedSignals.slice(0, 10).map((signal) => (
+                    <tr key={signal.id}>
+                      <td>{signal.coin}</td>
+                      <td>{signal.timeframe}</td>
+                      <td>{signal.setup_type || signal.signal_label}</td>
+                      <td>{Number(signal.signal_score || 0).toFixed(0)}</td>
+                      <td>{formatSignalStatus(signal.outcome_status)}</td>
+                      <td className={Number(signal.outcome_pnl || 0) >= 0 ? "is-positive" : "is-negative"}>
+                        {formatUsd(Number(signal.outcome_pnl || 0))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : null}
 
           {activeTab === "performance" ? (
             <div className="template-mini-grid">
-              <MetricTile label="High confidence" value={String(readModel.highConfidence.length)} note="Subset más selectivo del feed." />
-              <MetricTile label="Watchlist-first" value={String(readModel.watchlistFirst.length)} note="Lo más cercano a lo que el usuario ya sigue." />
-              <MetricTile label="Consumible por bot" value={String(readModel.botApproved.length)} note="Señales que ya pasan la política actual." />
+              <MetricTile label="High Confidence" value={String(readModel.highConfidence.length)} note="Signals promoted into the tighter confidence subset." />
+              <MetricTile label="Watchlist First" value={String(readModel.watchlistFirst.length)} note="Signals prioritized from the current watchlist." />
+              <MetricTile label="Bot Approved" value={String(readModel.botApproved.length)} note="Signals already consumable by the active bot policy." />
             </div>
           ) : null}
 
           {activeTab === "settings" ? (
-            <div className="template-mini-grid">
-              <MetricTile label="Environment" value={readModel.signalBot.executionEnvironment.toUpperCase()} note="Entorno operativo del Signal Bot." />
-              <MetricTile label="Automation" value={readModel.signalBot.automationMode.toUpperCase()} note="Nivel de automatización visible al usuario." />
-              <MetricTile label="Policy fit" value={`${readModel.botApproved.length}`} note="Señales aprobadas bajo reglas actuales." />
+            <div className="template-form-grid">
+              <SettingsCard title="Execution Environment" value={readModel.signalBot.executionEnvironment.toUpperCase()} note="Paper, demo or real depending on bot policy." />
+              <SettingsCard title="Automation Mode" value={readModel.signalBot.automationMode.toUpperCase()} note="Observe, assist or auto depending on current control." />
+              <SettingsCard title="Universe Policy" value={readModel.signalBot.universePolicy.kind} note="How the bot picks between watchlist-first and wider discovery." />
+              <SettingsCard title="Policy Match" value={String(readModel.botApproved.length)} note="Signals already approved by current bot policy filters." />
             </div>
           ) : null}
         </SectionCard>
@@ -191,14 +209,23 @@ function MetricTile(props: { label: string; value: string; note: string }) {
   );
 }
 
+function SettingsCard(props: { title: string; value: string; note: string }) {
+  return (
+    <div className="template-settings-card">
+      <span>{props.title}</span>
+      <strong>{props.value}</strong>
+      <small>{props.note}</small>
+    </div>
+  );
+}
+
 function sumPnl(signals: Array<{ outcome_pnl: number }>) {
   return signals.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0);
 }
 
 function calculateWinRate(signals: Array<{ outcome_status: string }>) {
-  const closed = signals.filter((signal) => signal.outcome_status !== "pending");
-  const wins = closed.filter((signal) => signal.outcome_status === "win").length;
-  return closed.length ? (wins / closed.length) * 100 : 0;
+  const wins = signals.filter((signal) => signal.outcome_status === "win").length;
+  return signals.length ? (wins / signals.length) * 100 : 0;
 }
 
 function formatUsd(value: number) {
@@ -207,4 +234,19 @@ function formatUsd(value: number) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatSignalStatus(status: string) {
+  if (status === "win") return "Closed Win";
+  if (status === "loss") return "Closed Loss";
+  if (status === "invalidated") return "Invalidated";
+  return "Closed";
+}
+
+function formatRelative(value: string) {
+  const date = new Date(value).getTime();
+  const diffMinutes = Math.max(1, Math.floor((Date.now() - date) / 60000));
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  return `${diffHours} h ago`;
 }

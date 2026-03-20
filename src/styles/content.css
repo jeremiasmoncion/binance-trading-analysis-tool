@@ -3115,6 +3115,13 @@ body.dark-theme .market-score-track {
   justify-content: flex-end;
 }
 
+.template-toolbar-between {
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 .template-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3158,6 +3165,32 @@ body.dark-theme .market-score-track {
   color: var(--profit);
 }
 
+.template-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.template-view-button {
+  min-height: 2rem;
+  padding: 0.35rem 0.9rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.template-view-button.is-active {
+  background: rgba(91, 109, 255, 0.16);
+  color: var(--text);
+}
+
 .template-card-grid,
 .template-status-grid {
   display: grid;
@@ -3165,10 +3198,16 @@ body.dark-theme .market-score-track {
   gap: 1rem;
 }
 
+.template-status-grid-compact {
+  grid-template-columns: 1fr;
+}
+
 .template-signal-card,
 .template-bot-card,
 .template-status-card,
-.template-metric-card {
+.template-metric-card,
+.template-settings-card,
+.template-analytics-card {
   display: grid;
   gap: 0.8rem;
   padding: 1rem;
@@ -3206,7 +3245,9 @@ body.dark-theme .market-score-track {
 .template-bot-card-head p,
 .template-status-card-head p,
 .template-signal-summary,
-.template-metric-card small {
+.template-metric-card small,
+.template-settings-card small,
+.template-analytics-card p {
   margin: 0;
   color: var(--text-soft);
   font-size: 0.8rem;
@@ -3271,9 +3312,17 @@ body.dark-theme .market-score-track {
 .template-signal-metrics strong,
 .template-bot-grid strong,
 .template-status-card-metrics strong,
-.template-metric-card strong {
+.template-metric-card strong,
+.template-settings-card strong {
   color: var(--text);
   font-size: 1rem;
+}
+
+.template-settings-card span {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .template-progress-track,
@@ -3386,6 +3435,115 @@ body.dark-theme .market-score-track {
   font-size: 0.8rem;
 }
 
+.template-analytics-grid,
+.template-form-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.template-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.template-analytics-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.template-inline-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.template-table-actions {
+  display: inline-flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.sidebar-item-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 20px;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.sidebar-item-badge.is-pro {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+}
+
+.nav-trailing {
+  margin-left: auto;
+}
+
+.sidebar-user-template {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sidebar-user-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.sidebar-user-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.sidebar-user-name {
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.sidebar-user-email {
+  color: var(--text-soft);
+  font-size: 0.76rem;
+}
+
+.sidebar-user-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.sidebar-user-link {
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.72);
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar-user-link-danger {
+  background: rgba(239, 68, 68, 0.08);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.14);
+}
+
 @media (max-width: 1180px) {
   .template-stats-grid,
   .template-card-grid,
@@ -3397,6 +3555,10 @@ body.dark-theme .market-score-track {
   }
 
   .template-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .template-form-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -3418,7 +3580,8 @@ body.dark-theme .market-score-track {
   .template-mini-grid,
   .template-signal-metrics,
   .template-bot-grid,
-  .template-status-card-metrics {
+  .template-status-card-metrics,
+  .template-form-grid {
     grid-template-columns: 1fr;
   }
 }

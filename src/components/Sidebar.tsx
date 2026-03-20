@@ -6,6 +6,7 @@ type SidebarLeafItem = {
   view: ViewName;
   label: string;
   icon: ReactNode;
+  trailing?: ReactNode;
 };
 
 type SidebarSubmenuItem = {
@@ -100,99 +101,35 @@ const TRADING_ITEMS: SidebarEntry[] = [
 ];
 
 const DEFI_ITEMS: SidebarEntry[] = [
-  {
-    kind: "item",
-    view: "defi-center",
-    label: "DeFi Center",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m12 7 4 2v6l-4 2-4-2V9l4-2Z" />
-      </svg>
-    ),
-  },
-  {
-    kind: "item",
-    view: "yield-farming",
-    label: "Yield Farming",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 14c0-3.5 2.6-6 5-8 2.4 2 5 4.5 5 8a5 5 0 1 1-10 0Z" />
-      </svg>
-    ),
-  },
-  {
-    kind: "item",
-    view: "staking-pools",
-    label: "Staking Pools",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 12h12M8 7h8M8 17h8" />
-      </svg>
-    ),
-  },
-  {
-    kind: "item",
-    view: "liquidity-tracker",
-    label: "Liquidity Tracker",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18 18 6M8 6h10v10" />
-      </svg>
-    ),
-  },
-  {
-    kind: "item",
-    view: "portfolio-tracker",
-    label: "Portfolio Tracker",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 19h16M7 16V8m5 8V5m5 11v-6" />
-      </svg>
-    ),
-  },
-  {
-    kind: "item",
-    view: "wallets",
-    label: "Wallets",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 8V6a2 2 0 0 1 2-2h6" />
-      </svg>
-    ),
-  },
-  {
-    kind: "item",
-    view: "defi-protocols",
-    label: "DeFi Protocols",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16M4 12h16M7 7l10 10M17 7 7 17" />
-      </svg>
-    ),
-  },
+  { kind: "item", view: "defi-center", label: "DeFi Center", icon: <HexagonIcon /> },
+  { kind: "item", view: "yield-farming", label: "Yield Farming", icon: <SproutIcon /> },
+  { kind: "item", view: "staking-pools", label: "Staking Pools", icon: <LayersIcon /> },
+  { kind: "item", view: "liquidity-tracker", label: "Liquidity Tracker", icon: <DropsIcon /> },
+  { kind: "item", view: "portfolio-tracker", label: "Portfolio Tracker", icon: <PieIcon /> },
+  { kind: "item", view: "wallets", label: "Wallets", icon: <CardIcon /> },
+  { kind: "item", view: "defi-protocols", label: "DeFi Protocols", icon: <BranchIcon /> },
 ];
 
 const MARKETPLACE_ITEMS: SidebarEntry[] = [
-  {
-    kind: "item",
-    view: "strategies-marketplace",
-    label: "Strategies Marketplace",
-    icon: (
-      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 7h14l-1 11H6L5 7Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 10V7a3 3 0 1 1 6 0v3" />
-      </svg>
-    ),
-  },
+  { kind: "item", view: "strategies-marketplace", label: "Strategies Marketplace", icon: <StoreIcon /> },
+  { kind: "item", view: "bot-templates", label: "Bot Templates", icon: <TemplateIcon /> },
+];
+
+const ACCOUNT_ITEMS: SidebarEntry[] = [
+  { kind: "item", view: "preferences", label: "Preferences", icon: <SettingsIcon /> },
+  { kind: "item", view: "notifications", label: "Notifications", icon: <BellIcon />, trailing: <span className="sidebar-item-badge">5</span> },
+  { kind: "item", view: "security-api-keys", label: "Security & API Keys", icon: <ShieldIcon /> },
+  { kind: "item", view: "invite-friends", label: "Invite Friends", icon: <UserPlusIcon /> },
+  { kind: "item", view: "subscription", label: "Subscription", icon: <CrownIcon />, trailing: <span className="sidebar-item-badge is-pro">PRO</span> },
+  { kind: "item", view: "help-center", label: "Help Center", icon: <HelpIcon /> },
 ];
 
 const SECTION_GROUPS: Array<{ title: string; items: SidebarEntry[] }> = [
-  { title: "MAIN", items: MAIN_ITEMS },
-  { title: "TRADING & BOTS", items: TRADING_ITEMS },
-  { title: "DEFI & PORTFOLIO", items: DEFI_ITEMS },
-  { title: "MARKETPLACE", items: MARKETPLACE_ITEMS },
+  { title: "Main", items: MAIN_ITEMS },
+  { title: "Trading & Bots", items: TRADING_ITEMS },
+  { title: "DeFi & Portfolio", items: DEFI_ITEMS },
+  { title: "Marketplace", items: MARKETPLACE_ITEMS },
+  { title: "Account", items: ACCOUNT_ITEMS },
 ];
 
 const SUBMENU_VIEWS: Record<SidebarSubmenuItem["id"], ViewName[]> = {
@@ -239,7 +176,7 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
             </div>
             <div className="sidebar-brand-copy">
               <h1>CRYPE</h1>
-              <p>IA Trading Platform</p>
+              <p>AI Trading Platform</p>
             </div>
           </div>
         </div>
@@ -262,6 +199,7 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
                     >
                       {item.icon}
                       <span className="nav-text">{item.label}</span>
+                      {item.trailing ? <span className="nav-trailing">{item.trailing}</span> : null}
                     </button>
                   );
                 }
@@ -305,20 +243,154 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
         ))}
       </nav>
 
-      <div className="sidebar-user">
-        <div className="sidebar-user-avatar">{(user.displayName || user.username || "C").slice(0, 2).toUpperCase()}</div>
-        <div className="user-info">
-          <div className="name">{user.displayName || user.username}</div>
-          <div className="role">{user.role === "admin" ? "Administrador" : "Usuario"} · Entorno vivo</div>
+      <div className="sidebar-user sidebar-user-template">
+        <div className="sidebar-user-summary">
+          <div className="sidebar-user-avatar">{(user.displayName || user.username || "C").slice(0, 2).toUpperCase()}</div>
+          <div className="sidebar-user-copy">
+            <div className="sidebar-user-name">{user.displayName || user.username}</div>
+            <div className="sidebar-user-email">{user.username}@crype.app</div>
+          </div>
         </div>
-        <div className="sidebar-user-pills">
-          <span className="sidebar-mini-pill">{user.role === "admin" ? "Admin" : "User"}</span>
-          <span className="sidebar-mini-pill sidebar-mini-pill-accent">Main</span>
+        <div className="sidebar-user-actions">
+          <button type="button" className="sidebar-user-link" onClick={() => onViewChange("preferences")}>
+            Account Settings
+          </button>
+          <button type="button" className="sidebar-user-link sidebar-user-link-danger" onClick={onLogout}>
+            Logout
+          </button>
         </div>
-        <button className="btn-logout" onClick={onLogout}>
-          Cerrar sesión
-        </button>
       </div>
     </aside>
+  );
+}
+
+function SettingsIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3h2l.7 2.2 2.2.9 2-1.2 1.4 1.4-1.2 2 .9 2.2L21 11v2l-2.2.7-.9 2.2 1.2 2-1.4 1.4-2-1.2-2.2.9L13 21h-2l-.7-2.2-2.2-.9-2 1.2-1.4-1.4 1.2-2-.9-2.2L3 13v-2l2.2-.7.9-2.2-1.2-2 1.4-1.4 2 1.2 2.2-.9L11 3Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z" />
+    </svg>
+  );
+}
+
+function BellIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 17a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m12 3 7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3Z" />
+    </svg>
+  );
+}
+
+function UserPlusIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19a4 4 0 0 0-8 0" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 2v6m3-3h-6" />
+    </svg>
+  );
+}
+
+function CrownIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m3 8 5 4 4-6 4 6 5-4-2 11H5L3 8Z" />
+    </svg>
+  );
+}
+
+function HelpIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.1 9a3 3 0 1 1 5.8 1c-.4.9-1 1.4-1.8 1.9-.7.4-1.1.8-1.1 1.6V14" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01" />
+      <circle cx="12" cy="12" r="9" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function HexagonIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" />
+    </svg>
+  );
+}
+
+function SproutIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 21V10M12 10c0-3 2-5 5-5 0 3-2 5-5 5Zm0 0c0-3-2-5-5-5 0 3 2 5 5 5Z" />
+    </svg>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m12 4 8 4-8 4-8-4 8-4Zm8 8-8 4-8-4m16 4-8 4-8-4" />
+    </svg>
+  );
+}
+
+function DropsIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3c3 4 6 7.1 6 10a6 6 0 1 1-12 0c0-2.9 3-6 6-10Z" />
+    </svg>
+  );
+}
+
+function PieIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v9h9A9 9 0 1 1 12 3Z" />
+    </svg>
+  );
+}
+
+function CardIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 12h16" />
+    </svg>
+  );
+}
+
+function BranchIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 3v12a3 3 0 0 0 3 3h9" />
+      <circle cx="6" cy="3" r="2" strokeWidth="2" />
+      <circle cx="18" cy="18" r="2" strokeWidth="2" />
+      <circle cx="18" cy="6" r="2" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function StoreIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14l-1 11H6L5 8Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 8V6a3 3 0 1 1 6 0v2" />
+    </svg>
+  );
+}
+
+function TemplateIcon() {
+  return (
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 5h16v14H4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5v14M9 10h11" />
+    </svg>
   );
 }

@@ -19,13 +19,14 @@
   - hybrid dashboard/runtime refreshes now ignore freshness-only summary metadata, reducing selector churn outside the realtime core too
   - shared execution runtime equality now compares policy arrays, candidate cohorts and recent-order cohorts semantically, reducing churn before template-scale execution surfaces expand
 - `in progress`
-  - validate the new template-faithful sidebar and first `Control Panel` / `AI Bot` pages
-  - replace the old generic `Signals` / `Bots` destinations with the approved template flow
+  - validate the completed account sidebar and deeper template-faithful page language
+  - deepen the first `Control Panel` / `AI Bot` pages toward product-ready review
 - `next`
-  - deepen fidelity inside `Control Panel -> Overview`
-  - deepen fidelity inside `Control Panel -> Bot Settings`
-  - deepen fidelity inside `Control Panel -> Execution Logs`
-  - deepen fidelity inside `AI Bot -> Signal Bot`
+  - continue deepening fidelity inside `Control Panel -> Overview`
+  - continue deepening fidelity inside `Control Panel -> Bot Settings`
+  - continue deepening fidelity inside `Control Panel -> Execution Logs`
+  - continue deepening fidelity inside `AI Bot -> Signal Bot`
+  - decide when the account/marketplace placeholder routes should receive real content
   - decide when transitional legacy views can stop being carried in the repo
   - execution-center and shared runtime comparator audit for denser bot/signal payloads
   - reduce legacy technical pages to admin-only duty later if still needed

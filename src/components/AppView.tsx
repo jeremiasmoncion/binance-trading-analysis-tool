@@ -109,6 +109,27 @@ export function AppView(props: AppViewProps) {
     case "strategies-marketplace":
       content = <TemplatePlaceholderView title="Strategies Marketplace" subtitle="Section reserved for the marketplace flow defined in the template." />;
       break;
+    case "bot-templates":
+      content = <TemplatePlaceholderView title="Bot Templates" subtitle="Section reserved for the template library flow defined in the marketplace." />;
+      break;
+    case "preferences":
+      content = <TemplatePlaceholderView title="Preferences" subtitle="Account settings surface aligned to the template account section." />;
+      break;
+    case "notifications":
+      content = <TemplatePlaceholderView title="Notifications" subtitle="Account notifications surface aligned to the template account section." />;
+      break;
+    case "security-api-keys":
+      content = <TemplatePlaceholderView title="Security & API Keys" subtitle="Account security surface aligned to the template account section." />;
+      break;
+    case "invite-friends":
+      content = <TemplatePlaceholderView title="Invite Friends" subtitle="Referral surface aligned to the template account section." />;
+      break;
+    case "subscription":
+      content = <TemplatePlaceholderView title="Subscription" subtitle="Plan and billing surface aligned to the template account section." />;
+      break;
+    case "help-center":
+      content = <TemplatePlaceholderView title="Help Center" subtitle="Support surface aligned to the template account section." />;
+      break;
     case "signals":
       content = <SignalBotView onNavigateView={props.onNavigateView} />;
       break;

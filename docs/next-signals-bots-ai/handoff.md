@@ -232,6 +232,10 @@ The redesign also now has dedicated documentation for:
     - unresolved linkage backlog
     - owned outcomes count
   - the selected bot settings surface now repeats that ownership health in simplified form so the workspace remains self-explanatory
+  - ownership health now also exposes stronger qualitative indicators for the selected bot:
+    - owned outcome rate
+    - unresolved rate
+    - health label (`healthy`, `stable`, `watch`, `needs-attention`)
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -249,9 +253,9 @@ The redesign also now has dedicated documentation for:
   - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - add stronger per-bot outcome ratios and health indicators beyond raw counts
+  - start surfacing adaptation / training summaries from owned outcomes
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
-  - use owned outcomes more directly in training/adaptation inputs
+  - add compact unresolved-linkage drill-down when ownership health falls into `watch` or `needs-attention`
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
 
 ## Phase 4 Status

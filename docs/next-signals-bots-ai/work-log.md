@@ -4,6 +4,39 @@
 
 ### Phase
 
+`Bot Core` ownership ratios round
+
+### Completed
+
+- Deepened ownership health so the selected bot workspace now exposes ratios and qualitative health states instead of only raw ownership counts.
+- Added shared ownership indicators on top of the read-model:
+  - owned outcome rate
+  - unresolved rate
+  - qualitative health label
+- Updated `Signal Bot` so the ownership section now shows:
+  - owned outcome rate
+  - unresolved rate
+  - operational health label with short explanation
+- Kept the implementation on top of the same shared ownership seam without introducing another scoring/runtime path in the view.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids forcing the operator to mentally translate raw ownership counts into whether the bot is actually in a healthy state.
+- It also avoids defining health logic separately inside the selected-bot visual layer.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - start surfacing adaptation / training summaries from owned outcomes
+  - add compact drill-down context for unresolved linkage when the bot is in `watch` or `needs-attention`
+  - evaluate whether those health indicators should also appear in the bot hub at fleet level
+
+### Phase
+
 `Bot Core` selected-bot ownership workspace round
 
 ### Completed

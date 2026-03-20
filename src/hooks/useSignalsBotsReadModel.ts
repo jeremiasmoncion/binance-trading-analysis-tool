@@ -702,14 +702,32 @@ function createOwnershipSummary<
   const reconciliationPct = decisionTimeline.length
     ? (linkedDecisions.length / decisionTimeline.length) * 100
     : 100;
+  const unresolvedOwnershipCount = unresolvedDecisions.length + unlinkedExecutions.length;
+  const ownedOutcomeRate = decisionTimeline.length
+    ? (ownedOutcomes.length / decisionTimeline.length) * 100
+    : 0;
+  const unresolvedRate = activityTimeline.length
+    ? (unresolvedOwnershipCount / activityTimeline.length) * 100
+    : 0;
+  const healthLabel = unresolvedOwnershipCount === 0
+    ? "healthy"
+    : reconciliationPct >= 75 && unresolvedRate <= 25
+      ? "stable"
+      : reconciliationPct >= 50
+        ? "watch"
+        : "needs-attention";
 
   return {
     decisionCount: decisionTimeline.length,
     linkedDecisionCount: linkedDecisions.length,
     unresolvedDecisionCount: unresolvedDecisions.length,
     unlinkedExecutionCount: unlinkedExecutions.length,
+    unresolvedOwnershipCount,
     ownedOutcomeCount: ownedOutcomes.length,
     reconciliationPct,
+    ownedOutcomeRate,
+    unresolvedRate,
+    healthLabel,
   };
 }
 

@@ -498,13 +498,28 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   />
                   <MetricTile
                     label="Needs Link"
-                    value={String((selectedBotCard?.ownership?.unresolvedDecisionCount || 0) + (selectedBotCard?.ownership?.unlinkedExecutionCount || 0))}
+                    value={String(selectedBotCard?.ownership?.unresolvedOwnershipCount || 0)}
                     note={`${selectedBotCard?.ownership?.unresolvedDecisionCount || 0} unresolved decisions / ${selectedBotCard?.ownership?.unlinkedExecutionCount || 0} unlinked executions.`}
                   />
                   <MetricTile
                     label="Owned Outcomes"
                     value={String(selectedBotCard?.ownership?.ownedOutcomeCount || 0)}
                     note={`${selectedBotCard?.ownership?.linkedDecisionCount || 0} decisions already carry linked execution ownership.`}
+                  />
+                  <MetricTile
+                    label="Owned Outcome Rate"
+                    value={`${Math.round(selectedBotCard?.ownership?.ownedOutcomeRate || 0)}%`}
+                    note="How much of tracked bot decision flow has already produced owned outcomes."
+                  />
+                  <MetricTile
+                    label="Unresolved Rate"
+                    value={`${Math.round(selectedBotCard?.ownership?.unresolvedRate || 0)}%`}
+                    note="Share of owned activity still waiting for stronger linkage or reconciliation."
+                  />
+                  <MetricTile
+                    label="Operational Health"
+                    value={formatOwnershipHealthLabel(selectedBotCard?.ownership?.healthLabel)}
+                    note={buildOwnershipHealthNote(selectedBotCard?.ownership?.healthLabel || "needs-attention")}
                   />
                 </div>
               </SectionCard>
@@ -539,7 +554,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Trading Pairs" value={String(selectedBotPairCount)} note="The current mix of pairs stays curated from watchlist and discovery." />
               <SettingsCard title="Identity" value={formatOperatingProfile(selectedBotCard)} note={`${selectedBotCard?.identity.family || "signal-core"} • ${selectedBotCard?.executionEnvironment || "paper"} • ${selectedBotCard?.automationMode || "observe"}`} />
               <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
-              <SettingsCard title="Ownership Health" value={`${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${(selectedBotCard?.ownership?.unresolvedDecisionCount || 0) + (selectedBotCard?.ownership?.unlinkedExecutionCount || 0)} still need linkage`} />
+              <SettingsCard title="Ownership Health" value={`${formatOwnershipHealthLabel(selectedBotCard?.ownership?.healthLabel)} • ${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${selectedBotCard?.ownership?.unresolvedOwnershipCount || 0} still need linkage`} />
               <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
               <div className="signalbot-settings-cta">
                 <button type="button" className="ui-button ui-button-primary" onClick={() => onNavigateView("control-bot-settings")}>
@@ -785,6 +800,19 @@ function isActivityOrderEntry(value: unknown): value is {
 
 function capitalize(value: string) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
+function formatOwnershipHealthLabel(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Needs Attention";
+  return normalized.split("-").map(capitalize).join(" ");
+}
+
+function buildOwnershipHealthNote(value: string) {
+  if (value === "healthy") return "The bot is reconciling activity and owned outcomes cleanly.";
+  if (value === "stable") return "Most of the bot's activity is already reconciled, with only a small backlog.";
+  if (value === "watch") return "The bot is usable, but ownership backlog is still large enough to monitor closely.";
+  return "Too much owned activity is still unresolved, so adaptation should be interpreted carefully.";
 }
 
 function formatBreakdownLabel(item: {

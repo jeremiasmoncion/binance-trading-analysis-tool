@@ -23,7 +23,7 @@ export function SignalsView() {
   const feedData = useSignalsBotsFeedSelector();
   const [activeTab, setActiveTab] = useState<SignalsWorkspaceTab>("overview");
   const signals = feedData.signalMemory;
-  const watchlist = feedData.watchlists.find((item) => item.name === feedData.activeWatchlistName)?.coins || [];
+  const watchlist = feedData.activeWatchlistCoins;
 
   const readModel = useMemo(() => {
     const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);

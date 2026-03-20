@@ -781,6 +781,38 @@ Shared scanner/runtime comparator hardening
 - Keep scanner/runtime comparator depth treated as protected infrastructure for the template migration.
 - Do not let future UI rounds solve scanner churn from the component layer.
 
+## 2026-03-19 - Signal Bot Active Watchlist Narrowing
+
+### Area
+
+Selector granularity for the `AI Bot -> Signal Bot` page
+
+### Completed
+
+- Narrowed the shared selector used by `SignalsView` and `BotsView` again.
+- Replaced the full watchlist collection dependency with only:
+  - `signalMemory`
+  - `activeWatchlistName`
+  - `activeWatchlistCoins`
+- Added selector-level equality so non-active watchlist edits do not wake `Signal Bot`.
+- Updated architecture docs with the page-specific selector rule.
+
+### Risk Avoided
+
+- `Signal Bot` is about to gain more filters, cards and denser feed surfaces.
+- If it stayed subscribed to the whole watchlist collection, edits to non-active lists would still rerender the page and all of its derived ranking/read-model work.
+- That would push the implementador toward UI-level defensive memoization instead of fixing the shared seam once.
+
+### Pending
+
+- Continue auditing whether upcoming `Signal Bot` tables/history blocks need further selector splitting once they hydrate richer datasets.
+- Revisit whether the feed/ranking read-model itself should move behind a shared memo seam if the page grows significantly more tabs and summaries.
+
+### Recommendation To Director
+
+- Keep `Signal Bot` selector granularity treated as runtime protection, not as a later UI optimization.
+- Require future Signal Bot growth to widen selectors only when a new data contract truly needs it.
+
 ## 2026-03-19 - User-Facing Signals And Bots Navigation Reform
 
 ### Phase

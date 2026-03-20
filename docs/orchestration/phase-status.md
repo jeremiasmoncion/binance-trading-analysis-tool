@@ -20,6 +20,7 @@
   - shared execution runtime equality now compares policy arrays, candidate cohorts and recent-order cohorts semantically, reducing churn before template-scale execution surfaces expand
   - first template-facing `Signals` and `Bots` pages now use a narrow shared feed selector instead of the broader memory/runtime selector bundle
   - shared scanner runtime equality now compares target cohorts and run cohorts semantically before denser control-panel surfaces land
+  - `Signal Bot` feed pages now observe only `signalMemory + activeWatchlistCoins`, avoiding churn from non-active watchlist edits
 - `in progress`
   - validate `Signal Bot` as the first page-specific closure target
   - continue page-by-page closure instead of broad facade-first expansion

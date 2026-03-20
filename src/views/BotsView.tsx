@@ -18,7 +18,7 @@ type BotsWorkspaceTab = "all-bots" | "performance" | "how-it-works";
 export function BotsView() {
   const [activeTab, setActiveTab] = useState<BotsWorkspaceTab>("all-bots");
   const feedData = useSignalsBotsFeedSelector();
-  const watchlist = feedData.watchlists.find((item) => item.name === feedData.activeWatchlistName)?.coins || [];
+  const watchlist = feedData.activeWatchlistCoins;
 
   const readModel = useMemo(() => {
     const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);

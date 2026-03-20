@@ -279,6 +279,11 @@ The redesign also now has dedicated documentation for:
   - prioritized execution summaries now rank recurring backlog symbols per bot instead of only listing them flat:
     - unresolved decision rankings
     - unlinked execution rankings
+  - `Bot Settings` weakest-bots panel now also surfaces the same diagnostic language as the execution summaries:
+    - unresolved decision symbols
+    - unlinked execution symbols
+    - best pocket symbol
+    - weak pocket symbol
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -303,6 +308,7 @@ The redesign also now has dedicated documentation for:
   - decide whether recurring unresolved-symbol pockets should now surface directly in the prioritized execution summaries
   - decide whether recurring pocket rankings now deserve persistence or fleet-level promotion
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
+  - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
 
 ## Phase 4 Status
 

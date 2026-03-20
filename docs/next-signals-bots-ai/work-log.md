@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` fleet attention diagnostics round
+
+### Completed
+
+- Extended the `Bot Settings` weakest-bots panel so the fleet hub now surfaces the same backlog/pocket language already opened in `Execution Logs`.
+- Each attention card in the hub now also exposes:
+  - unresolved decision symbols
+  - unlinked execution symbols
+  - best pocket symbol
+  - weak pocket symbol
+- Kept the diagnostics on top of the same shared ownership/adaptation seam instead of opening another fleet-monitoring runtime.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids giving `Execution Logs` a richer diagnostic language while the fleet hub still stays vague.
+- It also avoids teaching the operator two different ways of reading weak bots depending on the page.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether fleet-level attention should also surface recurring-symbol rankings, not only flat backlog symbols
+  - evaluate whether the weakest-bot cards should link more explicitly into `Execution Logs` filtered views
+  - keep tightening ownership diagnostics for bots repeatedly falling into `watch` and `needs-attention`
+
+### Phase
+
 `Bot Core` execution logs recurring-symbol ranking round
 
 ### Completed

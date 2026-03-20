@@ -211,18 +211,35 @@ function buildBotAttentionNote(bot: {
   reconciliationPct: number;
   ownedOutcomeCount: number;
   adaptationConfidence: string;
+  healthLabel?: string;
 }) {
   const parts = [
     `${bot.unresolvedOwnershipCount} unresolved items`,
     `${bot.reconciliationPct.toFixed(0)}% reconciled`,
     `${bot.ownedOutcomeCount} owned outcomes`,
   ];
+  if (bot.healthLabel) {
+    parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
+  }
   if (bot.adaptationConfidence === "low") {
     parts.push("adaptation confidence still low");
   } else if (bot.adaptationConfidence === "medium") {
     parts.push("adaptation confidence still maturing");
   }
   return parts.join(" • ");
+}
+
+function formatHealthLabel(value: string) {
+  if (value === "needs-attention") return "Needs attention";
+  if (value === "watch") return "Watch";
+  if (value === "stable") return "Stable";
+  if (value === "healthy") return "Healthy";
+  return capitalize(value);
+}
+
+function formatSymbolList(values: Array<string | null | undefined>) {
+  const items = values.filter((value): value is string => Boolean(value));
+  return items.length ? items.join(", ") : "clear";
 }
 
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
@@ -261,8 +278,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         ownedOutcomeCount: bot.ownership.ownedOutcomeCount,
         unresolvedOwnershipCount: bot.ownership.unresolvedDecisionCount + bot.ownership.unlinkedExecutionCount,
         reconciliationPct: bot.ownership.reconciliationPct,
+        healthLabel: bot.ownership.healthLabel,
         adaptationConfidence: bot.adaptationSummary?.trainingConfidence || "low",
         adaptationBias: bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve.",
+        unresolvedDecisionSymbols: bot.ownership.unresolvedDecisionSymbols || [],
+        unlinkedExecutionSymbols: bot.ownership.unlinkedExecutionSymbols || [],
+        bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
+        weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,
       };
     });
@@ -872,6 +894,16 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <article key={bot.id} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>{buildBotAttentionNote(bot)}</p>
+                  <p>
+                    Decision backlog: {formatSymbolList(bot.unresolvedDecisionSymbols)}
+                    {" · "}
+                    Execution backlog: {formatSymbolList(bot.unlinkedExecutionSymbols)}
+                  </p>
+                  <p>
+                    Best pocket: {bot.bestPocketSymbol || "forming"}
+                    {" · "}
+                    Weak pocket: {bot.weakPocketSymbol || "not clear"}
+                  </p>
                 </article>
               ))}
             </div>

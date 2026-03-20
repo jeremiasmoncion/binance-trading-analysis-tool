@@ -4,6 +4,40 @@
 
 ### Phase
 
+`Bot Core` decision outcome linkage round
+
+### Completed
+
+- Extended the shared bot decision runtime so persisted bot decisions can now enrich themselves with linked execution outcomes from the shared execution plane.
+- Added outcome linkage that prefers:
+  - direct signal-id bridge
+  - then controlled symbol / timeframe / strategy matching
+- Linked decision metadata can now persist richer execution outcome fields such as:
+  - `executionOrderId`
+  - execution status / outcome status
+  - realized pnl
+  - notional / quantity
+  - hold minutes
+  - linkage reason
+- `Execution Logs` now surfaces that linkage more clearly on the decision side instead of treating all decisions as outcome-blind rows.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids keeping decision history and execution history as adjacent but weakly connected stories.
+- It also avoids pushing outcome linkage down into visual surfaces instead of keeping it on the shared decision seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - expose bot-owned outcome history more explicitly in `Execution Logs`
+  - feed memory/learning from linked outcomes, not only from decisions
+  - evaluate whether `bot_decisions` now needs a dedicated SQL migration for indexed outcome linkage fields
+
+### Phase
+
 `Bot Core` performance contracts round
 
 ### Completed

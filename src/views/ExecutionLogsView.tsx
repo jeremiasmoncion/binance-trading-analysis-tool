@@ -35,6 +35,8 @@ type DecisionLogEntry = {
   source: string;
   pnlUsd?: number;
   entryPrice?: number | null;
+  executionOrderId?: number | null;
+  executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -169,7 +171,7 @@ export function ExecutionLogsView() {
                     </td>
                     <td>
                       <div className="template-table-actions">
-                        <button type="button" className="template-inline-link">{("source" in entry.decision ? entry.decision.source : "View")}</button>
+                        <button type="button" className="template-inline-link">{formatDecisionActionLink(entry.decision)}</button>
                         <button type="button" className="template-inline-link">Copy</button>
                       </div>
                     </td>
@@ -271,11 +273,19 @@ function formatDecisionType(decision: { action: string }) {
 }
 
 function formatDecisionStatus(status: string) {
+  if (status === "closed") return "Closed";
   if (status === "approved") return "Reviewed";
   if (status === "dismissed") return "Dismissed";
   if (status === "executed") return "Executed";
   if (status === "blocked") return "Blocked";
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatDecisionActionLink(decision: DecisionLogEntry) {
+  if (decision.executionOrderId) {
+    return decision.executionOutcomeStatus ? `Order ${decision.executionOutcomeStatus}` : `Order #${decision.executionOrderId}`;
+  }
+  return decision.source || "View";
 }
 
 function formatMaybeUsd(value: unknown) {

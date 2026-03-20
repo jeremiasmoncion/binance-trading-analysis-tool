@@ -185,6 +185,13 @@ The redesign also now has dedicated documentation for:
   - `Create New Bot` now opens a local quick-edit draft first and only persists the bot when the user confirms with `Save Changes`
   - the shared bot read-model now aligns with the explicit `BotPerformanceBreakdown` contract instead of only generic UI buckets
   - `Signal Bot -> Performance` now exposes richer bot-owned slices by strategy/origin/timeframe/symbol
+  - persisted bot decisions can now enrich themselves with linked execution outcomes from the shared execution plane
+  - decision metadata can now carry stronger outcome linkage:
+    - `executionOrderId`
+    - execution status / outcome status
+    - linked pnl / notional / quantity / hold minutes
+    - linkage reason
+  - `Execution Logs` now surfaces that decision-side execution linkage more clearly
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

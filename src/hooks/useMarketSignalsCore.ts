@@ -46,6 +46,18 @@ export function useMarketSignalsCore() {
       ? createBotConsumableFeed(activeBot, botSignalBase, operableRankedFeed.generatedAt)
       : null;
     const botConsumableSignals = botConsumableFeed ? selectAcceptedBotConsumableSignals(botConsumableFeed) : [];
+    const latestScannerRun = signalCore.scannerStatus?.latestRun || null;
+    const activeScannerTarget = signalCore.scannerStatus?.targets[0] || null;
+    const scannerDiscovery = {
+      activeListName: activeScannerTarget?.activeListName || signalCore.activeWatchlistName || "Sin watchlist activa",
+      watchedCoinsCount: Number(activeScannerTarget?.coinsCount || signalCore.activeWatchlistCoins.length || 0),
+      watchedCoins: activeScannerTarget?.coins?.length ? activeScannerTarget.coins : signalCore.activeWatchlistCoins,
+      latestRunAt: latestScannerRun?.created_at || null,
+      latestRunStatus: latestScannerRun?.status || null,
+      latestRunFrames: Number(latestScannerRun?.frames_scanned || 0),
+      latestRunSignalsCreated: Number(latestScannerRun?.signals_created || 0),
+      latestRunSignalsClosed: Number(latestScannerRun?.signals_closed || 0),
+    };
 
     return {
       marketCore: {
@@ -65,6 +77,7 @@ export function useMarketSignalsCore() {
         activeWatchlistName: signalCore.activeWatchlistName,
         activeWatchlistCoins: signalCore.activeWatchlistCoins,
         scannerStatus: signalCore.scannerStatus,
+        scannerDiscovery,
         executionCandidates: signalCore.executionCandidates,
         feeds: {
           published: publishedFeed,

@@ -142,6 +142,11 @@ The redesign also now has dedicated documentation for:
     - bot-consumable
   - `operable` now prefers eligible `execution candidates` from the shared execution overlay
   - `bot-consumable` now reuses that stronger operable cohort before falling back to ranked memory feeds
+  - scanner discovery context now travels in the same seam:
+    - active watchlist
+    - watched coins
+    - latest scan freshness
+    - latest scan signal creation counts
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context

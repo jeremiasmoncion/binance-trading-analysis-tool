@@ -163,6 +163,7 @@ Current progress:
   - `signals + bots` read-model now consumes that seam instead of rebuilding the feed pipeline alone
   - `operable` now prefers real eligible `execution candidates` from the shared execution overlay
   - `bot-consumable` can now hydrate from that stronger operable cohort before falling back to ranked memory feeds
+  - scanner discovery context is now exposed from the same seam for watchlist-driven product surfaces
 - pending:
   - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
   - deepen the operable contract with blocked/eligible cohorts and richer scanner/runtime context

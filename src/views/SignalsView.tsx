@@ -38,6 +38,7 @@ export function SignalsView() {
 
   const watchlistVisible = readModel.watchlistFirst.filter((signal) => signal.ranking.tier !== "low-visibility");
   const discoveryVisible = readModel.marketDiscovery.filter((signal) => signal.ranking.tier !== "low-visibility");
+  const scannerDiscovery = core.signalCore.scannerDiscovery;
 
   return (
     <div id="signalsWorkspaceView" className="view-panel active">
@@ -78,11 +79,11 @@ export function SignalsView() {
 
         {activeTab === "overview" ? (
           <div className="workspace-grid">
-            <SectionCard
-              title="Overview"
-              subtitle="Resumen rápido del feed que hoy sí vale la pena mirar."
-              className="workspace-panel"
-            >
+          <SectionCard
+            title="Overview"
+            subtitle="Resumen rápido del feed que hoy sí vale la pena mirar."
+            className="workspace-panel"
+          >
               <div className="workspace-list">
                 {readModel.priority.slice(0, 4).map((signal) => (
                 <SignalCard
@@ -100,6 +101,7 @@ export function SignalsView() {
                 <MetricTile label="Mercado activo" value={core.marketCore.currentCoin} note={`Timeframe ${core.marketCore.timeframe} • precio ${formatCompactUsd(core.marketCore.currentPrice)}`} />
                 <MetricTile label="Oportunidad líder" value={readModel.activeOpportunity.strategy.label} note={`${readModel.activeOpportunity.signal.label} • score ${Math.round(readModel.activeOpportunity.rankScore)}`} />
                 <MetricTile label="Bias MTF" value={String(core.marketCore.multiTimeframes.filter((item) => item.aligned).length)} note="timeframes alineados con la oportunidad principal" />
+                <MetricTile label="Scanner activo" value={scannerDiscovery.activeListName} note={`${scannerDiscovery.watchedCoinsCount} monedas • ${scannerDiscovery.latestRunSignalsCreated} señales creadas en el último scan`} />
               </div>
             ) : null}
           </SectionCard>

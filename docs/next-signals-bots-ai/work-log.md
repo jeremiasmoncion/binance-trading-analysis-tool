@@ -4,6 +4,41 @@
 
 ### Phase
 
+`Bot Core` execution logs bot summaries round
+
+### Completed
+
+- Extended `Execution Logs` so the page now surfaces compact per-bot summaries above the table instead of leaving the operator with only a raw prioritized stream.
+- Kept those summaries derived from the same shared bot seam and the same active filters/scope already driving the log table.
+- Each bot summary now exposes:
+  - activity count in the current view
+  - linked decision count
+  - decision-only count
+  - unlinked order count
+  - owned outcomes
+  - unresolved ownership backlog
+  - ownership health label
+  - adaptation confidence
+- When `Attention Bots` is active, the summary stack now follows the same shared weakest-bot priority already used by the hub.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids making `Execution Logs` harder to scan by forcing operators to infer bot-level backlog only from row-by-row reading.
+- It also avoids creating another bot-monitoring surface just to summarize the attention scope.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - highlight recurring unresolved symbols per prioritized bot
+  - surface stronger per-bot outcome pockets directly from the log summaries
+  - evaluate whether some of these attention/outcome summaries now deserve persistence or indexed backend support
+
+### Phase
+
 `Bot Core` execution logs attention scope round
 
 ### Completed

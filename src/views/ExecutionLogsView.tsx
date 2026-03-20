@@ -65,11 +65,13 @@ export function ExecutionLogsView() {
       orders,
       botNameById,
       attentionBotIds,
+      attentionBots: botsReadModel.attentionBots || [],
+      botCards: botsReadModel.botCards || [],
       successRate: calculateSuccessRate(logs, decisions.length),
       failed: failedOrders + failedDecisions,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notionalUsd || 0), 0),
     };
-  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.botCards, decisions.length]);
+  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.attentionBots, botsReadModel.botCards, decisions.length]);
 
   const filteredLogs = readModel.logs
     .filter((entry) => matchesTab(entry, activeTab))
@@ -77,6 +79,51 @@ export function ExecutionLogsView() {
     .filter((entry) => matchesBotScope(entry, botScope, readModel.attentionBotIds))
     .filter((entry) => matchesSearch(entry, searchQuery, readModel.botNameById));
   const visibleLogs = filteredLogs.slice(0, 12);
+  const botSummaries = useMemo(() => {
+    const logsByBotId = new Map<string, ActivityLogEntry[]>();
+    filteredLogs.forEach((entry) => {
+      const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
+      if (!botId) return;
+      const currentEntries = logsByBotId.get(botId) || [];
+      currentEntries.push(entry);
+      logsByBotId.set(botId, currentEntries);
+    });
+
+    const scopedBots = botScope === "attention"
+      ? readModel.attentionBots
+      : readModel.botCards
+          .filter((bot) => logsByBotId.has(bot.id))
+          .sort((left, right) => (logsByBotId.get(right.id)?.length || 0) - (logsByBotId.get(left.id)?.length || 0))
+          .slice(0, 3);
+
+    return scopedBots.map((bot) => {
+      const botLogs = logsByBotId.get(bot.id) || [];
+      const linkedCount = botLogs.filter((entry) => entry.kind === "decision" && Boolean(entry.linkedOrder)).length;
+      const decisionOnlyCount = botLogs.filter((entry) => entry.kind === "decision" && !entry.linkedOrder).length;
+      const unlinkedOrderCount = botLogs.filter((entry) => entry.kind === "order").length;
+      const latestEntry = botLogs[0] || null;
+      return {
+        id: bot.id,
+        name: bot.name,
+        pair: bot.workspaceSettings.primaryPair || latestSymbolFromBot(bot) || "-",
+        activityCount: botLogs.length,
+        linkedCount,
+        decisionOnlyCount,
+        unlinkedOrderCount,
+        ownedOutcomeCount: bot.ownership.ownedOutcomeCount,
+        unresolvedOwnershipCount: bot.ownership.unresolvedOwnershipCount,
+        reconciliationPct: bot.ownership.reconciliationPct,
+        healthLabel: bot.ownership.healthLabel,
+        adaptationConfidence: bot.adaptationSummary?.trainingConfidence || "low",
+        attentionNote: bot.attention?.note || bot.adaptationSummary?.adaptationBias || "Waiting for stronger owned outcomes.",
+        latestTimestamp: latestEntry
+          ? formatTimestamp(latestEntry.kind === "decision"
+            ? (latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt)
+            : (latestEntry.order.updatedAt || latestEntry.order.createdAt))
+          : null,
+      };
+    });
+  }, [botScope, filteredLogs, readModel.attentionBots, readModel.botCards]);
 
   return (
     <div id="executionLogsView" className="view-panel active">
@@ -138,6 +185,24 @@ export function ExecutionLogsView() {
               <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
+
+          {botSummaries.length ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              {botSummaries.map((bot) => (
+                <article key={bot.id} className="signalbot-insight-card">
+                  <strong>{bot.name} · {bot.pair}</strong>
+                  <p>
+                    {bot.activityCount} entries in view · {bot.ownedOutcomeCount} owned outcomes · {bot.unresolvedOwnershipCount} unresolved · {formatOwnershipHealth(bot.healthLabel)} · {bot.adaptationConfidence} confidence
+                  </p>
+                  <p>
+                    {bot.linkedCount} linked / {bot.decisionOnlyCount} decision-only / {bot.unlinkedOrderCount} unlinked orders
+                    {bot.latestTimestamp ? ` · latest ${bot.latestTimestamp}` : ""}
+                  </p>
+                  <p>{bot.attentionNote}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
 
           <div className="template-table-shell">
             <table className="template-table">
@@ -275,6 +340,22 @@ function matchesSearch(entry: ActivityLogEntry, query: string, botNameById: Map<
       ];
 
   return haystack.some((value) => normalizeQuery(value).includes(normalizedQuery));
+}
+
+function latestSymbolFromBot(bot: {
+  activity: {
+    recentSymbols: string[];
+  };
+}) {
+  return bot.activity.recentSymbols[0] || null;
+}
+
+function formatOwnershipHealth(value: string) {
+  if (value === "needs-attention") return "Needs attention";
+  if (value === "watch") return "Watch";
+  if (value === "stable") return "Stable";
+  if (value === "healthy") return "Healthy";
+  return value;
 }
 
 function isFailedDecision(decision: { status: string }) {

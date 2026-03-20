@@ -261,6 +261,16 @@ The redesign also now has dedicated documentation for:
     - all bots
     - attention bots
   - `Bot Settings` weakest-bots panel now reuses the same shared ranked attention list instead of rebuilding a second local top-3
+  - `Execution Logs` now also exposes compact per-bot summaries above the table for the current scope
+  - those summaries now reflect the same active filters and expose, per bot:
+    - activity count in view
+    - linked decisions
+    - decision-only rows
+    - unlinked orders
+    - owned outcomes
+    - unresolved ownership backlog
+    - ownership health
+    - adaptation confidence
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -282,6 +292,7 @@ The redesign also now has dedicated documentation for:
   - add richer per-bot outcome summaries on top of the now-prioritized `Execution Logs`
   - evaluate whether any owned-outcome/adaptation summaries now deserve persistence or indexed storage support
   - keep tightening recurring unresolved symbols surfaced by the shared attention scope
+  - decide whether recurring unresolved-symbol pockets should now surface directly in the prioritized execution summaries
 
 ## Phase 4 Status
 

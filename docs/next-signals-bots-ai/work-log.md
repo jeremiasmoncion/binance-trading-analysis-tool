@@ -1679,6 +1679,30 @@ Phase 3 - Signal Bot hard-close refinement
 - `src/hooks/useSignalsBotsReadModel.ts`
 - `src/views/BotSettingsView.tsx`
 
+## API Connections Relocation Round
+
+### What Changed
+
+- Removed `API Connections` from `Control Panel -> Bot Settings`.
+- Reused the existing account navigation entry `Security & API Keys` as the canonical home for exchange connections and API security.
+- Upgraded `Security & API Keys` from placeholder state into a real `ProfileView` tab so the account area now owns:
+  - connected exchanges
+  - exchange sync/actions
+  - API security best practices
+
+### Why This Matters
+
+- Exchange credentials belong to account/security ownership, not bot ownership.
+- Bots consume exchange access, but they should not govern or visually own the credential surface.
+- This keeps `Bot Settings` focused on bot policy/configuration and prevents the bot hub from absorbing unrelated account responsibilities.
+
+### Files Updated
+
+- `src/components/AppView.tsx`
+- `src/views/ProfileView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+
 ## Product Logic Alignment Round
 
 ### What Changed

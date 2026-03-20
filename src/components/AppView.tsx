@@ -119,7 +119,12 @@ export function AppView(props: AppViewProps) {
       content = <TemplatePlaceholderView title="Notifications" subtitle="Account notifications surface aligned to the template account section." />;
       break;
     case "security-api-keys":
-      content = <TemplatePlaceholderView title="Security & API Keys" subtitle="Account security surface aligned to the template account section." />;
+      content = (
+        <ProfileView
+          user={props.user}
+          initialTab="security"
+        />
+      );
       break;
     case "invite-friends":
       content = <TemplatePlaceholderView title="Invite Friends" subtitle="Referral surface aligned to the template account section." />;
@@ -165,6 +170,7 @@ export function AppView(props: AppViewProps) {
       content = (
         <ProfileView
           user={props.user}
+          initialTab="account"
         />
       );
       break;

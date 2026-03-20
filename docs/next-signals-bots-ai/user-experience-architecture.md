@@ -73,7 +73,6 @@ Examples:
   - `General Settings`
   - `Risk Management`
   - `Notifications`
-  - `API Connections`
 - signal surfaces should preserve template-like user-facing naming for filters, statuses, and card metadata where the concept is the same
 
 ## Graphic Line Rule
@@ -134,10 +133,10 @@ More specific rule for template migration:
   - card radius and border treatment
 - in practice, `My Wallet` is the first implementation baseline and the template is the visual target to match through that baseline
 - for settings tabs specifically:
-  - reuse one shared form language across `General Settings`, `Risk Management`, `Notifications`, and `API Connections`
+  - reuse one shared form language across `General Settings`, `Risk Management`, and `Notifications`
   - shared select/input/toggle primitives should be the default
   - repeated channel rows and settings actions should also stay shared when they recur across tabs
-  - exchange cards, security cards, and status/action treatments should stay inside the same `Bot Settings` visual family
+  - exchange cards, security cards, and status/action treatments should stay inside the same account/security visual family when rendered under `Security & API Keys`
   - do not solve theme parity with per-tab overrides when the fix belongs in the shared primitive
 - for any tabbed page:
   - the selected tab must stay visibly highlighted after selection
@@ -156,6 +155,8 @@ More specific rule for template migration:
   - opening the full bot should navigate into the full bot workspace screen
   - the current full bot workspace is `Signal Bot`, reused as the detailed bot screen until more bot-specific detail pages exist
   - selected bot context should travel through a shared seam, not ad hoc component state
+  - `API Connections` does not belong inside `Bot Settings`
+  - exchange credentials and API security belong to the account/admin area under `Security & API Keys`
 
 ## Core UX Rule
 

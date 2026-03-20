@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { PaginationControls, paginateRows } from "../components/ui/PaginationControls";
 import { SectionCard } from "../components/ui/SectionCard";
@@ -8,11 +8,12 @@ import type { UserSession, WatchlistScanExecution } from "../types";
 
 interface ProfileViewProps {
   user: UserSession;
+  initialTab?: "account" | "binance" | "security" | "users" | "backtesting" | "scanner";
 }
 
 export function ProfileView(props: ProfileViewProps) {
   const systemData = useProfileSystemSelector();
-  const [activeTab, setActiveTab] = useState<"account" | "binance" | "users" | "backtesting" | "scanner">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "binance" | "security" | "users" | "backtesting" | "scanner">(props.initialTab || "account");
   const [usersPage, setUsersPage] = useState(1);
   const [scannerExecution, setScannerExecution] = useState<WatchlistScanExecution | null>(null);
   const [validationLoading, setValidationLoading] = useState(false);
@@ -69,10 +70,16 @@ export function ProfileView(props: ProfileViewProps) {
   const tabs = [
     { key: "account", label: "Cuenta" },
     { key: "binance", label: "Binance" },
+    { key: "security", label: "Security & API Keys" },
     ...(props.user.role === "admin" ? [{ key: "scanner", label: "Vigilante" }] : []),
     ...(props.user.role === "admin" ? [{ key: "backtesting", label: "Backtesting" }] : []),
     ...(props.user.role === "admin" ? [{ key: "users", label: "Usuarios" }] : []),
   ];
+
+  useEffect(() => {
+    if (!props.initialTab) return;
+    setActiveTab(props.initialTab);
+  }, [props.initialTab]);
 
   useEffect(() => {
     if (props.user.role !== "admin" || activeTab !== "backtesting") return;
@@ -167,7 +174,7 @@ export function ProfileView(props: ProfileViewProps) {
         <StatCard label="Usuarios visibles" value={String(users.length)} detail={props.user.role === "admin" ? "Panel administrativo" : "Solo lectura"} tone="accent" />
       </div>
 
-      <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "users" | "backtesting" | "scanner")} />
+      <ModuleTabs items={tabs} activeKey={activeTab} onChange={(key) => setActiveTab(key as "account" | "binance" | "security" | "users" | "backtesting" | "scanner")} />
 
       <div className="profile-panel-grid">
         {activeTab === "account" ? (
@@ -357,6 +364,127 @@ export function ProfileView(props: ProfileViewProps) {
                 <div className="profile-data-row"><span>Tipo de cuenta</span><strong>{summary.accountType || "--"}</strong></div>
                 <div className="profile-data-row"><span>Ordenes abiertas</span><strong>{summary.openOrdersCount || 0}</strong></div>
                 <div className="profile-data-row"><span>Permisos</span><strong>{(summary.permissions || []).join(", ") || "--"}</strong></div>
+              </div>
+            </SectionCard>
+          </>
+        ) : null}
+
+        {activeTab === "security" ? (
+          <>
+            <SectionCard
+              title="Security & API Keys"
+              subtitle="Esta zona centraliza conexiones de exchange y prácticas de seguridad de cuenta, fuera del flujo operativo de bots."
+              helpTitle="Por qué vive aquí"
+              helpBody="Las conexiones API pertenecen a la identidad y seguridad del usuario. Los bots las consumen, pero no deben gobernarlas desde Bot Settings."
+            >
+              <div className="botsettings-general-grid">
+                <article className="botsettings-general-card botsettings-api-card botsettings-risk-span">
+                  <div className="botsettings-general-head">
+                    <div className="botsettings-general-title">
+                      <div className="botsettings-general-icon is-info">
+                        <ApiConnectionsIcon />
+                      </div>
+                      <h3>Connected Exchanges</h3>
+                    </div>
+                    <button type="button" className="ui-button ui-button-primary">
+                      <PlusMiniIcon />
+                      Add Exchange
+                    </button>
+                  </div>
+
+                  <div className="botsettings-api-grid">
+                    {PROFILE_API_CONNECTIONS.map((connection) => (
+                      <article key={connection.id} className="botsettings-api-exchange-card">
+                        <div className="botsettings-api-card-head">
+                          <div className="botsettings-api-card-identity">
+                            <div className={`botsettings-api-logo is-${connection.tone}`}>
+                              <ExchangeBadgeIcon />
+                            </div>
+                            <div className="botsettings-api-card-copy">
+                              <strong>{connection.name}</strong>
+                              <span>{connection.accountLabel}</span>
+                            </div>
+                          </div>
+                          <span className="botsettings-status-pill is-running">{connection.status}</span>
+                        </div>
+
+                        <div className="botsettings-api-metadata">
+                          <div className="botsettings-api-meta-row">
+                            <span>API Key</span>
+                            <strong>{connection.maskedKey}</strong>
+                          </div>
+                          <div className="botsettings-api-meta-row">
+                            <span>Permissions</span>
+                            <strong>{connection.permissions}</strong>
+                          </div>
+                          <div className="botsettings-api-meta-row">
+                            <span>Last Sync</span>
+                            <strong>{connection.lastSync}</strong>
+                          </div>
+                        </div>
+
+                        <div className="botsettings-api-actions">
+                          <button type="button" className="botsettings-api-sync-button ui-button">
+                            <SyncMiniIcon />
+                            Sync
+                          </button>
+                          <button type="button" className="botsettings-api-icon-button" aria-label={`Open ${connection.name} settings`}>
+                            <GearMiniIcon />
+                          </button>
+                          <button type="button" className="botsettings-api-icon-button is-danger" aria-label={`Delete ${connection.name}`}>
+                            <TrashMiniIcon />
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+
+                    <button type="button" className="botsettings-api-add-card">
+                      <span className="botsettings-api-add-icon">
+                        <PlusMiniIcon />
+                      </span>
+                      <strong>Add Exchange</strong>
+                      <span>Connect another exchange</span>
+                    </button>
+                  </div>
+                </article>
+
+                <article className="botsettings-general-card botsettings-api-card botsettings-risk-span">
+                  <div className="botsettings-general-head">
+                    <div className="botsettings-general-title">
+                      <div className="botsettings-general-icon is-success">
+                        <SecurityShieldIcon />
+                      </div>
+                      <h3>API Security Best Practices</h3>
+                    </div>
+                  </div>
+
+                  <div className="botsettings-api-practices-grid">
+                    <SecurityPracticeCard
+                      tone="success"
+                      icon={<CheckShieldIcon />}
+                      title="IP Whitelisting"
+                      note="Restrict API access to specific IP addresses"
+                    />
+                    <SecurityPracticeCard
+                      tone="success"
+                      icon={<CheckShieldIcon />}
+                      title="No Withdrawals"
+                      note="API keys should not have withdrawal permissions"
+                    />
+                    <SecurityPracticeCard
+                      tone="warning"
+                      icon={<RotationAlertIcon />}
+                      title="Key Rotation"
+                      note="Rotate your API keys every 90 days"
+                    />
+                    <SecurityPracticeCard
+                      tone="success"
+                      icon={<CheckShieldIcon />}
+                      title="Encrypted Storage"
+                      note="All API keys are encrypted at rest"
+                    />
+                  </div>
+                </article>
               </div>
             </SectionCard>
           </>
@@ -782,5 +910,120 @@ export function ProfileView(props: ProfileViewProps) {
         ) : null}
       </div>
     </div>
+  );
+}
+
+const PROFILE_API_CONNECTIONS = [
+  {
+    id: "binance-main",
+    name: "Binance",
+    accountLabel: "Main Account",
+    maskedKey: "••••x7Kf3",
+    permissions: "Read, Trade",
+    lastSync: "2 min ago",
+    status: "Connected",
+    tone: "binance" as const,
+  },
+  {
+    id: "coinbase-pro",
+    name: "Coinbase Pro",
+    accountLabel: "Trading Account",
+    maskedKey: "••••m2Zb8",
+    permissions: "Read, Trade",
+    lastSync: "5 min ago",
+    status: "Connected",
+    tone: "coinbase" as const,
+  },
+];
+
+function SecurityPracticeCard(props: { tone: "success" | "warning"; icon: ReactNode; title: string; note: string }) {
+  return (
+    <article className="botsettings-security-card">
+      <div className={`botsettings-security-icon is-${props.tone}`}>{props.icon}</div>
+      <div className="botsettings-security-copy">
+        <strong>{props.title}</strong>
+        <span>{props.note}</span>
+      </div>
+    </article>
+  );
+}
+
+function ApiConnectionsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8.5 8.5a2.5 2.5 0 0 1 3.5 0l1.1 1.1a2.5 2.5 0 0 1 0 3.5l-1.1 1.1a2.5 2.5 0 0 1-3.5 0a2.5 2.5 0 0 1 0-3.5l.7-.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15.5 9.8a2.5 2.5 0 0 1 0 3.5l-1.1 1.1a2.5 2.5 0 0 1-3.5 0l-1.1-1.1a2.5 2.5 0 0 1 0-3.5a2.5 2.5 0 0 1 3.5 0l.7.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SecurityShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5 18 7v4.5c0 4.2-2.4 6.8-6 8-3.6-1.2-6-3.8-6-8V7l6-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ExchangeBadgeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 5h8v3H8zM7 9h10v10H7z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M10 12h4M10 15h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SyncMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 12a7 7 0 0 1 12-4.8L19 9M19 9V5m0 4h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19 12a7 7 0 0 1-12 4.8L5 15m0 0v4m0-4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GearMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 9.4a2.6 2.6 0 1 0 0 5.2a2.6 2.6 0 0 0 0-5.2Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m19 12-.9-.4a6.8 6.8 0 0 0-.5-1.2l.4-.9-1.4-1.4-.9.4c-.4-.2-.8-.4-1.2-.5L14 5h-2l-.4.9c-.4.1-.8.3-1.2.5l-.9-.4-1.4 1.4.4.9c-.2.4-.4.8-.5 1.2L5 12v2l.9.4c.1.4.3.8.5 1.2l-.4.9 1.4 1.4.9-.4c.4.2.8.4 1.2.5L12 19h2l.4-.9c.4-.1.8-.3 1.2-.5l.9.4 1.4-1.4-.4-.9c.2-.4.4-.8.5-1.2l.9-.4v-2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TrashMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6.5 7.5h11M9.5 7.5V6a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5M8.5 9.5v7m3-7v7m3-7v7M7.5 19h9a1 1 0 0 0 1-1l.6-9.5H6.9L7.5 18a1 1 0 0 0 1 1Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PlusMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckShieldIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5 18 7v4.5c0 4.2-2.4 6.8-6 8-3.6-1.2-6-3.8-6-8V7l6-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m9.4 12.4 1.7 1.7 3.5-3.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RotationAlertIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5a7 7 0 0 1 6.4 4.2M19 5v4h-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 19a7 7 0 0 1-6.4-4.2M5 19v-4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 9v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" />
+    </svg>
   );
 }

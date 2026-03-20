@@ -1024,3 +1024,31 @@ Keep the work phased.
 - `src/realtime-core/*`
 - hooks sensibles
 - `api/_lib/*`
+
+## Implementador - 2026-03-20 - API Connections Relocation
+
+### What Was Done
+
+- Removed `API Connections` from `Control Panel -> Bot Settings`.
+- Routed `security-api-keys` into `ProfileView` instead of leaving it as a placeholder route.
+- Added a real `security` tab inside `ProfileView` and moved the exchange/API security surface there.
+
+### Why This Was Correct
+
+- API credentials belong to the account/security surface, not the bot-management surface.
+- Bots can consume exchange connectivity, but they should not own the credential-management UX.
+- This keeps `Bot Settings` focused on bot policy, risk, notifications, and fleet management.
+
+### Files Touched
+
+- `src/components/AppView.tsx`
+- `src/views/ProfileView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### What To Review
+
+- `Control Panel -> Bot Settings` should no longer show an `API Connections` tab.
+- `Security & API Keys` in the account area should now display the exchange connection cards and security practices.

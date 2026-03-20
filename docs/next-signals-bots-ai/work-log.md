@@ -4,6 +4,40 @@
 
 ### Phase
 
+`Bot Core` dispatch diagnostics round
+
+### Completed
+
+- Enriched the shared decision timeline so dispatch metadata no longer stays buried after the new paper/demo adapter round.
+- Bot-owned decision timeline entries now also expose:
+  - dispatch mode
+  - dispatch status
+  - dispatch attempted timestamp
+  - dispatch completed timestamp
+- `Execution Logs` now surfaces those diagnostics directly:
+  - row-level dispatched label now explains mode/status instead of only showing a generic lane label
+  - intent summaries now also show the latest dispatch mode/status when present
+  - bot summaries now also carry dispatch lane diagnostics per bot
+- `Signal Bot` now also explains the latest dispatch more clearly inside the execution-intent section and settings card.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating `dispatched` as a black box after the adapter call succeeds.
+- It also avoids forcing the operator to inspect raw metadata to understand whether the bot ran a paper preview or a demo execute dispatch.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - surface clearer per-row adapter outcomes for paper preview vs demo execute
+  - decide whether `paper` preview dispatch now needs a distinct terminal outcome from `demo` dispatch
+  - keep real trading execution out of scope until paper/demo diagnostics are strong enough to trust end-to-end
+
+### Phase
+
 `Bot Core` paper-demo dispatch adapter round
 
 ### Completed

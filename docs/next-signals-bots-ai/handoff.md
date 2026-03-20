@@ -361,9 +361,15 @@ The redesign also now has dedicated documentation for:
   - the lane normalizer now preserves progressed ready intents instead of snapping:
     - `dispatch-requested -> queued`
     - `dispatched -> queued`
+  - the shared decision timeline now also exposes dispatch diagnostics directly:
+    - dispatch mode
+    - dispatch status
+    - attempted timestamp
+    - dispatched timestamp
   - blocked intent rows now also surface the shared intent reason more directly during execution review
   - intent summaries now also count and prioritize dispatch backlog instead of treating it as hidden queue state
   - `Signal Bot` and `Execution Logs` now expose `dispatched` as a first-class paper/demo lane state
+  - `Execution Logs` and `Signal Bot` now also surface the latest dispatch mode/status instead of treating `dispatched` as a black box label
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -392,6 +398,7 @@ The redesign also now has dedicated documentation for:
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
   - decide whether dispatch backlog should surface more clearly in fleet-level summaries
   - decide whether `dispatched` now needs richer adapter-level diagnostics or a stronger terminal state for paper-preview flow
+  - decide whether paper preview and demo execute now need distinct terminal dispatch semantics in the bot-owned lane
   - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status

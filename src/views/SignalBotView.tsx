@@ -511,7 +511,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   <MetricTile
                     label="Dispatched"
                     value={String(feedReadModel.selectedBotExecutionIntentSummary?.dispatchedCount || 0)}
-                    note={`${feedReadModel.selectedBotExecutionIntentSummary?.linkedCount || 0} already linked to execution • lane ${formatExecutionIntentLaneStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestLaneStatus)}`}
+                    note={`${feedReadModel.selectedBotExecutionIntentSummary?.linkedCount || 0} already linked to execution • ${buildLatestDispatchNote(selectedBotCard)}`}
                   />
                   <MetricTile
                     label="Guardrail Blocks"
@@ -649,7 +649,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Trading Pairs" value={String(selectedBotPairCount)} note="The current mix of pairs stays curated from watchlist and discovery." />
               <SettingsCard title="Identity" value={formatOperatingProfile(selectedBotCard)} note={`${selectedBotCard?.identity.family || "signal-core"} • ${selectedBotCard?.executionEnvironment || "paper"} • ${selectedBotCard?.automationMode || "observe"}`} />
               <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
-              <SettingsCard title="Execution Intent" value={`${formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)} • ${String(feedReadModel.selectedBotExecutionIntentSummary?.queuedCount || 0)} queued`} note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailCode ? `Last block: ${feedReadModel.selectedBotExecutionIntentSummary.latestGuardrailCode}` : `${feedReadModel.selectedBotExecutionIntentSummary?.dispatchRequestedCount || 0} dispatch requested • ${feedReadModel.selectedBotExecutionIntentSummary?.dispatchedCount || 0} dispatched • lane ${formatExecutionIntentLaneStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestLaneStatus)}`} />
+              <SettingsCard title="Execution Intent" value={`${formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)} • ${String(feedReadModel.selectedBotExecutionIntentSummary?.queuedCount || 0)} queued`} note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailCode ? `Last block: ${feedReadModel.selectedBotExecutionIntentSummary.latestGuardrailCode}` : `${feedReadModel.selectedBotExecutionIntentSummary?.dispatchRequestedCount || 0} dispatch requested • ${feedReadModel.selectedBotExecutionIntentSummary?.dispatchedCount || 0} dispatched • ${buildLatestDispatchNote(selectedBotCard)}`} />
               <SettingsCard title="Ownership Health" value={`${formatOwnershipHealthLabel(selectedBotCard?.ownership?.healthLabel)} • ${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${selectedBotCard?.ownership?.unresolvedOwnershipCount || 0} still need linkage`} />
               <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
               <div className="signalbot-settings-cta">
@@ -914,6 +914,31 @@ function formatExecutionIntentLaneStatus(value?: string | null) {
   const normalized = String(value || "").trim();
   if (!normalized) return "Pending";
   return normalized.split("-").map(capitalize).join(" ");
+}
+
+function buildLatestDispatchNote(bot: {
+  decisionTimeline?: Array<{
+    executionIntentDispatchMode?: string | null;
+    executionIntentDispatchStatus?: string | null;
+    executionIntentDispatchedAt?: string | null;
+    executionIntentDispatchAttemptedAt?: string | null;
+  }>;
+} | null) {
+  const latestDispatch = bot?.decisionTimeline?.find((entry) => (
+    Boolean(entry.executionIntentDispatchMode || entry.executionIntentDispatchStatus)
+  )) || null;
+
+  if (!latestDispatch) return "No dispatch has run yet.";
+
+  const mode = String(latestDispatch.executionIntentDispatchMode || "").trim().toLowerCase();
+  const status = String(latestDispatch.executionIntentDispatchStatus || "").trim();
+  const timestamp = latestDispatch.executionIntentDispatchedAt || latestDispatch.executionIntentDispatchAttemptedAt || "";
+  const modeLabel = mode === "preview" ? "Paper Preview" : mode === "execute" ? "Demo Execute" : "Dispatch";
+  const statusLabel = status ? status.split("-").map(capitalize).join(" ") : "Pending";
+
+  return timestamp
+    ? `${modeLabel} • ${statusLabel} • ${formatRelative(timestamp)}`
+    : `${modeLabel} • ${statusLabel}`;
 }
 
 function buildOwnershipHealthNote(value: string) {

@@ -204,6 +204,7 @@ Current progress:
   - successful adapter calls now move those intents into an explicit `dispatched` lane while execution linkage still closes them later into `linked`
   - dispatch failures now fall back into the same governed bot-decision seam as blocked intents with explicit reason metadata
   - `Signal Bot` and `Execution Logs` now expose `dispatched` as a first-class paper/demo lane state
+  - the shared decision timeline now also exposes dispatch-mode/status diagnostics so `dispatched` can be audited without inspecting raw metadata
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
@@ -216,6 +217,7 @@ Current progress:
   - decide whether dispatch backlog should surface more clearly in fleet-level summaries
   - keep direct bot-driven order emission out of scope until that intent lane is governed end-to-end
   - decide whether the next step should expose more explicit dispatch outcome diagnostics per adapter call
+  - decide whether paper preview and demo execute now need stronger differentiated terminal semantics
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

@@ -40,6 +40,10 @@ type DecisionLogEntry = {
   executionIntentLane?: string | null;
   executionIntentLaneStatus?: string | null;
   executionIntentReason?: string | null;
+  executionIntentDispatchStatus?: string | null;
+  executionIntentDispatchMode?: string | null;
+  executionIntentDispatchAttemptedAt?: string | null;
+  executionIntentDispatchedAt?: string | null;
   executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -186,6 +190,8 @@ export function ExecutionLogsView() {
         latestLaneStatus: bot.executionIntentSummary?.latestLaneStatus || null,
         latestIntentSymbol: bot.executionIntentSummary?.latestIntentSymbol || null,
         latestGuardrailReason: bot.executionIntentSummary?.latestGuardrailReason || null,
+        latestDispatchMode: findLatestDispatchValue(botLogsFromBot(bot.id, filteredLogs), "mode"),
+        latestDispatchStatus: findLatestDispatchValue(botLogsFromBot(bot.id, filteredLogs), "status"),
         topReadySymbols: bot.executionIntentSummary?.topReadySymbols || [],
         topBlockedSymbols: bot.executionIntentSummary?.topBlockedSymbols || [],
       }));
@@ -213,6 +219,9 @@ export function ExecutionLogsView() {
       const decisionOnlyCount = botLogs.filter((entry) => entry.kind === "decision" && !entry.linkedOrder).length;
       const unlinkedOrderCount = botLogs.filter((entry) => entry.kind === "order").length;
       const latestEntry = botLogs[0] || null;
+      const latestDispatchEntry = botLogs.find((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => (
+        entry.kind === "decision" && Boolean(entry.decision.executionIntentDispatchMode || entry.decision.executionIntentDispatchStatus)
+      )) || null;
       const unresolvedDecisionRanking = rankSymbols(
         botLogs
           .filter((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => entry.kind === "decision" && !entry.linkedOrder)
@@ -243,6 +252,9 @@ export function ExecutionLogsView() {
         unlinkedExecutionRanking,
         bestSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakestSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
+        dispatchMode: latestDispatchEntry?.decision.executionIntentDispatchMode || null,
+        dispatchStatus: latestDispatchEntry?.decision.executionIntentDispatchStatus || null,
+        dispatchReason: latestDispatchEntry?.decision.executionIntentReason || null,
         latestTimestamp: latestEntry
           ? formatTimestamp(latestEntry.kind === "decision"
             ? (latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt)
@@ -327,6 +339,11 @@ export function ExecutionLogsView() {
                   <p>
                     {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.dispatchedCount} dispatched · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
                   </p>
+                  {bot.latestDispatchMode || bot.latestDispatchStatus ? (
+                    <p>
+                      Dispatch: {formatDispatchMode(bot.latestDispatchMode)} · {formatDispatchStatus(bot.latestDispatchStatus)}
+                    </p>
+                  ) : null}
                   <p>
                     {bot.latestIntentSymbol
                       ? `${formatIntentStatus(bot.latestIntentStatus)} • ${formatLaneStatus(bot.latestLaneStatus)} • ${bot.latestIntentSymbol}`
@@ -373,6 +390,12 @@ export function ExecutionLogsView() {
                       {bot.bestSymbol ? `Best pocket: ${bot.bestSymbol}` : "Best pocket: forming"}
                       {" · "}
                       {bot.weakestSymbol ? `Weak pocket: ${bot.weakestSymbol}` : "Weak pocket: not clear"}
+                    </p>
+                  ) : null}
+                  {bot.dispatchMode || bot.dispatchStatus ? (
+                    <p>
+                      Dispatch lane: {formatDispatchMode(bot.dispatchMode)} · {formatDispatchStatus(bot.dispatchStatus)}
+                      {bot.dispatchReason ? ` · ${bot.dispatchReason}` : ""}
                     </p>
                   ) : null}
                   <p>{bot.attentionNote}</p>
@@ -535,6 +558,8 @@ function matchesSearch(entry: ActivityLogEntry, query: string, botNameById: Map<
         entry.decision.status,
         entry.decision.timeframe,
         entry.decision.executionOrderId,
+        entry.decision.executionIntentDispatchStatus,
+        entry.decision.executionIntentDispatchMode,
         botName,
       ];
 
@@ -664,10 +689,42 @@ function formatDecisionActionLink(decision: DecisionLogEntry, linkedOrder?: Exec
   if (decision.executionIntentLaneStatus === "blocked") {
     return decision.executionIntentReason || decision.source || "Blocked intent";
   }
+  if (decision.executionIntentLaneStatus === "dispatched") {
+    return `${formatDispatchMode(decision.executionIntentDispatchMode)} · ${formatDispatchStatus(decision.executionIntentDispatchStatus)}`;
+  }
   if (decision.executionIntentLaneStatus) {
     return `${formatLaneStatus(decision.executionIntentLaneStatus)} intent`;
   }
   return decision.source || "View";
+}
+
+function botLogsFromBot(botId: string, logs: ActivityLogEntry[]) {
+  return logs.filter((entry) => (entry.kind === "decision" ? entry.decision.botId : entry.order.botId) === botId);
+}
+
+function findLatestDispatchValue(logs: ActivityLogEntry[], field: "mode" | "status") {
+  const match = logs.find((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => (
+    entry.kind === "decision"
+    && Boolean(field === "mode" ? entry.decision.executionIntentDispatchMode : entry.decision.executionIntentDispatchStatus)
+  ));
+  if (!match) return null;
+  return field === "mode" ? match.decision.executionIntentDispatchMode || null : match.decision.executionIntentDispatchStatus || null;
+}
+
+function formatDispatchMode(value?: string | null) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "preview") return "Paper Preview";
+  if (normalized === "execute") return "Demo Execute";
+  return normalized ? formatLaneStatus(normalized) : "Pending Dispatch";
+}
+
+function formatDispatchStatus(value?: string | null) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "Pending";
+  if (normalized === "submitted") return "Submitted";
+  if (normalized === "blocked") return "Blocked";
+  if (normalized === "failed") return "Failed";
+  return formatLaneStatus(normalized);
 }
 
 function formatIntentStatus(value?: string | null) {

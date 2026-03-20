@@ -175,6 +175,13 @@ Current progress:
     - max open positions
     - symbol exposure
     - execution overlap
+  - the shared bot read-model now also exposes explicit execution-intent summaries from bot-owned decisions:
+    - ready
+    - approval-needed
+    - assist-only
+    - observe-only
+    - guardrail-blocked
+  - `Signal Bot` now exposes that execution-intent layer directly in the selected bot workspace
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
@@ -184,9 +191,9 @@ Current progress:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics
   - decide whether the fleet hub should also surface ranked recurring symbols
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - bridge operational bot decisions into explicit execution intents
-  - harden capital / overlap / exposure runtime guards before direct bot-driven execution
-  - expose guardrail outcomes where they help diagnostics and execution review
+  - bridge `ready` operational bot decisions into an explicit paper/demo execution-intent lane
+  - expose approval-needed and guardrail-blocked intent backlog where they help diagnostics and execution review
+  - keep direct bot-driven order emission out of scope until that intent lane is governed end-to-end
   - deeper policy editing across identity/universe/style/timeframe/execution tabs
 
 Suggested first implementation rule:

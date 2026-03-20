@@ -4,6 +4,8 @@ import {
   EMPTY_MEMORY_SUMMARY,
   EMPTY_PERFORMANCE_SUMMARY,
   INITIAL_BOT_REGISTRY_STATE,
+  type BotExecutionIntentStatus,
+  type BotExecutionIntentSummary,
   type BotPerformanceBreakdown,
   createBotConsumableFeed,
   createBotRegistrySnapshot,
@@ -767,6 +769,66 @@ function summarizeSymbolFrequency(symbols: Array<string | null | undefined>) {
     .map(([symbol, count]) => ({ symbol, count }));
 }
 
+function getDecisionExecutionIntentStatus(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.executionIntentStatus || "").trim() as BotExecutionIntentStatus | "";
+  return value || null;
+}
+
+function getDecisionGuardrailCode(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.guardrailCode || "").trim();
+  return value || null;
+}
+
+function getDecisionGuardrailReason(decision: { metadata?: Record<string, unknown> }) {
+  const value = String(decision.metadata?.guardrailReason || "").trim();
+  return value || null;
+}
+
+function createExecutionIntentSummary<
+  TDecision extends {
+    symbol?: string | null;
+    createdAt?: string;
+    updatedAt?: string;
+    metadata?: Record<string, unknown>;
+  },
+>(decisions: TDecision[]): BotExecutionIntentSummary {
+  const ranked = decisions
+    .map((decision) => ({
+      decision,
+      intentStatus: getDecisionExecutionIntentStatus(decision),
+      updatedAt: decision.updatedAt || decision.createdAt || null,
+    }))
+    .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
+    .sort((left, right) => new Date(right.updatedAt || 0).getTime() - new Date(left.updatedAt || 0).getTime());
+
+  const latest = ranked[0] || null;
+
+  return {
+    totalCount: ranked.length,
+    readyCount: ranked.filter((entry) => entry.intentStatus === "ready").length,
+    approvalNeededCount: ranked.filter((entry) => entry.intentStatus === "approval-needed").length,
+    assistOnlyCount: ranked.filter((entry) => entry.intentStatus === "assist-only").length,
+    observeOnlyCount: ranked.filter((entry) => entry.intentStatus === "observe-only").length,
+    guardrailBlockedCount: ranked.filter((entry) => entry.intentStatus === "guardrail-blocked").length,
+    autoExecutableCount: ranked.filter((entry) => entry.intentStatus === "ready").length,
+    latestIntentStatus: latest?.intentStatus || null,
+    latestIntentSymbol: latest?.decision.symbol || null,
+    latestIntentAt: latest?.updatedAt || null,
+    latestGuardrailCode: latest ? getDecisionGuardrailCode(latest.decision) : null,
+    latestGuardrailReason: latest ? getDecisionGuardrailReason(latest.decision) : null,
+    topReadySymbols: summarizeSymbolFrequency(
+      ranked
+        .filter((entry) => entry.intentStatus === "ready")
+        .map((entry) => entry.decision.symbol),
+    ),
+    topBlockedSymbols: summarizeSymbolFrequency(
+      ranked
+        .filter((entry) => entry.intentStatus === "guardrail-blocked")
+        .map((entry) => entry.decision.symbol),
+    ),
+  };
+}
+
 function createAdaptationSummary(
   performanceBreakdowns: BotPerformanceBreakdown[],
   ownership: {
@@ -1031,6 +1093,7 @@ export function useSignalsBotsReadModel() {
         executionTimeline,
         executionBreakdowns: createExecutionBreakdowns(executionOrders),
         ownership: createOwnershipSummary(bot.decisionTimeline, executionTimeline),
+        executionIntentSummary: createExecutionIntentSummary(bot.decisions),
       };
     });
     const botCardsWithSharedMemory = botCardsWithExecution.map((bot) => {
@@ -1092,6 +1155,7 @@ export function useSignalsBotsReadModel() {
           selectedBotCard.performance,
         )
       : null;
+    const selectedBotExecutionIntentSummary = selectedBotCard?.executionIntentSummary || null;
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
@@ -1157,6 +1221,7 @@ export function useSignalsBotsReadModel() {
       selectedBotActivityTimeline,
       selectedBotPerformanceBreakdowns,
       selectedBotAdaptationSummary,
+      selectedBotExecutionIntentSummary,
       attentionBots,
       attentionBotIds: attentionCandidates.map((bot) => bot.id),
       allBotDecisionTimeline,

@@ -19,6 +19,7 @@ export type BotDecisionSource = "signal-core" | "market-core" | "manual" | "ai-a
 export type BotDecisionStatus = "pending" | "approved" | "blocked" | "executed" | "dismissed" | "closed";
 export type BotSignalLayer = "informational" | "observational" | "operable" | "ai-prioritized";
 export type BotPerformanceOrigin = "manual" | "signal" | "bot" | "auto";
+export type BotExecutionIntentStatus = "observe-only" | "assist-only" | "approval-needed" | "ready" | "guardrail-blocked";
 
 export interface BotIdentity {
   family: string;
@@ -194,6 +195,23 @@ export interface BotActivitySummary {
   executedCount: number;
   recentDecisionIds: string[];
   recentSymbols: string[];
+}
+
+export interface BotExecutionIntentSummary {
+  totalCount: number;
+  readyCount: number;
+  approvalNeededCount: number;
+  assistOnlyCount: number;
+  observeOnlyCount: number;
+  guardrailBlockedCount: number;
+  autoExecutableCount: number;
+  latestIntentStatus: BotExecutionIntentStatus | null;
+  latestIntentSymbol: string | null;
+  latestIntentAt: string | null;
+  latestGuardrailCode: string | null;
+  latestGuardrailReason: string | null;
+  topReadySymbols: Array<{ symbol: string; count: number }>;
+  topBlockedSymbols: Array<{ symbol: string; count: number }>;
 }
 
 export interface BotDecisionRecord {

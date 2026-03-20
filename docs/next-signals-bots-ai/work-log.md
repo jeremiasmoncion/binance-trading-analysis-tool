@@ -4,6 +4,42 @@
 
 ### Phase
 
+`Bot Core` execution intent summaries round
+
+### Completed
+
+- Formalized the next operational seam after guardrails by exposing explicit bot-owned execution-intent summaries instead of leaving intent state buried only inside decision metadata.
+- Added a shared intent summary over bot decisions with counts for:
+  - `ready`
+  - `approval-needed`
+  - `assist-only`
+  - `observe-only`
+  - `guardrail-blocked`
+- The selected bot workspace now surfaces that summary directly, including:
+  - latest intent status
+  - latest guardrail reason
+  - top ready symbols
+  - top blocked symbols
+- This keeps the new operational loop explainable without pretending direct order emission is already complete.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids hiding operational readiness behind raw decision metadata once bots have started auto-producing decisions.
+- It also avoids jumping directly from runtime guardrails to direct execution before there is a shared intent review layer.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - bridge `ready` bot intents into a more explicit paper/demo execution-intent path
+  - expose blocked/approval-needed intent backlog in execution review where useful
+  - keep direct order emission out of scope until that intent lane is governed end-to-end
+
+### Phase
+
 `Bot Core` operational guardrails round
 
 ### Completed

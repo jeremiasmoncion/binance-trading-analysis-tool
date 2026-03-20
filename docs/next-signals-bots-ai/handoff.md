@@ -309,6 +309,17 @@ The redesign also now has dedicated documentation for:
     - same-symbol open count
     - projected symbol exposure
     - guardrail code / reason
+  - the shared bot read-model now also exposes explicit execution-intent summaries per bot:
+    - ready intents
+    - approval-needed intents
+    - assist-only intents
+    - observe-only intents
+    - guardrail-blocked intents
+  - `Signal Bot` now exposes that execution-intent layer directly in the selected bot workspace:
+    - latest intent status
+    - latest guardrail reason
+    - top ready symbols
+    - top blocked symbols
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -335,9 +346,9 @@ The redesign also now has dedicated documentation for:
   - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
   - decide whether the fleet hub should also surface ranked recurring symbols instead of only flat backlog symbol lists
   - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
-  - bridge auto bot decisions into explicit execution intents
-  - harden capital/overlap/exposure guards before letting the operational loop escalate beyond decisions
-  - expose guardrail outcomes where they help bot diagnostics and execution review
+  - bridge `ready` auto-bot decisions into a more explicit paper/demo execution-intent lane
+  - expose approval-needed and guardrail-blocked intent backlog where it helps diagnostics and execution review
+  - keep direct order emission out of scope until the execution-intent lane is governed end-to-end
 
 ## Phase 4 Status
 

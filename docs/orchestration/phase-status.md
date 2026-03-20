@@ -18,6 +18,7 @@
   - persistent realtime-core overlay emit dedup is now semantic, so freshness-only timestamps do not republish equivalent overlays
   - hybrid dashboard/runtime refreshes now ignore freshness-only summary metadata, reducing selector churn outside the realtime core too
   - shared execution runtime equality now compares policy arrays, candidate cohorts and recent-order cohorts semantically, reducing churn before template-scale execution surfaces expand
+  - first template-facing `Signals` and `Bots` pages now use a narrow shared feed selector instead of the broader memory/runtime selector bundle
 - `in progress`
   - validate the new template-faithful sidebar and first `Control Panel` / `AI Bot` pages
   - replace the old generic `Signals` / `Bots` destinations with the approved template flow

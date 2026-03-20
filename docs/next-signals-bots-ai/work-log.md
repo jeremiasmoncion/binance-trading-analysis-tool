@@ -718,6 +718,38 @@ Shared execution runtime comparator hardening
 - Keep execution-runtime comparators in protected shared infrastructure.
 - Forbid page-level custom equality/memoization as a substitute for missing runtime stability in new template surfaces.
 
+## 2026-03-19 - Template Feed Selector Narrowing
+
+### Area
+
+Selector-driven stability for template read-only pages
+
+### Completed
+
+- Added a dedicated shared selector for the new `Signals` and `Bots` feed inputs.
+- Moved `src/views/SignalsView.tsx` and `src/views/BotsView.tsx` off the broad `useMemorySystemSelector` bundle.
+- Limited those pages to the snapshot inputs they actually need:
+  - `signalMemory`
+  - `watchlists`
+  - `activeWatchlistName`
+- Updated architecture documentation with the selector-granularity rule for future template pages.
+
+### Risk Avoided
+
+- The template migration will add more read-heavy pages that look simple but can accidentally subscribe to the whole runtime.
+- Without narrow selectors, new `Signal Bot` / `Bot Settings` style pages would rerender on execution, scanner or admin-state churn they do not actually use.
+- That kind of over-subscription would scale poorly as more tabs and cards are layered onto the shared system plane.
+
+### Pending
+
+- Keep auditing remaining template-facing pages for oversized selectors or broad runtime subscriptions.
+- Revisit whether `ControlPanelView` and future `Execution Logs` surfaces need dedicated selector seams before more real data gets attached.
+
+### Recommendation To Director
+
+- Keep selector granularity treated as runtime infrastructure, not as a view-by-view cleanup concern.
+- Require new template pages to ask for the smallest shared selector that matches their data contract.
+
 ## 2026-03-19 - User-Facing Signals And Bots Navigation Reform
 
 ### Phase

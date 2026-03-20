@@ -53,6 +53,14 @@ export function useMemorySystemSelector() {
   }), shallowEqualSelection);
 }
 
+export function useSignalsBotsFeedSelector() {
+  return useDataPlaneStore(systemDataPlaneStore, (state) => ({
+    signalMemory: state.snapshot.signalMemory,
+    watchlists: state.snapshot.watchlists,
+    activeWatchlistName: state.snapshot.activeWatchlistName,
+  }), shallowEqualSelection);
+}
+
 export function usePortfolioSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     portfolio: state.snapshot.portfolio,

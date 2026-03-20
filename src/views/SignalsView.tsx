@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useMemorySystemSelector } from "../data-platform/selectors";
+import { useSignalsBotsFeedSelector } from "../data-platform/selectors";
 import {
   INITIAL_BOT_REGISTRY_STATE,
   createBotConsumableFeed,
@@ -20,10 +20,10 @@ import {
 type SignalsWorkspaceTab = "overview" | "watchlist" | "discovery" | "high-confidence" | "history";
 
 export function SignalsView() {
-  const systemData = useMemorySystemSelector();
+  const feedData = useSignalsBotsFeedSelector();
   const [activeTab, setActiveTab] = useState<SignalsWorkspaceTab>("overview");
-  const signals = systemData.signalMemory;
-  const watchlist = systemData.watchlists.find((item) => item.name === systemData.activeWatchlistName)?.coins || [];
+  const signals = feedData.signalMemory;
+  const watchlist = feedData.watchlists.find((item) => item.name === feedData.activeWatchlistName)?.coins || [];
 
   const readModel = useMemo(() => {
     const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);

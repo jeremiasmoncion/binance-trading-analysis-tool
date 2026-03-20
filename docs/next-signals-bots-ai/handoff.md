@@ -355,6 +355,47 @@ What implementers should avoid:
 - Do not solve execution-surface churn with component-level memoization alone.
 - Do not add page-local equality logic in new template tabs/cards/tables for execution payloads; reuse the shared runtime seam.
 
+## Refinador Runtime - 2026-03-19 - Template Feed Selector Narrowing
+
+### What Was Done
+
+- Added a dedicated shared selector for `Signals` and `Bots` feed inputs.
+- Moved `SignalsView` and `BotsView` away from the broad memory/runtime selector bundle.
+- Restricted those template pages to the shared state they actually need:
+  - `signalMemory`
+  - `watchlists`
+  - `activeWatchlistName`
+
+### Files Touched
+
+- `src/data-platform/selectors.ts`
+- `src/views/SignalsView.tsx`
+- `src/views/BotsView.tsx`
+- `docs/data-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/orchestration/phase-status.md`
+
+### Where This Round Ended
+
+- The first template-facing read-only pages are now less exposed to unrelated runtime churn.
+- This sets the rule that future pages should widen selectors only when the data contract truly requires it.
+
+### What Remains Pending
+
+- Continue auditing template-facing pages for broad selector usage before more real runtime data is attached.
+- Evaluate whether future `Execution Logs` and deeper `Control Panel` tabs should get their own selector seams before they hydrate richer datasets.
+
+### What The Director Should Review
+
+- This round protects the template migration without changing product behavior.
+- It keeps selector granularity as shared infrastructure, not page-local optimization.
+
+### What The Implementer Should Avoid
+
+- Do not default new template pages to `useMemorySystemSelector` or other broad selector bundles.
+- Do not subscribe a page to scanner/execution/admin state if it only needs feed/watchlist inputs.
+
 ## Warning For Future Contributors
 
 If you skip the explicit domain model and jump straight into feature work, the redesign is likely to become another layer of hidden coupling on top of the existing pipeline.

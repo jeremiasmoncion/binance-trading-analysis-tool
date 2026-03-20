@@ -45,10 +45,36 @@ Then the loop repeats.
 A task is not done until:
 
 - scoped code work is complete
+- local validation passes for the scoped task
+- the validated work is saved in `main`
 - task file status is updated
 - handoff notes are written
 - any phase-impacting decision is documented
 - meaningful progress is committed for GitHub visibility
+
+## Branch Handling Rule
+
+By default:
+
+- work in `main`
+- save validated work in `main`
+- do not update `codex` unless the human explicitly asks for a checkpoint branch update
+
+If a future AI finds itself on another local branch by accident, it should realign the validated work back into `main` instead of leaving the canonical state somewhere else.
+
+## Deployment Rule
+
+By default:
+
+- do not deploy to Vercel automatically at the end of a task
+- do not send production/deployment links unless the human asked to review changes in the browser
+
+Only when the human explicitly asks to see the changes:
+
+- deploy the validated state
+- provide the public production review URL:
+  - `https://binance-trading-analysis-tool.vercel.app`
+- optionally include the deployment-specific Vercel URL as supporting detail when useful
 
 ## GitHub Notification Practice
 

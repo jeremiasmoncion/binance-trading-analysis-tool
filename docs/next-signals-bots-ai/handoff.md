@@ -185,6 +185,26 @@ For human visibility, meaningful milestone completion should be exposed through 
 
 This makes GitHub the practical notification path to the owner mobile device.
 
+## Branch And Review Delivery Rule
+
+Future AI contributors should preserve this operating rule:
+
+- `main` is the active development branch and should hold the validated current work
+- after completing a scoped task and verifying it locally, save/commit that work in `main`
+- `codex` is not the default place to leave current development; it is reserved for explicit human-requested checkpoints
+- do not deploy to Vercel automatically after every completed task
+- deploy to Vercel only when the human explicitly asks to review the changes in the browser
+- only then provide the production/deployment link
+- when a review link is requested, the canonical public URL is:
+  - `https://binance-trading-analysis-tool.vercel.app`
+- deployment-specific Vercel URLs are secondary and should be treated as supporting detail unless the human asks for them specifically
+
+This rule exists to keep:
+
+- branch ownership predictable
+- production review intentional
+- checkpoint branches separate from everyday development flow
+
 ## Important Constraints To Preserve
 
 - do not break shared planes

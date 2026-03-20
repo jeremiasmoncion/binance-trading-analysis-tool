@@ -77,6 +77,31 @@ That means:
 
 The AI threads do not send direct phone notifications. GitHub is the human-visible completion signal.
 
+## Branch And Deploy Rule
+
+Future AI threads should assume this delivery workflow unless the human owner says otherwise:
+
+- `main` is the active development branch
+- when a scoped task is complete and validated, save that work in `main`
+- do not treat `codex` as the default development branch
+- `codex` is reserved for explicit human-requested checkpoints only
+- do not deploy to Vercel automatically after every task
+- deploy to Vercel only when the human explicitly asks to see/review the changes
+- when the human asks to review changes in the browser, the default review link should be the public production alias:
+  - `https://binance-trading-analysis-tool.vercel.app`
+- deployment-specific Vercel URLs can be shared as supporting detail, but the public alias is the canonical review URL unless the human asks for something else
+
+Practical consequence:
+
+- default close-out is:
+  - implement
+  - validate
+  - commit/save to `main`
+- only add:
+  - Vercel deploy
+  - production link delivery through `https://binance-trading-analysis-tool.vercel.app`
+  when the human asks for visual review
+
 ## User-Facing Review Rule
 
 Meaningful UI progress must be reviewable from a real end-user perspective, not only from an internal developer/lab perspective.

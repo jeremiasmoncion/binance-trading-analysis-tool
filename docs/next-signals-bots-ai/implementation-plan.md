@@ -156,6 +156,7 @@ Current progress:
   - selected-bot workspace now also exposes ownership health directly in `Signal Bot`
   - selected-bot ownership health now includes ratios and qualitative state labels
   - selected-bot workspace now also exposes a first adaptation summary derived from owned outcomes
+  - selected-bot workspace now conditionally explains unresolved ownership backlog when health degrades
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

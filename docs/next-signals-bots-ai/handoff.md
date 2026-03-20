@@ -241,6 +241,10 @@ The redesign also now has dedicated documentation for:
     - strongest learned edge
     - weakest pocket
     - adaptive bias
+  - when ownership health falls into `watch` or `needs-attention`, `Signal Bot` now exposes a compact drill-down for:
+    - leading backlog type
+    - top unresolved decision symbols
+    - top unlinked execution symbols
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -258,10 +262,10 @@ The redesign also now has dedicated documentation for:
   - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - add compact unresolved-linkage drill-down when ownership health falls into `watch` or `needs-attention`
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
   - expose adaptation summaries at fleet level where it materially helps the operator
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
+  - evaluate whether any owned-outcome/adaptation summaries now deserve persistence or indexed storage support
 
 ## Phase 4 Status
 

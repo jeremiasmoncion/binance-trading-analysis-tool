@@ -4,6 +4,37 @@
 
 ### Phase
 
+`Bot Core` ownership drill-down round
+
+### Completed
+
+- Added a compact unresolved-linkage drill-down in `Signal Bot` that only appears when ownership health falls into:
+  - `watch`
+  - `needs-attention`
+- The drill-down now explains:
+  - whether decision backlog or execution backlog is leading
+  - which unresolved decision symbols stand out
+  - which unlinked execution symbols stand out
+- Kept that context derived from the same shared ownership seam instead of making the workspace reconstruct unresolved activity locally.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids showing a warning-like health state without any immediate explanation of what is actually wrong.
+- It also avoids forcing the operator to leave the selected bot workspace and search manually through `Execution Logs` to understand the backlog.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - expose adaptation summaries where they help at fleet level
+  - evaluate whether any owned-outcome/adaptation summaries now deserve persistence support
+  - keep tightening unresolved ownership quality where the drill-down keeps pointing to recurring symbols
+
+### Phase
+
 `Bot Core` adaptation summaries round
 
 ### Completed

@@ -524,6 +524,37 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 </div>
               </SectionCard>
 
+              {selectedBotCard?.ownership?.healthLabel === "watch" || selectedBotCard?.ownership?.healthLabel === "needs-attention" ? (
+                <SectionCard title="Linkage Attention" subtitle="Why this bot still needs ownership cleanup." className="signalbot-subcard">
+                  <div className="signalbot-insight-stack">
+                    <article className="signalbot-insight-card">
+                      <strong>{selectedBotCard.ownership.primaryIssue === "decision-linkage" ? "Decision backlog is leading" : "Execution backlog is leading"}</strong>
+                      <p>
+                        {selectedBotCard.ownership.primaryIssue === "decision-linkage"
+                          ? `${selectedBotCard.ownership.unresolvedDecisionCount} decisions still need an owned execution bridge.`
+                          : `${selectedBotCard.ownership.unlinkedExecutionCount} executions are still waiting to be tied back into bot-owned history.`}
+                      </p>
+                    </article>
+                    <article className="signalbot-insight-card">
+                      <strong>Top unresolved symbols</strong>
+                      <p>
+                        {selectedBotCard.ownership.unresolvedDecisionSymbols?.length
+                          ? selectedBotCard.ownership.unresolvedDecisionSymbols.join(", ")
+                          : "No unresolved decision symbols are standing out yet."}
+                      </p>
+                    </article>
+                    <article className="signalbot-insight-card">
+                      <strong>Top unlinked execution symbols</strong>
+                      <p>
+                        {selectedBotCard.ownership.unlinkedExecutionSymbols?.length
+                          ? selectedBotCard.ownership.unlinkedExecutionSymbols.join(", ")
+                          : "No unlinked execution symbols are standing out yet."}
+                      </p>
+                    </article>
+                  </div>
+                </SectionCard>
+              ) : null}
+
               <SectionCard title="Adaptation Readiness" subtitle="What owned outcomes are currently teaching this bot." className="signalbot-subcard">
                 <div className="signalbot-mini-grid">
                   <MetricTile

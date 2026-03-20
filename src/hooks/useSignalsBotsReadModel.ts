@@ -674,11 +674,13 @@ function createOwnedMemorySummary<
 function createOwnershipSummary<
   TDecision extends {
     id: string;
+    symbol?: string | null;
     status?: string | null;
     executionOrderId?: number | null;
   },
   TOrder extends {
     orderId: number;
+    symbol?: string | null;
     hasOutcome?: boolean;
   },
 >(
@@ -687,13 +689,13 @@ function createOwnershipSummary<
 ) {
   const activityTimeline = createBotActivityTimeline(decisionTimeline, executionTimeline);
   const linkedDecisions = activityTimeline.filter((entry) => entry.kind === "decision" && Boolean(entry.linkedOrder));
-  const unresolvedDecisions = activityTimeline.filter((entry) => (
+  const unresolvedDecisions = activityTimeline.filter((entry): entry is Extract<(typeof activityTimeline)[number], { kind: "decision" }> => (
     entry.kind === "decision"
     && !entry.linkedOrder
     && entry.decision.status !== "blocked"
     && entry.decision.status !== "dismissed"
   ));
-  const unlinkedExecutions = activityTimeline.filter((entry) => entry.kind === "order");
+  const unlinkedExecutions = activityTimeline.filter((entry): entry is Extract<(typeof activityTimeline)[number], { kind: "order" }> => entry.kind === "order");
   const ownedOutcomes = activityTimeline.filter((entry) => (
     entry.kind === "decision"
       ? Boolean(entry.linkedOrder?.hasOutcome)
@@ -709,6 +711,12 @@ function createOwnershipSummary<
   const unresolvedRate = activityTimeline.length
     ? (unresolvedOwnershipCount / activityTimeline.length) * 100
     : 0;
+  const unresolvedDecisionSymbols = [...new Set(unresolvedDecisions
+    .map((entry) => entry.decision.symbol)
+    .filter(Boolean))].slice(0, 3);
+  const unlinkedExecutionSymbols = [...new Set(unlinkedExecutions
+    .map((entry) => entry.order.symbol)
+    .filter(Boolean))].slice(0, 3);
   const healthLabel = unresolvedOwnershipCount === 0
     ? "healthy"
     : reconciliationPct >= 75 && unresolvedRate <= 25
@@ -716,6 +724,9 @@ function createOwnershipSummary<
       : reconciliationPct >= 50
         ? "watch"
         : "needs-attention";
+  const primaryIssue = unresolvedDecisions.length >= unlinkedExecutions.length
+    ? "decision-linkage"
+    : "execution-linkage";
 
   return {
     decisionCount: decisionTimeline.length,
@@ -728,6 +739,9 @@ function createOwnershipSummary<
     ownedOutcomeRate,
     unresolvedRate,
     healthLabel,
+    primaryIssue,
+    unresolvedDecisionSymbols,
+    unlinkedExecutionSymbols,
   };
 }
 

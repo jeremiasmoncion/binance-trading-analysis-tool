@@ -42,9 +42,12 @@ type DecisionLogEntry = {
 type ActivityLogEntry =
   | { kind: "order"; order: ExecutionLogOrderEntry }
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
+type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
+  const [ownershipFilter, setOwnershipFilter] = useState<ActivityOwnershipFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const { decisions } = useBotDecisionsState();
   const botsReadModel = useSignalsBotsReadModel();
 
@@ -64,7 +67,11 @@ export function ExecutionLogsView() {
     };
   }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.botCards, decisions.length]);
 
-  const visibleLogs = readModel.logs.filter((entry) => matchesTab(entry, activeTab)).slice(0, 12);
+  const filteredLogs = readModel.logs
+    .filter((entry) => matchesTab(entry, activeTab))
+    .filter((entry) => matchesOwnership(entry, ownershipFilter))
+    .filter((entry) => matchesSearch(entry, searchQuery, readModel.botNameById));
+  const visibleLogs = filteredLogs.slice(0, 12);
 
   return (
     <div id="executionLogsView" className="view-panel active">
@@ -107,13 +114,21 @@ export function ExecutionLogsView() {
 
           <div className="template-toolbar template-toolbar-inline">
             <div className="template-search-shell">
-              <input type="text" value="" readOnly aria-label="Search logs" className="template-search-input" placeholder="Search by ID, pair, bot name, or message..." />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Search logs"
+                className="template-search-input"
+                placeholder="Search by ID, pair, bot name, or source..."
+              />
             </div>
             <div className="template-filter-row">
-              <button type="button" className="template-chip is-active">All Bots</button>
-              <button type="button" className="template-chip">All Status</button>
-              <button type="button" className="template-chip">Today</button>
-              <button type="button" className="template-chip">Clear</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "all" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("all")}>All Activity</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("linked")}>Linked Outcomes</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "decision-only" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("decision-only")}>Decision Only</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "unlinked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("unlinked")}>Unlinked Orders</button>
+              <button type="button" className="template-chip" onClick={() => { setOwnershipFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
 
@@ -139,7 +154,7 @@ export function ExecutionLogsView() {
                   <tr key={`order-${entry.order.orderId}`}>
                     <td>{formatTimestamp(entry.order.updatedAt || entry.order.createdAt)}</td>
                     <td>#{entry.order.orderId}</td>
-                    <td>{entry.order.botName || (entry.order.botId ? readModel.botNameById.get(entry.order.botId) : null) || inferBotLabel(entry.order)}</td>
+                    <td>{getEntryBotName(entry, readModel.botNameById)}</td>
                     <td>{inferLogType(entry.order)}</td>
                     <td>{entry.order.symbol}</td>
                     <td>{formatSide(entry.order.mode)}</td>
@@ -160,7 +175,7 @@ export function ExecutionLogsView() {
                   <tr key={`decision-${entry.decision.id}`}>
                     <td>{formatTimestamp(entry.linkedOrder?.updatedAt || entry.decision.updatedAt || entry.decision.createdAt)}</td>
                     <td>{entry.decision.id}</td>
-                    <td>{entry.decision.botName || readModel.botNameById.get(entry.decision.botId) || entry.decision.botId}</td>
+                    <td>{getEntryBotName(entry, readModel.botNameById)}</td>
                     <td>{formatDecisionType(entry.decision)}</td>
                     <td>{entry.decision.symbol}</td>
                     <td>{entry.decision.action.toUpperCase()}</td>
@@ -178,6 +193,16 @@ export function ExecutionLogsView() {
                     </td>
                   </tr>
                 ))}
+                {!visibleLogs.length ? (
+                  <tr>
+                    <td colSpan={11}>
+                      <div className="template-empty-state">
+                        <strong>No activity matches this view.</strong>
+                        <span>Try another tab, search term, or ownership filter.</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -204,6 +229,41 @@ function matchesTab(entry: ActivityLogEntry, tab: ExecutionLogsTab) {
   return order.source === "system" || order.source === "runtime";
 }
 
+function matchesOwnership(entry: ActivityLogEntry, filter: ActivityOwnershipFilter) {
+  if (filter === "all") return true;
+  if (filter === "linked") return entry.kind === "decision" && Boolean(entry.linkedOrder);
+  if (filter === "decision-only") return entry.kind === "decision" && !entry.linkedOrder;
+  return entry.kind === "order";
+}
+
+function matchesSearch(entry: ActivityLogEntry, query: string, botNameById: Map<string, string>) {
+  const normalizedQuery = normalizeQuery(query);
+  if (!normalizedQuery) return true;
+
+  const botName = getEntryBotName(entry, botNameById);
+  const haystack = entry.kind === "order"
+    ? [
+        entry.order.orderId,
+        entry.order.symbol,
+        entry.order.source,
+        entry.order.mode,
+        entry.order.status,
+        botName,
+      ]
+    : [
+        entry.decision.id,
+        entry.decision.symbol,
+        entry.decision.source,
+        entry.decision.action,
+        entry.decision.status,
+        entry.decision.timeframe,
+        entry.decision.executionOrderId,
+        botName,
+      ];
+
+  return haystack.some((value) => normalizeQuery(value).includes(normalizedQuery));
+}
+
 function isFailedDecision(decision: { status: string }) {
   return decision.status === "blocked" || decision.status === "dismissed";
 }
@@ -218,6 +278,14 @@ function inferBotLabel(order: ExecutionLogOrderEntry) {
   if (String(order.source || "").toLowerCase().includes("dca")) return "DCA Bot";
   if (String(order.source || "").toLowerCase().includes("arbitrage")) return "Arbitrage Bot";
   return "System";
+}
+
+function getEntryBotName(entry: ActivityLogEntry, botNameById: Map<string, string>) {
+  if (entry.kind === "order") {
+    return entry.order.botName || (entry.order.botId ? botNameById.get(entry.order.botId) : null) || inferBotLabel(entry.order);
+  }
+
+  return entry.decision.botName || botNameById.get(entry.decision.botId) || entry.decision.botId;
 }
 
 function inferLogType(order: ExecutionLogOrderEntry) {
@@ -307,4 +375,8 @@ function calculateSuccessRate(logs: ActivityLogEntry[], decisionCount: number) {
           : !isFailedDecision(entry.decision)
   )).length;
   return (success / total) * 100;
+}
+
+function normalizeQuery(value: unknown) {
+  return String(value || "").trim().toLowerCase();
 }

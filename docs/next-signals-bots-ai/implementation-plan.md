@@ -138,6 +138,9 @@ Current progress:
   - shared bot activity now exposes a unified owned timeline that folds linked decisions and linked executions into one history shape
   - decision timeline entries now carry explicit execution linkage metadata directly from the shared seam
   - `Execution Logs` now prefers that owned activity timeline instead of concatenating linked decisions and linked orders as separate stories
+  - `Execution Logs` toolbar now filters that shared owned activity stream directly:
+    - search by id / pair / bot / source
+    - linked vs decision-only vs unlinked ownership filters
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

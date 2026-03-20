@@ -4,6 +4,42 @@
 
 ### Phase
 
+`Bot Core` execution logs filters round
+
+### Completed
+
+- Turned the `Execution Logs` toolbar from placeholder chips into a real bot-owned activity filter surface on top of the shared activity timeline.
+- Added working filters for:
+  - all activity
+  - linked outcomes
+  - decision-only rows
+  - unlinked execution orders
+- Added real search on the same shared log stream so the page can now filter by:
+  - log id
+  - pair
+  - bot name
+  - source / action / status context
+- Added an explicit empty state for cases where the selected tab + filters + search produce no visible rows.
+- Kept all filtering on top of the shared read-model seam instead of rebuilding local runtime ownership inside the screen.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids leaving `Execution Logs` visually connected to `Bot Core` while still behaving like a mostly static template shell.
+- It also avoids introducing another ad-hoc log derivation path just to make filters work on the screen.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - tighten unresolved execution matches so fewer rows remain in `unlinked`
+  - start feeding memory/training from owned outcomes instead of flat decision counts
+  - deepen outcome-level filters and summaries per bot
+
+### Phase
+
 `Bot Core` bot-owned execution logs round
 
 ### Completed

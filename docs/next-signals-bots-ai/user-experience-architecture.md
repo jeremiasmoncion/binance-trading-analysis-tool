@@ -548,6 +548,12 @@ Replace the legacy user flow around `Signal Bot` with a full template-matching p
   - hover treatment on cards
   - spacing density and control sizing
 
+### Form Controls Rule
+
+- selects/comboboxes should not be solved ad hoc per page
+- when a page needs a styled select, extend the shared input primitive first
+- dark/light parity for form controls must be handled in the shared theme layer, not only in page CSS
+
 ### Page Flow
 
 - top summary cards

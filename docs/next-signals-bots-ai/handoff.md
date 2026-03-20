@@ -745,6 +745,11 @@ Keep the work phased.
 - It does not persist settings yet.
 - No new fetch path or isolated settings runtime was introduced.
 
+## Shared Select Styling Note
+
+- A select/combo-box rendering bug was fixed in the shared input primitive, not just inside `Bot Settings`.
+- Future pages should reuse that shared select variant instead of introducing local combo-box fixes again.
+
 ## Implementador - 2026-03-19 - Signal Bot Page Closure Pass
 
 ### What Was Done

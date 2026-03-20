@@ -728,7 +728,7 @@ function FormSelect(props: { label: string; value: string; options: string[]; on
   return (
     <div className="botsettings-field-block">
       <label className="botsettings-field-label">{props.label}</label>
-      <label className="botsettings-select-shell ui-input-shell">
+      <label className="botsettings-select-shell ui-input-shell is-select">
         <select value={props.value} onChange={(event) => props.onChange(event.target.value)} aria-label={props.label}>
           {props.options.map((option) => (
             <option key={option} value={option}>

@@ -1284,3 +1284,25 @@ Phase 3 - Signal Bot hard-close refinement
 
 - `src/views/BotSettingsView.tsx`
 - `src/styles/content.css`
+
+## Shared Select Primitive Fix
+
+### What Changed
+
+- Fixed the combo box/select rendering issue from the shared UI layer instead of only patching `Bot Settings`.
+- Added a reusable `ui-input-shell` select variant so future select controls can:
+  - place the chevron on the trailing edge
+  - keep correct padding
+  - inherit dark/light theme correctly
+
+### Why This Matters
+
+- The issue was not specific to `Bot Settings`.
+- It was a shared styling gap in the base input primitive.
+- Fixing it centrally avoids repeating the same bug on future pages.
+
+### Files Updated
+
+- `src/styles/ui-primitives.css`
+- `src/styles/theme.css`
+- `src/views/BotSettingsView.tsx`

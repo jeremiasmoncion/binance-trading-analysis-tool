@@ -527,3 +527,38 @@ Replace the legacy user flow around `Signal Bot` with a full template-matching p
 - bot management lives under the correct Control Panel structure
 - the live app keeps the cleaner CRYPE graphic line already established in Dashboard and My Wallet
 - technical complexity stays behind the user-facing experience instead of leaking into it
+
+## Bot Settings Guidance
+
+- `Bot Settings` is the management hub, not a detail page for one bot
+- it should let the user:
+  - see all bots
+  - understand status and performance quickly
+  - change platform-wide settings that affect the whole bot fleet
+  - jump into a specific bot when needed
+
+### Visual Baseline
+
+- `Bot Settings` must follow the same implementation discipline as `My Wallet`
+- reuse:
+  - display typography
+  - quick stat cards
+  - chip rhythm
+  - dark panel treatment
+  - hover treatment on cards
+  - spacing density and control sizing
+
+### Page Flow
+
+- top summary cards
+- bot/platform tabs
+- search + status filters + layout toggle
+- bot grid as the primary default surface
+- settings/risk/notifications/API sections as platform-level tabs
+
+### Bot Card Role
+
+- each card is a summary object first
+- each card must expose a direct settings entry
+- that action should route to the most specific bot page that already exists in the app
+- if a dedicated page does not exist yet, do not invent a second control surface just for that gap

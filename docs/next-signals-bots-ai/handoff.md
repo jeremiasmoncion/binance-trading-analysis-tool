@@ -697,6 +697,36 @@ Keep the work phased.
 - hooks sensibles
 - `api/_lib/*`
 
+## Latest Bot Settings Round
+
+### Outcome
+
+- `Control Panel -> Bot Settings` now behaves more like the intended product hub and less like a generic placeholder.
+- The page now uses:
+  - shared bot summary data
+  - a stronger bot card grid
+  - platform-level sections for settings, risk, notifications, and API connections
+
+### Architecture Notes
+
+- No per-page fetch path was introduced.
+- The page still consumes the shared signals/bots seam.
+- The seam was extended with bot summary aggregates instead of pushing more wide derivations into the component.
+
+### Product Notes
+
+- The initial bot registry now includes the broader bot family needed by the UX flow:
+  - Signal
+  - DCA
+  - Arbitrage
+  - Pump Screener
+  - isolated AI lab
+- Dedicated settings navigation now routes to the matching bot surface when that surface already exists.
+
+### Next Likely Step
+
+- Open the dedicated per-bot settings pages so the gear/settings actions stop terminating in placeholders for the non-signal bots.
+
 ## Implementador - 2026-03-19 - Signal Bot Page Closure Pass
 
 ### What Was Done

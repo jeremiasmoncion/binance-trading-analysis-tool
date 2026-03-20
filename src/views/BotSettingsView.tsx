@@ -1,176 +1,659 @@
-import { useState } from "react";
-import { ModuleTabs } from "../components/ModuleTabs";
-import { SectionCard } from "../components/ui/SectionCard";
-import { StatCard } from "../components/ui/StatCard";
+import { useMemo, useState, type ReactNode } from "react";
+import { DownloadIcon, SearchIcon, SlidersHorizontalIcon, WarningTriangleIcon, BellIcon } from "../components/Icons";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import type { ViewName } from "../types";
 
 type BotSettingsTab = "all-bots" | "general-settings" | "risk-management" | "notifications" | "api-connections";
+type BotStatusFilter = "all" | "running" | "paused" | "stopped";
+type BotLayoutMode = "grid" | "table";
 
-export function BotSettingsView() {
+interface BotSettingsViewProps {
+  onNavigateView: (view: ViewName) => void;
+}
+
+const BOT_TABS: Array<{ key: BotSettingsTab; label: string; icon: ReactNode }> = [
+  { key: "all-bots", label: "All Bots", icon: <BotsTabIcon /> },
+  { key: "general-settings", label: "General Settings", icon: <SlidersHorizontalIcon /> },
+  { key: "risk-management", label: "Risk Management", icon: <ShieldTabIcon /> },
+  { key: "notifications", label: "Notifications", icon: <BellIcon /> },
+  { key: "api-connections", label: "API Connections", icon: <ApiTabIcon /> },
+];
+
+export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
-  const readModel = useSignalsBotsReadModel().botCards;
+  const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
+  const [layoutMode, setLayoutMode] = useState<BotLayoutMode>("grid");
+  const [search, setSearch] = useState("");
+  const feedReadModel = useSignalsBotsReadModel();
+
+  const readModel = useMemo(() => {
+    const cards = feedReadModel.botCards.map((bot) => {
+      const topSignal = bot.leadingSignal;
+      const pair = topSignal?.context.symbol || inferBotPair(bot.slug, bot.name);
+      const strategy = formatStrategyLabel(bot.strategyPolicy.preferredStrategyIds[0] || bot.tags[1] || bot.stylePolicy.dominantStyle);
+      const trades24h = bot.localMemory.outcomeCount;
+      const profit24h = bot.performance.realizedPnlUsd;
+      const allocated = bot.capital.allocatedUsd;
+      const capacity = Math.max(bot.riskPolicy.maxPositionUsd * bot.riskPolicy.maxOpenPositions, allocated, 1);
+      return {
+        ...bot,
+        pair,
+        strategy,
+        trades24h,
+        profit24h,
+        winRate: bot.performance.winRate,
+        allocationPct: Math.min((allocated / capacity) * 100, 100),
+        capacityUsd: capacity,
+        acceptedCount: bot.accepted,
+        blockedCount: bot.blocked,
+      };
+    });
+
+    const needle = search.trim().toLowerCase();
+    const filteredCards = cards.filter((bot) => {
+      const matchesStatus = statusFilter === "all"
+        ? true
+        : statusFilter === "running"
+          ? bot.status === "active"
+          : statusFilter === "paused"
+            ? bot.status === "paused"
+            : bot.status === "draft" || bot.status === "archived";
+      const matchesSearch = needle
+        ? [bot.name, bot.slug, bot.pair, bot.strategy].some((value) => value.toLowerCase().includes(needle))
+        : true;
+      return matchesStatus && matchesSearch;
+    });
+
+    return {
+      cards,
+      filteredCards,
+      summary: feedReadModel.botSummary,
+      tabs: {
+        general: [
+          {
+            title: "Trading Mode",
+            value: "Assist by default",
+            note: "Bots remain visible and operator-approved before crossing into stronger execution modes.",
+          },
+          {
+            title: "Universe Policy",
+            value: "Watchlist + shared discovery",
+            note: "Global settings stay anchored to shared watchlists and ranked market discovery.",
+          },
+          {
+            title: "Capital Scope",
+            value: "Shared policy, isolated bot ledgers",
+            note: "Each bot stays measurable without breaking the platform-level accounting boundary.",
+          },
+          {
+            title: "AI Governance",
+            value: "Isolated labs only",
+            note: "Any unrestricted profile remains isolated and never becomes the platform-wide default.",
+          },
+        ],
+        risk: [
+          {
+            title: "Platform Daily Loss",
+            value: "2.0%",
+            note: "Shared protection before bot-specific aggression can escalate.",
+          },
+          {
+            title: "Max Open Positions",
+            value: "3 concurrent positions",
+            note: "Keeps overlap pressure under control across the bot family.",
+          },
+          {
+            title: "Max Symbol Exposure",
+            value: "35% per market",
+            note: "Prevents a single pair from dominating system capital.",
+          },
+          {
+            title: "Real Execution Approval",
+            value: "Human approval required",
+            note: "The platform still holds the final approval wall for real orders.",
+          },
+        ],
+        notifications: [
+          {
+            title: "Execution Alerts",
+            value: "Enabled",
+            note: "Important fills, pauses and failures stay visible to the operator.",
+          },
+          {
+            title: "Risk Escalations",
+            value: "Enabled",
+            note: "The system raises warnings when a bot approaches policy limits.",
+          },
+          {
+            title: "Daily Bot Digest",
+            value: "Enabled",
+            note: "Compact summaries replace noisy raw telemetry.",
+          },
+          {
+            title: "Manual Escalation",
+            value: "Control Panel",
+            note: "High-risk events route back through the shared control surfaces.",
+          },
+        ],
+        api: [
+          {
+            title: "Primary Exchange",
+            value: "Binance",
+            note: "Current exchange path used by the broader execution stack.",
+          },
+          {
+            title: "Paper Environment",
+            value: "Available",
+            note: "Paper remains the default lane for early bot profiles.",
+          },
+          {
+            title: "Demo Routing",
+            value: "Enabled",
+            note: "Bots can graduate into demo without opening parallel execution channels.",
+          },
+          {
+            title: "Realtime Runtime",
+            value: "Shared core",
+            note: "Bot pages continue to consume the same shared runtime instead of local polling.",
+          },
+        ],
+      },
+    };
+  }, [feedReadModel, search, statusFilter]);
 
   return (
-    <div id="botSettingsView" className="view-panel active">
-      <section className="template-page-shell">
-        <div className="template-page-header">
-          <div className="template-page-header-copy">
-            <span className="template-page-kicker">Control Panel</span>
-            <h1 className="template-page-title">Bot Settings</h1>
-            <p className="template-page-subtitle">
-              Configure and manage trading bots, strategies and automation rules with the literal tab taxonomy and block
-              order defined by the template.
+    <div id="botSettingsView" className="view-panel active botsettings-view">
+      <section className="botsettings-shell">
+        <div className="botsettings-header">
+          <div className="botsettings-header-copy">
+            <span className="botsettings-kicker ui-pill">CONTROL PANEL</span>
+            <h1 className="botsettings-title">Bot Settings</h1>
+            <p className="botsettings-subtitle">
+              Manage your bot fleet, platform-wide policy, risk controls, notifications and API connections from one
+              shared control surface.
             </p>
           </div>
-          <div className="template-page-actions">
-            <button type="button" className="premium-action-button is-ghost">Export</button>
-            <button type="button" className="premium-action-button is-primary">Create New Bot</button>
+
+          <div className="botsettings-header-actions">
+            <button type="button" className="botsettings-secondary-button ui-button">
+              <DownloadIcon />
+              Export
+            </button>
+            <button type="button" className="ui-button ui-button-primary">Create New Bot</button>
           </div>
         </div>
 
-        <div className="template-stats-grid">
-          <StatCard label="Active Bots" value={String(readModel.filter((bot) => bot.status === "active").length)} sub="Live bots in current registry" accentClass="accent-green" />
-          <StatCard label="Total Trades (24h)" value={String(readModel.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0))} sub="Closed outcomes attributed to listed bots" accentClass="accent-blue" />
-          <StatCard label="Total Profit (24h)" value={formatUsd(readModel.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0))} sub="Aggregated bot performance" accentClass="accent-emerald" />
-          <StatCard label="Win Rate" value={`${averageWinRate(readModel).toFixed(1)}%`} sub="Average across visible bot cards" accentClass="accent-amber" />
+        <div className="botsettings-summary-grid ui-summary-grid">
+          <BotSummaryCard
+            label="Active Bots"
+            value={String(readModel.summary.activeBots)}
+            note={`+${Math.max(readModel.summary.totalBots - readModel.summary.activeBots, 0)} staged bots`}
+            status="Live"
+            tone="success"
+            icon={<BotsSummaryIcon />}
+          />
+          <BotSummaryCard
+            label="Total Trades (24h)"
+            value={String(readModel.summary.totalTrades)}
+            note={`${readModel.cards.reduce((sum, bot) => sum + bot.acceptedCount, 0)} accepted / ${readModel.cards.reduce((sum, bot) => sum + bot.blockedCount, 0)} blocked`}
+            tone="info"
+            icon={<TradeFlowIcon />}
+          />
+          <BotSummaryCard
+            label="Total Profit (24h)"
+            value={formatUsd(readModel.summary.totalProfit)}
+            note={`${readModel.cards.filter((bot) => bot.profit24h > 0).length} profitable bots`}
+            tone="primary"
+            icon={<ProfitSummaryIcon />}
+          />
+          <BotSummaryCard
+            label="Win Rate"
+            value={`${readModel.summary.averageWinRate.toFixed(1)}%`}
+            note="Average across visible bot cards"
+            tone="warning"
+            icon={<TargetSummaryIcon />}
+            progress={readModel.summary.averageWinRate}
+          />
         </div>
 
-        <SectionCard className="template-panel">
-          <ModuleTabs
-            items={[
-              { key: "all-bots", label: "All Bots" },
-              { key: "general-settings", label: "General Settings" },
-              { key: "risk-management", label: "Risk Management" },
-              { key: "notifications", label: "Notifications" },
-              { key: "api-connections", label: "API Connections" },
-            ]}
-            activeKey={activeTab}
-            onChange={(key) => setActiveTab(key as BotSettingsTab)}
-          />
+        <section className="botsettings-panel card">
+          <div className="botsettings-tab-bar">
+            {BOT_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                className={`botsettings-tab-button ui-chip ${activeTab === tab.key ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
           {activeTab === "all-bots" ? (
             <>
-              <div className="template-toolbar template-toolbar-inline">
-                <div className="template-search-shell">
-                  <input type="text" value="" readOnly aria-label="Search bots" className="template-search-input" placeholder="Search bots by name, pair, or strategy..." />
+              <div className="botsettings-toolbar">
+                <label className="botsettings-search-shell ui-input-shell">
+                  <SearchIcon />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search bots by name, pair, or strategy..."
+                    aria-label="Search bots"
+                  />
+                </label>
+
+                <div className="botsettings-status-filters">
+                  {([
+                    { key: "all", label: "All" },
+                    { key: "running", label: "Running" },
+                    { key: "paused", label: "Paused" },
+                    { key: "stopped", label: "Stopped" },
+                  ] as Array<{ key: BotStatusFilter; label: string }>).map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      className={`botsettings-status-chip ui-chip ${statusFilter === filter.key ? "active" : ""}`}
+                      onClick={() => setStatusFilter(filter.key)}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
                 </div>
-                <div className="template-chip-row">
-                  <button type="button" className="template-chip is-active">All</button>
-                  <button type="button" className="template-chip">Running</button>
-                  <button type="button" className="template-chip">Paused</button>
-                  <button type="button" className="template-chip">Stopped</button>
-                </div>
-                <div className="template-view-toggle">
-                  <button type="button" className="template-view-button is-active">Grid</button>
-                  <button type="button" className="template-view-button">Table</button>
+
+                <div className="botsettings-layout-toggle">
+                  <button
+                    type="button"
+                    className={`botsettings-layout-button ${layoutMode === "grid" ? "active" : ""}`}
+                    onClick={() => setLayoutMode("grid")}
+                    aria-label="Grid layout"
+                  >
+                    <GridToggleIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className={`botsettings-layout-button ${layoutMode === "table" ? "active" : ""}`}
+                    onClick={() => setLayoutMode("table")}
+                    aria-label="Table layout"
+                  >
+                    <ListToggleIcon />
+                  </button>
                 </div>
               </div>
 
-              <div className="template-card-grid">
-                {readModel.map((bot) => (
-                  <article key={bot.id} className="template-bot-card">
-                    <div className="template-bot-card-head">
-                      <div>
-                        <h3>{bot.name}</h3>
-                        <p>{bot.slug} • {bot.executionEnvironment.toUpperCase()}</p>
+              {layoutMode === "grid" ? (
+                <div className="botsettings-card-grid">
+                  {readModel.filteredCards.map((bot) => (
+                    <article key={bot.id} className={`botsettings-card ${getBotCardTone(bot.status)}`}>
+                      <div className="botsettings-card-head">
+                        <div className="botsettings-card-identity">
+                          <BotAssetBadge pair={bot.pair} />
+                          <div className="botsettings-card-copy">
+                            <h3>{bot.name}</h3>
+                            <p>{bot.pair}</p>
+                          </div>
+                        </div>
+
+                        <div className="botsettings-card-head-actions">
+                          <span className={`botsettings-status-pill ${getBotStatusClass(bot.status)}`}>{getBotStatusLabel(bot.status)}</span>
+                          <button type="button" className="botsettings-menu-button" aria-label={`Open ${bot.name} options`}>
+                            <KebabIcon />
+                          </button>
+                        </div>
                       </div>
-                      <span className={`template-status-pill ${bot.status === "active" ? "is-live" : ""}`}>
-                        {bot.status === "active" ? "Running" : bot.status}
-                      </span>
-                    </div>
-                    <div className="template-bot-grid">
-                      <div>
-                        <span>Strategy</span>
-                        <strong>{bot.strategyPolicy.preferredStrategyIds[0] || "Adaptive"}</strong>
+
+                      <div className="botsettings-metric-grid">
+                        <MetricCell label="Strategy" value={bot.strategy} tone="neutral" />
+                        <MetricCell label="Trades (24h)" value={String(bot.trades24h)} tone="neutral" />
+                        <MetricCell label="Profit (24h)" value={formatUsd(bot.profit24h)} tone={bot.profit24h > 0 ? "positive" : bot.profit24h < 0 ? "negative" : "neutral"} />
+                        <MetricCell label="Win Rate" value={`${bot.winRate.toFixed(1)}%`} tone={bot.winRate >= 60 ? "positive" : bot.winRate >= 45 ? "neutral" : "negative"} />
                       </div>
-                      <div>
-                        <span>Trades</span>
-                        <strong>{bot.localMemory.outcomeCount}</strong>
+
+                      <div className="botsettings-allocation">
+                        <div className="botsettings-allocation-head">
+                          <span>Allocation</span>
+                          <strong>{formatUsd(bot.capital.allocatedUsd)} / {formatUsd(bot.capacityUsd)}</strong>
+                        </div>
+                        <div className="botsettings-allocation-track">
+                          <div className={`botsettings-allocation-fill ${getBotStatusClass(bot.status)}`} style={{ width: `${bot.allocationPct}%` }} />
+                        </div>
                       </div>
-                      <div>
-                        <span>Profit</span>
-                        <strong>{formatUsd(bot.performance.realizedPnlUsd)}</strong>
+
+                      <div className="botsettings-card-foot">
+                        <button type="button" className={`botsettings-primary-action ${bot.status === "active" ? "is-pause" : "is-start"}`}>
+                          {bot.status === "active" ? <PauseMiniIcon /> : <PlayMiniIcon />}
+                          {bot.status === "active" ? "Pause" : "Start"}
+                        </button>
+                        <button
+                          type="button"
+                          className="botsettings-gear-button"
+                          aria-label={`Open settings for ${bot.name}`}
+                          onClick={() => onNavigateView(resolveBotTarget(bot.slug))}
+                        >
+                          <GearMiniIcon />
+                        </button>
                       </div>
-                      <div>
-                        <span>Win Rate</span>
-                        <strong>{bot.performance.winRate.toFixed(0)}%</strong>
-                      </div>
-                    </div>
-                    <div className="template-allocation-row">
-                      <div className="template-allocation-bar">
-                        <span style={{ width: `${Math.min((bot.capital.allocatedUsd / Math.max(bot.riskPolicy.maxPositionUsd * bot.riskPolicy.maxOpenPositions, 1)) * 100, 100)}%` }} />
-                      </div>
-                      <strong>{formatUsd(bot.capital.allocatedUsd)} / allocated</strong>
-                    </div>
-                    <div className="template-button-row">
-                      <button type="button" className="premium-action-button is-ghost">{bot.status === "active" ? "Pause" : "Start"}</button>
-                      <button type="button" className="premium-action-button">Settings</button>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="ui-table-shell botsettings-table-shell">
+                  <table className="ui-table botsettings-table">
+                    <thead>
+                      <tr>
+                        <th>Bot</th>
+                        <th>Status</th>
+                        <th>Strategy</th>
+                        <th>Trades</th>
+                        <th>Profit</th>
+                        <th>Win Rate</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {readModel.filteredCards.map((bot) => (
+                        <tr key={bot.id}>
+                          <td>
+                            <div className="botsettings-table-identity">
+                              <BotAssetBadge pair={bot.pair} />
+                              <div>
+                                <strong>{bot.name}</strong>
+                                <span>{bot.pair}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td><span className={`botsettings-status-pill ${getBotStatusClass(bot.status)}`}>{getBotStatusLabel(bot.status)}</span></td>
+                          <td>{bot.strategy}</td>
+                          <td>{bot.trades24h}</td>
+                          <td className={bot.profit24h > 0 ? "wallet-positive" : bot.profit24h < 0 ? "wallet-negative" : ""}>{formatUsd(bot.profit24h)}</td>
+                          <td>{bot.winRate.toFixed(1)}%</td>
+                          <td>
+                            <button type="button" className="botsettings-inline-link" onClick={() => onNavigateView(resolveBotTarget(bot.slug))}>
+                              Open settings
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </>
           ) : null}
 
           {activeTab === "general-settings" ? (
-            <div className="template-form-grid">
-              <SettingsCard title="Default Trading Mode" value="Assist" note="Bots stay visible and user-approved before any real action." />
-              <SettingsCard title="Base Universe" value="Watchlist + Discovery" note="Supports watchlist-first and market discovery lanes." />
-              <SettingsCard title="Style Coverage" value="Scalping • Swing • Long" note="Matches the domain styles already supported by the model." />
-              <SettingsCard title="AI Unrestricted Lab" value="Isolated" note="Supported as a separate experimental profile, never as a global default." />
+            <div className="botsettings-settings-grid">
+              {readModel.tabs.general.map((item) => <SettingsPanel key={item.title} {...item} icon={<SlidersHorizontalIcon />} />)}
             </div>
           ) : null}
 
           {activeTab === "risk-management" ? (
-            <div className="template-form-grid">
-              <SettingsCard title="Max Position Size" value="$250" note="Current default per bot position." />
-              <SettingsCard title="Max Open Positions" value="3" note="Prevents uncontrolled overlap across symbols." />
-              <SettingsCard title="Daily Loss Limit" value="2%" note="Risk cap before the bot slows down or stops." />
-              <SettingsCard title="Symbol Exposure" value="35%" note="Keeps a single market from dominating bot capital." />
+            <div className="botsettings-settings-grid">
+              {readModel.tabs.risk.map((item) => <SettingsPanel key={item.title} {...item} icon={<WarningTriangleIcon />} />)}
             </div>
           ) : null}
 
           {activeTab === "notifications" ? (
-            <div className="template-form-grid">
-              <SettingsCard title="Execution Alerts" value="Enabled" note="Important fills and failures remain visible for the operator." />
-              <SettingsCard title="Policy Warnings" value="Enabled" note="Bot-policy mismatches remain surfaced in the control layer." />
-              <SettingsCard title="Daily Summary" value="Enabled" note="Compact recap rather than raw technical telemetry." />
-              <SettingsCard title="Escalations" value="Manual Review" note="High-risk events still require a human-visible checkpoint." />
+            <div className="botsettings-settings-grid">
+              {readModel.tabs.notifications.map((item) => <SettingsPanel key={item.title} {...item} icon={<BellIcon />} />)}
             </div>
           ) : null}
 
           {activeTab === "api-connections" ? (
-            <div className="template-form-grid">
-              <SettingsCard title="Primary Exchange" value="Binance" note="Current connected trading venue for live operations." />
-              <SettingsCard title="Paper Environment" value="Available" note="Keeps bot testing separate from real balances." />
-              <SettingsCard title="Demo Routing" value="Enabled" note="Intermediate execution mode between paper and real." />
-              <SettingsCard title="Real Orders" value="Approval Required" note="No change to runtime governance in this round." />
+            <div className="botsettings-settings-grid">
+              {readModel.tabs.api.map((item) => <SettingsPanel key={item.title} {...item} icon={<ApiTabIcon />} />)}
             </div>
           ) : null}
-        </SectionCard>
+        </section>
       </section>
     </div>
   );
 }
 
-function SettingsCard(props: { title: string; value: string; note: string }) {
+function BotSummaryCard(props: {
+  label: string;
+  value: string;
+  note: string;
+  tone: "success" | "info" | "primary" | "warning";
+  icon: ReactNode;
+  status?: string;
+  progress?: number;
+}) {
   return (
-    <div className="template-settings-card">
-      <span>{props.title}</span>
-      <strong>{props.value}</strong>
-      <small>{props.note}</small>
+    <div className="botsettings-summary-card ui-summary-card">
+      <div className="botsettings-summary-copy ui-summary-card-copy">
+        <div className="botsettings-summary-head">
+          <div className="botsettings-summary-label ui-summary-card-label">{props.label}</div>
+          <div className={`botsettings-summary-icon ${props.tone} ui-summary-card-icon`}>{props.icon}</div>
+        </div>
+
+        <div className="botsettings-summary-value-row">
+          <div className="botsettings-summary-value ui-summary-card-value">{props.value}</div>
+        </div>
+
+        <div className="botsettings-summary-footer">
+          {props.status ? <span className={`botsettings-summary-status ${props.tone}`}>{props.status}</span> : <span className="botsettings-summary-note">{props.note}</span>}
+          {typeof props.progress === "number" ? (
+            <div className="botsettings-summary-progress-track">
+              <div className="botsettings-summary-progress-fill" style={{ width: `${Math.max(0, Math.min(props.progress, 100))}%` }} />
+            </div>
+          ) : null}
+          {!props.status ? null : <span className="botsettings-summary-note">{props.note}</span>}
+        </div>
+      </div>
     </div>
   );
 }
 
-function averageWinRate(bots: Array<{ performance: { winRate: number } }>) {
-  return bots.length ? bots.reduce((sum, bot) => sum + bot.performance.winRate, 0) / bots.length : 0;
+function MetricCell(props: { label: string; value: string; tone: "positive" | "negative" | "neutral" }) {
+  return (
+    <div className="botsettings-metric-cell">
+      <span>{props.label}</span>
+      <strong className={props.tone === "positive" ? "is-positive" : props.tone === "negative" ? "is-negative" : ""}>{props.value}</strong>
+    </div>
+  );
+}
+
+function SettingsPanel(props: { title: string; value: string; note: string; icon: ReactNode }) {
+  return (
+    <article className="botsettings-settings-card">
+      <div className="botsettings-settings-head">
+        <div className="botsettings-settings-icon">{props.icon}</div>
+        <div>
+          <span>{props.title}</span>
+          <strong>{props.value}</strong>
+        </div>
+      </div>
+      <p>{props.note}</p>
+    </article>
+  );
+}
+
+function BotAssetBadge({ pair }: { pair: string }) {
+  const asset = pair.split("/")[0] || pair;
+  return <div className={`botsettings-asset-badge ${getAssetAccentClass(asset)}`}>{asset.slice(0, 1)}</div>;
+}
+
+function getBotStatusLabel(status: string) {
+  if (status === "active") return "Running";
+  if (status === "paused") return "Paused";
+  if (status === "draft") return "Draft";
+  return "Stopped";
+}
+
+function getBotStatusClass(status: string) {
+  if (status === "active") return "is-running";
+  if (status === "paused") return "is-paused";
+  return "is-stopped";
+}
+
+function getBotCardTone(status: string) {
+  if (status === "active") return "is-running";
+  if (status === "paused") return "is-paused";
+  return "is-draft";
+}
+
+function inferBotPair(slug: string, name: string) {
+  if (slug.includes("signal")) return "BTC/USDT";
+  if (slug.includes("dca")) return "ETH/USDT";
+  if (slug.includes("arbitrage")) return "BNB/USDT";
+  if (slug.includes("pump")) return "SOL/USDT";
+  if (name.toLowerCase().includes("ai")) return "AI/USDT";
+  return "BTC/USDT";
+}
+
+function resolveBotTarget(slug: string): ViewName {
+  if (slug.includes("signal")) return "ai-signal-bot";
+  if (slug.includes("dca")) return "ai-dca-bot";
+  if (slug.includes("arbitrage")) return "ai-arbitrage-bot";
+  if (slug.includes("pump")) return "ai-pump-screener";
+  return "control-bot-settings";
+}
+
+function formatStrategyLabel(value: string) {
+  return value
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatUsd(value: number) {
+  if (!Number.isFinite(value) || value === 0) return "$0";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(value);
+}
+
+function getAssetAccentClass(symbol: string) {
+  if (symbol.startsWith("BTC")) return "is-btc";
+  if (symbol.startsWith("ETH")) return "is-eth";
+  if (symbol.startsWith("SOL")) return "is-sol";
+  if (symbol.startsWith("BNB")) return "is-bnb";
+  return "is-generic";
+}
+
+function BotsSummaryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="7" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 11v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M9.5 12h5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function TradeFlowIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 7h11m0 0-2.8-2.8M18 7l-2.8 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 17H6m0 0 2.8-2.8M6 17l2.8 2.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ProfitSummaryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m5 15 4.8-4.8 3.2 3.2 6-6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14 6.6h5v5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TargetSummaryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function BotsTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m12 5 7 3.8-7 3.8-7-3.8L12 5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m5 12.2 7 3.8 7-3.8" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m5 15.8 7 3.8 7-3.8" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ShieldTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5 18 7v4.5c0 4.2-2.4 6.8-6 8-3.6-1.2-6-3.8-6-8V7l6-2.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ApiTabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7.2 14.2a2.5 2.5 0 0 1 0-3.5l3-3a2.5 2.5 0 0 1 3.5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M16.8 9.8a2.5 2.5 0 0 1 0 3.5l-3 3a2.5 2.5 0 0 1-3.5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m9.5 14.5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function GridToggleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="14" y="5" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="5" y="14" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="14" y="14" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function ListToggleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 7h10M9 12h10M9 17h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="5.5" cy="7" r="1" fill="currentColor" />
+      <circle cx="5.5" cy="12" r="1" fill="currentColor" />
+      <circle cx="5.5" cy="17" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function KebabIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="6.5" r="1.3" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.3" fill="currentColor" />
+      <circle cx="12" cy="17.5" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PauseMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9.5 7v10M14.5 7v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlayMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m9 7 8 5-8 5V7Z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function GearMiniIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 8.8a3.2 3.2 0 1 0 0 6.4a3.2 3.2 0 0 0 0-6.4Z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m19 13.1-.9.5.1 1a1 1 0 0 1-.6 1l-1 .4-.6.9a1 1 0 0 1-1 .4l-1-.2-.8.7a1 1 0 0 1-1 0l-.8-.7-1 .2a1 1 0 0 1-1-.4l-.6-.9-1-.4a1 1 0 0 1-.6-1l.1-1-.9-.5a1 1 0 0 1-.4-.9l.4-1-.4-1a1 1 0 0 1 .4-.9l.9-.5-.1-1a1 1 0 0 1 .6-1l1-.4.6-.9a1 1 0 0 1 1-.4l1 .2.8-.7a1 1 0 0 1 1 0l.8.7 1-.2a1 1 0 0 1 1 .4l.6.9 1 .4a1 1 0 0 1 .6 1l-.1 1 .9.5a1 1 0 0 1 .4.9l-.4 1 .4 1a1 1 0 0 1-.4.9Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
 }

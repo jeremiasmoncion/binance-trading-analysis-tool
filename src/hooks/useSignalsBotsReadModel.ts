@@ -49,14 +49,26 @@ export function useSignalsBotsReadModel() {
     const signalBotBlockedSignals = selectBlockedBotConsumableSignals(signalBotFeed);
     const botCards = bots.map((bot) => {
       const feed = createBotConsumableFeed(bot, rankedSignals, rankedFeed.generatedAt);
-      const accepted = selectAcceptedBotConsumableSignals(feed).length;
-      const blocked = selectBlockedBotConsumableSignals(feed).length;
+      const acceptedSignals = selectAcceptedBotConsumableSignals(feed);
+      const blockedSignals = selectBlockedBotConsumableSignals(feed);
+      const accepted = acceptedSignals.length;
+      const blocked = blockedSignals.length;
+      const leadingSignal = acceptedSignals[0] || blockedSignals[0] || null;
       return {
         ...bot,
         accepted,
         blocked,
+        acceptedSignals,
+        blockedSignals,
+        leadingSignal,
       };
     });
+    const activeBots = botCards.filter((bot) => bot.status === "active");
+    const totalTrades = botCards.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0);
+    const totalProfit = botCards.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0);
+    const averageWinRate = botCards.length
+      ? botCards.reduce((sum, bot) => sum + bot.performance.winRate, 0) / botCards.length
+      : 0;
 
     return {
       signalMemory: feedData.signalMemory,
@@ -75,6 +87,15 @@ export function useSignalsBotsReadModel() {
       signalBotFeed,
       signalBotApprovedSignals,
       signalBotBlockedSignals,
+      botSummary: {
+        totalBots: botCards.length,
+        activeBots: activeBots.length,
+        pausedBots: botCards.filter((bot) => bot.status === "paused").length,
+        draftBots: botCards.filter((bot) => bot.status === "draft").length,
+        totalTrades,
+        totalProfit,
+        averageWinRate,
+      },
     };
   }, [feedData]);
 }

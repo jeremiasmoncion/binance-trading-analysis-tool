@@ -68,7 +68,7 @@ export function AppView(props: AppViewProps) {
       content = <ControlOverviewView onNavigateView={props.onNavigateView} />;
       break;
     case "control-bot-settings":
-      content = <BotSettingsView />;
+      content = <BotSettingsView onNavigateView={props.onNavigateView} />;
       break;
     case "control-execution-logs":
       content = <ExecutionLogsView />;
@@ -134,7 +134,7 @@ export function AppView(props: AppViewProps) {
       content = <SignalBotView onNavigateView={props.onNavigateView} />;
       break;
     case "bots":
-      content = <BotSettingsView />;
+      content = <BotSettingsView onNavigateView={props.onNavigateView} />;
       break;
     case "market":
       content = <MarketView />;

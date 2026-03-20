@@ -1218,3 +1218,40 @@ Phase 3 - Signal Bot hard-close refinement
 
 - Treat `Signal Bot` as the reference-quality page for the next closure round
 - Only continue here later if direction wants final polish beyond this near-closed state
+
+## Bot Settings Hub Round
+
+### What Changed
+
+- Rebuilt `Control Panel -> Bot Settings` on the same visual baseline used by `My Wallet`.
+- Moved the page away from the older generic template blocks into:
+  - wallet-like quick summary cards
+  - exact tab rail for bot/platform settings sections
+  - search + status filters + grid/table toggle
+  - hoverable bot cards with stronger hierarchy
+- Each bot card now exposes a direct settings action that routes to the matching bot surface when that route already exists.
+
+### Shared Data Continuity
+
+- Kept the page on the shared `useSignalsBotsReadModel()` seam.
+- Extended the seam with bot-level summary data instead of rebuilding wide derivations only inside the page.
+- Continued using the shared signal-memory + ranked-feed pipeline to enrich bot cards.
+
+### Bot Registry Continuity
+
+- Expanded the initial bot registry so `Bot Settings` reflects the actual bot family the product is preparing for:
+  - `Signal Bot Core`
+  - `DCA Bot Core`
+  - `Arbitrage Bot Core`
+  - `Pump Screener`
+  - `AI Unrestricted Lab`
+- This does not create a second runtime.
+- It only makes the shared registry seed more faithful to the intended product map.
+
+### Files Updated
+
+- `src/domain/bots/defaults.ts`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/components/AppView.tsx`
+- `src/views/BotSettingsView.tsx`
+- `src/styles/content.css`

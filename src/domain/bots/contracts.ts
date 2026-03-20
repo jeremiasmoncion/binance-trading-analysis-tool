@@ -121,6 +121,26 @@ export interface BotWorkspaceSettings {
   autoCompoundProfits: boolean;
 }
 
+export interface BotGeneralSettings {
+  defaultTradingPair: string;
+  defaultExchange: string;
+  baseCurrency: string;
+  orderSizeType: "fixed" | "percentage";
+  autoRestartOnError: boolean;
+  autoCompoundProfits: boolean;
+  paperTradingMode: boolean;
+  smartOrderRouting: boolean;
+  antiSlippageProtection: boolean;
+  executionSpeed: number;
+  apiRateLimit: number;
+  maxConcurrentBots: number;
+  tradingScheduleEnabled: boolean;
+  startTime: string;
+  endTime: string;
+  activeDays: string[];
+  timezone: string;
+}
+
 export interface BotAuditSummary {
   lastDecisionAt: string | null;
   lastExecutionAt: string | null;
@@ -188,6 +208,7 @@ export interface Bot {
   automationMode: BotAutomationMode;
   capital: BotCapitalAllocation;
   workspaceSettings: BotWorkspaceSettings;
+  generalSettings: BotGeneralSettings;
   universePolicy: BotUniversePolicy;
   stylePolicy: BotStylePolicy;
   timeframePolicy: BotTimeframePolicy;

@@ -4,6 +4,26 @@
 
 ### Phase
 
+`Bot Core` persisted settings round
+
+### Completed
+
+- Extended the persisted bot contract with `generalSettings`.
+- Moved `Bot Settings -> General Settings` away from local-only UI state into the selected bot profile.
+- Moved `Bot Settings -> Risk Management` away from local-only UI state into the selected bot profile and existing risk/workspace policies.
+- Kept the write path on the same shared bot seam instead of adding a second store or feature-local persistence path.
+
+### Risk Avoided
+
+- This avoids leaving two of the most important bot-control tabs as purely visual surfaces with no durable effect.
+- It also avoids inventing a separate platform-settings runtime before the bot contract is mature enough.
+
+### Recommended Next Step
+
+- Continue moving the remaining bot settings tabs into persisted contracts, then deepen bot memory/activity/performance over the now-cleaner bot identity.
+
+### Phase
+
 `Signal Core` informational + AI-prioritized separation
 
 ### Completed

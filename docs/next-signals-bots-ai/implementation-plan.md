@@ -94,6 +94,8 @@ Current validated state:
 - first real bot create/update path exists
 - selected bot travels through a shared seam into the full bot workspace
 - quick edit now writes into the same persisted bot registry seam
+- `General Settings` and `Risk Management` now persist against the selected bot profile
+- bot general/risk state is no longer only view-local UI state
 
 ## Phase 3.5 - Bot Decision And Activity Layer
 

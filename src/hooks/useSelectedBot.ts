@@ -180,7 +180,13 @@ export async function updateBotProfile(botId: string, payload: Partial<Bot>) {
     workspaceSettings: payload.workspaceSettings
       ? { ...bot.workspaceSettings, ...payload.workspaceSettings }
       : bot.workspaceSettings,
+    generalSettings: payload.generalSettings
+      ? { ...bot.generalSettings, ...payload.generalSettings }
+      : bot.generalSettings,
     riskPolicy: payload.riskPolicy ? { ...bot.riskPolicy, ...payload.riskPolicy } : bot.riskPolicy,
+    executionPolicy: payload.executionPolicy
+      ? { ...bot.executionPolicy, ...payload.executionPolicy }
+      : bot.executionPolicy,
     performance: payload.performance ? { ...bot.performance, ...payload.performance } : bot.performance,
     localMemory: payload.localMemory ? { ...bot.localMemory, ...payload.localMemory } : bot.localMemory,
     updatedAt: new Date().toISOString(),

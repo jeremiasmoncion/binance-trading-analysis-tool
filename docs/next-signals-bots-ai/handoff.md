@@ -124,10 +124,12 @@ The redesign also now has dedicated documentation for:
   - `useBotDecisions` exists as a shared runtime hook
   - `Signal Bot` can register manual bot decisions from the workspace
   - `Execution Logs` can already consume bot decisions alongside execution orders
+  - `General Settings` now persist against the selected bot profile
+  - `Risk Management` now persists against the selected bot profile
 - next:
   - create the Supabase `bot_decisions` table
   - persist more bot-owned outcomes against those decisions
-  - move platform settings tabs from local UI state into shared persisted contracts
+  - move the remaining settings tabs from local UI state into shared persisted contracts
   - deepen performance/training off the decision layer
 
 ## Phase 4 Status

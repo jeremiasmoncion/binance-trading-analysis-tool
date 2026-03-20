@@ -2,6 +2,7 @@ import type {
   Bot,
   BotAiPolicy,
   BotExecutionPolicy,
+  BotGeneralSettings,
   BotOverlapPolicy,
   BotRegistryState,
   BotRiskPolicy,
@@ -86,6 +87,26 @@ export const DEFAULT_BOT_WORKSPACE_SETTINGS: BotWorkspaceSettings = {
   autoCompoundProfits: false,
 };
 
+export const DEFAULT_BOT_GENERAL_SETTINGS: BotGeneralSettings = {
+  defaultTradingPair: "BTC/USDT",
+  defaultExchange: "Binance",
+  baseCurrency: "USDT",
+  orderSizeType: "fixed",
+  autoRestartOnError: true,
+  autoCompoundProfits: false,
+  paperTradingMode: false,
+  smartOrderRouting: true,
+  antiSlippageProtection: true,
+  executionSpeed: 50,
+  apiRateLimit: 1200,
+  maxConcurrentBots: 15,
+  tradingScheduleEnabled: false,
+  startTime: "09:00 AM",
+  endTime: "05:00 PM",
+  activeDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  timezone: "UTC",
+};
+
 export const EMPTY_MEMORY_SUMMARY: MemorySummary = {
   layer: "local",
   lastUpdatedAt: null,
@@ -147,6 +168,7 @@ export function createBotDraft(overrides: Partial<Bot> & Pick<Bot, "id" | "slug"
       accountingScope: overrides.slug,
     },
     workspaceSettings: overrides.workspaceSettings ?? DEFAULT_BOT_WORKSPACE_SETTINGS,
+    generalSettings: overrides.generalSettings ?? DEFAULT_BOT_GENERAL_SETTINGS,
     universePolicy: cloneUniversePolicy(overrides.universePolicy ?? DEFAULT_BOT_UNIVERSE_POLICY),
     stylePolicy: overrides.stylePolicy ?? DEFAULT_BOT_STYLE_POLICY,
     timeframePolicy: overrides.timeframePolicy ?? DEFAULT_BOT_TIMEFRAME_POLICY,

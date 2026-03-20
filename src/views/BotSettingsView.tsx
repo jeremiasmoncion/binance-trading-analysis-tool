@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DownloadIcon, SearchIcon, SlidersHorizontalIcon, WarningTriangleIcon, BellIcon } from "../components/Icons";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import { useSelectedBotState } from "../hooks/useSelectedBot";
@@ -141,6 +141,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
   const feedReadModel = useSignalsBotsReadModel();
   const { createBot, selectBot, updateBot } = useSelectedBotState();
+  const selectedSettingsBot = feedReadModel.selectedBotCard || feedReadModel.botCards[0] || null;
 
   const readModel = useMemo(() => {
     const cards = feedReadModel.botCards.map((bot) => {
@@ -322,6 +323,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   };
 
   const openQuickEdit = (bot: QuickEditSource) => {
+    selectBot(bot.id);
     setQuickEditDraft({
       botId: bot.id,
       botName: bot.name,
@@ -348,6 +350,30 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     selectBot(bot.id);
     onNavigateView(resolveBotTarget(bot.slug));
   };
+
+  useEffect(() => {
+    if (!selectedSettingsBot) return;
+
+    setGeneralSettings({
+      ...INITIAL_GENERAL_SETTINGS,
+      ...selectedSettingsBot.generalSettings,
+      defaultTradingPair: selectedSettingsBot.generalSettings?.defaultTradingPair || selectedSettingsBot.workspaceSettings.primaryPair || "BTC/USDT",
+      autoCompoundProfits: selectedSettingsBot.generalSettings?.autoCompoundProfits ?? selectedSettingsBot.workspaceSettings.autoCompoundProfits,
+    });
+
+    setRiskSettings({
+      ...INITIAL_RISK_SETTINGS,
+      maximumDailyLossLimit: String(selectedSettingsBot.riskPolicy.maxPositionUsd || INITIAL_RISK_SETTINGS.maximumDailyLossLimit),
+      maximumDrawdownPct: String(selectedSettingsBot.riskPolicy.maxDrawdownPct || INITIAL_RISK_SETTINGS.maximumDrawdownPct),
+      maximumPositionSizePct: String(selectedSettingsBot.riskPolicy.maxSymbolExposurePct || INITIAL_RISK_SETTINGS.maximumPositionSizePct),
+      maximumLeverage: selectedSettingsBot.executionEnvironment === "real" ? "3x" : INITIAL_RISK_SETTINGS.maximumLeverage,
+      globalStopLossEnabled: selectedSettingsBot.workspaceSettings.stopLossPct != null,
+      stopLossPct: String(selectedSettingsBot.workspaceSettings.stopLossPct ?? INITIAL_RISK_SETTINGS.stopLossPct),
+      takeProfitPct: String(selectedSettingsBot.workspaceSettings.takeProfitPct ?? INITIAL_RISK_SETTINGS.takeProfitPct),
+      trailingStopLossEnabled: !selectedSettingsBot.executionPolicy.suggestionsOnly,
+      trailingDistancePct: String(selectedSettingsBot.riskPolicy.cooldownAfterLosses || INITIAL_RISK_SETTINGS.trailingDistancePct),
+    });
+  }, [selectedSettingsBot?.id]);
 
   const handleCreateBot = async () => {
     const loaderId = startLoading({ label: "Creando bot", detail: "Signal Bot Core" });
@@ -449,6 +475,110 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     } finally {
       stopLoading(loaderId);
     }
+  };
+
+  const handleSaveGeneralSettings = async () => {
+    if (!selectedSettingsBot) return;
+    const loaderId = startLoading({ label: "Guardando settings", detail: selectedSettingsBot.name });
+    try {
+      await updateBot(selectedSettingsBot.id, {
+        workspaceSettings: {
+          ...selectedSettingsBot.workspaceSettings,
+          primaryPair: generalSettings.defaultTradingPair,
+          autoCompoundProfits: generalSettings.autoCompoundProfits,
+        },
+        generalSettings: {
+          ...selectedSettingsBot.generalSettings,
+          ...generalSettings,
+        },
+        executionEnvironment: generalSettings.paperTradingMode ? "paper" : selectedSettingsBot.executionEnvironment,
+      });
+      showToast({
+        tone: "success",
+        title: "General Settings guardado",
+        message: `${selectedSettingsBot.name} ya usa configuración persistida real.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo guardar",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleResetGeneralSettings = () => {
+    if (!selectedSettingsBot) {
+      setGeneralSettings(INITIAL_GENERAL_SETTINGS);
+      return;
+    }
+    setGeneralSettings({
+      ...INITIAL_GENERAL_SETTINGS,
+      ...selectedSettingsBot.generalSettings,
+      defaultTradingPair: selectedSettingsBot.generalSettings?.defaultTradingPair || selectedSettingsBot.workspaceSettings.primaryPair || "BTC/USDT",
+      autoCompoundProfits: selectedSettingsBot.generalSettings?.autoCompoundProfits ?? selectedSettingsBot.workspaceSettings.autoCompoundProfits,
+    });
+  };
+
+  const handleSaveRiskSettings = async () => {
+    if (!selectedSettingsBot) return;
+    const loaderId = startLoading({ label: "Guardando riesgo", detail: selectedSettingsBot.name });
+    try {
+      await updateBot(selectedSettingsBot.id, {
+        workspaceSettings: {
+          ...selectedSettingsBot.workspaceSettings,
+          stopLossPct: riskSettings.globalStopLossEnabled ? Number(riskSettings.stopLossPct || 0) : null,
+          takeProfitPct: Number(riskSettings.takeProfitPct || 0) || null,
+        },
+        riskPolicy: {
+          ...selectedSettingsBot.riskPolicy,
+          maxPositionUsd: Number(riskSettings.maximumDailyLossLimit || 0) || 0,
+          maxDailyLossPct: Number(riskSettings.maximumDailyLossLimit || 0) || selectedSettingsBot.riskPolicy.maxDailyLossPct,
+          maxDrawdownPct: Number(riskSettings.maximumDrawdownPct || 0) || 0,
+          maxSymbolExposurePct: Number(riskSettings.maximumPositionSizePct || 0) || 0,
+          cooldownAfterLosses: Number(riskSettings.trailingDistancePct || 0) || 0,
+          realExecutionRequiresApproval: true,
+        },
+        executionPolicy: {
+          ...selectedSettingsBot.executionPolicy,
+          suggestionsOnly: !riskSettings.trailingStopLossEnabled,
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Risk Management guardado",
+        message: `${selectedSettingsBot.name} ya usa reglas de riesgo persistidas.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo guardar",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleResetRiskSettings = () => {
+    if (!selectedSettingsBot) {
+      setRiskSettings(INITIAL_RISK_SETTINGS);
+      return;
+    }
+    setRiskSettings({
+      ...INITIAL_RISK_SETTINGS,
+      maximumDailyLossLimit: String(selectedSettingsBot.riskPolicy.maxPositionUsd || INITIAL_RISK_SETTINGS.maximumDailyLossLimit),
+      maximumDrawdownPct: String(selectedSettingsBot.riskPolicy.maxDrawdownPct || INITIAL_RISK_SETTINGS.maximumDrawdownPct),
+      maximumPositionSizePct: String(selectedSettingsBot.riskPolicy.maxSymbolExposurePct || INITIAL_RISK_SETTINGS.maximumPositionSizePct),
+      maximumLeverage: selectedSettingsBot.executionEnvironment === "real" ? "3x" : INITIAL_RISK_SETTINGS.maximumLeverage,
+      globalStopLossEnabled: selectedSettingsBot.workspaceSettings.stopLossPct != null,
+      stopLossPct: String(selectedSettingsBot.workspaceSettings.stopLossPct ?? INITIAL_RISK_SETTINGS.stopLossPct),
+      takeProfitPct: String(selectedSettingsBot.workspaceSettings.takeProfitPct ?? INITIAL_RISK_SETTINGS.takeProfitPct),
+      trailingStopLossEnabled: !selectedSettingsBot.executionPolicy.suggestionsOnly,
+      trailingDistancePct: String(selectedSettingsBot.riskPolicy.cooldownAfterLosses || INITIAL_RISK_SETTINGS.trailingDistancePct),
+    });
   };
 
   return (
@@ -889,11 +1019,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <button
                   type="button"
                   className="botsettings-reset-button ui-button"
-                  onClick={() => setGeneralSettings(INITIAL_GENERAL_SETTINGS)}
+                  onClick={handleResetGeneralSettings}
                 >
                   Reset to Default
                 </button>
-                <button type="button" className="ui-button ui-button-primary">
+                <button type="button" className="ui-button ui-button-primary" onClick={() => void handleSaveGeneralSettings()}>
                   <SaveMiniIcon />
                   Save Settings
                 </button>
@@ -1030,10 +1160,10 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               </article>
 
               <div className="botsettings-general-actions">
-                <button type="button" className="botsettings-reset-button ui-button" onClick={() => setRiskSettings(INITIAL_RISK_SETTINGS)}>
+                <button type="button" className="botsettings-reset-button ui-button" onClick={handleResetRiskSettings}>
                   Reset to Default
                 </button>
-                <button type="button" className="ui-button ui-button-primary">
+                <button type="button" className="ui-button ui-button-primary" onClick={() => void handleSaveRiskSettings()}>
                   <SaveMiniIcon />
                   Save Risk Settings
                 </button>

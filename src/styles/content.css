@@ -4080,8 +4080,16 @@ body.dark-theme .market-score-track {
   width: 100%;
 }
 
+.signalbot-summary-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .signalbot-summary-label {
   font-size: 15px;
+  padding-top: 4px;
 }
 
 .signalbot-summary-value-row {
@@ -4144,6 +4152,12 @@ body.dark-theme .market-score-track {
   width: 50px;
   height: 50px;
   border-radius: 15px;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.22);
+}
+
+.signalbot-summary-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
 .signalbot-summary-icon.success {

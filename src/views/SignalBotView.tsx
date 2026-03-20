@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { BoltIcon, CheckCircleIcon, DownloadIcon, SlidersHorizontalIcon, TrendUpIcon, WarningTriangleIcon } from "../components/Icons";
+import { DownloadIcon, SlidersHorizontalIcon } from "../components/Icons";
 import { SectionCard } from "../components/ui/SectionCard";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import type { RankedPublishedSignal } from "../domain";
@@ -71,21 +71,21 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
             note={`+${Math.max(readModel.openSignals.length - readModel.priority.length, 0)} today`}
             status="Live"
             tone="success"
-            icon={<BoltIcon />}
+            icon={<SignalBroadcastIcon />}
           />
           <SignalStatCard
             label="Win Rate"
             value={`${calculateWinRate(readModel.closedSignals).toFixed(1)}%`}
             note={`${calculateWinRateDelta(readModel.closedSignals).toFixed(1)}%`}
             tone="info"
-            icon={<TrendUpIcon />}
+            icon={<SignalTargetIcon />}
           />
           <SignalStatCard
             label="Total Profit (30d)"
             value={formatUsd(sumPnl(readModel.closedSignals))}
             note={formatPct(calculateAveragePnl(readModel.closedSignals))}
             tone="primary"
-            icon={<CheckCircleIcon />}
+            icon={<SignalProfitIcon />}
           />
           <SignalStatCard
             label="Pending Signals"
@@ -93,7 +93,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
             note="awaiting execution"
             status="Pending"
             tone="warning"
-            icon={<WarningTriangleIcon />}
+            icon={<SignalClockIcon />}
           />
         </div>
 
@@ -300,7 +300,10 @@ function SignalStatCard(props: {
   return (
     <div className="signalbot-summary-card ui-summary-card">
       <div className="signalbot-summary-copy ui-summary-card-copy">
-        <div className="signalbot-summary-label ui-summary-card-label">{props.label}</div>
+        <div className="signalbot-summary-head">
+          <div className="signalbot-summary-label ui-summary-card-label">{props.label}</div>
+          <div className={`signalbot-summary-icon ${props.tone} ui-summary-card-icon`}>{props.icon}</div>
+        </div>
         <div className="signalbot-summary-value-row">
           <div className="signalbot-summary-value ui-summary-card-value">{props.value}</div>
           {!props.status ? <span className={`signalbot-summary-delta ${props.tone}`}>{props.note}</span> : null}
@@ -316,7 +319,6 @@ function SignalStatCard(props: {
           ) : null}
         </div>
       </div>
-      <div className={`signalbot-summary-icon ${props.tone} ui-summary-card-icon`}>{props.icon}</div>
     </div>
   );
 }
@@ -513,6 +515,46 @@ function SignalViewIcon() {
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function SignalBroadcastIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M7.7 7.7a6 6 0 0 0 0 8.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M16.3 7.7a6 6 0 0 1 0 8.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M4.9 4.9a10 10 0 0 0 0 14.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M19.1 4.9a10 10 0 0 1 0 14.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SignalTargetIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="7.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function SignalProfitIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m5 15 4.5-4.5 3.2 3.2L19 7.5" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M14.5 7.5H19V12" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SignalClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.8v4.7l3 1.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

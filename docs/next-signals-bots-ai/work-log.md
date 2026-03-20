@@ -13,6 +13,8 @@
 - The local cache now also ignores malformed pre-contract bot registries that are missing current required bot runtime fields, so stale browser state cannot block fresh hydration from Supabase.
 - The shared bot read-model now keeps an internal fallback bot only for workspace continuity, without leaking that template bot family into the user-visible bot registry list.
 - `Bot Settings` now shows an explicit loading / empty / error state when the persisted registry is not available, instead of rendering fake bot cards.
+- Fixed `Create New Bot` so opening the quick-edit drawer no longer persists a bot immediately.
+- New bot persistence now happens only from `Save Changes` inside the drawer, while the drawer itself starts as a local draft.
 - Validated the fix with:
   - `npm run typecheck`
   - `npm run build`

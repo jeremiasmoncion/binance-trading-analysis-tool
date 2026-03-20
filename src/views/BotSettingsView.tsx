@@ -10,7 +10,8 @@ type BotStatusFilter = "all" | "running" | "paused" | "stopped";
 type BotLayoutMode = "grid" | "table";
 
 interface QuickEditDraft {
-  botId: string;
+  mode: "create" | "edit";
+  botId: string | null;
   botName: string;
   pair: string;
   strategy: string;
@@ -184,6 +185,14 @@ function buildNotificationSettingsState(selectedSettingsBot: { notificationSetti
     ...INITIAL_NOTIFICATION_SETTINGS,
     ...(selectedSettingsBot?.notificationSettings || {}),
   };
+}
+
+function slugifyBotName(value: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "signal-bot";
 }
 
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
@@ -397,6 +406,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const openQuickEdit = (bot: QuickEditSource) => {
     selectBot(bot.id);
     setQuickEditDraft({
+      mode: "edit",
       botId: bot.id,
       botName: bot.name,
       pair: bot.pair,
@@ -445,46 +455,21 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   }, [selectedSettingsBot?.id]);
 
   const handleCreateBot = async () => {
-    const loaderId = startLoading({ label: "Creando bot", detail: "Signal Bot Core" });
-    try {
-      const createdBot = await createBot({
-        name: `Signal Bot ${readModel.cards.length + 1}`,
-        status: "draft",
-        automationMode: "observe",
-        executionEnvironment: "paper",
-        workspaceSettings: {
-          primaryPair: "BTC/USDT",
-          rangeLower: null,
-          rangeUpper: null,
-          gridCount: null,
-          stopLossPct: 5,
-          takeProfitPct: 10,
-          autoCompoundProfits: false,
-        },
-      });
-      showToast({
-        tone: "success",
-        title: "Bot creado",
-        message: `${createdBot.name} ya forma parte del registro real.`,
-      });
-      openQuickEdit({
-        id: createdBot.id,
-        name: createdBot.name,
-        pair: createdBot.workspaceSettings.primaryPair,
-        strategy: formatStrategyLabel(createdBot.strategyPolicy.preferredStrategyIds[0] || createdBot.tags[1] || createdBot.stylePolicy.dominantStyle),
-        capital: createdBot.capital,
-        workspaceSettings: createdBot.workspaceSettings,
-        riskPolicy: createdBot.riskPolicy,
-      });
-    } catch (error) {
-      showToast({
-        tone: "error",
-        title: "No se pudo crear el bot",
-        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
-      });
-    } finally {
-      stopLoading(loaderId);
-    }
+    setQuickEditDraft({
+      mode: "create",
+      botId: null,
+      botName: `Signal Bot ${readModel.cards.length + 1}`,
+      pair: "BTC/USDT",
+      strategy: "Signals",
+      investmentAmount: "0",
+      rangeLower: "",
+      rangeUpper: "",
+      gridCount: "",
+      stopLossPct: "5",
+      takeProfitPct: "10",
+      autoCompoundProfits: false,
+      accentClass: getAssetAccentClass("BTC"),
+    });
   };
 
   const handleToggleBotStatus = async (bot: (typeof readModel.filteredCards)[number]) => {
@@ -512,15 +497,17 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     if (!quickEditDraft) return;
     const loaderId = startLoading({ label: "Guardando bot", detail: quickEditDraft.botName });
     try {
-      await updateBot(quickEditDraft.botId, {
-        name: quickEditDraft.botName.trim() || "Signal Bot",
+      const normalizedName = quickEditDraft.botName.trim() || "Signal Bot";
+      const normalizedPair = quickEditDraft.pair.trim() || "BTC/USDT";
+      const botPayload = {
+        name: normalizedName,
         capital: {
           allocatedUsd: Number(quickEditDraft.investmentAmount || 0),
           availableUsd: Number(quickEditDraft.investmentAmount || 0),
-          accountingScope: quickEditDraft.botId,
+          accountingScope: quickEditDraft.botId || slugifyBotName(normalizedName),
         },
         workspaceSettings: {
-          primaryPair: quickEditDraft.pair.trim() || "BTC/USDT",
+          primaryPair: normalizedPair,
           rangeLower: quickEditDraft.rangeLower ? Number(quickEditDraft.rangeLower) : null,
           rangeUpper: quickEditDraft.rangeUpper ? Number(quickEditDraft.rangeUpper) : null,
           gridCount: quickEditDraft.gridCount ? Number(quickEditDraft.gridCount) : null,
@@ -528,13 +515,36 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           takeProfitPct: quickEditDraft.takeProfitPct ? Number(quickEditDraft.takeProfitPct) : null,
           autoCompoundProfits: quickEditDraft.autoCompoundProfits,
         },
-      });
+      };
+
+      if (quickEditDraft.mode === "create") {
+        const createdBot = await createBot({
+          status: "draft",
+          automationMode: "observe",
+          executionEnvironment: "paper",
+          ...botPayload,
+        });
+        selectBot(createdBot.id);
+        showToast({
+          tone: "success",
+          title: "Bot creado",
+          message: `${createdBot.name} ya forma parte del registro real.`,
+        });
+      } else if (quickEditDraft.botId) {
+        await updateBot(quickEditDraft.botId, {
+          ...botPayload,
+          capital: {
+            ...botPayload.capital,
+            accountingScope: quickEditDraft.botId,
+          },
+        });
+        showToast({
+          tone: "success",
+          title: "Bot actualizado",
+          message: "Los cambios rápidos ya viven en el registro real del bot.",
+        });
+      }
       setQuickEditDraft(null);
-      showToast({
-        tone: "success",
-        title: "Bot actualizado",
-        message: "Los cambios rápidos ya viven en el registro real del bot.",
-      });
     } catch (error) {
       showToast({
         tone: "error",
@@ -1815,7 +1825,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               </div>
 
               <div className="botsettings-drawer-actions">
-                <button type="button" className="botsettings-drawer-danger" aria-label={`Delete ${quickEditDraft.botName}`}>
+                <button type="button" className="botsettings-drawer-danger" aria-label={`Delete ${quickEditDraft.botName}`} disabled={quickEditDraft.mode === "create"}>
                   <TrashMiniIcon />
                 </button>
                 <button type="button" className="botsettings-reset-button ui-button" onClick={() => setQuickEditDraft(null)}>

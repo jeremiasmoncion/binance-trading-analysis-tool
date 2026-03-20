@@ -139,6 +139,9 @@ More specific rule for template migration:
   - repeated channel rows and settings actions should also stay shared when they recur across tabs
   - exchange cards, security cards, and status/action treatments should stay inside the same `Bot Settings` visual family
   - do not solve theme parity with per-tab overrides when the fix belongs in the shared primitive
+- for any tabbed page:
+  - the selected tab must stay visibly highlighted after selection
+  - that selected-state behavior should come from the shared tab/chip primitive, not a page-local exception
 - for `All Bots` quick configuration:
   - the bot gear action should open an in-context right drawer
   - do not force a page transition for lightweight bot edits

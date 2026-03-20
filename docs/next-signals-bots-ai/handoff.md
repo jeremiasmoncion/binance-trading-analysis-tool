@@ -177,6 +177,8 @@ Continue replacing the legacy product flow with the new user-facing page structu
   - right-sided
   - visually inside the same `Bot Settings` family
   - built from the same shared field/toggle/button primitives
+- active tab highlighting is now a shared theme rule, not a per-page fix
+- future tabbed surfaces should rely on the shared `ui-chip.active` behavior for selected-state persistence across themes
 - the implementation rule is now explicit:
   - new settings tabs should extend the same shared form primitives
   - they should not reintroduce page-local form styling or theme-specific hacks

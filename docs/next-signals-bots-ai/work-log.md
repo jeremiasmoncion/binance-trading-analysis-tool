@@ -128,6 +128,26 @@
 
 ### Phase
 
+Global active-tab parity fix
+
+### Completed
+
+- Fixed active tab/chip persistence at the shared theme layer instead of per-page overrides.
+- The selected tab state now keeps its highlighted color in both:
+  - dark theme
+  - light theme
+- Applied the fix to the shared `ui-chip.active` treatment so future tab-based pages inherit the correct selected-state behavior automatically.
+
+### Risk Avoided
+
+- Without moving this to the global theme layer, each new tabbed page could silently lose its selected-state highlight again as soon as theme overrides were applied.
+
+### Recommended Next Step
+
+- Reuse shared tab/chip primitives on future pages instead of inventing local active-state styling.
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

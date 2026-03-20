@@ -96,6 +96,14 @@ body:not(.dark-theme) .coin-clear-btn {
   box-shadow: 0 10px 20px rgba(148, 163, 184, 0.12);
 }
 
+body.light-theme .ui-chip.active,
+body:not(.dark-theme) .ui-chip.active {
+  background: linear-gradient(135deg, #6a68f8 0%, #5b5eea 100%);
+  border-color: transparent;
+  color: #f8fafc;
+  box-shadow: 0 12px 24px rgba(91, 94, 234, 0.2);
+}
+
 body.light-theme .topbar-sidebar-toggle:hover,
 body:not(.dark-theme) .topbar-sidebar-toggle:hover {
   background: rgba(255, 255, 255, 0.96);
@@ -496,6 +504,15 @@ body.dark-theme .ui-button-primary {
   border-color: rgba(129, 140, 248, 0.42);
   color: #eff6ff;
   box-shadow: 0 16px 30px rgba(91, 94, 234, 0.24);
+}
+
+body.dark-theme .ui-chip.active {
+  background: linear-gradient(135deg, #6d6cff 0%, #5f63f2 100%);
+  border-color: rgba(129, 140, 248, 0.42);
+  color: #eff6ff;
+  box-shadow:
+    0 16px 30px rgba(91, 94, 234, 0.24),
+    0 0 0 1px rgba(129, 140, 248, 0.14);
 }
 
 body.dark-theme .ui-button:hover,

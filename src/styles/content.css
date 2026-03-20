@@ -1884,42 +1884,34 @@ body.dark-theme .domain-policy-pill.is-penalty {
   color: #93c5fd;
 }
 
-.system-loading-logo-mark {
+.system-loading-spinner {
   position: relative;
   width: 24px;
   height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.system-loading-logo-core {
-  position: relative;
-  z-index: 1;
-  color: currentColor;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.system-loading-logo-ring {
+.system-loading-spinner-ring {
   position: absolute;
-  inset: -4px;
+  inset: 0;
   border-radius: 999px;
-  border: 2px solid rgba(191, 219, 254, 0.24);
-  border-top-color: rgba(255, 255, 255, 0.94);
-  border-right-color: rgba(147, 197, 253, 0.72);
-  animation: crype-spin 1s linear infinite;
+  border-style: solid;
 }
 
-.system-loading-logo-ring::after {
-  content: "";
-  position: absolute;
+.system-loading-spinner-ring-primary {
+  border-width: 2px;
+  border-color: rgba(191, 219, 254, 0.16);
+  border-top-color: rgba(255, 255, 255, 0.96);
+  border-right-color: rgba(147, 197, 253, 0.84);
+  animation: crype-spin 0.9s linear infinite;
+}
+
+.system-loading-spinner-ring-secondary {
   inset: 4px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  opacity: 0.75;
-  animation: crype-pulse 1.6s ease-in-out infinite;
+  border-width: 2px;
+  border-color: rgba(96, 165, 250, 0.14);
+  border-bottom-color: rgba(129, 140, 248, 0.82);
+  border-left-color: rgba(59, 130, 246, 0.56);
+  animation: crype-spin 1.3s linear infinite reverse;
 }
 
 .system-loading-copy {

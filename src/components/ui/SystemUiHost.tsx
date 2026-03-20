@@ -77,9 +77,9 @@ export function SystemUiHost() {
       {primaryLoader ? (
         <div className="system-loading-dock" role="status" aria-live="polite">
           <div className="system-loading-icon">
-            <div className="system-loading-logo-mark" aria-hidden="true">
-              <span className="system-loading-logo-ring" />
-              <span className="system-loading-logo-core">C</span>
+            <div className="system-loading-spinner" aria-hidden="true">
+              <span className="system-loading-spinner-ring system-loading-spinner-ring-primary" />
+              <span className="system-loading-spinner-ring system-loading-spinner-ring-secondary" />
             </div>
           </div>
           <div className="system-loading-copy">

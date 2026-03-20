@@ -147,6 +147,10 @@ The redesign also now has dedicated documentation for:
     - watched coins
     - latest scan freshness
     - latest scan signal creation counts
+  - explicit operational cohorts now travel in the same seam:
+    - eligible execution candidates
+    - blocked execution candidates
+    - observational ranked signals
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context
@@ -156,7 +160,7 @@ The redesign also now has dedicated documentation for:
   - execution candidates are now the first live bridge for deeper operable feeds
 - next:
   - connect scanner outputs into the new signal core more directly
-  - deepen operable feeds with blocked/eligible runtime cohorts instead of only eligible promotion
+  - deepen operable feeds with richer scanner/runtime context and later AI-prioritized slices
   - continue moving bot logic to consume the cleaner feed taxonomy
 
 ## Files Added

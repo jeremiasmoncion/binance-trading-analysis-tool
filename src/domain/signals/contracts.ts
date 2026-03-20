@@ -90,6 +90,21 @@ export interface SignalExecutionCandidate {
   reasons: string[];
 }
 
+export interface OperationalSignalCandidate {
+  id: string;
+  layer: "execution-candidate";
+  signalId: number;
+  symbol: string;
+  timeframe: string;
+  strategyId: string;
+  strategyVersion?: string;
+  side: "BUY" | "SELL" | "";
+  score: number;
+  rrRatio: number;
+  status: "eligible" | "blocked";
+  reasons: string[];
+}
+
 export interface SignalFeed<TSignal extends PublishedSignal | RankedPublishedSignal | BotConsumableSignal = PublishedSignal | RankedPublishedSignal | BotConsumableSignal> {
   kind: SignalFeedKind;
   generatedAt: string;

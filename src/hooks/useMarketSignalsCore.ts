@@ -31,7 +31,22 @@ export function useMarketSignalsCore() {
     const marketWideSignals = selectMarketDiscoveryRankedSignals(rankedFeed);
     // Execution candidates already encode the old operational gate
     // (score, RR, reasons, side, eligible/blocked). Reuse that cohort first.
+    const operationalCandidates = signalCore.executionCandidates.map((candidate) => ({
+      id: `candidate:${candidate.signalId}`,
+      layer: "execution-candidate" as const,
+      signalId: candidate.signalId,
+      symbol: candidate.symbol,
+      timeframe: candidate.timeframe,
+      strategyId: candidate.strategyName,
+      strategyVersion: candidate.strategyVersion,
+      side: candidate.side,
+      score: candidate.score,
+      rrRatio: candidate.rrRatio,
+      status: candidate.status,
+      reasons: candidate.reasons,
+    }));
     const eligibleExecutionCandidates = signalCore.executionCandidates.filter((candidate) => candidate.status === "eligible");
+    const blockedExecutionCandidates = operationalCandidates.filter((candidate) => candidate.status === "blocked");
     const operablePublishedBundle = createPublishedSignalFeedBundleFromCandidates(eligibleExecutionCandidates, {
       watchlistSymbols: signalCore.activeWatchlistCoins,
       generatedAt: rankedFeed.generatedAt,
@@ -40,6 +55,7 @@ export function useMarketSignalsCore() {
     const operableRankedFeed = operablePublishedBundle.all.items.length ? rankPublishedFeed(operablePublishedFeed) : rankedFeed;
     const operableSignals = selectPriorityRankedSignals(operableRankedFeed);
     const highConfidenceSignals = selectHighConfidenceRankedSignals(rankedFeed);
+    const observationalSignals = rankedSignals.filter((signal) => !operableSignals.some((candidate) => candidate.id === signal.id));
     const activeBot = selectedBot || registryState.bots[0] || null;
     const botSignalBase = operablePublishedBundle.all.items.length ? operableRankedFeed.items : rankedSignals;
     const botConsumableFeed = activeBot
@@ -93,8 +109,11 @@ export function useMarketSignalsCore() {
           watchlistSignals,
           marketWideSignals,
           operableSignals,
+          observationalSignals,
           highConfidenceSignals,
           botConsumableSignals,
+          eligibleExecutionCandidates: operationalCandidates.filter((candidate) => candidate.status === "eligible"),
+          blockedExecutionCandidates,
         },
       },
     };

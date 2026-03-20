@@ -1660,6 +1660,10 @@ Phase 3 - Signal Bot hard-close refinement
 - Kept a phase-safe fallback to ranked `signalMemory` when execution candidates are absent, so the current system does not go dark on surfaces that still hydrate only memory.
 - Let `bot-consumable` reuse that stronger operable cohort first instead of depending only on ranked memory inference.
 - Added `scannerDiscovery` into the shared seam so signal surfaces can read watchlist-driven scanner freshness and discovery context without reaching back into memory/runtime bundles.
+- Added explicit operational cohorts into the same seam:
+  - eligible execution candidates
+  - blocked execution candidates
+  - observational ranked signals that stay visible but not operational
 - Refactored `SignalsView` to read from that shared market/signal seam.
 - Refactored the shared `signals + bots` read-model to consume that seam instead of rebuilding the full feed pipeline by itself.
 

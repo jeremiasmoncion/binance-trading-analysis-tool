@@ -164,9 +164,13 @@ Current progress:
   - `operable` now prefers real eligible `execution candidates` from the shared execution overlay
   - `bot-consumable` can now hydrate from that stronger operable cohort before falling back to ranked memory feeds
   - scanner discovery context is now exposed from the same seam for watchlist-driven product surfaces
+  - explicit operational cohorts now exist in the signal seam:
+    - eligible
+    - blocked
+    - observational
 - pending:
   - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
-  - deepen the operable contract with blocked/eligible cohorts and richer scanner/runtime context
+  - deepen the operable contract with richer scanner/runtime context and later AI-prioritized slices
   - route more surfaces through `Signal Core` instead of direct signal-memory derivation
 
 ## Phase 4.5 - UX Flow Migration

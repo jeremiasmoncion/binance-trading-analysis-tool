@@ -8,7 +8,7 @@ import {
 import { useMarketSignalsCore } from "../hooks/useMarketSignalsCore";
 import { useSelectedBotState } from "../hooks/useSelectedBot";
 
-type SignalsWorkspaceTab = "overview" | "watchlist" | "discovery" | "high-confidence" | "history";
+type SignalsWorkspaceTab = "overview" | "watchlist" | "discovery" | "operational" | "high-confidence" | "history";
 
 export function SignalsView() {
   const core = useMarketSignalsCore();
@@ -29,6 +29,9 @@ export function SignalsView() {
       marketDiscovery: core.signalCore.subsets.marketWideSignals,
       highConfidence: core.signalCore.subsets.highConfidenceSignals,
       priority: core.signalCore.subsets.operableSignals,
+      observational: core.signalCore.subsets.observationalSignals,
+      eligibleCandidates: core.signalCore.subsets.eligibleExecutionCandidates,
+      blockedCandidates: core.signalCore.subsets.blockedExecutionCandidates,
       activeBotConsumable: core.signalCore.subsets.botConsumableSignals,
       acceptedByBots,
       activeOpportunity: core.marketCore.activeOpportunity,
@@ -70,6 +73,7 @@ export function SignalsView() {
             { key: "overview", label: "Overview" },
             { key: "watchlist", label: "Watchlist" },
             { key: "discovery", label: "Market discovery" },
+            { key: "operational", label: "Operational" },
             { key: "high-confidence", label: "Alta confianza" },
             { key: "history", label: "Historial" },
           ]}
@@ -114,6 +118,7 @@ export function SignalsView() {
             <div className="workspace-mini-metrics">
               <MetricTile label="Señales publicadas" value={String(readModel.raw.length)} note="Base total leída desde signal memory" />
               <MetricTile label="Señales rankeadas" value={String(readModel.ranked.length)} note="Ordenadas para reducir ruido" />
+              <MetricTile label="Observacionales" value={String(readModel.observational.length)} note="Visibles, pero todavía no pasan al cohort operativo" />
               <MetricTile label="Aptas para bots" value={String(readModel.acceptedByBots)} note="Coinciden con políticas de bots actuales" />
               <MetricTile label="Feed del bot activo" value={String(readModel.activeBotConsumable.length)} note={`Subset consumible para ${readModel.activeBotName}`} />
             </div>
@@ -179,6 +184,43 @@ export function SignalsView() {
                   detail={signal.ranking.summary}
                   meta={`Pasa a alta confianza por ${signal.ranking.primaryReason}`}
                   spotlight
+                />
+              ))}
+            </div>
+          </SectionCard>
+        ) : null}
+
+        {activeTab === "operational" ? (
+          <SectionCard
+            title="Operational funnel"
+            subtitle="Separación clara entre lo elegible para operar y lo que hoy queda bloqueado por reglas."
+            className="workspace-panel"
+          >
+            <div className="workspace-mini-metrics">
+              <MetricTile label="Elegibles" value={String(readModel.eligibleCandidates.length)} note="Cohorte que hoy sí pasa el gate operativo" />
+              <MetricTile label="Bloqueadas" value={String(readModel.blockedCandidates.length)} note="Candidatas reales que fueron frenadas por reglas" />
+              <MetricTile label="Operables visibles" value={String(readModel.priority.length)} note="Subset priorizado en el producto" />
+              <MetricTile label="Observacionales" value={String(readModel.observational.length)} note="Todavía no pasan a ejecución" />
+            </div>
+            <div className="signal-card-grid with-top-gap">
+              {readModel.eligibleCandidates.slice(0, 4).map((candidate) => (
+                <SignalCard
+                  key={candidate.id}
+                  title={`${candidate.symbol} · ${candidate.side || "NEUTRAL"}`}
+                  lane={candidate.timeframe}
+                  value={`${candidate.score.toFixed(0)} pts`}
+                  detail={`RR ${candidate.rrRatio.toFixed(2)} · ${candidate.strategyId}`}
+                  meta={candidate.reasons[0] || "Elegible por reglas actuales"}
+                />
+              ))}
+              {readModel.blockedCandidates.slice(0, 4).map((candidate) => (
+                <SignalCard
+                  key={candidate.id}
+                  title={`${candidate.symbol} · bloqueada`}
+                  lane={candidate.timeframe}
+                  value={`${candidate.score.toFixed(0)} pts`}
+                  detail={`RR ${candidate.rrRatio.toFixed(2)} · ${candidate.strategyId}`}
+                  meta={candidate.reasons[0] || "Bloqueada por reglas actuales"}
                 />
               ))}
             </div>

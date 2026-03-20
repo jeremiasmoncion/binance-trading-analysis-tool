@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useMarketCoreSelector, useSignalCoreSelector } from "../data-platform/selectors";
 import {
+  createPublishedSignalFeedBundleFromCandidates,
   createPublishedSignalFeedBundleFromMemory,
   rankPublishedFeed,
   selectAcceptedBotConsumableSignals,
@@ -28,11 +29,21 @@ export function useMarketSignalsCore() {
     const rankedSignals = selectRankedPublishedSignals(rankedFeed);
     const watchlistSignals = selectWatchlistFirstRankedSignals(rankedFeed);
     const marketWideSignals = selectMarketDiscoveryRankedSignals(rankedFeed);
-    const operableSignals = selectPriorityRankedSignals(rankedFeed);
+    // Execution candidates already encode the old operational gate
+    // (score, RR, reasons, side, eligible/blocked). Reuse that cohort first.
+    const eligibleExecutionCandidates = signalCore.executionCandidates.filter((candidate) => candidate.status === "eligible");
+    const operablePublishedBundle = createPublishedSignalFeedBundleFromCandidates(eligibleExecutionCandidates, {
+      watchlistSymbols: signalCore.activeWatchlistCoins,
+      generatedAt: rankedFeed.generatedAt,
+    });
+    const operablePublishedFeed = operablePublishedBundle.all.items.length ? operablePublishedBundle.all : publishedFeed;
+    const operableRankedFeed = operablePublishedBundle.all.items.length ? rankPublishedFeed(operablePublishedFeed) : rankedFeed;
+    const operableSignals = selectPriorityRankedSignals(operableRankedFeed);
     const highConfidenceSignals = selectHighConfidenceRankedSignals(rankedFeed);
     const activeBot = selectedBot || registryState.bots[0] || null;
+    const botSignalBase = operablePublishedBundle.all.items.length ? operableRankedFeed.items : rankedSignals;
     const botConsumableFeed = activeBot
-      ? createBotConsumableFeed(activeBot, rankedSignals, rankedFeed.generatedAt)
+      ? createBotConsumableFeed(activeBot, botSignalBase, operableRankedFeed.generatedAt)
       : null;
     const botConsumableSignals = botConsumableFeed ? selectAcceptedBotConsumableSignals(botConsumableFeed) : [];
 
@@ -54,11 +65,13 @@ export function useMarketSignalsCore() {
         activeWatchlistName: signalCore.activeWatchlistName,
         activeWatchlistCoins: signalCore.activeWatchlistCoins,
         scannerStatus: signalCore.scannerStatus,
+        executionCandidates: signalCore.executionCandidates,
         feeds: {
           published: publishedFeed,
           ranked: rankedFeed,
           watchlist: publishedBundle.watchlist,
           marketWide: publishedBundle.marketWide,
+          operable: operableRankedFeed,
           highConfidencePublished: publishedBundle.highConfidence,
         },
         subsets: {

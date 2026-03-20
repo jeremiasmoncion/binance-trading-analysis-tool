@@ -6,6 +6,7 @@ import { systemDataPlaneStore } from "./systemDataPlane";
 const EMPTY_SIGNAL_MEMORY: SystemDataPlane["snapshot"]["signalMemory"] = [];
 const EMPTY_WATCHLIST_COINS: string[] = [];
 const EMPTY_EXECUTION_ORDERS: NonNullable<SystemDataPlane["overlay"]["execution"]>["recentOrders"] = [];
+const EMPTY_EXECUTION_CANDIDATES: NonNullable<SystemDataPlane["overlay"]["execution"]>["candidates"] = [];
 const EMPTY_TIMEFRAME_SIGNALS: ReturnType<typeof useDashboardMarketSelector>["multiTimeframes"] = [];
 const EMPTY_STRATEGY_CANDIDATES: ReturnType<typeof useDashboardMarketSelector>["strategyCandidates"] = [];
 
@@ -93,10 +94,12 @@ export function useSignalCoreSelector() {
     activeWatchlistName: state.snapshot.activeWatchlistName,
     activeWatchlistCoins: state.snapshot.watchlists.find((item) => item.name === state.snapshot.activeWatchlistName)?.coins || EMPTY_WATCHLIST_COINS,
     scannerStatus: state.snapshot.scannerStatus,
+    executionCandidates: state.overlay.execution?.candidates || EMPTY_EXECUTION_CANDIDATES,
   }), (left, right) => (
     left.signalMemory === right.signalMemory
     && left.activeWatchlistName === right.activeWatchlistName
     && left.scannerStatus === right.scannerStatus
+    && left.executionCandidates === right.executionCandidates
     && left.activeWatchlistCoins.length === right.activeWatchlistCoins.length
     && left.activeWatchlistCoins.every((coin, index) => coin === right.activeWatchlistCoins[index])
   ));

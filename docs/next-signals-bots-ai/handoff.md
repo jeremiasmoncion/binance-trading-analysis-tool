@@ -140,16 +140,18 @@ The redesign also now has dedicated documentation for:
     - market-wide
     - operable
     - bot-consumable
+  - `operable` now prefers eligible `execution candidates` from the shared execution overlay
+  - `bot-consumable` now reuses that stronger operable cohort before falling back to ranked memory feeds
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context
   - signal memory
   - watchlist scanner
   - ranked feed logic already under `src/domain/signals/`
-  - execution candidates remain the next bridge for deeper operable feeds
+  - execution candidates are now the first live bridge for deeper operable feeds
 - next:
-  - connect scanner/execution-candidate outputs into the new signal core more directly
-  - stop treating operable signals as only ranked-memory inference
+  - connect scanner outputs into the new signal core more directly
+  - deepen operable feeds with blocked/eligible runtime cohorts instead of only eligible promotion
   - continue moving bot logic to consume the cleaner feed taxonomy
 
 ## Files Added

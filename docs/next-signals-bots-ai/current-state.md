@@ -165,6 +165,7 @@ The current bridge state is:
 - bot cards and bot workspaces now derive first real metrics from persisted `signalMemory`
 - the bot-decision API/runtime seam now exists
 - a dedicated shared `market + signal core` seam now also exists
+- the first `operable feed` bridge now reuses real shared `execution candidates` before falling back to ranked memory inference
 - but the system still needs deeper persistence and execution outcomes around that new split
 
 ### 4. AI Exists More As Governance Than As Product Interface

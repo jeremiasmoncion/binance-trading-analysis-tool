@@ -1656,6 +1656,9 @@ Phase 3 - Signal Bot hard-close refinement
   - market-wide feed
   - operable feed
   - bot-consumable subset for the currently selected bot
+- Strengthened `operable feed` so it now prefers real eligible `execution candidates` from the shared execution overlay.
+- Kept a phase-safe fallback to ranked `signalMemory` when execution candidates are absent, so the current system does not go dark on surfaces that still hydrate only memory.
+- Let `bot-consumable` reuse that stronger operable cohort first instead of depending only on ranked memory inference.
 - Refactored `SignalsView` to read from that shared market/signal seam.
 - Refactored the shared `signals + bots` read-model to consume that seam instead of rebuilding the full feed pipeline by itself.
 
@@ -1668,11 +1671,12 @@ Phase 3 - Signal Bot hard-close refinement
   - signal memory
   - watchlist scanner
   - ranked feed logic
-  - future execution-candidate bridge
+  - execution-candidate bridge
 
 ### Files Updated
 
 - `src/data-platform/selectors.ts`
+- `src/domain/signals/feedAdapters.ts`
 - `src/hooks/useMarketSignalsCore.ts`
 - `src/hooks/useSignalsBotsReadModel.ts`
 - `src/views/SignalsView.tsx`

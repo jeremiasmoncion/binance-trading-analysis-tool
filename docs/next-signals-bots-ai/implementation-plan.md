@@ -161,9 +161,11 @@ Current progress:
     - bot-consumable
   - `SignalsView` now reads those feeds from the shared seam
   - `signals + bots` read-model now consumes that seam instead of rebuilding the feed pipeline alone
+  - `operable` now prefers real eligible `execution candidates` from the shared execution overlay
+  - `bot-consumable` can now hydrate from that stronger operable cohort before falling back to ranked memory feeds
 - pending:
-  - connect market-wide feeds more directly to backend scanner/execution-candidate flows
-  - promote operable feed from ranked-memory inference into a stronger runtime contract
+  - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
+  - deepen the operable contract with blocked/eligible cohorts and richer scanner/runtime context
   - route more surfaces through `Signal Core` instead of direct signal-memory derivation
 
 ## Phase 4.5 - UX Flow Migration

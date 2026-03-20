@@ -5256,6 +5256,177 @@ body.dark-theme .market-score-track {
   line-height: 1.65;
 }
 
+body:not(.dark-theme) .botsettings-kicker {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4338ca;
+}
+
+body:not(.dark-theme) .botsettings-title {
+  color: #0f172a;
+}
+
+body:not(.dark-theme) .botsettings-subtitle {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-summary-note,
+body:not(.dark-theme) .botsettings-summary-status {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-summary-status.success {
+  color: #16a34a;
+}
+
+body:not(.dark-theme) .botsettings-panel {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 18px 36px rgba(148, 163, 184, 0.14);
+}
+
+body:not(.dark-theme) .botsettings-tab-bar {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 14px 28px rgba(148, 163, 184, 0.12);
+}
+
+body:not(.dark-theme) .botsettings-tab-button {
+  color: #475569;
+}
+
+body:not(.dark-theme) .botsettings-tab-button.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, #6366f1 0%, #5b6dff 100%);
+  box-shadow: 0 12px 26px rgba(91, 109, 255, 0.22);
+}
+
+body:not(.dark-theme) .botsettings-toolbar {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 14px 28px rgba(148, 163, 184, 0.1);
+}
+
+body:not(.dark-theme) .botsettings-search-shell {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+body:not(.dark-theme) .botsettings-search-shell svg {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-search-shell input {
+  color: #0f172a;
+}
+
+body:not(.dark-theme) .botsettings-search-shell input::placeholder {
+  color: #94a3b8;
+}
+
+body:not(.dark-theme) .botsettings-layout-toggle {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+body:not(.dark-theme) .botsettings-layout-button {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-layout-button.active,
+body:not(.dark-theme) .botsettings-layout-button:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: #1e293b;
+}
+
+body:not(.dark-theme) .botsettings-card {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.06), transparent 46%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 18px 36px rgba(148, 163, 184, 0.14);
+}
+
+body:not(.dark-theme) .botsettings-card-copy h3,
+body:not(.dark-theme) .botsettings-allocation-head strong,
+body:not(.dark-theme) .botsettings-metric-cell strong,
+body:not(.dark-theme) .botsettings-settings-head strong {
+  color: #0f172a;
+}
+
+body:not(.dark-theme) .botsettings-card-copy p,
+body:not(.dark-theme) .botsettings-allocation-head,
+body:not(.dark-theme) .botsettings-metric-cell span,
+body:not(.dark-theme) .botsettings-table-identity span,
+body:not(.dark-theme) .botsettings-settings-head span,
+body:not(.dark-theme) .botsettings-settings-card p {
+  color: #64748b;
+}
+
+body:not(.dark-theme) .botsettings-menu-button,
+body:not(.dark-theme) .botsettings-gear-button {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  color: #475569;
+  box-shadow: 0 8px 18px rgba(148, 163, 184, 0.1);
+}
+
+body:not(.dark-theme) .botsettings-menu-button:hover,
+body:not(.dark-theme) .botsettings-gear-button:hover {
+  border-color: rgba(99, 102, 241, 0.28);
+  color: #0f172a;
+}
+
+body:not(.dark-theme) .botsettings-metric-cell {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+body:not(.dark-theme) .botsettings-allocation-track {
+  background: rgba(226, 232, 240, 0.9);
+}
+
+body:not(.dark-theme) .botsettings-primary-action.is-pause {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+body:not(.dark-theme) .botsettings-primary-action.is-start {
+  background: linear-gradient(135deg, #34d399, #10b981);
+}
+
+body:not(.dark-theme) .botsettings-table-shell {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 14px 28px rgba(148, 163, 184, 0.1);
+}
+
+body:not(.dark-theme) .botsettings-inline-link {
+  color: #4338ca;
+}
+
+body:not(.dark-theme) .botsettings-settings-card {
+  border-color: rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 250, 252, 0.98)),
+    radial-gradient(circle at top left, rgba(99, 102, 241, 0.06), transparent 46%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 14px 28px rgba(148, 163, 184, 0.12);
+}
+
+body:not(.dark-theme) .botsettings-settings-icon {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(59, 130, 246, 0.16));
+  color: #4338ca;
+}
+
 @media (max-width: 1180px) {
   .botsettings-summary-grid,
   .botsettings-card-grid,

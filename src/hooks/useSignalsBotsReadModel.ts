@@ -626,6 +626,7 @@ function createOwnedMemorySummary<
   TDecision extends {
     id: string;
     symbol?: string | null;
+    executionIntentLaneStatus?: string | null;
     updatedAt?: string;
     createdAt?: string;
   },
@@ -664,7 +665,9 @@ function createOwnedMemorySummary<
     ? latestEntry.kind === "decision"
       ? latestEntry.linkedOrder?.hasOutcome
         ? `${label} latest owned outcome: ${latestEntry.decision.symbol} ${String(latestEntry.linkedOrder.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.linkedOrder.pnlUsd)}.`
-        : `${label} latest decision: ${latestEntry.decision.symbol} still awaiting owned execution linkage.`
+        : String(latestEntry.decision.executionIntentLaneStatus || "").trim() === "preview-recorded"
+          ? `${label} latest paper preview: ${latestEntry.decision.symbol} is now recorded in the shared execution plane.`
+          : `${label} latest decision: ${latestEntry.decision.symbol} still awaiting owned execution linkage.`
       : `${label} latest unlinked execution: ${latestEntry.order.symbol} ${String(latestEntry.order.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.order.pnlUsd)}.`
     : `No ${label.toLowerCase()} memory yet.`;
 

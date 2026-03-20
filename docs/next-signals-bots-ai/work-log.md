@@ -4,6 +4,34 @@
 
 ### Phase
 
+`Bot Core` preview reconciliation semantics round
+
+### Completed
+
+- Tightened the paper-preview closure semantics after introducing `preview-recorded`.
+- Decision outcome sync now also marks preview-confirmed dispatch metadata more explicitly instead of leaving the old generic dispatch status behind.
+- Shared owned-memory notes no longer describe a `preview-recorded` decision as if it were still waiting for execution linkage.
+- The runtime now explains that case as:
+  - a paper preview already recorded in the shared execution plane
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids misleading runtime summaries where a paper preview that is already registered still reads as unresolved execution work.
+- It also avoids leaving preview-confirmed decisions with stale dispatch-status semantics.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `preview-recorded` should expire or remain as a durable audit closure
+  - surface clearer per-bot preview vs demo closure ratios where useful
+  - keep real trading execution out of scope until the safe paper/demo lane is fully trustworthy
+
+### Phase
+
 `Bot Core` preview closure semantics round
 
 ### Completed

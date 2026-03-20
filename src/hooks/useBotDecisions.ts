@@ -255,6 +255,7 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
     executionLinkedAt: getOrderTimestamp(match),
     executionIntentLaneStatus: isPreviewRecord ? "preview-recorded" : "linked",
     executionIntentLastUpdatedAt: getOrderTimestamp(match),
+    executionIntentDispatchStatus: isPreviewRecord ? "preview-recorded" : (decision.metadata?.executionIntentDispatchStatus || match.lifecycle_status || match.status || ""),
     executionStatus: String(match.lifecycle_status || match.status || ""),
     executionOutcomeStatus: match.signal_outcome_status || null,
     realizedPnlUsd: Number(match.realized_pnl || decision.metadata?.realizedPnlUsd || 0),
@@ -266,6 +267,9 @@ function buildDecisionOutcomePatch(decision: BotDecisionRecord, orders: Executio
       ? Math.max(0, Math.round((new Date(match.closed_at).getTime() - new Date(match.created_at).getTime()) / 60_000))
       : decision.metadata?.holdMinutes ?? null,
     linkedBy,
+    executionIntentReason: isPreviewRecord
+      ? "Preview recorded in the shared execution plane."
+      : String(decision.metadata?.executionIntentReason || ""),
   };
   const nextStatus = hasClosedOutcome(match)
     ? "closed"

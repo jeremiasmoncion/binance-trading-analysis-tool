@@ -361,6 +361,7 @@ The redesign also now has dedicated documentation for:
     - `demo -> execution-submitted`
   - when the execution plane confirms a preview record, the paper path now closes into:
     - `preview-recorded`
+  - preview-confirmed decisions now also update dispatch-status semantics explicitly instead of leaving stale generic dispatch metadata behind
   - failed adapter calls now move the same decision into `blocked` with explicit dispatch reason metadata
   - the lane normalizer now preserves progressed ready intents instead of snapping:
     - `dispatch-requested -> queued`
@@ -375,6 +376,7 @@ The redesign also now has dedicated documentation for:
   - intent summaries now also count and prioritize dispatch backlog instead of treating it as hidden queue state
   - `Signal Bot` and `Execution Logs` now expose those paper/demo terminal states directly
   - `Execution Logs` and `Signal Bot` now also surface the latest dispatch mode/status instead of treating dispatch as a black box label
+  - shared owned-memory notes now also treat `preview-recorded` as a closed paper-preview artifact instead of describing it as unresolved execution linkage
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

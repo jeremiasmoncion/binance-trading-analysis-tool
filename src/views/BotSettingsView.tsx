@@ -206,6 +206,38 @@ function summarizeAdaptationBias(value: string) {
   return value;
 }
 
+function getBotAttentionScore(bot: {
+  unresolvedOwnershipCount: number;
+  reconciliationPct: number;
+  adaptationConfidence: string;
+}) {
+  let score = 0;
+  score += bot.unresolvedOwnershipCount * 10;
+  score += Math.max(0, 100 - bot.reconciliationPct);
+  if (bot.adaptationConfidence === "low") score += 20;
+  if (bot.adaptationConfidence === "medium") score += 8;
+  return score;
+}
+
+function buildBotAttentionNote(bot: {
+  unresolvedOwnershipCount: number;
+  reconciliationPct: number;
+  ownedOutcomeCount: number;
+  adaptationConfidence: string;
+}) {
+  const parts = [
+    `${bot.unresolvedOwnershipCount} unresolved items`,
+    `${bot.reconciliationPct.toFixed(0)}% reconciled`,
+    `${bot.ownedOutcomeCount} owned outcomes`,
+  ];
+  if (bot.adaptationConfidence === "low") {
+    parts.push("adaptation confidence still low");
+  } else if (bot.adaptationConfidence === "medium") {
+    parts.push("adaptation confidence still maturing");
+  }
+  return parts.join(" • ");
+}
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
@@ -265,6 +297,14 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     return {
       cards,
       filteredCards,
+      attentionBots: cards
+        .map((bot) => ({
+          ...bot,
+          attentionScore: getBotAttentionScore(bot),
+        }))
+        .filter((bot) => bot.attentionScore > 0)
+        .sort((left, right) => right.attentionScore - left.attentionScore)
+        .slice(0, 3),
       summary: feedReadModel.botSummary,
       tabs: {
         general: [
@@ -833,6 +873,27 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             icon={<AutomationBoltIcon />}
           />
         </div>
+
+        {activeTab === "all-bots" && readModel.attentionBots.length ? (
+          <section className="botsettings-panel card" style={{ marginBottom: "1.25rem" }}>
+            <div className="botsettings-general-head" style={{ marginBottom: "1rem" }}>
+              <div className="botsettings-general-title">
+                <div className="botsettings-general-icon is-warning">
+                  <WarningTriangleIcon />
+                </div>
+                <h3>Bots Needing Attention</h3>
+              </div>
+            </div>
+            <div className="signalbot-insight-stack">
+              {readModel.attentionBots.map((bot) => (
+                <article key={bot.id} className="signalbot-insight-card">
+                  <strong>{bot.name} · {bot.pair}</strong>
+                  <p>{buildBotAttentionNote(bot)}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="botsettings-panel card">
           <div className="botsettings-tab-bar">

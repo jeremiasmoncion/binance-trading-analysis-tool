@@ -249,6 +249,10 @@ The redesign also now has dedicated documentation for:
     - learning-ready bot count
     - high / medium / low adaptation-confidence counts
   - bot cards now include compact adaptation cues so the hub can show which bots are actually learning from owned outcomes
+  - `Bot Settings` now also includes a compact weakest-bots attention list driven by:
+    - unresolved ownership count
+    - reconciliation percentage
+    - adaptation confidence
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -269,7 +273,7 @@ The redesign also now has dedicated documentation for:
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`
   - evaluate whether any owned-outcome/adaptation summaries now deserve persistence or indexed storage support
-  - decide whether the fleet hub also needs a compact weakest-bots attention list
+  - decide whether `Execution Logs` should expose a bot-priority view tied to the same weakest-bots logic
 
 ## Phase 4 Status
 

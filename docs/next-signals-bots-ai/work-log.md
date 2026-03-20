@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` fleet attention list round
+
+### Completed
+
+- Added a compact weakest-bots attention list to `Bot Settings` so the hub can now point operators toward the bots that most need review.
+- The attention list prioritizes bots using shared bot-core signals already available in the read-model:
+  - unresolved ownership count
+  - reconciliation percentage
+  - adaptation confidence
+- Kept the list compact and embedded in the existing hub instead of opening another monitoring surface.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids giving the fleet-level hub more summary metrics without also making it easier to see which bots actually deserve attention first.
+- It also avoids creating a second monitoring page just to rank weak bots.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - evaluate which owned-outcome/adaptation summaries now deserve persistence or indexed support
+  - keep tightening recurring unresolved symbols highlighted by the drill-down and attention list
+  - decide whether `Execution Logs` should expose a bot-priority view tied to the same weakest-bots logic
+
+### Phase
+
 `Bot Core` fleet adaptation visibility round
 
 ### Completed

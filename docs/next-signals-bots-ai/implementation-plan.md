@@ -149,6 +149,10 @@ Current progress:
     - persisted `executionOrderId`
     - market-context signature
     - controlled time-window proximity
+  - bot hub surfaces now expose ownership health directly from the shared seam:
+    - per-bot owned outcomes
+    - unresolved ownership count
+    - reconciliation percentage
 - pending:
   - Supabase `bot_decisions` table
   - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders

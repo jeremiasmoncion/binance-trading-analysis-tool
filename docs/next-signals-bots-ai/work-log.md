@@ -4,6 +4,39 @@
 
 ### Phase
 
+`Bot Core` ownership summaries round
+
+### Completed
+
+- Added per-bot ownership summaries on top of the shared bot read-model so the bot hub can now expose reconciliation health instead of only trades/profit/win-rate.
+- Each bot card can now derive and expose:
+  - owned outcome count
+  - unresolved ownership count
+  - reconciliation percentage
+- Added aggregated ownership totals to the shared bot summary so the `Bot Settings` header can now reflect:
+  - total owned outcomes
+  - unresolved ownership backlog
+- Updated `Bot Settings` grid and table surfaces so operators can see which bots are cleanly reconciled and which still need linkage work.
+- Kept the implementation on the shared bot seam and reused the existing card/table primitives instead of opening a separate operational dashboard.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids hiding ownership quality only inside `Execution Logs` while the main bot hub still looks healthy even when reconciliation is weak.
+- It also avoids adding another local runtime summary just to decorate bot cards.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - show unresolved ownership detail inside the selected bot workspace
+  - add per-bot outcome ratios and health indicators
+  - start deriving adaptation/training summaries from those hardened owned outcomes
+
+### Phase
+
 `Bot Core` execution ownership hardening round
 
 ### Completed

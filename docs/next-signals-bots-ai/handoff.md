@@ -220,6 +220,13 @@ The redesign also now has dedicated documentation for:
     - the decision outcome sync seam
     - the shared bot read-model ownership resolver
   - `executionOrderId` now also counts as a direct ownership match, not only `signal_id`
+  - the shared bot summary now also tracks ownership health across the fleet:
+    - total owned outcomes
+    - unresolved ownership backlog
+  - each bot card now exposes ownership health directly in `Bot Settings`:
+    - owned outcomes
+    - needs-link count
+    - reconciliation percentage
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -237,7 +244,7 @@ The redesign also now has dedicated documentation for:
   - bot performance can now prefer linked execution outcomes when they exist
 - next:
   - create the Supabase `bot_decisions` table
-  - surface unresolved execution ownership counts per bot
+  - show unresolved ownership detail inside the selected bot workspace
   - deepen performance/training off the owned activity and owned memory layers with stronger contracts
   - use owned outcomes more directly in training/adaptation inputs
   - add richer per-bot outcome summaries on top of the now-filterable `Execution Logs`

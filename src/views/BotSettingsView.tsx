@@ -228,6 +228,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         capacityUsd: capacity,
         acceptedCount: bot.accepted,
         blockedCount: bot.blocked,
+        ownedOutcomeCount: bot.ownership.ownedOutcomeCount,
+        unresolvedOwnershipCount: bot.ownership.unresolvedDecisionCount + bot.ownership.unlinkedExecutionCount,
+        reconciliationPct: bot.ownership.reconciliationPct,
       };
     });
 
@@ -782,7 +785,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           <BotSummaryCard
             label="Active Bots"
             value={String(readModel.summary.activeBots)}
-            note={`+${Math.max(readModel.summary.totalBots - readModel.summary.activeBots, 0)} staged bots`}
+            note={`${readModel.summary.ownedOutcomeCount} owned outcomes / ${readModel.summary.unresolvedOwnershipCount} unresolved`}
             status="Live"
             tone="success"
             icon={<BotsSummaryIcon />}
@@ -905,6 +908,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         <MetricCell label="Trades (24h)" value={String(bot.trades24h)} tone="neutral" />
                         <MetricCell label="Profit (24h)" value={formatUsd(bot.profit24h)} tone={bot.profit24h > 0 ? "positive" : bot.profit24h < 0 ? "negative" : "neutral"} />
                         <MetricCell label="Win Rate" value={`${bot.winRate.toFixed(1)}%`} tone={bot.winRate >= 60 ? "positive" : bot.winRate >= 45 ? "neutral" : "negative"} />
+                        <MetricCell label="Owned Outcomes" value={String(bot.ownedOutcomeCount)} tone={bot.ownedOutcomeCount > 0 ? "positive" : "neutral"} />
+                        <MetricCell label="Needs Link" value={String(bot.unresolvedOwnershipCount)} tone={bot.unresolvedOwnershipCount > 0 ? "negative" : "positive"} />
+                      </div>
+
+                      <div className="botsettings-card-meta" style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>
+                        <span>{bot.reconciliationPct.toFixed(0)}% reconciled activity</span>
+                        <span>{bot.acceptedCount} accepted / {bot.blockedCount} blocked</span>
                       </div>
 
                       <div className="botsettings-allocation">
@@ -968,6 +978,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         <th>Trades</th>
                         <th>Profit</th>
                         <th>Win Rate</th>
+                        <th>Owned</th>
+                        <th>Needs Link</th>
                         <th />
                       </tr>
                     </thead>
@@ -988,6 +1000,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                           <td>{bot.trades24h}</td>
                           <td className={bot.profit24h > 0 ? "wallet-positive" : bot.profit24h < 0 ? "wallet-negative" : ""}>{formatUsd(bot.profit24h)}</td>
                           <td>{bot.winRate.toFixed(1)}%</td>
+                          <td>{bot.ownedOutcomeCount}</td>
+                          <td className={bot.unresolvedOwnershipCount > 0 ? "wallet-negative" : "wallet-positive"}>{bot.unresolvedOwnershipCount}</td>
                           <td>
                             <button type="button" className="botsettings-inline-link" onClick={() => openBotWorkspace(bot)}>
                               Open bot
@@ -996,7 +1010,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={7}>
+                          <td colSpan={9}>
                             {botsError
                               ? `The persisted bot registry could not be loaded: ${botsError}`
                               : botsLoading && !botsHydrated

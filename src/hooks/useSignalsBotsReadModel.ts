@@ -671,6 +671,48 @@ function createOwnedMemorySummary<
   };
 }
 
+function createOwnershipSummary<
+  TDecision extends {
+    id: string;
+    status?: string | null;
+    executionOrderId?: number | null;
+  },
+  TOrder extends {
+    orderId: number;
+    hasOutcome?: boolean;
+  },
+>(
+  decisionTimeline: TDecision[],
+  executionTimeline: TOrder[],
+) {
+  const activityTimeline = createBotActivityTimeline(decisionTimeline, executionTimeline);
+  const linkedDecisions = activityTimeline.filter((entry) => entry.kind === "decision" && Boolean(entry.linkedOrder));
+  const unresolvedDecisions = activityTimeline.filter((entry) => (
+    entry.kind === "decision"
+    && !entry.linkedOrder
+    && entry.decision.status !== "blocked"
+    && entry.decision.status !== "dismissed"
+  ));
+  const unlinkedExecutions = activityTimeline.filter((entry) => entry.kind === "order");
+  const ownedOutcomes = activityTimeline.filter((entry) => (
+    entry.kind === "decision"
+      ? Boolean(entry.linkedOrder?.hasOutcome)
+      : Boolean(entry.order.hasOutcome)
+  ));
+  const reconciliationPct = decisionTimeline.length
+    ? (linkedDecisions.length / decisionTimeline.length) * 100
+    : 100;
+
+  return {
+    decisionCount: decisionTimeline.length,
+    linkedDecisionCount: linkedDecisions.length,
+    unresolvedDecisionCount: unresolvedDecisions.length,
+    unlinkedExecutionCount: unlinkedExecutions.length,
+    ownedOutcomeCount: ownedOutcomes.length,
+    reconciliationPct,
+  };
+}
+
 function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
   const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
   const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
@@ -842,6 +884,7 @@ export function useSignalsBotsReadModel() {
         executionOrders,
         executionTimeline,
         executionBreakdowns: createExecutionBreakdowns(executionOrders),
+        ownership: createOwnershipSummary(bot.decisionTimeline, executionTimeline),
       };
     });
     const botCardsWithSharedMemory = botCardsWithExecution.map((bot) => {
@@ -907,6 +950,11 @@ export function useSignalsBotsReadModel() {
     const averageWinRate = botCardsWithSharedMemory.length
       ? botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.performance.winRate, 0) / botCardsWithSharedMemory.length
       : 0;
+    const unresolvedOwnershipCount = botCardsWithSharedMemory.reduce(
+      (sum, bot) => sum + bot.ownership.unresolvedDecisionCount + bot.ownership.unlinkedExecutionCount,
+      0,
+    );
+    const ownedOutcomeCount = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.ownership.ownedOutcomeCount, 0);
 
     return {
       signalMemory: core.signalCore.signalMemory,
@@ -952,6 +1000,8 @@ export function useSignalsBotsReadModel() {
         totalTrades,
         totalProfit,
         averageWinRate,
+        unresolvedOwnershipCount,
+        ownedOutcomeCount,
       },
     };
   }, [core, decisions, executionLogs.recentOrders, registryState, selectedBotId]);

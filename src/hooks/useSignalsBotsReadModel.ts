@@ -124,13 +124,13 @@ export function useSignalsBotsReadModel() {
     const publishedFeed = core.signalCore.feeds.published;
     const rankedFeed = core.signalCore.feeds.ranked;
     const rankedSignals = core.signalCore.subsets.rankedSignals;
-    const prioritySignals = core.signalCore.subsets.operableSignals;
+    const prioritySignals = core.signalCore.taxonomy.operable;
     const highConfidenceSignals = core.signalCore.subsets.highConfidenceSignals;
     const watchlistFirstSignals = core.signalCore.subsets.watchlistSignals;
     const marketDiscoverySignals = core.signalCore.subsets.marketWideSignals;
-    const observationalSignals = core.signalCore.subsets.observationalSignals;
-    const informationalSignals = core.signalCore.subsets.informationalSignals;
-    const aiPrioritizedSignals = core.signalCore.subsets.aiPrioritizedSignals;
+    const observationalSignals = core.signalCore.taxonomy.observational;
+    const informationalSignals = core.signalCore.taxonomy.informational;
+    const aiPrioritizedSignals = core.signalCore.taxonomy.aiPrioritized;
     // Keep bots mounted on the explicit Signal Core taxonomy instead of
     // consuming the wide ranked feed directly.
     const botReadyRankedSignals = dedupeRankedSignals([

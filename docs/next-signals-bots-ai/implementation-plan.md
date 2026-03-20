@@ -177,13 +177,17 @@ Current progress:
     - scheduler evidence
     - auto-order / cooldown context
     - average score / RR for the eligible cohort
+  - `Signal Core` now exposes an explicit product taxonomy contract:
+    - informational
+    - observational
+    - operable
+    - AI-prioritized
   - the shared `signals + bots` read-model now starts consuming the explicit signal taxonomy
     instead of mounting bots directly on the wide ranked feed
 - pending:
   - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
-  - deepen the operable contract with richer scanner/runtime context and later explicit informational / AI-prioritized contracts
   - route more surfaces through `Signal Core` instead of direct signal-memory derivation
-  - keep moving bot logic from ranked-feed consumption to signal-taxonomy consumption
+  - return to `Bot Core` with the cleaner signal taxonomy as the shared input layer
 
 ## Phase 4.5 - UX Flow Migration
 

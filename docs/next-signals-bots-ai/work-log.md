@@ -77,6 +77,29 @@
 
 - Finish the last signal-core tightening pass, then return to a stronger bot phase where bot entities can consume the cleaner taxonomy with less ambiguity.
 
+### Phase
+
+`Signal Core` taxonomy contract closure
+
+### Completed
+
+- Formalized the product-facing signal taxonomy inside the shared signal contracts and seam.
+- `Signal Core` now exposes one explicit taxonomy contract for:
+  - informational
+  - observational
+  - operable
+  - AI-prioritized
+- Moved `SignalsView` and the shared bots read-model to consume that taxonomy contract directly.
+
+### Risk Avoided
+
+- This avoids leaving `Signal Core` in a half-closed state where critical signal layers exist only as implicit arrays with no shared domain meaning.
+- It also reduces the chance that later bot work drifts back to ad hoc ranked-feed usage.
+
+### Recommended Next Step
+
+- Treat `Signal Core` as sufficiently closed for this phase and return to `Bot Core` so bots can deepen over the cleaner shared signal contract.
+
 ## 2026-03-19
 
 ### Phase

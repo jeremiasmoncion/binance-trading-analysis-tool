@@ -105,6 +105,18 @@ export function useMarketSignalsCore() {
       latestRunAutoOrdersSkipped: Number(latestScannerRun?.auto_orders_skipped || 0),
       latestRunStatus: latestScannerRun?.status || null,
     };
+    const taxonomy = {
+      informational: informationalSignals,
+      observational: observationalSignals,
+      operable: operableSignals,
+      aiPrioritized: aiPrioritizedSignals,
+      counts: {
+        informational: informationalSignals.length,
+        observational: observationalSignals.length,
+        operable: operableSignals.length,
+        "ai-prioritized": aiPrioritizedSignals.length,
+      },
+    };
 
     return {
       marketCore: {
@@ -127,6 +139,7 @@ export function useMarketSignalsCore() {
         scannerDiscovery,
         marketWideContext,
         operationalContext,
+        taxonomy,
         executionCandidates: signalCore.executionCandidates,
         feeds: {
           published: publishedFeed,

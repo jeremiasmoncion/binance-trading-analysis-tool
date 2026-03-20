@@ -40,6 +40,11 @@ Signal Core should support at least:
 - market-wide signal feed
 - bot-consumable signal feed
 - ranked signal feed
+- explicit product taxonomy:
+  - informational
+  - observational
+  - operable
+  - AI-prioritized
 
 ### 3. Bot Core
 

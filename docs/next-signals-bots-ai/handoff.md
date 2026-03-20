@@ -163,6 +163,11 @@ The redesign also now has dedicated documentation for:
   - the shared `signals + bots` read-model now builds bot-facing feeds from the explicit signal taxonomy
     instead of relying on the broad ranked feed as the primary bot input
   - `Signal Bot` now maps decision layers with real adaptive/execution metadata first
+  - `Signal Core` now exposes one explicit taxonomy contract for:
+    - informational
+    - observational
+    - operable
+    - AI-prioritized
   - `SignalsView` and the shared `signals + bots` read-model now reuse that seam
 - reuse anchor:
   - market plane active opportunity context
@@ -171,10 +176,8 @@ The redesign also now has dedicated documentation for:
   - ranked feed logic already under `src/domain/signals/`
   - execution candidates are now the first live bridge for deeper operable feeds
 - next:
-  - connect scanner outputs into the new signal core even more directly when there is richer scanner-owned signal evidence available
-  - continue tightening market-wide / operable contracts before the next strong bot-core pass
-  - turn informational / AI-prioritized into even more explicit contracts if those cohorts spread to more product surfaces
-  - continue moving more bot logic to consume the cleaner feed taxonomy
+  - return to `Bot Core` with the cleaner signal taxonomy as the shared input layer
+  - deepen bot identity, policy, memory, and decision ownership on top of that closed signal contract
 
 ## Files Added
 

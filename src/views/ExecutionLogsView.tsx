@@ -102,6 +102,16 @@ export function ExecutionLogsView() {
       const decisionOnlyCount = botLogs.filter((entry) => entry.kind === "decision" && !entry.linkedOrder).length;
       const unlinkedOrderCount = botLogs.filter((entry) => entry.kind === "order").length;
       const latestEntry = botLogs[0] || null;
+      const unresolvedDecisionRanking = rankSymbols(
+        botLogs
+          .filter((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => entry.kind === "decision" && !entry.linkedOrder)
+          .map((entry) => entry.decision.symbol),
+      );
+      const unlinkedExecutionRanking = rankSymbols(
+        botLogs
+          .filter((entry): entry is Extract<ActivityLogEntry, { kind: "order" }> => entry.kind === "order")
+          .map((entry) => entry.order.symbol),
+      );
       return {
         id: bot.id,
         name: bot.name,
@@ -118,6 +128,8 @@ export function ExecutionLogsView() {
         attentionNote: bot.attention?.note || bot.adaptationSummary?.adaptationBias || "Waiting for stronger owned outcomes.",
         unresolvedDecisionSymbols: bot.ownership.unresolvedDecisionSymbols || [],
         unlinkedExecutionSymbols: bot.ownership.unlinkedExecutionSymbols || [],
+        unresolvedDecisionRanking,
+        unlinkedExecutionRanking,
         bestSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakestSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         latestTimestamp: latestEntry
@@ -204,12 +216,12 @@ export function ExecutionLogsView() {
                   </p>
                   {bot.unresolvedDecisionSymbols.length || bot.unlinkedExecutionSymbols.length ? (
                     <p>
-                      {bot.unresolvedDecisionSymbols.length
-                        ? `Decision backlog: ${bot.unresolvedDecisionSymbols.join(", ")}`
+                      {bot.unresolvedDecisionRanking.length
+                        ? `Decision backlog: ${formatSymbolRanking(bot.unresolvedDecisionRanking)}`
                         : "Decision backlog: clear"}
                       {" · "}
-                      {bot.unlinkedExecutionSymbols.length
-                        ? `Execution backlog: ${bot.unlinkedExecutionSymbols.join(", ")}`
+                      {bot.unlinkedExecutionRanking.length
+                        ? `Execution backlog: ${formatSymbolRanking(bot.unlinkedExecutionRanking)}`
                         : "Execution backlog: clear"}
                     </p>
                   ) : null}
@@ -378,6 +390,24 @@ function formatOwnershipHealth(value: string) {
   if (value === "stable") return "Stable";
   if (value === "healthy") return "Healthy";
   return value;
+}
+
+function rankSymbols(symbols: Array<string | null | undefined>) {
+  const counts = new Map<string, number>();
+  symbols
+    .filter((value): value is string => Boolean(value))
+    .forEach((symbol) => {
+      counts.set(symbol, (counts.get(symbol) || 0) + 1);
+    });
+
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([symbol, count]) => ({ symbol, count }));
+}
+
+function formatSymbolRanking(items: Array<{ symbol: string; count: number }>) {
+  return items.map((item) => `${item.symbol} (${item.count})`).join(", ");
 }
 
 function isFailedDecision(decision: { status: string }) {

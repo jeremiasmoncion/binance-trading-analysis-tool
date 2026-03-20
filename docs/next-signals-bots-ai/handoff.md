@@ -276,6 +276,9 @@ The redesign also now has dedicated documentation for:
     - unlinked execution symbols
     - best pocket symbol
     - weak pocket symbol
+  - prioritized execution summaries now rank recurring backlog symbols per bot instead of only listing them flat:
+    - unresolved decision rankings
+    - unlinked execution rankings
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing
@@ -299,6 +302,7 @@ The redesign also now has dedicated documentation for:
   - keep tightening recurring unresolved symbols surfaced by the shared attention scope
   - decide whether recurring unresolved-symbol pockets should now surface directly in the prioritized execution summaries
   - decide whether recurring pocket rankings now deserve persistence or fleet-level promotion
+  - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics for the worst bots
 
 ## Phase 4 Status
 

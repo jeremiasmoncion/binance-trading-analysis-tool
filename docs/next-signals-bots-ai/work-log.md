@@ -4,6 +4,34 @@
 
 ### Phase
 
+`Bot Core` execution logs recurring-symbol ranking round
+
+### Completed
+
+- Tightened the new `Execution Logs` pocket summaries so backlog symbols now surface as short ranked lists instead of flat symbol mentions.
+- Added compact frequency-based rankings per bot for:
+  - unresolved decision symbols
+  - unlinked execution symbols
+- Kept the ranking local to the active filtered log scope, so the operator sees which symbols are truly repeating in the current view instead of a disconnected global list.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids showing backlog symbols as if they all had the same operational weight.
+- It also avoids opening a separate ranking runtime when the active log stream already has the repetition signal we need.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether these recurring-symbol rankings now deserve persistence or indexed backend support
+  - evaluate whether the same ranked-pocket language should rise into the fleet hub
+  - keep tightening the ownership bridge for symbols that repeatedly dominate unresolved backlog
+
+### Phase
+
 `Bot Core` execution logs pockets round
 
 ### Completed

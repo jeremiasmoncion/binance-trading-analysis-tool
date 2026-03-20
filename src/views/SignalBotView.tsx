@@ -28,11 +28,15 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("all");
   const feedReadModel = useSignalsBotsReadModel();
   const signals = feedReadModel.signalMemory;
+  const selectedBotCard = feedReadModel.selectedBotCard || feedReadModel.botCards[0] || null;
+  const selectedBotSignals = feedReadModel.selectedBotApprovedRankedSignals;
+  const selectedBotBlockedCount = feedReadModel.selectedBotBlockedSignals.length;
 
   const readModel = useMemo(() => {
+    const scopedSignalFeed = selectedBotSignals.length ? selectedBotSignals : feedReadModel.prioritySignals;
     const openSignals = signals.filter((signal) => signal.outcome_status === "pending");
     const closedSignals = signals.filter((signal) => signal.outcome_status !== "pending");
-    const cards = feedReadModel.prioritySignals.slice(0, 12).map((signal) => {
+    const cards = scopedSignalFeed.slice(0, 12).map((signal) => {
       const snapshot = findSnapshotForSignal(signal.context.symbol, signal.context.timeframe, signals);
       const direction = getDisplaySignalDirection(signal, snapshot);
       return {
@@ -46,10 +50,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
     });
 
     return {
-      priority: feedReadModel.prioritySignals,
+      priority: scopedSignalFeed,
       highConfidence: feedReadModel.highConfidenceSignals,
       watchlistFirst: feedReadModel.watchlistFirstSignals,
-      botApproved: feedReadModel.signalBotApprovedSignals,
+      botApproved: selectedBotSignals,
+      botBlockedCount: selectedBotBlockedCount,
       openSignals,
       closedSignals,
       cards,
@@ -59,38 +64,61 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
         .sort((left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime())
         .slice(0, 12),
     };
-  }, [activeFilter, feedReadModel, signals]);
+  }, [activeFilter, feedReadModel, selectedBotBlockedCount, selectedBotSignals, signals]);
+
+  const selectedBotName = selectedBotCard?.name || "Signal Bot";
+  const selectedBotPair = selectedBotCard?.leadingSignal?.context.symbol || inferBotWorkspacePair(selectedBotCard);
+  const selectedBotStrategy = formatBotWorkspaceStrategy(selectedBotCard);
+  const selectedBotStatus = selectedBotCard ? getBotStatusLabel(selectedBotCard.status) : "Running";
+  const selectedBotWinRate = selectedBotCard?.performance.winRate ?? calculateWinRate(readModel.closedSignals);
+  const selectedBotProfit = selectedBotCard?.performance.realizedPnlUsd ?? sumPnl(readModel.closedSignals);
+  const selectedBotTradeCount = selectedBotCard?.localMemory.outcomeCount ?? readModel.closedSignals.length;
+  const selectedBotPairCount = new Set(readModel.priority.map((signal) => signal.context.symbol)).size;
 
   return (
     <div id="signalBotView" className="view-panel active signalbot-view">
       <section className="signalbot-shell">
+        <div className="signalbot-header">
+          <div className="signalbot-header-copy">
+            <span className="signalbot-kicker ui-pill">BOT WORKSPACE</span>
+            <h1 className="signalbot-title">{selectedBotName}</h1>
+            <p className="signalbot-subtitle">{selectedBotPair} • {selectedBotStrategy} • {selectedBotStatus}</p>
+          </div>
+
+          <div className="signalbot-header-actions">
+            <button type="button" className="signalbot-secondary-button ui-button" onClick={() => onNavigateView("control-bot-settings")}>
+              Open Full Bot Settings
+            </button>
+          </div>
+        </div>
+
         <div className="signalbot-summary-grid ui-summary-grid">
           <SignalStatCard
             label="Active Signals"
             value={String(readModel.priority.length)}
-            note={`+${Math.max(readModel.openSignals.length - readModel.priority.length, 0)} today`}
+            note={`${readModel.botBlockedCount} blocked by bot rules`}
             status="Live"
             tone="success"
             icon={<SignalBroadcastIcon />}
           />
           <SignalStatCard
             label="Win Rate"
-            value={`${calculateWinRate(readModel.closedSignals).toFixed(1)}%`}
-            note={`${calculateWinRateDelta(readModel.closedSignals).toFixed(1)}%`}
+            value={`${selectedBotWinRate.toFixed(1)}%`}
+            note={`${Math.max(selectedBotTradeCount, 0)} tracked outcomes`}
             tone="info"
             icon={<SignalTargetIcon />}
           />
           <SignalStatCard
             label="Total Profit (30d)"
-            value={formatUsd(sumPnl(readModel.closedSignals))}
+            value={formatUsd(selectedBotProfit)}
             note={formatPct(calculateAveragePnl(readModel.closedSignals))}
             tone="primary"
             icon={<SignalProfitIcon />}
           />
           <SignalStatCard
             label="Pending Signals"
-            value={String(readModel.openSignals.length)}
-            note="awaiting execution"
+            value={String(readModel.botApproved.length)}
+            note="approved for this bot"
             status="Pending"
             tone="warning"
             icon={<SignalClockIcon />}
@@ -244,10 +272,10 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
             <div className="signalbot-performance-grid">
               <SectionCard title="Performance Summary" subtitle="The shortest explanation of how the bot is doing." className="signalbot-subcard">
                 <div className="signalbot-mini-grid">
-                  <MetricTile label="Total Trades" value={String(readModel.closedSignals.length)} note="Completed signal outcomes tracked in memory." />
-                  <MetricTile label="Winning Trades" value={String(readModel.closedSignals.filter((signal) => signal.outcome_status === "win").length)} note="Closed signals that finished positive." />
-                  <MetricTile label="Losing Trades" value={String(readModel.closedSignals.filter((signal) => signal.outcome_status === "loss").length)} note="Closed signals that finished negative." />
-                  <MetricTile label="Avg. Profit / Trade" value={formatPct(calculateAveragePnl(readModel.closedSignals))} note="Average realized result per closed signal." />
+                  <MetricTile label="Total Trades" value={String(selectedBotTradeCount)} note="Tracked outcomes attached to this bot profile." />
+                  <MetricTile label="Approved Signals" value={String(readModel.botApproved.length)} note="Signals that currently fit this bot policy." />
+                  <MetricTile label="Blocked Signals" value={String(readModel.botBlockedCount)} note="Signals filtered out by this bot policy." />
+                  <MetricTile label="Avg. Profit / Trade" value={formatPct(calculateAveragePnl(readModel.closedSignals))} note="Shared realized result benchmark while bot-level history is still converging." />
                 </div>
               </SectionCard>
 
@@ -263,7 +291,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   </article>
                   <article className="signalbot-insight-card">
                     <strong>Bot-ready signals remain curated</strong>
-                    <p>{String(readModel.botApproved.length)} signals already fit the current bot policy, so the page only surfaces what is closer to action.</p>
+                    <p>{String(readModel.botApproved.length)} signals currently fit {selectedBotName}, while {String(readModel.botBlockedCount)} are still being filtered out by its rules.</p>
                   </article>
                 </div>
               </SectionCard>
@@ -272,10 +300,10 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
 
           {activeTab === "settings" ? (
             <div className="signalbot-settings-grid">
-              <SettingsCard title="Bot Status" value="Active" note="Signal Bot is actively scanning and ranking opportunities for the user." />
+              <SettingsCard title="Bot Status" value={selectedBotStatus} note={`${selectedBotName} is the full workspace currently selected from Bot Settings.`} />
               <SettingsCard title="Minimum Confidence" value={`${Math.min(calculateMinimumConfidence(readModel.highConfidence), 100).toFixed(0)}%`} note="Only clearer opportunities are promoted into the strongest subset." />
               <SettingsCard title="Notifications" value="Enabled" note="New high-confidence ideas can stay visible without overwhelming the page." />
-              <SettingsCard title="Trading Pairs" value={String(new Set(readModel.priority.map((signal) => signal.context.symbol)).size)} note="The current mix of pairs stays curated from watchlist and discovery." />
+              <SettingsCard title="Trading Pairs" value={String(selectedBotPairCount)} note="The current mix of pairs stays curated from watchlist and discovery." />
               <div className="signalbot-settings-cta">
                 <button type="button" className="ui-button ui-button-primary" onClick={() => onNavigateView("control-bot-settings")}>
                   Open Full Bot Settings
@@ -454,9 +482,29 @@ function calculateAveragePnl(signals: Array<{ outcome_pnl: number }>) {
   return signals.length ? signals.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0) / signals.length : 0;
 }
 
-function calculateWinRateDelta(signals: Array<{ outcome_status: string }>) {
-  const recent = signals.slice(-10);
-  return calculateWinRate(recent) - calculateWinRate(signals);
+function getBotStatusLabel(status: string) {
+  if (status === "active") return "Running";
+  if (status === "paused") return "Paused";
+  if (status === "draft") return "Draft";
+  return "Stopped";
+}
+
+function inferBotWorkspacePair(bot: { slug?: string; name?: string } | null) {
+  const slug = String(bot?.slug || "").toLowerCase();
+  const name = String(bot?.name || "").toLowerCase();
+  if (slug.includes("signal")) return "BTC/USDT";
+  if (slug.includes("dca")) return "ETH/USDT";
+  if (slug.includes("arbitrage")) return "BNB/USDT";
+  if (slug.includes("pump")) return "SOL/USDT";
+  if (name.includes("ai")) return "AI/USDT";
+  return "BTC/USDT";
+}
+
+function formatBotWorkspaceStrategy(bot: { strategyPolicy?: { preferredStrategyIds: string[] }; stylePolicy?: { dominantStyle?: string } } | null) {
+  const raw = bot?.strategyPolicy?.preferredStrategyIds?.[0] || bot?.stylePolicy?.dominantStyle || "signals";
+  return raw
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function formatUsd(value: number) {

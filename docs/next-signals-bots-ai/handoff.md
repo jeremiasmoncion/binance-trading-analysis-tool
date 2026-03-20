@@ -182,6 +182,10 @@ Continue replacing the legacy product flow with the new user-facing page structu
 - the system loading dock now uses a branded animated `C` mark instead of a generic spinner
 - future global loading surfaces should first confirm whether they belong to `StartupOverlay` or `SystemUiHost`
 - the startup session-restore screen should not render a static `C` in the mark slot; it should use a real loading animation there
+- `Bot Settings -> All Bots` now has two depths:
+  - gear button = quick settings drawer
+  - full bot open = navigate to the full bot workspace
+- the current full bot workspace is routed through `Signal Bot`, which now reads the selected bot from a shared seam instead of assuming only the default signal bot
 - the implementation rule is now explicit:
   - new settings tabs should extend the same shared form primitives
   - they should not reintroduce page-local form styling or theme-specific hacks

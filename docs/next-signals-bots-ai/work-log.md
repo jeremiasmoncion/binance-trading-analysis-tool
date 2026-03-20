@@ -168,6 +168,26 @@ System loading identity refinement
 
 ### Phase
 
+`Bot Settings` -> full bot workspace routing
+
+### Completed
+
+- Added a shared selected-bot seam so `Bot Settings` can choose the active bot detail target without inventing a local navigation state.
+- Kept the gear drawer in `All Bots` as quick settings only.
+- Made the full bot navigation flow open the current detailed bot workspace screen from `All Bots`.
+- Reworked `Signal Bot` so it reads the selected bot context and behaves as the full-screen workspace for the bot chosen in `Bot Settings`.
+
+### Risk Avoided
+
+- Without a shared selected-bot seam, `Bot Settings` and the full bot workspace would drift apart and require page-local state hacks.
+- This also avoids multiplying separate detail-page patterns before the product model is ready for dedicated pages per bot family.
+
+### Recommended Next Step
+
+- Keep using `Signal Bot` as the shared detailed bot workspace while the product converges, then split into dedicated bot detail pages only when each family truly needs its own full template.
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

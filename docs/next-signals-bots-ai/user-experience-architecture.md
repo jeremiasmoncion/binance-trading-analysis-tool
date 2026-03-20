@@ -150,6 +150,12 @@ More specific rule for template migration:
   - the bot gear action should open an in-context right drawer
   - do not force a page transition for lightweight bot edits
   - do not introduce a disconnected modal style when the drawer pattern already fits the template behavior better
+- for `Bot Settings` navigation depth:
+  - `All Bots` is the fleet hub
+  - the gear stays reserved for quick settings
+  - opening the full bot should navigate into the full bot workspace screen
+  - the current full bot workspace is `Signal Bot`, reused as the detailed bot screen until more bot-specific detail pages exist
+  - selected bot context should travel through a shared seam, not ad hoc component state
 
 ## Core UX Rule
 

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { DownloadIcon, SearchIcon, SlidersHorizontalIcon, WarningTriangleIcon, BellIcon } from "../components/Icons";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import { useSelectedBotState } from "../hooks/useSelectedBot";
 import type { ViewName } from "../types";
 
 type BotSettingsTab = "all-bots" | "general-settings" | "risk-management" | "notifications" | "api-connections";
@@ -117,6 +118,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [apiConnections] = useState(INITIAL_API_CONNECTIONS);
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
   const feedReadModel = useSignalsBotsReadModel();
+  const { selectBot } = useSelectedBotState();
 
   const readModel = useMemo(() => {
     const cards = feedReadModel.botCards.map((bot) => {
@@ -318,6 +320,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     setQuickEditDraft((current) => (current ? { ...current, [key]: value } : current));
   };
 
+  const openBotWorkspace = (bot: (typeof readModel.filteredCards)[number]) => {
+    // Keep bot selection in one shared seam so Bot Settings and the full bot
+    // workspace stay aligned without introducing a second local runtime.
+    selectBot(bot.id);
+    onNavigateView(resolveBotTarget(bot.slug));
+  };
+
   return (
     <div id="botSettingsView" className="view-panel active botsettings-view">
       <section className="botsettings-shell">
@@ -447,7 +456,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         <div className="botsettings-card-identity">
                           <BotAssetBadge pair={bot.pair} />
                           <div className="botsettings-card-copy">
-                            <h3>{bot.name}</h3>
+                            <button type="button" className="botsettings-card-link" onClick={() => openBotWorkspace(bot)}>
+                              <h3>{bot.name}</h3>
+                            </button>
                             <p>{bot.pair}</p>
                           </div>
                         </div>
@@ -526,8 +537,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                           <td className={bot.profit24h > 0 ? "wallet-positive" : bot.profit24h < 0 ? "wallet-negative" : ""}>{formatUsd(bot.profit24h)}</td>
                           <td>{bot.winRate.toFixed(1)}%</td>
                           <td>
-                            <button type="button" className="botsettings-inline-link" onClick={() => onNavigateView(resolveBotTarget(bot.slug))}>
-                              Open settings
+                            <button type="button" className="botsettings-inline-link" onClick={() => openBotWorkspace(bot)}>
+                              Open bot
                             </button>
                           </td>
                         </tr>
@@ -1438,11 +1449,8 @@ function inferBotPair(slug: string, name: string) {
 }
 
 function resolveBotTarget(slug: string): ViewName {
-  if (slug.includes("signal")) return "ai-signal-bot";
-  if (slug.includes("dca")) return "ai-dca-bot";
-  if (slug.includes("arbitrage")) return "ai-arbitrage-bot";
-  if (slug.includes("pump")) return "ai-pump-screener";
-  return "control-bot-settings";
+  if (slug) return "ai-signal-bot";
+  return "ai-signal-bot";
 }
 
 function formatStrategyLabel(value: string) {

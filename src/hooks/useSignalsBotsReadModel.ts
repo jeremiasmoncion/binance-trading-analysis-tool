@@ -15,6 +15,7 @@ import {
   selectRankedPublishedSignals,
   selectWatchlistFirstRankedSignals,
 } from "../domain";
+import { useSelectedBotState } from "./useSelectedBot";
 
 function findSignalBot() {
   const registry = createBotRegistrySnapshot(INITIAL_BOT_REGISTRY_STATE);
@@ -30,6 +31,7 @@ function findSignalBot() {
 
 export function useSignalsBotsReadModel() {
   const feedData = useSignalsBotsFeedSelector();
+  const { selectedBotId } = useSelectedBotState();
 
   return useMemo(() => {
     // Keep the feed/ranking derivation in one shared seam so template pages do
@@ -63,6 +65,16 @@ export function useSignalsBotsReadModel() {
         leadingSignal,
       };
     });
+    const selectedBotCard = botCards.find((bot) => bot.id === selectedBotId) || botCards[0] || null;
+    const selectedBotFeed = selectedBotCard
+      ? createBotConsumableFeed(selectedBotCard, rankedSignals, rankedFeed.generatedAt)
+      : signalBotFeed;
+    const selectedBotApprovedSignals = selectAcceptedBotConsumableSignals(selectedBotFeed);
+    const selectedBotBlockedSignals = selectBlockedBotConsumableSignals(selectedBotFeed);
+    const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
+    const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
+      .map((signal) => rankedSignalById.get(signal.id) || null)
+      .filter((signal): signal is (typeof rankedSignals)[number] => Boolean(signal));
     const activeBots = botCards.filter((bot) => bot.status === "active");
     const totalTrades = botCards.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0);
     const totalProfit = botCards.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0);
@@ -76,6 +88,7 @@ export function useSignalsBotsReadModel() {
       registry,
       bots,
       botCards,
+      selectedBotCard,
       signalBot,
       publishedFeed,
       rankedFeed,
@@ -87,6 +100,10 @@ export function useSignalsBotsReadModel() {
       signalBotFeed,
       signalBotApprovedSignals,
       signalBotBlockedSignals,
+      selectedBotFeed,
+      selectedBotApprovedSignals,
+      selectedBotApprovedRankedSignals,
+      selectedBotBlockedSignals,
       botSummary: {
         totalBots: botCards.length,
         activeBots: activeBots.length,
@@ -97,5 +114,5 @@ export function useSignalsBotsReadModel() {
         averageWinRate,
       },
     };
-  }, [feedData]);
+  }, [feedData, selectedBotId]);
 }

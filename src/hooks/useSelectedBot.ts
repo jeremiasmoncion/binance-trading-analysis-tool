@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   INITIAL_BOT_REGISTRY_STATE,
   createBotRegistryStore,
@@ -28,7 +28,12 @@ export function setSelectedBotId(botId: string | null) {
 }
 
 export function useSelectedBotState() {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const [state, setState] = useState(() => getSnapshot());
+
+  useEffect(() => subscribe(() => {
+    setState(getSnapshot());
+  }), []);
+
   const selectedBot = selectSelectedBot(state);
 
   const selectBot = useCallback((botId: string | null) => {
@@ -44,7 +49,12 @@ export function useSelectedBotState() {
 }
 
 export function useBotById(botId: string | null | undefined) {
-  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const [state, setState] = useState(() => getSnapshot());
+
+  useEffect(() => subscribe(() => {
+    setState(getSnapshot());
+  }), []);
+
   return selectBotById(state, botId);
 }
 

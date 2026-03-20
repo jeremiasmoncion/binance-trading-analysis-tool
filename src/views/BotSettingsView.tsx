@@ -196,7 +196,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
   const feedReadModel = useSignalsBotsReadModel();
-  const { createBot, selectBot, updateBot } = useSelectedBotState();
+  const { createBot, selectBot, updateBot, loading: botsLoading, error: botsError, hydrated: botsHydrated } = useSelectedBotState();
   const selectedSettingsBot = feedReadModel.selectedBotCard || feedReadModel.botCards[0] || null;
 
   const readModel = useMemo(() => {
@@ -869,7 +869,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
 
               {layoutMode === "grid" ? (
                 <div className="botsettings-card-grid">
-                  {readModel.filteredCards.map((bot) => (
+                  {readModel.filteredCards.length ? readModel.filteredCards.map((bot) => (
                     <article key={bot.id} className={`botsettings-card ${getBotCardTone(bot.status)}`}>
                       <div className="botsettings-card-head">
                         <div className="botsettings-card-identity">
@@ -934,7 +934,18 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         </button>
                       </div>
                     </article>
-                  ))}
+                  )) : (
+                    <article className="botsettings-card">
+                      <div className="botsettings-card-copy" style={{ padding: "1.5rem" }}>
+                        <h3>{botsLoading && !botsHydrated ? "Loading bots..." : "No real bots found"}</h3>
+                        <p>
+                          {botsError
+                            ? `The persisted bot registry could not be loaded: ${botsError}`
+                            : "This list now waits for the persisted bot registry instead of falling back to template bots."}
+                        </p>
+                      </div>
+                    </article>
+                  )}
                 </div>
               ) : (
                 <div className="ui-table-shell botsettings-table-shell">
@@ -951,7 +962,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {readModel.filteredCards.map((bot) => (
+                      {readModel.filteredCards.length ? readModel.filteredCards.map((bot) => (
                         <tr key={bot.id}>
                           <td>
                             <div className="botsettings-table-identity">
@@ -973,7 +984,17 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                             </button>
                           </td>
                         </tr>
-                      ))}
+                      )) : (
+                        <tr>
+                          <td colSpan={7}>
+                            {botsError
+                              ? `The persisted bot registry could not be loaded: ${botsError}`
+                              : botsLoading && !botsHydrated
+                                ? "Loading bots..."
+                                : "No real bots found yet."}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

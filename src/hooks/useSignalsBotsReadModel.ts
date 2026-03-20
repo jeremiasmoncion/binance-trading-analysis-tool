@@ -3,6 +3,7 @@ import type { ExecutionOrderRecord, SignalSnapshot } from "../types";
 import {
   EMPTY_MEMORY_SUMMARY,
   EMPTY_PERFORMANCE_SUMMARY,
+  INITIAL_BOT_REGISTRY_STATE,
   createBotConsumableFeed,
   createBotRegistrySnapshot,
   selectAcceptedBotConsumableSignals,
@@ -493,7 +494,8 @@ export function useSignalsBotsReadModel() {
     // not each rebuild the same domain pipeline with slightly different rules.
     const registry = createBotRegistrySnapshot(registryState);
     const bots = selectBots(registry.state);
-    const signalBot = registry.state.bots.find((bot) => bot.slug === "signal-bot-core") || registry.state.bots[0];
+    const fallbackSignalBot = INITIAL_BOT_REGISTRY_STATE.bots.find((bot) => bot.slug === "signal-bot-core") || INITIAL_BOT_REGISTRY_STATE.bots[0];
+    const signalBot = registry.state.bots.find((bot) => bot.slug === "signal-bot-core") || registry.state.bots[0] || fallbackSignalBot;
     const publishedFeed = core.signalCore.feeds.published;
     const rankedFeed = core.signalCore.feeds.ranked;
     const rankedSignals = core.signalCore.subsets.rankedSignals;

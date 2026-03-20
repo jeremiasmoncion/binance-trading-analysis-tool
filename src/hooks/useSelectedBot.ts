@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  INITIAL_BOT_REGISTRY_STATE,
   createBotRegistryStore,
   selectBotById,
   selectSelectedBot,
@@ -17,15 +16,32 @@ interface BotRegistryRuntimeState {
 }
 
 const BOT_REGISTRY_STORAGE_KEY = "crype-bot-registry";
-const botRegistryStore = createBotRegistryStore(INITIAL_BOT_REGISTRY_STATE);
+const EMPTY_BOT_REGISTRY_STATE: BotRegistryState = {
+  bots: [],
+  selectedBotId: null,
+  lastHydratedAt: null,
+};
+const TEMPLATE_BOT_IDS = new Set([
+  "signal-bot-core",
+  "dca-bot-core",
+  "arbitrage-bot-core",
+  "pump-screener-core",
+  "ai-unrestricted-lab",
+]);
+const botRegistryStore = createBotRegistryStore(EMPTY_BOT_REGISTRY_STATE);
 let runtimeState: BotRegistryRuntimeState = {
-  registry: INITIAL_BOT_REGISTRY_STATE,
+  registry: EMPTY_BOT_REGISTRY_STATE,
   hydrated: false,
   loading: false,
   error: null,
 };
 let hydrationPromise: Promise<BotRegistryState> | null = null;
 const runtimeListeners = new Set<() => void>();
+
+function isTemplateRegistry(state: BotRegistryState | null | undefined) {
+  if (!state || !Array.isArray(state.bots) || !state.bots.length) return false;
+  return state.bots.every((bot) => TEMPLATE_BOT_IDS.has(bot.id));
+}
 
 function readCachedRegistry() {
   if (typeof window === "undefined") return null;
@@ -35,7 +51,12 @@ function readCachedRegistry() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.bots)) return null;
-    return parsed as BotRegistryState;
+    const nextRegistry = parsed as BotRegistryState;
+    if (isTemplateRegistry(nextRegistry)) {
+      window.localStorage.removeItem(BOT_REGISTRY_STORAGE_KEY);
+      return null;
+    }
+    return nextRegistry;
   } catch {
     return null;
   }
@@ -135,7 +156,8 @@ async function hydrateBotRegistry(forceFresh = false) {
       return nextRegistry;
     })
     .catch((error) => {
-      const fallbackRegistry = readCachedRegistry() || runtimeState.registry;
+      const cachedRegistry = readCachedRegistry();
+      const fallbackRegistry = cachedRegistry || (isTemplateRegistry(runtimeState.registry) ? EMPTY_BOT_REGISTRY_STATE : runtimeState.registry);
       setRegistry(fallbackRegistry);
       setRuntimePatch({
         hydrated: true,

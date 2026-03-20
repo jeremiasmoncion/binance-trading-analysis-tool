@@ -178,6 +178,9 @@ The redesign also now has dedicated documentation for:
     - family
     - global
   - `Signal Bot` now exposes that layered memory separation in the bot performance workspace
+  - bot registry hydration no longer reuses the 5-bot template catalog as a fake user registry fallback
+  - stale local bot cache now ignores template-only registries
+  - `Bot Settings` now renders explicit loading / empty / error states when the persisted registry is unavailable instead of showing template bots
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

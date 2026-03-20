@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` registry hydration fix
+
+### Completed
+
+- Fixed the bot registry runtime so `Bot Settings` no longer falls back to showing the template/default 5-bot catalog as if it were the user's real bot list.
+- The local cache now ignores template-only bot registries and clears that stale fallback instead of rehydrating it into the live app.
+- The shared bot read-model now keeps an internal fallback bot only for workspace continuity, without leaking that template bot family into the user-visible bot registry list.
+- `Bot Settings` now shows an explicit loading / empty / error state when the persisted registry is not available, instead of rendering fake bot cards.
+- Validated the fix with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids a serious product trust issue where the app could present template bots as if they were user-owned persisted bots.
+- It also avoids hiding registry hydration failures behind a visually plausible but incorrect fallback list.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - inspect the persisted bot rows currently stored for the active user
+  - reconcile older bot data, if any, into the current contract
+  - keep tightening the decision/outcome ownership path
+
+### Phase
+
 `Bot Core` execution ownership round
 
 ### Completed

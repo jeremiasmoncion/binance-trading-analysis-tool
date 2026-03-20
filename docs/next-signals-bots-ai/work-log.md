@@ -39,6 +39,35 @@
 
 ### Phase
 
+`Bot Settings` notifications template round
+
+### Completed
+
+- Replaced the old notification summary placeholders with a fuller settings surface inside `Bot Settings -> Notifications`.
+- Added UI-stage sections for:
+  - `Notification Channels`
+  - `Alert Types`
+  - `Reset to Default`
+  - `Save Notification Settings`
+- Kept the channel/action rows on the same shared settings language already used in:
+  - `General Settings`
+  - `Risk Management`
+- Preserved the same implementation guardrails:
+  - shared toggles
+  - same card/panel primitives
+  - no local theme hacks
+  - clear/dark parity in the same round
+
+### Risk Avoided
+
+- Without this continuity, `Notifications` would become another one-off page inside `Bot Settings`, forcing more repeated fixes for theme, spacing and control treatment.
+
+### Recommended Next Step
+
+- Continue with `API Connections` on the same form/control baseline so the full `Bot Settings` tab family stays visually and structurally coherent.
+
+### Phase
+
 Template-fidelity refinement for `Signal Bot`
 
 ### Completed

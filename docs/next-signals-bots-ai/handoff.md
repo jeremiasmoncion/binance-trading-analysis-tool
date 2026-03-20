@@ -163,8 +163,10 @@ Continue replacing the legacy product flow with the new user-facing page structu
   - -> shared `signals + bots` read-model seam
   - -> user-facing template pages
 - `Bot Settings -> General Settings` and `Bot Settings -> Risk Management` now share the same form/control implementation baseline:
+- `Bot Settings -> Notifications` now follows that same baseline as well:
   - shared input/select shells
   - shared toggle treatment
+  - shared channel/action rows
   - shared bottom action row
   - shared theme-parity handling
 - the implementation rule is now explicit:

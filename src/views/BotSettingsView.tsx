@@ -51,6 +51,23 @@ const INITIAL_RISK_SETTINGS = {
   trailingDistancePct: "2",
 };
 
+const INITIAL_NOTIFICATION_SETTINGS = {
+  emailEnabled: true,
+  emailAddress: "john@example.com",
+  telegramEnabled: true,
+  telegramHandle: "@johndoe",
+  discordConnected: false,
+  discordLabel: "Not connected",
+  pushEnabled: true,
+  pushLabel: "Mobile app",
+  tradeExecuted: true,
+  takeProfitHit: true,
+  stopLossTriggered: true,
+  botStatusChange: true,
+  dailySummary: false,
+  errorAlerts: true,
+};
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
@@ -58,6 +75,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [search, setSearch] = useState("");
   const [generalSettings, setGeneralSettings] = useState(INITIAL_GENERAL_SETTINGS);
   const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
+  const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
   const feedReadModel = useSignalsBotsReadModel();
 
   const readModel = useMemo(() => {
@@ -229,6 +247,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     setRiskSettings((current) => ({
       ...current,
       [key]: value,
+    }));
+  };
+
+  const toggleNotificationSetting = <TKey extends keyof typeof notificationSettings>(key: TKey) => {
+    setNotificationSettings((current) => ({
+      ...current,
+      [key]: !current[key],
     }));
   };
 
@@ -809,8 +834,142 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           ) : null}
 
           {activeTab === "notifications" ? (
-            <div className="botsettings-settings-grid">
-              {readModel.tabs.notifications.map((item) => <SettingsPanel key={item.title} {...item} icon={<BellIcon />} />)}
+            <div className="botsettings-general-grid">
+              <article className="botsettings-general-card botsettings-notifications-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-primary">
+                      <BellIcon />
+                    </div>
+                    <h3>Notification Channels</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-toggle-stack">
+                  <NotificationChannelRow
+                    icon={<MailChannelIcon />}
+                    tone="email"
+                    title="Email"
+                    meta={notificationSettings.emailAddress}
+                    action={(
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notificationSettings.emailEnabled}
+                        className={`botsettings-switch ${notificationSettings.emailEnabled ? "is-active" : ""}`}
+                        onClick={() => toggleNotificationSetting("emailEnabled")}
+                      >
+                        <span />
+                      </button>
+                    )}
+                  />
+                  <NotificationChannelRow
+                    icon={<TelegramChannelIcon />}
+                    tone="telegram"
+                    title="Telegram"
+                    meta={notificationSettings.telegramHandle}
+                    action={(
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notificationSettings.telegramEnabled}
+                        className={`botsettings-switch ${notificationSettings.telegramEnabled ? "is-active" : ""}`}
+                        onClick={() => toggleNotificationSetting("telegramEnabled")}
+                      >
+                        <span />
+                      </button>
+                    )}
+                  />
+                  <NotificationChannelRow
+                    icon={<DiscordChannelIcon />}
+                    tone="discord"
+                    title="Discord"
+                    meta={notificationSettings.discordLabel}
+                    action={(
+                      <button type="button" className="botsettings-channel-button ui-button">
+                        Connect
+                      </button>
+                    )}
+                  />
+                  <NotificationChannelRow
+                    icon={<PushChannelIcon />}
+                    tone="push"
+                    title="Push Notifications"
+                    meta={notificationSettings.pushLabel}
+                    action={(
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={notificationSettings.pushEnabled}
+                        className={`botsettings-switch ${notificationSettings.pushEnabled ? "is-active" : ""}`}
+                        onClick={() => toggleNotificationSetting("pushEnabled")}
+                      >
+                        <span />
+                      </button>
+                    )}
+                  />
+                </div>
+              </article>
+
+              <article className="botsettings-general-card botsettings-notifications-card">
+                <div className="botsettings-general-head">
+                  <div className="botsettings-general-title">
+                    <div className="botsettings-general-icon is-warning">
+                      <AlertChannelIcon />
+                    </div>
+                    <h3>Alert Types</h3>
+                  </div>
+                </div>
+
+                <div className="botsettings-toggle-stack">
+                  <ToggleRow
+                    title="Trade Executed"
+                    note="When a buy or sell order is filled"
+                    checked={notificationSettings.tradeExecuted}
+                    onToggle={() => toggleNotificationSetting("tradeExecuted")}
+                  />
+                  <ToggleRow
+                    title="Take Profit Hit"
+                    note="When TP target is reached"
+                    checked={notificationSettings.takeProfitHit}
+                    onToggle={() => toggleNotificationSetting("takeProfitHit")}
+                  />
+                  <ToggleRow
+                    title="Stop Loss Triggered"
+                    note="When SL is triggered"
+                    checked={notificationSettings.stopLossTriggered}
+                    onToggle={() => toggleNotificationSetting("stopLossTriggered")}
+                  />
+                  <ToggleRow
+                    title="Bot Status Change"
+                    note="Start, stop, pause events"
+                    checked={notificationSettings.botStatusChange}
+                    onToggle={() => toggleNotificationSetting("botStatusChange")}
+                  />
+                  <ToggleRow
+                    title="Daily Summary"
+                    note="End of day performance report"
+                    checked={notificationSettings.dailySummary}
+                    onToggle={() => toggleNotificationSetting("dailySummary")}
+                  />
+                  <ToggleRow
+                    title="Error Alerts"
+                    note="Bot errors and connection issues"
+                    checked={notificationSettings.errorAlerts}
+                    onToggle={() => toggleNotificationSetting("errorAlerts")}
+                  />
+                </div>
+              </article>
+
+              <div className="botsettings-general-actions">
+                <button type="button" className="botsettings-reset-button ui-button" onClick={() => setNotificationSettings(INITIAL_NOTIFICATION_SETTINGS)}>
+                  Reset to Default
+                </button>
+                <button type="button" className="ui-button ui-button-primary">
+                  <SaveMiniIcon />
+                  Save Notification Settings
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -926,6 +1085,21 @@ function ToggleRow(props: { title: string; note: string; checked: boolean; onTog
       >
         <span />
       </button>
+    </div>
+  );
+}
+
+function NotificationChannelRow(props: { icon: ReactNode; tone: "email" | "telegram" | "discord" | "push"; title: string; meta: string; action: ReactNode }) {
+  return (
+    <div className="botsettings-channel-row">
+      <div className="botsettings-channel-main">
+        <div className={`botsettings-channel-icon is-${props.tone}`}>{props.icon}</div>
+        <div className="botsettings-channel-copy">
+          <strong>{props.title}</strong>
+          <span>{props.meta}</span>
+        </div>
+      </div>
+      <div className="botsettings-channel-action">{props.action}</div>
     </div>
   );
 }
@@ -1212,6 +1386,52 @@ function SelectChevronIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MailChannelIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4.5" y="6.5" width="15" height="11" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m6.5 8 5.5 4.3L17.5 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TelegramChannelIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m18.8 5.6-2.4 11.5c-.2.9-.8 1.1-1.5.7l-3.2-2.4-1.5 1.4c-.2.2-.3.3-.7.3l.2-3.3 6-5.4c.3-.2-.1-.4-.4-.2l-7.3 4.6-3.1-1c-.8-.2-.8-.8.2-1.2L17.4 5c.7-.3 1.6.2 1.4.6Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DiscordChannelIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8.5 8.2c1-.4 2-.6 3.1-.7l.4.8c1-.1 2 0 3 .1l.5-.9c1.1.1 2.1.3 3 .7c.9 1.3 1.4 2.7 1.6 4.2c-.9.7-1.8 1.1-2.9 1.4l-.6-.9c-.6.2-1.2.3-1.8.4c-.7.1-1.3.1-2 0c-.6 0-1.2-.2-1.8-.4l-.6.9c-1-.2-2-.7-2.9-1.4c.2-1.5.7-2.9 1.6-4.2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="10.3" cy="11.4" r="1" fill="currentColor" />
+      <circle cx="13.7" cy="11.4" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PushChannelIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="7" y="3.5" width="10" height="17" rx="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M11 17.3h2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AlertChannelIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.7v5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="16.5" r="1" fill="currentColor" />
     </svg>
   );
 }

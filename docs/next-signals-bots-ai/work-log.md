@@ -4,6 +4,37 @@
 
 ### Phase
 
+`Bot Core` preview freshness round
+
+### Completed
+
+- Added a first freshness signal for the safe paper-preview path so `preview-recorded` does not remain only as a binary state.
+- Shared intent summaries now also track:
+  - `previewFreshCount`
+  - `previewStaleCount`
+- Current heuristic:
+  - a `preview-recorded` intent becomes stale after 6 hours without further progress
+- `Signal Bot` now shows fresh vs stale preview counts in the execution-intent area.
+- `Execution Logs` intent summaries now also show fresh vs stale preview backlog per bot.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating all `preview-recorded` artifacts as equally actionable regardless of age.
+- It also avoids leaving the paper path fully binary when operators really need to know whether previews are still fresh enough to matter.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether stale previews should expire automatically or just remain as audit evidence
+  - expose promotion or refresh semantics if stale previews should be acted on
+  - keep real trading execution out of scope until the safe paper/demo lane is fully trustworthy
+
+### Phase
+
 `Bot Core` preview reconciliation semantics round
 
 ### Completed

@@ -185,6 +185,8 @@ export function ExecutionLogsView() {
         dispatchedCount: bot.executionIntentSummary?.dispatchedCount || 0,
         previewedCount: bot.executionIntentSummary?.previewedCount || 0,
         previewRecordedCount: bot.executionIntentSummary?.previewRecordedCount || 0,
+        previewFreshCount: bot.executionIntentSummary?.previewFreshCount || 0,
+        previewStaleCount: bot.executionIntentSummary?.previewStaleCount || 0,
         executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
         awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
         blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
@@ -340,7 +342,7 @@ export function ExecutionLogsView() {
                 <article key={`intent-${bot.id}`} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>
-                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded ({bot.previewFreshCount} fresh / {bot.previewStaleCount} stale) · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
                   </p>
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>

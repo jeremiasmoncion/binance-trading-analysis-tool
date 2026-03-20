@@ -807,6 +807,12 @@ function getDecisionExecutionIntentLaneStatus(decision: { metadata?: Record<stri
   return value || null;
 }
 
+function isOlderThanHours(value: string | null | undefined, hours: number) {
+  const timestamp = new Date(value || 0).getTime();
+  if (!Number.isFinite(timestamp)) return false;
+  return Date.now() - timestamp > hours * 60 * 60 * 1000;
+}
+
 function createExecutionIntentSummary<
   TDecision extends {
     symbol?: string | null;
@@ -815,6 +821,7 @@ function createExecutionIntentSummary<
     metadata?: Record<string, unknown>;
   },
 >(decisions: TDecision[]): BotExecutionIntentSummary {
+  const previewStaleHours = 6;
   const ranked = decisions
     .map((decision) => ({
       decision,
@@ -841,6 +848,8 @@ function createExecutionIntentSummary<
     dispatchedCount: ranked.filter((entry) => entry.laneStatus === "previewed" || entry.laneStatus === "preview-recorded" || entry.laneStatus === "execution-submitted").length,
     previewedCount: ranked.filter((entry) => entry.laneStatus === "previewed" || entry.laneStatus === "preview-recorded").length,
     previewRecordedCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded").length,
+    previewFreshCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded" && !isOlderThanHours(entry.updatedAt, previewStaleHours)).length,
+    previewStaleCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded" && isOlderThanHours(entry.updatedAt, previewStaleHours)).length,
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,

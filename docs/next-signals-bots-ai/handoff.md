@@ -377,6 +377,11 @@ The redesign also now has dedicated documentation for:
   - `Signal Bot` and `Execution Logs` now expose those paper/demo terminal states directly
   - `Execution Logs` and `Signal Bot` now also surface the latest dispatch mode/status instead of treating dispatch as a black box label
   - shared owned-memory notes now also treat `preview-recorded` as a closed paper-preview artifact instead of describing it as unresolved execution linkage
+  - shared intent summaries now also track freshness inside the paper-preview closure path:
+    - `previewFreshCount`
+    - `previewStaleCount`
+  - current heuristic:
+    - `preview-recorded` becomes stale after 6 hours without further progress
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

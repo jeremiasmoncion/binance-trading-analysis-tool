@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` bots operational now declaration round
+
+### Completed
+
+- Added a shared `Bots Operational Now` declaration derived from the governed paper/demo operational status.
+- Surfaced that declaration in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the product can now answer directly whether bots are operational in the governed safe lane.
+- Kept that answer on the same shared seam instead of leaving it as a final human inference from surrounding cards.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids forcing the operator to translate `paper/demo operational status` into yet another implicit yes/no answer.
+- It also avoids leaving the central product question answered differently in the fleet hub, selected bot, and review console.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - verify this declaration against live repeated concurrent cycles
+  - if it holds, treat the governed `paper/demo` lane as operational for the current project target
+  - keep real trading execution out of scope until this same declaration can be supported beyond the safe lane
+
+### Phase
+
 `Bot Core` paper-demo operational status round
 
 ### Completed

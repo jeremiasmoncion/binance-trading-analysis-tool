@@ -92,6 +92,8 @@ The estimate does not need to claim absolute certainty, but it should make the r
 - surfaced the governed demo gate in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the final demo unlock is now explicit across the main operational surfaces
 - added a shared `Paper/Demo Operational Status` declaration derived from the governed demo gate
 - surfaced that final operational declaration in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the main surfaces now say explicitly whether the governed paper/demo lane is operational or not
+- added a shared `Bots Operational Now` declaration derived from that same governed paper/demo operational status
+- surfaced that yes/no declaration in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the product can answer directly whether bots are operational in the governed safe lane
 
 - mapped major current components related to:
   - strategy generation

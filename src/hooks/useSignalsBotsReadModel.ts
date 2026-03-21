@@ -1207,6 +1207,24 @@ function summarizePaperDemoOperationalStatus(input: {
   };
 }
 
+function summarizeBotsOperationalNow(input: {
+  paperDemoOperationalState: string;
+  paperDemoOperationalNote: string;
+  operationalBots: number;
+}) {
+  const state = String(input.paperDemoOperationalState || "").trim() === "operational"
+    ? "yes"
+    : "no";
+  const note = state === "yes"
+    ? `${input.operationalBots} bots are currently operational in the governed paper/demo lane.`
+    : `Bots are not operational in the governed paper/demo lane yet. ${input.paperDemoOperationalNote}`.trim();
+
+  return {
+    state,
+    note,
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1694,6 +1712,11 @@ export function useSignalsBotsReadModel() {
       stableReadyBots: fleetSafeLaneStability.stableReadyBots,
       totalBots: botCardsWithOperationalContention.length,
     });
+    const botsOperationalNow = summarizeBotsOperationalNow({
+      paperDemoOperationalState: paperDemoOperationalStatus.state,
+      paperDemoOperationalNote: paperDemoOperationalStatus.note,
+      operationalBots: paperDemoOperationalStatus.operationalBots,
+    });
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
@@ -1763,6 +1786,7 @@ export function useSignalsBotsReadModel() {
       selectedBotOperationalVerdict,
       governedDemoGate,
       paperDemoOperationalStatus,
+      botsOperationalNow,
       attentionBots,
       attentionBotIds: attentionCandidates.map((bot) => bot.id),
       readyContention,
@@ -1800,6 +1824,8 @@ export function useSignalsBotsReadModel() {
         paperDemoOperationalNote: paperDemoOperationalStatus.note,
         paperDemoOperationalBots: paperDemoOperationalStatus.operationalBots,
         paperDemoOperationalCoveragePct: paperDemoOperationalStatus.coveragePct,
+        botsOperationalNowState: botsOperationalNow.state,
+        botsOperationalNowNote: botsOperationalNow.note,
         contendedReadySymbols: readyContention.contendedReadySymbols,
         contendedReadyBots: readyContention.contendedReadyBots,
       },

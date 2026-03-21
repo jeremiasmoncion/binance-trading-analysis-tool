@@ -230,6 +230,10 @@ function formatPaperDemoOperationalState(value?: string | null) {
   return String(value || "").trim() === "operational" ? "Operational" : "Not Operational";
 }
 
+function formatBotsOperationalNow(value?: string | null) {
+  return String(value || "").trim() === "yes" ? "Yes" : "No";
+}
+
 function buildBotAttentionNote(bot: {
   unresolvedOwnershipCount: number;
   reconciliationPct: number;
@@ -1008,6 +1012,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             icon={<AutomationBoltIcon />}
             progress={readModel.summary.paperDemoOperationalCoveragePct || 0}
           />
+          <BotSummaryCard
+            label="Bots Operational Now"
+            value={formatBotsOperationalNow(readModel.summary.botsOperationalNowState)}
+            note={readModel.summary.botsOperationalNowNote || "Bots are not operational in the governed paper/demo lane yet."}
+            tone="primary"
+            icon={<AutomationBoltIcon />}
+          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
@@ -1086,6 +1097,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <strong>Paper/Demo Operational Status</strong>
                 <p>{formatPaperDemoOperationalState(readModel.summary.paperDemoOperationalState)}</p>
                 <p>{readModel.summary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Bots Operational Now</strong>
+                <p>{formatBotsOperationalNow(readModel.summary.botsOperationalNowState)}</p>
+                <p>{readModel.summary.botsOperationalNowNote || "Bots are not operational in the governed paper/demo lane yet."}</p>
               </article>
             </div>
           </section>

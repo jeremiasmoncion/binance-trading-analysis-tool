@@ -540,6 +540,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     value={formatOperationalVerdictState(feedReadModel.selectedBotOperationalVerdict?.state)}
                     note={feedReadModel.selectedBotOperationalVerdict?.note || "This bot is still moving toward a cleaner operational verdict."}
                   />
+                  <MetricTile
+                    label="Governed Demo Gate"
+                    value={formatGovernedDemoGate(feedReadModel.governedDemoGate?.state)}
+                    note={feedReadModel.governedDemoGate?.note || "Governed demo remains closed until the fleet reaches close."}
+                  />
                 </div>
               </SectionCard>
 
@@ -666,6 +671,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
               <SettingsCard title="Execution Intent" value={`${formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)} • ${String(feedReadModel.selectedBotExecutionIntentSummary?.queuedCount || 0)} queued`} note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailCode ? `Last block: ${feedReadModel.selectedBotExecutionIntentSummary.latestGuardrailCode}` : `${feedReadModel.selectedBotExecutionIntentSummary?.dispatchRequestedCount || 0} dispatch requested • ${feedReadModel.selectedBotExecutionIntentSummary?.previewFreshCount || 0} fresh previewed • ${feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0} expired previewed • ${feedReadModel.selectedBotExecutionIntentSummary?.executionSubmittedCount || 0} demo submitted • ${buildLatestDispatchNote(selectedBotCard)}`} />
               <SettingsCard title="Operational Verdict" value={formatOperationalVerdictState(feedReadModel.selectedBotOperationalVerdict?.state)} note={feedReadModel.selectedBotOperationalVerdict?.note || "This bot is still moving toward a cleaner operational verdict."} />
+              <SettingsCard title="Governed Demo Gate" value={formatGovernedDemoGate(feedReadModel.governedDemoGate?.state)} note={feedReadModel.governedDemoGate?.note || "Governed demo remains closed until the fleet reaches close."} />
               <SettingsCard title="Intent Attention" value={formatAttentionPriority(selectedBotCard?.attention?.priority)} note={selectedBotCard?.attention?.note || "No preview churn or intent backlog is standing out right now."} />
               <SettingsCard title="Ownership Health" value={`${formatOwnershipHealthLabel(selectedBotCard?.ownership?.healthLabel)} • ${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${selectedBotCard?.ownership?.unresolvedOwnershipCount || 0} still need linkage`} />
               <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
@@ -1046,6 +1052,10 @@ function formatOperationalVerdictState(value?: string | null) {
   if (normalized === "validating") return "Validating";
   if (normalized === "not-ready") return "Not Ready";
   return "Forming";
+}
+
+function formatGovernedDemoGate(value?: string | null) {
+  return String(value || "").trim() === "open" ? "Open" : "Closed";
 }
 
 function buildOperationalReadinessNote(bot: {

@@ -222,6 +222,10 @@ function formatOperationalVerdict(value?: string | null) {
   return "Forming";
 }
 
+function formatGovernedDemoGate(value?: string | null) {
+  return String(value || "").trim() === "open" ? "Open" : "Closed";
+}
+
 function buildBotAttentionNote(bot: {
   unresolvedOwnershipCount: number;
   reconciliationPct: number;
@@ -985,6 +989,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             tone="info"
             icon={<AutomationBoltIcon />}
           />
+          <BotSummaryCard
+            label="Governed Demo Gate"
+            value={formatGovernedDemoGate(readModel.summary.governedDemoGateState)}
+            note={readModel.summary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}
+            tone="info"
+            icon={<AutomationBoltIcon />}
+          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
@@ -1053,6 +1064,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <strong>Operational Verdict</strong>
                 <p>{formatOperationalVerdict(readModel.summary.operationalVerdictState)}</p>
                 <p>{readModel.summary.operationalVerdictNote || "The safe lane is still being validated."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Governed Demo Gate</strong>
+                <p>{formatGovernedDemoGate(readModel.summary.governedDemoGateState)}</p>
+                <p>{readModel.summary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}</p>
               </article>
             </div>
           </section>

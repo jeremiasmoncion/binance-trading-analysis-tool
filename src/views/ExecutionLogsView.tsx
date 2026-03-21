@@ -512,6 +512,12 @@ export function ExecutionLogsView() {
             sub={readModel.botSummary.operationalVerdictNote || "The governed paper/demo lane is still forming its operational verdict."}
             accentClass="accent-amber"
           />
+          <StatCard
+            label="Governed Demo Gate"
+            value={formatGovernedDemoGate(readModel.botSummary.governedDemoGateState)}
+            sub={readModel.botSummary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}
+            accentClass="accent-blue"
+          />
         </div>
 
         <SectionCard className="template-panel">
@@ -572,6 +578,11 @@ export function ExecutionLogsView() {
                   stable ready bots
                 </p>
                 <p>{readModel.botSummary.operationalVerdictNote || "The governed paper/demo lane is still forming its operational verdict."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Governed Demo Gate</strong>
+                <p>{formatGovernedDemoGate(readModel.botSummary.governedDemoGateState)}</p>
+                <p>{readModel.botSummary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}</p>
               </article>
             </div>
           ) : null}
@@ -909,6 +920,10 @@ function formatOperationalVerdict(value?: string | null) {
   if (normalized === "validating") return "Validating";
   if (normalized === "not-ready") return "Not Ready";
   return "Forming";
+}
+
+function formatGovernedDemoGate(value?: string | null) {
+  return String(value || "").trim() === "open" ? "Open" : "Closed";
 }
 
 function rankSymbols(symbols: Array<string | null | undefined>) {

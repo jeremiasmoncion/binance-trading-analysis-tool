@@ -1170,6 +1170,23 @@ function summarizeBotOperationalVerdict(bot: {
   };
 }
 
+function summarizeGovernedDemoGate(input: {
+  operationalVerdictState: string;
+  operationalVerdictNote: string;
+  stableReadyBots: number;
+}) {
+  const verdictState = String(input.operationalVerdictState || "").trim();
+  const state = verdictState === "close" ? "open" : "closed";
+  const note = state === "open"
+    ? `${input.stableReadyBots} stable ready bots currently keep the governed demo gate open.`
+    : `Governed demo stays closed until the fleet operational verdict reaches close. ${input.operationalVerdictNote}`.trim();
+
+  return {
+    state,
+    note,
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1646,6 +1663,11 @@ export function useSignalsBotsReadModel() {
           executionIntentSummary: selectedBotCard.executionIntentSummary,
         })
       : null;
+    const governedDemoGate = summarizeGovernedDemoGate({
+      operationalVerdictState: fleetOperationalVerdict.state,
+      operationalVerdictNote: fleetOperationalVerdict.note,
+      stableReadyBots: fleetSafeLaneStability.stableReadyBots,
+    });
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
@@ -1713,6 +1735,7 @@ export function useSignalsBotsReadModel() {
       selectedBotAdaptationSummary,
       selectedBotExecutionIntentSummary,
       selectedBotOperationalVerdict,
+      governedDemoGate,
       attentionBots,
       attentionBotIds: attentionCandidates.map((bot) => bot.id),
       readyContention,
@@ -1744,6 +1767,8 @@ export function useSignalsBotsReadModel() {
         stableReadyBots: fleetSafeLaneStability.stableReadyBots,
         operationalVerdictState: fleetOperationalVerdict.state,
         operationalVerdictNote: fleetOperationalVerdict.note,
+        governedDemoGateState: governedDemoGate.state,
+        governedDemoGateNote: governedDemoGate.note,
         contendedReadySymbols: readyContention.contendedReadySymbols,
         contendedReadyBots: readyContention.contendedReadyBots,
       },

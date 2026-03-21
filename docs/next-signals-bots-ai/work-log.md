@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` governed demo gate summaries round
+
+### Completed
+
+- Added a shared `Governed Demo Gate` summary derived from the fleet operational verdict.
+- Surfaced that gate in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the final `demo` unlock no longer needs to be inferred from verdict language alone.
+- Kept the gate fully derived from the shared read-model seam instead of teaching each screen its own demo-readiness interpretation.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids leaving the final governed `demo` unlock implicit after the runtime already became `close`-only.
+- It also avoids making operators translate `operational verdict` into a second mental rule every time they review the fleet, a selected bot, or the execution console.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use this explicit demo gate for a final concurrency validation pass
+  - confirm that the fleet can keep the governed demo gate open under repeated multi-bot cycles
+  - keep real trading execution out of scope until that gate stays open repeatably
+
+### Phase
+
 `Bot Core` demo verdict close-only round
 
 ### Completed

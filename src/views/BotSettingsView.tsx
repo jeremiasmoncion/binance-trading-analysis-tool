@@ -216,6 +216,7 @@ function buildBotAttentionNote(bot: {
   previewPardonCount?: number;
   previewManualClearCount?: number;
   previewHardResetCount?: number;
+  readyContentionAutoPromotionCount?: number;
   healthLabel?: string;
 }) {
   const parts = [
@@ -241,6 +242,9 @@ function buildBotAttentionNote(bot: {
   if (bot.previewHardResetCount) {
     parts.push(`${bot.previewHardResetCount} hard resets`);
     parts.push("final override reached");
+  }
+  if (bot.readyContentionAutoPromotionCount) {
+    parts.push(`${bot.readyContentionAutoPromotionCount} queue auto-promotions`);
   }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
@@ -321,6 +325,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
         previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
         previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
+        readyContentionAutoPromotionCount: bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0,
         operationalReadiness: bot.operationalReadiness?.state || "monitor",
         readyContention: {
           isContended: bot.readyContention?.isContended || false,

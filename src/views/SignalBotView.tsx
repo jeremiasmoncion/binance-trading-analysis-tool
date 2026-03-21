@@ -533,7 +533,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   <MetricTile
                     label="Paper Readiness"
                     value={formatOperationalReadinessState(selectedBotCard?.operationalReadiness?.state)}
-                    note={buildOperationalReadinessNote(selectedBotCard)}
+                    note={`${buildOperationalReadinessNote(selectedBotCard)}${feedReadModel.selectedBotExecutionIntentSummary?.readyContentionAutoPromotionCount ? ` Queue auto-promotions: ${feedReadModel.selectedBotExecutionIntentSummary.readyContentionAutoPromotionCount}.` : ""}`}
                   />
                 </div>
               </SectionCard>
@@ -969,6 +969,8 @@ function buildPreviewChurnNote(bot: {
     manuallyClearedPreviewCount?: number;
     previewHardResetCount?: number;
     hardResetPreviewCount?: number;
+    readyContentionAutoPromotionCount?: number;
+    autoPromotedContentionIntentCount?: number;
   } | null;
   attention?: {
     priority?: string | null;
@@ -985,6 +987,8 @@ function buildPreviewChurnNote(bot: {
   const manuallyClearedIntentCount = summary?.manuallyClearedPreviewCount || 0;
   const hardResetCount = summary?.previewHardResetCount || 0;
   const hardResetIntentCount = summary?.hardResetPreviewCount || 0;
+  const autoPromotionCount = summary?.readyContentionAutoPromotionCount || 0;
+  const autoPromotedIntentCount = summary?.autoPromotedContentionIntentCount || 0;
   const priority = String(bot?.attention?.priority || "").trim();
 
   if (!expiredCount && !refreshCount) {
@@ -1010,6 +1014,9 @@ function buildPreviewChurnNote(bot: {
   if (hardResetCount > 0) {
     parts.push(`${hardResetCount} hard resets across ${hardResetIntentCount} intents`);
     parts.push("Hard reset is the final paper-lane override before the bot remains in manual review.");
+  }
+  if (autoPromotionCount > 0) {
+    parts.push(`${autoPromotionCount} queue auto-promotions across ${autoPromotedIntentCount} intents`);
   }
   if (priority === "urgent") {
     parts.push("This churn is now severe enough to keep the bot in urgent attention.");

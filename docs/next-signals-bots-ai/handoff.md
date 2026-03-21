@@ -59,6 +59,8 @@ The redesign also now has dedicated documentation for:
 - surfaced queue position and leader language in `Signal Bot`, `Bot Settings`, and `Execution Logs`
 - added automatic promotion back to `dispatch-requested` when a contention-blocked follower no longer has a live paper-lane leader ahead of it
 - kept that promotion inside the existing operational loop and decision metadata instead of creating a separate queue worker
+- added shared telemetry for queue auto-promotions so concurrent safe-lane validation can measure how often followers are being re-promoted automatically
+- surfaced queue auto-promotion counts in `Signal Bot`, `Bot Settings`, and `Execution Logs`
 
 - mapped major current components related to:
   - strategy generation

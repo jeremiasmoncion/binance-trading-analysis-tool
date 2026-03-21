@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` ready queue promotion telemetry round
+
+### Completed
+
+- Added shared telemetry for automatic queue promotions after ready contention clears.
+- The operational loop now persists auto-promotion counts directly on the decision metadata.
+- The shared execution-intent summary now exposes:
+  - `readyContentionAutoPromotionCount`
+  - `autoPromotedContentionIntentCount`
+- `Signal Bot`, `Bot Settings`, and `Execution Logs` now surface that queue churn so we can see whether followers are advancing smoothly or bouncing too often.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids relying on intuition when validating concurrent safe-lane behavior.
+- It also avoids adding another observability seam just to understand queue auto-promotions.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - validate repeated leader-clear -> follower-promotion cycles with this new telemetry
+  - decide whether excessive queue auto-promotions should eventually count against attention or readiness
+  - keep real trading execution out of scope until concurrent safe-lane sequencing stays stable
+
+### Phase
+
 `Bot Core` ready queue auto-promotion round
 
 ### Completed

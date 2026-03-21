@@ -618,6 +618,8 @@ export function useBotOperationalLoop() {
             executionIntentLaneStatus: "dispatch-requested",
             executionIntentLastUpdatedAt: new Date().toISOString(),
             executionIntentDispatchRequestedAt: new Date().toISOString(),
+            executionIntentReadyContentionAutoPromotionCount: Number(decision.metadata?.executionIntentReadyContentionAutoPromotionCount || 0) + 1,
+            executionIntentReadyContentionAutoPromotedAt: new Date().toISOString(),
             executionIntentReason: contention.isLeader
               ? `Ready contention cleared enough for automatic promotion because this bot now leads ${contention.pair || decision.symbol}.`
               : `Ready contention cleared enough for automatic promotion because no peer bot is still ahead on ${contention.pair || decision.symbol}.`,

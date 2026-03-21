@@ -849,6 +849,7 @@ function createExecutionIntentSummary<
       previewPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
       previewManualClearCount: Number(decision.metadata?.executionIntentPreviewChurnManualClearCount || 0) || 0,
       previewHardResetCount: Number(decision.metadata?.executionIntentPreviewChurnHardResetCount || 0) || 0,
+      readyContentionAutoPromotionCount: Number(decision.metadata?.executionIntentReadyContentionAutoPromotionCount || 0) || 0,
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -880,6 +881,8 @@ function createExecutionIntentSummary<
     previewManualClearCount: ranked.reduce((sum, entry) => sum + entry.previewManualClearCount, 0),
     hardResetPreviewCount: ranked.filter((entry) => entry.previewHardResetCount > 0).length,
     previewHardResetCount: ranked.reduce((sum, entry) => sum + entry.previewHardResetCount, 0),
+    autoPromotedContentionIntentCount: ranked.filter((entry) => entry.readyContentionAutoPromotionCount > 0).length,
+    readyContentionAutoPromotionCount: ranked.reduce((sum, entry) => sum + entry.readyContentionAutoPromotionCount, 0),
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,

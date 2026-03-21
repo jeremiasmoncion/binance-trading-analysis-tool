@@ -377,6 +377,8 @@ export function ExecutionLogsView() {
         previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
         previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
         previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
+        autoPromotedContentionIntentCount: bot.executionIntentSummary?.autoPromotedContentionIntentCount || 0,
+        readyContentionAutoPromotionCount: bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0,
         executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
         awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
         blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
@@ -571,6 +573,11 @@ export function ExecutionLogsView() {
                   <p>
                     Recovery: {bot.previewExpiredCount} expired · {bot.previewPardonCount} pardons · {bot.previewManualClearCount} manual clears · {bot.previewHardResetCount} hard resets · {countRecoveryReviewRequired(botLogsFromBot(bot.id, filteredLogs))} manual review required
                   </p>
+                  {bot.readyContentionAutoPromotionCount ? (
+                    <p>
+                      Queue auto-promotions: {bot.readyContentionAutoPromotionCount} across {bot.autoPromotedContentionIntentCount} intents
+                    </p>
+                  ) : null}
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>
                       Dispatch: {formatDispatchMode(bot.latestDispatchMode)} · {formatDispatchStatus(bot.latestDispatchStatus)}

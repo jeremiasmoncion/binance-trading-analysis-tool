@@ -390,6 +390,7 @@ The redesign also now has dedicated documentation for:
   - expired preview load and preview refresh churn now surface in `Bot Settings` weakest-bot diagnostics instead of staying implicit
   - severe preview churn now also surfaces inside `Signal Bot` as `Preview Churn` and `Intent Attention`, keeping paper-lane instability visible on the selected bot itself
   - severe preview churn now also pauses new `paper` dispatches inside the shared operational loop, with the block reason persisted on the same bot-decision seam
+  - `Execution Logs` now lets the operator grant a one-time churn pardon for a decision blocked by severe preview churn, and the shared runtime consumes that pardon once during the next paper dispatch attempt
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

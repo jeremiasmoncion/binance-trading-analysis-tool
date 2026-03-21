@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` preview churn pardon round
+
+### Completed
+
+- Added an operator-controlled recovery path for paper preview churn pauses.
+- `Execution Logs` now lets the operator grant a one-time churn pardon on a decision blocked by severe preview churn.
+- The pardon moves the decision back into:
+  - `executionIntentStatus = ready`
+  - `executionIntentLaneStatus = dispatch-requested`
+- The shared operational loop now consumes that pardon once, allowing a controlled recovery preview attempt instead of reopening the whole bot policy.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids making severe preview churn pauses irreversible.
+- It also avoids bypassing runtime safety by reopening the whole paper lane outside the shared bot-decision seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether churn pardons should be counted separately in bot diagnostics
+  - decide whether repeated pardons should eventually stop being allowed without stronger review
+  - keep real trading execution out of scope until paper/demo recovery paths stay disciplined under repeated churn
+
+### Phase
+
 `Bot Core` paper churn dispatch pause round
 
 ### Completed

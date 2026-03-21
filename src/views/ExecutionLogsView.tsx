@@ -170,6 +170,41 @@ export function ExecutionLogsView() {
     }
   };
 
+  const handlePardonPreviewChurn = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Granting preview pardon",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentPreviewChurnPardonGrantedAt: now,
+          executionIntentReason: "Paper preview churn pardon granted from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Preview pardon granted",
+        message: `${decision.symbol} can attempt one recovery preview dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Preview pardon failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
   const readModel = useMemo(() => {
     const orders = botsReadModel.allBotExecutionTimeline;
     const botNameById = new Map(botsReadModel.botCards.map((bot) => [bot.id, bot.name]));
@@ -508,6 +543,8 @@ export function ExecutionLogsView() {
                           </>
                         ) : entry.decision.executionIntentLaneStatus === "queued" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
                         ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleRefreshPreview(entry.decision)}>Refresh Preview</button>
                         ) : (
@@ -646,6 +683,11 @@ function formatSymbolRanking(items: Array<{ symbol: string; count: number }>) {
 
 function isFailedDecision(decision: { status: string }) {
   return decision.status === "blocked" || decision.status === "dismissed";
+}
+
+function isPreviewChurnBlockedDecision(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
+    && String(decision.executionIntentReason || "").toLowerCase().includes("preview churn is severe");
 }
 
 function isFailedOrder(order: ExecutionLogOrderEntry) {

@@ -313,6 +313,14 @@ function getBotPreviewChurnSummary(botId: string, decisions: BotDecisionRecord[]
   };
 }
 
+function hasActivePreviewChurnPardon(decision: BotDecisionRecord) {
+  const grantedAt = String(decision.metadata?.executionIntentPreviewChurnPardonGrantedAt || "").trim();
+  const consumedAt = String(decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || "").trim();
+  if (!grantedAt) return false;
+  if (!consumedAt) return true;
+  return new Date(grantedAt).getTime() > new Date(consumedAt).getTime();
+}
+
 function getDispatchModeForLane(lane: string) {
   if (lane === "paper") return "preview" as const;
   if (lane === "demo") return "execute" as const;
@@ -519,6 +527,7 @@ export function useBotOperationalLoop() {
                 executionIntentLaneStatus: "blocked",
                 executionIntentLastUpdatedAt: now,
                 executionIntentDispatchAttemptedAt: now,
+                executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentReason: `The ${lane || "unknown"} lane cannot dispatch through the shared paper/demo adapter.`,
               },
@@ -526,7 +535,7 @@ export function useBotOperationalLoop() {
             continue;
           }
 
-          if (dispatchMode === "preview" && previewChurn.severePreviewChurn) {
+          if (dispatchMode === "preview" && previewChurn.severePreviewChurn && !hasActivePreviewChurnPardon(decision)) {
             await updateDecision(decision.id, {
               status: "blocked",
               metadata: {
@@ -534,6 +543,7 @@ export function useBotOperationalLoop() {
                 executionIntentLaneStatus: "blocked",
                 executionIntentLastUpdatedAt: now,
                 executionIntentDispatchAttemptedAt: now,
+                executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentDispatchMode: dispatchMode,
                 executionIntentDispatchSignalId: signalId,
@@ -551,6 +561,7 @@ export function useBotOperationalLoop() {
                 executionIntentLaneStatus: "blocked",
                 executionIntentLastUpdatedAt: now,
                 executionIntentDispatchAttemptedAt: now,
+                executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentReason: "The bot intent is missing a published signal id for paper/demo dispatch.",
               },
@@ -574,6 +585,7 @@ export function useBotOperationalLoop() {
                 executionIntentLaneStatus: "blocked",
                 executionIntentLastUpdatedAt: now,
                 executionIntentDispatchAttemptedAt: now,
+                executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentDispatchStatus: candidateStatus || "failed",
                 executionIntentDispatchMode: dispatchMode,
                 executionIntentDispatchSignalId: signalId,
@@ -591,6 +603,7 @@ export function useBotOperationalLoop() {
               executionIntentLastUpdatedAt: now,
               executionIntentDispatchAttemptedAt: now,
               executionIntentDispatchedAt: now,
+              executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
               executionIntentDispatchStatus: candidateStatus || "submitted",
               executionIntentDispatchMode: dispatchMode,
               executionIntentDispatchSignalId: signalId,

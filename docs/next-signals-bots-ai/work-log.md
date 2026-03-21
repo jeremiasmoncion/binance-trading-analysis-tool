@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` paper churn dispatch pause round
+
+### Completed
+
+- Severe paper-preview churn now pauses new paper dispatches inside the shared operational loop.
+- The runtime now reuses the same preview churn thresholds already surfaced in the shared bot-attention seam.
+- When a bot crosses severe preview churn:
+  - new `paper` dispatches are blocked
+  - the decision stays in the same governed seam with an explicit operational reason
+- This keeps paper-lane safety enforcement inside the runtime instead of only surfacing it in UI.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids continuing to dispatch paper previews from bots whose preview lane is already unstable.
+- It also avoids a mismatch where UI says `urgent` but the runtime still keeps dispatching normally.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether execution review should expose a dedicated `paper churn paused` filter
+  - decide whether operators can explicitly clear/pardon churn before paper dispatch resumes
+  - keep real trading execution out of scope until the paper/demo lane can recover cleanly from churn pauses
+
+### Phase
+
 `Bot Core` selected-bot intent attention round
 
 ### Completed

@@ -285,6 +285,34 @@ function getDecisionIntentLaneStatus(decision: BotDecisionRecord) {
   return String(decision.metadata?.executionIntentLaneStatus || "").trim();
 }
 
+function isOlderThanHours(value: unknown, hours: number) {
+  const timestamp = new Date(String(value || "")).getTime();
+  if (!Number.isFinite(timestamp)) return false;
+  return Date.now() - timestamp > hours * 60 * 60 * 1000;
+}
+
+function getEffectiveDecisionIntentLaneStatus(decision: BotDecisionRecord) {
+  const laneStatus = getDecisionIntentLaneStatus(decision);
+  if (laneStatus === "preview-recorded" && isOlderThanHours(decision.updatedAt || decision.createdAt, 6)) {
+    return "preview-expired";
+  }
+  return laneStatus;
+}
+
+function getBotPreviewChurnSummary(botId: string, decisions: BotDecisionRecord[]) {
+  const botDecisions = decisions.filter((decision) => decision.botId === botId);
+  const previewExpiredCount = botDecisions.filter((decision) => getEffectiveDecisionIntentLaneStatus(decision) === "preview-expired").length;
+  const previewRefreshCount = botDecisions.reduce(
+    (sum, decision) => sum + (Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0),
+    0,
+  );
+  return {
+    previewExpiredCount,
+    previewRefreshCount,
+    severePreviewChurn: previewExpiredCount >= 2 || previewRefreshCount >= 3,
+  };
+}
+
 function getDispatchModeForLane(lane: string) {
   if (lane === "paper") return "preview" as const;
   if (lane === "demo") return "execute" as const;
@@ -481,6 +509,7 @@ export function useBotOperationalLoop() {
           const dispatchMode = getDispatchModeForLane(lane);
           const signalId = getDispatchSignalId(decision);
           const now = new Date().toISOString();
+          const previewChurn = getBotPreviewChurnSummary(decision.botId, decisions);
 
           if (!dispatchMode) {
             await updateDecision(decision.id, {
@@ -492,6 +521,23 @@ export function useBotOperationalLoop() {
                 executionIntentDispatchAttemptedAt: now,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentReason: `The ${lane || "unknown"} lane cannot dispatch through the shared paper/demo adapter.`,
+              },
+            });
+            continue;
+          }
+
+          if (dispatchMode === "preview" && previewChurn.severePreviewChurn) {
+            await updateDecision(decision.id, {
+              status: "blocked",
+              metadata: {
+                ...decision.metadata,
+                executionIntentLaneStatus: "blocked",
+                executionIntentLastUpdatedAt: now,
+                executionIntentDispatchAttemptedAt: now,
+                executionIntentDispatchStatus: "blocked",
+                executionIntentDispatchMode: dispatchMode,
+                executionIntentDispatchSignalId: signalId,
+                executionIntentReason: `Paper preview dispatch paused because preview churn is severe (${previewChurn.previewExpiredCount} expired / ${previewChurn.previewRefreshCount} refreshes).`,
               },
             });
             continue;

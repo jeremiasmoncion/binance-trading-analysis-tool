@@ -86,6 +86,8 @@ The estimate does not need to claim absolute certainty, but it should make the r
 - kept `Execution Logs` on the shared seam instead of creating a console-specific operational verdict
 - promoted the shared fleet `operational verdict` into a runtime guardrail so `demo` dispatch now pauses when the lane is still `forming` or `not-ready`
 - kept recovery for those verdict-paused intents inside `Execution Logs` by allowing the same retry path once the fleet verdict improves
+- tightened that guardrail further so governed `demo` dispatch now unlocks only when the shared fleet verdict reaches `close`
+- stopped treating `validating` as sufficient for demo progression, keeping the lane conservative until the shared stability threshold is truly met
 
 - mapped major current components related to:
   - strategy generation

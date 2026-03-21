@@ -741,7 +741,7 @@ export function useBotOperationalLoop() {
 
           if (
             dispatchMode === "execute"
-            && ["forming", "not-ready"].includes(String(botsReadModel.botSummary.operationalVerdictState || "").trim())
+            && String(botsReadModel.botSummary.operationalVerdictState || "").trim() !== "close"
           ) {
             await updateDecision(decision.id, {
               status: "blocked",
@@ -753,7 +753,7 @@ export function useBotOperationalLoop() {
                 executionIntentDispatchStatus: "blocked",
                 executionIntentDispatchMode: dispatchMode,
                 executionIntentDispatchSignalId: signalId,
-                executionIntentReason: `Demo dispatch paused because the fleet operational verdict is ${String(botsReadModel.botSummary.operationalVerdictState || "forming").trim() || "forming"}: ${botsReadModel.botSummary.operationalVerdictNote || "the governed paper/demo lane is not stable enough yet."}`,
+                executionIntentReason: `Demo dispatch paused because the fleet operational verdict is ${String(botsReadModel.botSummary.operationalVerdictState || "forming").trim() || "forming"} and only close currently unlocks governed demo flow: ${botsReadModel.botSummary.operationalVerdictNote || "the governed paper/demo lane is not stable enough yet."}`,
               },
             });
             continue;

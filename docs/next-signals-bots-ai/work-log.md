@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` demo verdict close-only round
+
+### Completed
+
+- Tightened the governed `demo` lane so fleet `operational verdict = close` is now required before demo dispatch can advance.
+- Stopped treating `validating` as good enough for demo execution progression.
+- Kept the retry path inside `Execution Logs`, but only after the shared verdict actually improves to the stricter threshold.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids letting the team read `validating` as if it were already equivalent to stable governed execution.
+- It also avoids opening demo flow too early while queue churn, contention, or recovery pressure still keep the lane under validation.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use this close-only gate for a final concurrency validation pass
+  - confirm the fleet can actually stay in `close` under repeated multi-bot cycles
+  - keep real trading execution out of scope until that `close` verdict holds repeatably
+
+### Phase
+
 `Bot Core` demo dispatch verdict guardrail round
 
 ### Completed

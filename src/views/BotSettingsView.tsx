@@ -195,17 +195,6 @@ function slugifyBotName(value: string) {
     .replace(/(^-|-$)/g, "") || "signal-bot";
 }
 
-function capitalize(value: string) {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
-}
-
-function summarizeAdaptationBias(value: string) {
-  if (!value) return "Adaptation still converging";
-  if (value.includes("keeping adaptive adjustments enabled")) return "Adaptive posture looks supported";
-  if (value.includes("stay cautious")) return "Adaptive posture still cautious";
-  return value;
-}
-
 function formatSafeLaneStability(value?: string | null) {
   const normalized = String(value || "").trim();
   if (normalized === "stable") return "Stable";

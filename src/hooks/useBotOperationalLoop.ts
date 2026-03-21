@@ -11,6 +11,7 @@ import {
 import { systemDataPlaneStore } from "../data-platform/systemDataPlane";
 import { useBotDecisionsState } from "./useBotDecisions";
 import { useMarketSignalsCore } from "./useMarketSignalsCore";
+import { useSignalsBotsReadModel } from "./useSignalsBotsReadModel";
 import { useSelectedBotState } from "./useSelectedBot";
 
 const MAX_PREVIEW_CHURN_PARDONS = 2;
@@ -491,6 +492,7 @@ export function useBotOperationalLoop() {
   const { state: registryState, hydrated: botsHydrated } = useSelectedBotState();
   const { decisions, hydrated: decisionsHydrated, createDecision, updateDecision } = useBotDecisionsState();
   const core = useMarketSignalsCore();
+  const botsReadModel = useSignalsBotsReadModel();
   const loopFingerprintRef = useRef("");
   const intentLaneFingerprintRef = useRef("");
   const dispatchInFlightRef = useRef(new Set<string>());
@@ -737,6 +739,26 @@ export function useBotOperationalLoop() {
             continue;
           }
 
+          if (
+            dispatchMode === "execute"
+            && ["forming", "not-ready"].includes(String(botsReadModel.botSummary.operationalVerdictState || "").trim())
+          ) {
+            await updateDecision(decision.id, {
+              status: "blocked",
+              metadata: {
+                ...decision.metadata,
+                executionIntentLaneStatus: "blocked",
+                executionIntentLastUpdatedAt: now,
+                executionIntentDispatchAttemptedAt: now,
+                executionIntentDispatchStatus: "blocked",
+                executionIntentDispatchMode: dispatchMode,
+                executionIntentDispatchSignalId: signalId,
+                executionIntentReason: `Demo dispatch paused because the fleet operational verdict is ${String(botsReadModel.botSummary.operationalVerdictState || "forming").trim() || "forming"}: ${botsReadModel.botSummary.operationalVerdictNote || "the governed paper/demo lane is not stable enough yet."}`,
+              },
+            });
+            continue;
+          }
+
           if (!signalId) {
             await updateDecision(decision.id, {
               status: "blocked",
@@ -812,5 +834,5 @@ export function useBotOperationalLoop() {
     return () => {
       cancelled = true;
     };
-  }, [decisions, pendingDispatches, registryState.bots, updateDecision]);
+  }, [botsReadModel.botSummary.operationalVerdictNote, botsReadModel.botSummary.operationalVerdictState, decisions, pendingDispatches, registryState.bots, updateDecision]);
 }

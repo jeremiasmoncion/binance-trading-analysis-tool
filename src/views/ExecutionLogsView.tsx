@@ -758,7 +758,7 @@ export function ExecutionLogsView() {
                           </>
                         ) : entry.decision.executionIntentLaneStatus === "queued" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
-                        ) : isReadyContentionBlockedDecision(entry.decision) ? (
+                        ) : isReadyContentionBlockedDecision(entry.decision) || isOperationalVerdictBlockedDecision(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleRetryReadyContention(entry.decision)}>Retry Dispatch</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnPardons(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
@@ -941,6 +941,11 @@ function isPreviewChurnBlockedDecision(decision: DecisionLogEntry) {
 function isReadyContentionBlockedDecision(decision: DecisionLogEntry) {
   return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
     && String(decision.executionIntentReason || "").toLowerCase().includes("ready contention is active");
+}
+
+function isOperationalVerdictBlockedDecision(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
+    && String(decision.executionIntentReason || "").toLowerCase().includes("fleet operational verdict");
 }
 
 function hasRemainingPreviewChurnPardons(decision: DecisionLogEntry) {

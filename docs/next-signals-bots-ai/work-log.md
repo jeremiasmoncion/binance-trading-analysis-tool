@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` demo dispatch verdict guardrail round
+
+### Completed
+
+- Promoted the shared fleet `operational verdict` from pure diagnostics into a runtime guardrail for the governed `demo` lane.
+- `useBotOperationalLoop` now pauses `demo` dispatch when the shared verdict is still `forming` or `not-ready`.
+- `Execution Logs` now lets operators retry those dispatches from the same review seam when the fleet verdict improves.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids letting demo execution progress as if the fleet were already operational while the shared verdict still says the safe lane is not mature enough.
+- It also avoids forcing the operator to leave `Execution Logs` just to recover intents that were paused by the fleet-level verdict.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use this stricter verdict-aware runtime to validate repeated concurrent cycles
+  - decide whether `validating` is already strong enough for governed `demo` flow or if only `close` should pass
+  - keep real trading execution out of scope until the shared verdict remains stable under repeated multi-bot cycles
+
+### Phase
+
 `Bot Core` execution-logs operational verdict round
 
 ### Completed

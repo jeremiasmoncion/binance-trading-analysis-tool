@@ -43,6 +43,20 @@ The redesign also now has dedicated documentation for:
 - visual/style architecture
 - single-AI onboarding/context pack
 
+## Reporting Rule
+
+From this point forward, every task close-out should also include a progress estimate expressed as a percentage from `1` to `100` describing how much is still missing to finish:
+
+- the current phase
+- or the current core/workstream being deepened
+
+That percentage should appear in the final report alongside:
+
+- what was done
+- what should be done next
+
+The estimate does not need to claim absolute certainty, but it should make the remaining distance explicit relative to the current target state for the phase/core.
+
 ## What Has Been Done
 
 - added shared `ready contention` diagnostics for the safe lane so the fleet can see when multiple operationally ready bots overlap on the same pair
@@ -70,6 +84,8 @@ The redesign also now has dedicated documentation for:
 - kept the selected-bot verdict derived from the shared read-model seam instead of introducing a local per-screen verdict computation
 - extended that same shared `operational verdict` and `safe-lane stability` language into `Execution Logs` so the review console now uses the same fleet judgment as the hub and selected-bot workspace
 - kept `Execution Logs` on the shared seam instead of creating a console-specific operational verdict
+- promoted the shared fleet `operational verdict` into a runtime guardrail so `demo` dispatch now pauses when the lane is still `forming` or `not-ready`
+- kept recovery for those verdict-paused intents inside `Execution Logs` by allowing the same retry path once the fleet verdict improves
 
 - mapped major current components related to:
   - strategy generation

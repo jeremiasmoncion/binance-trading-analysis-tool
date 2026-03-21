@@ -976,6 +976,10 @@ function createOperationalReadinessSummary(bot: {
   attention?: {
     priority?: string;
   } | null;
+  readyContention?: {
+    isContended?: boolean;
+    peerCount?: number;
+  } | null;
   executionIntentSummary?: {
     readyCount: number;
     queuedCount: number;
@@ -988,6 +992,8 @@ function createOperationalReadinessSummary(bot: {
 }) {
   const summary = bot.executionIntentSummary;
   const isPaperLane = bot.executionEnvironment === "paper";
+  const contentionActive = Boolean(bot.readyContention?.isContended);
+  const contentionPeerCount = Number(bot.readyContention?.peerCount || 0);
   const finalReviewOnly = isPaperLane
     && (summary?.previewHardResetCount || 0) > 0
     && (bot.attention?.priority || "") === "urgent";
@@ -1000,6 +1006,7 @@ function createOperationalReadinessSummary(bot: {
   const dispatchReady = bot.status === "active"
     && !finalReviewOnly
     && (bot.attention?.priority || "") !== "urgent"
+    && !contentionActive
     && (((summary?.readyCount || 0) + (summary?.queuedCount || 0) + (summary?.dispatchRequestedCount || 0)) > 0);
 
   const state = finalReviewOnly
@@ -1016,6 +1023,8 @@ function createOperationalReadinessSummary(bot: {
     finalReviewOnly,
     recoveryActive,
     dispatchReady,
+    contentionActive,
+    contentionPeerCount,
   };
 }
 
@@ -1083,6 +1092,12 @@ function createBotAttentionSummary(bot: {
     unresolvedOwnershipCount: number;
     reconciliationPct: number;
   };
+  readyContention?: {
+    isContended?: boolean;
+    pair?: string | null;
+    peerCount?: number;
+    peerNames?: string[];
+  } | null;
   executionIntentSummary?: {
     previewExpiredCount: number;
     previewRefreshCount: number;
@@ -1105,6 +1120,8 @@ function createBotAttentionSummary(bot: {
   const previewPardonCount = bot.executionIntentSummary?.previewPardonCount || 0;
   const previewManualClearCount = bot.executionIntentSummary?.previewManualClearCount || 0;
   const previewHardResetCount = bot.executionIntentSummary?.previewHardResetCount || 0;
+  const contentionActive = Boolean(bot.readyContention?.isContended);
+  const contentionPeerCount = Number(bot.readyContention?.peerCount || 0);
   const severePreviewChurn = previewExpiredCount >= 2 || previewRefreshCount >= 3;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
@@ -1113,6 +1130,7 @@ function createBotAttentionSummary(bot: {
   score += Math.min(previewPardonCount * 8, 24);
   score += Math.min(previewManualClearCount * 12, 36);
   score += Math.min(previewHardResetCount * 18, 36);
+  score += Math.min(contentionPeerCount * 14, 28);
   if (severePreviewChurn) score += 20;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
@@ -1135,6 +1153,11 @@ function createBotAttentionSummary(bot: {
   if (previewHardResetCount > 0) {
     noteParts.push(`${previewHardResetCount} hard resets were already used across ${bot.executionIntentSummary?.hardResetPreviewCount || 0} intents.`);
     noteParts.push("Hard reset is now the final paper-lane override before the bot stays in manual review.");
+  }
+  if (contentionActive) {
+    noteParts.push(
+      `${contentionPeerCount + 1} ready bots are currently overlapping on ${bot.readyContention?.pair || "the same pair"}${bot.readyContention?.peerNames?.length ? ` (${bot.readyContention.peerNames.join(", ")})` : ""}.`,
+    );
   }
   if (severePreviewChurn) {
     noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");
@@ -1350,16 +1373,13 @@ export function useSignalsBotsReadModel() {
         ),
       };
     }).map((bot) => {
-      const attention = createBotAttentionSummary(bot);
       const operationalReadiness = createOperationalReadinessSummary({
         status: bot.status,
         executionEnvironment: bot.executionEnvironment,
-        attention,
         executionIntentSummary: bot.executionIntentSummary,
       });
       return {
         ...bot,
-        attention,
         operationalReadiness,
       };
     });
@@ -1378,6 +1398,20 @@ export function useSignalsBotsReadModel() {
             ? matchingEntry.botNames.filter((name) => name !== bot.name)
             : [],
         },
+      };
+    }).map((bot) => {
+      const attention = createBotAttentionSummary(bot);
+      const operationalReadiness = createOperationalReadinessSummary({
+        status: bot.status,
+        executionEnvironment: bot.executionEnvironment,
+        attention,
+        readyContention: bot.readyContention,
+        executionIntentSummary: bot.executionIntentSummary,
+      });
+      return {
+        ...bot,
+        attention,
+        operationalReadiness,
       };
     });
 

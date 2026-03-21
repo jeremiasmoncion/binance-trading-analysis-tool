@@ -57,7 +57,7 @@ type ActivityLogEntry =
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
-type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "linked";
+type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "contention" | "linked";
 const MAX_PREVIEW_CHURN_PARDONS = 2;
 const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
 const MAX_PREVIEW_CHURN_HARD_RESETS = 1;
@@ -296,19 +296,21 @@ export function ExecutionLogsView() {
       orders,
       botNameById,
       attentionBotIds,
+      contendedBotIds: new Set((botsReadModel.readyContention?.entries || []).flatMap((entry) => entry.botIds)),
+      readyContention: botsReadModel.readyContention || { entries: [], contendedReadySymbols: 0, contendedReadyBots: 0 },
       attentionBots: botsReadModel.attentionBots || [],
       botCards: botsReadModel.botCards || [],
       successRate: calculateSuccessRate(logs, decisions.length),
       failed: failedOrders + failedDecisions,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notionalUsd || 0), 0),
     };
-  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.attentionBots, botsReadModel.botCards, decisions.length]);
+  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.attentionBots, botsReadModel.botCards, botsReadModel.readyContention, decisions.length]);
 
   const filteredLogs = readModel.logs
     .filter((entry) => matchesTab(entry, activeTab))
     .filter((entry) => matchesOwnership(entry, ownershipFilter))
     .filter((entry) => matchesBotScope(entry, botScope, readModel.attentionBotIds))
-    .filter((entry) => matchesIntent(entry, intentFilter))
+    .filter((entry) => matchesIntent(entry, intentFilter, readModel.contendedBotIds))
     .filter((entry) => matchesSearch(entry, searchQuery, readModel.botNameById));
   const visibleLogs = filteredLogs.slice(0, 12);
   const intentSummaries = useMemo(() => {
@@ -353,6 +355,10 @@ export function ExecutionLogsView() {
         latestDispatchStatus: findLatestDispatchValue(botLogsFromBot(bot.id, filteredLogs), "status"),
         topReadySymbols: bot.executionIntentSummary?.topReadySymbols || [],
         topBlockedSymbols: bot.executionIntentSummary?.topBlockedSymbols || [],
+        contentionActive: bot.readyContention?.isContended || false,
+        contentionPair: bot.readyContention?.pair || bot.workspaceSettings.primaryPair || null,
+        contentionPeerCount: bot.readyContention?.peerCount || 0,
+        contentionPeers: bot.readyContention?.peerNames || [],
       }));
   }, [botScope, readModel.attentionBots, readModel.botCards]);
   const botSummaries = useMemo(() => {
@@ -414,6 +420,10 @@ export function ExecutionLogsView() {
         dispatchMode: latestDispatchEntry?.decision.executionIntentDispatchMode || null,
         dispatchStatus: latestDispatchEntry?.decision.executionIntentDispatchStatus || null,
         dispatchReason: latestDispatchEntry?.decision.executionIntentReason || null,
+        contentionActive: bot.readyContention?.isContended || false,
+        contentionPair: bot.readyContention?.pair || bot.workspaceSettings.primaryPair || null,
+        contentionPeerCount: bot.readyContention?.peerCount || 0,
+        contentionPeers: bot.readyContention?.peerNames || [],
         latestTimestamp: latestEntry
           ? formatTimestamp(latestEntry.kind === "decision"
             ? (latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt)
@@ -486,10 +496,29 @@ export function ExecutionLogsView() {
               <button type="button" className={`template-chip ${intentFilter === "awaiting-approval" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("awaiting-approval")}>Awaiting Approval</button>
               <button type="button" className={`template-chip ${intentFilter === "blocked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("blocked")}>Blocked Intents</button>
               <button type="button" className={`template-chip ${intentFilter === "recovery" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("recovery")}>Recovery Governance</button>
+              <button type="button" className={`template-chip ${intentFilter === "contention" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("contention")}>Ready Contention</button>
               <button type="button" className={`template-chip ${intentFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("linked")}>Linked Intents</button>
               <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setIntentFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
+
+          {readModel.readyContention.entries.length ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              <article className="signalbot-insight-card">
+                <strong>Ready Contention Review</strong>
+                <p>
+                  {readModel.readyContention.entries.slice(0, 4).map((entry) => `${entry.pair} (${entry.count})`).join(", ")}
+                </p>
+                <p>
+                  {readModel.readyContention.contendedReadyBots} ready bots are sharing
+                  {" "}
+                  {readModel.readyContention.contendedReadySymbols}
+                  {" "}
+                  safe-lane market slots right now.
+                </p>
+              </article>
+            </div>
+          ) : null}
 
           {intentSummaries.length ? (
             <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
@@ -517,6 +546,13 @@ export function ExecutionLogsView() {
                       {bot.topReadySymbols.length ? `Ready: ${formatSymbolRanking(bot.topReadySymbols)}` : "Ready: clear"}
                       {" · "}
                       {bot.topBlockedSymbols.length ? `Blocked: ${formatSymbolRanking(bot.topBlockedSymbols)}` : "Blocked: clear"}
+                    </p>
+                  ) : null}
+                  {bot.contentionActive ? (
+                    <p>
+                      Ready contention: {bot.contentionPair || bot.pair}
+                      {" · "}
+                      peers: {bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}
                     </p>
                   ) : null}
                   <p>{bot.latestGuardrailReason || "The shared intent lane is now available for paper/demo review."}</p>
@@ -553,6 +589,13 @@ export function ExecutionLogsView() {
                       {bot.bestSymbol ? `Best pocket: ${bot.bestSymbol}` : "Best pocket: forming"}
                       {" · "}
                       {bot.weakestSymbol ? `Weak pocket: ${bot.weakestSymbol}` : "Weak pocket: not clear"}
+                    </p>
+                  ) : null}
+                  {bot.contentionActive ? (
+                    <p>
+                      Ready contention: {bot.contentionPair || bot.pair}
+                      {" · "}
+                      peers: {bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}
                     </p>
                   ) : null}
                   {bot.dispatchMode || bot.dispatchStatus ? (
@@ -696,8 +739,12 @@ function matchesBotScope(entry: ActivityLogEntry, scope: ActivityBotScope, atten
   return Boolean(botId && attentionBotIds.has(botId));
 }
 
-function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter) {
+function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter, contendedBotIds?: Set<string>) {
   if (filter === "all") return true;
+  if (filter === "contention") {
+    const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
+    return Boolean(botId && contendedBotIds?.has(botId));
+  }
   if (entry.kind !== "decision") return false;
   const laneStatus = String(entry.decision.executionIntentLaneStatus || "").trim();
   if (!laneStatus) return false;

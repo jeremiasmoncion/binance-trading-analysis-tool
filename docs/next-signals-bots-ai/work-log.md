@@ -4,6 +4,37 @@
 
 ### Phase
 
+`Bot Core` ready contention governance round
+
+### Completed
+
+- Promoted `ready contention` from a visual-only diagnostic into shared operational logic.
+- Bots now pick up contention pressure inside the shared attention summary, and contended ready bots no longer stay counted as clean dispatch-ready in the safe lane.
+- `Signal Bot` now explains when the selected bot is being held out of clean readiness by shared-lane contention.
+- `Execution Logs` now has:
+  - a `Ready Contention` filter
+  - a contention review block
+  - contention notes inside bot and intent summaries
+- This keeps concurrent multi-bot pressure visible in the same operational surfaces already used for safe-lane review.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids labeling contended bots as operationally ready when they still share the same safe-lane market slot.
+- It also avoids leaving concurrency pressure trapped as a passive dashboard note with no effect on readiness or review flow.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether severe ready contention should eventually block or stagger dispatch automatically
+  - validate concurrent safe-lane behavior with multiple active bots using this stricter readiness model
+  - keep real trading execution out of scope until shared-lane contention behaves predictably
+
+### Phase
+
 `Bot Core` ready contention diagnostics round
 
 ### Completed

@@ -1030,6 +1030,12 @@ function formatOperationalReadinessState(value?: string | null) {
 function buildOperationalReadinessNote(bot: {
   operationalReadiness?: {
     state?: string;
+    contentionActive?: boolean;
+    contentionPeerCount?: number;
+  } | null;
+  readyContention?: {
+    pair?: string | null;
+    peerNames?: string[];
   } | null;
   executionEnvironment?: string | null;
   attention?: {
@@ -1042,14 +1048,21 @@ function buildOperationalReadinessNote(bot: {
   } | null;
 } | null) {
   const state = String(bot?.operationalReadiness?.state || "").trim();
+  const contentionActive = Boolean(bot?.operationalReadiness?.contentionActive);
+  const contentionNote = contentionActive
+    ? ` Ready contention is currently active on ${bot?.readyContention?.pair || "the same pair"}${bot?.readyContention?.peerNames?.length ? ` with ${bot.readyContention.peerNames.join(", ")}` : ""}.`
+    : "";
   if (state === "ready") {
-    return `${bot?.executionIntentSummary?.readyCount || 0} ready • ${bot?.executionIntentSummary?.queuedCount || 0} queued • ${bot?.executionIntentSummary?.dispatchRequestedCount || 0} dispatch requested inside the governed ${bot?.executionEnvironment || "paper"} lane.`;
+    return `${bot?.executionIntentSummary?.readyCount || 0} ready • ${bot?.executionIntentSummary?.queuedCount || 0} queued • ${bot?.executionIntentSummary?.dispatchRequestedCount || 0} dispatch requested inside the governed ${bot?.executionEnvironment || "paper"} lane.${contentionNote}`;
   }
   if (state === "recovery") {
-    return bot?.attention?.note || "This bot is still moving through paper-lane recovery governance.";
+    return `${bot?.attention?.note || "This bot is still moving through paper-lane recovery governance."}${contentionNote}`.trim();
   }
   if (state === "final-review") {
     return "The paper lane exhausted its governed recovery overrides and now stays in final manual review.";
+  }
+  if (contentionActive) {
+    return `This bot is ready in isolation, but shared-lane contention with ${bot?.operationalReadiness?.contentionPeerCount || 0} peer bots is keeping it out of a clean dispatch-ready state.`;
   }
   return "The bot is not yet in a clean dispatch-ready state under the current governance model.";
 }

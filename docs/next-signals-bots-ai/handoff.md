@@ -50,6 +50,9 @@ The redesign also now has dedicated documentation for:
 - surfaced that contention in `Bot Settings` inside the fleet `Operational Readiness` section
 - annotated `Bots Needing Attention` when a weak bot is also overlapping with another ready peer on the same pair
 - kept concurrency diagnostics inside the same read-model seam instead of creating a separate fleet monitor
+- promoted ready contention into shared attention/readiness logic so contended ready bots no longer remain counted as clean dispatch-ready
+- surfaced ready contention in `Execution Logs` as a dedicated review filter and summary block
+- updated `Signal Bot` so the selected bot's `Paper Readiness` note now explains when shared-lane contention is what is keeping it out of a clean ready state
 
 - mapped major current components related to:
   - strategy generation

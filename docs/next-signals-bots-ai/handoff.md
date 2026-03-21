@@ -392,6 +392,7 @@ The redesign also now has dedicated documentation for:
   - severe preview churn now also pauses new `paper` dispatches inside the shared operational loop, with the block reason persisted on the same bot-decision seam
   - `Execution Logs` now lets the operator grant a one-time churn pardon for a decision blocked by severe preview churn, and the shared runtime consumes that pardon once during the next paper dispatch attempt
   - churn pardons are now counted in the shared intent summary and feed back into bot attention diagnostics instead of remaining hidden as one-off recovery metadata
+  - repeated churn pardons are no longer effectively unlimited: once the safe limit is reached, `Execution Logs` switches the action to `Manual Review Required` and the runtime keeps paper preview dispatch blocked
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

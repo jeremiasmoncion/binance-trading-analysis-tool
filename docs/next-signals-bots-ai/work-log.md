@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` preview pardon governance round
+
+### Completed
+
+- Hardened the preview churn recovery path so churn pardons are no longer effectively unlimited.
+- The shared runtime now stops honoring repeated churn pardons after the configured safe limit.
+- `Execution Logs` now shows:
+  - `Pardon Churn` while recovery is still allowed
+  - `Manual Review Required` once the pardon limit is reached
+- `Signal Bot` and `Bot Settings` now also explain when the pardon limit was hit.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids turning churn pardons into an infinite retry loophole.
+- It also avoids showing a recoverable paper lane in UI after the runtime has already become stricter.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `Execution Logs` needs a dedicated pardon-governance filter
+  - decide whether the operator should have a stronger reset action after the pardon limit is reached
+  - keep real trading execution out of scope until paper/demo override governance stays disciplined end-to-end
+
+### Phase
+
 `Bot Core` preview pardon diagnostics round
 
 ### Completed

@@ -56,6 +56,7 @@ type ActivityLogEntry =
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
 type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "linked";
+const MAX_PREVIEW_CHURN_PARDONS = 2;
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
@@ -545,8 +546,10 @@ export function ExecutionLogsView() {
                           </>
                         ) : entry.decision.executionIntentLaneStatus === "queued" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
-                        ) : isPreviewChurnBlockedDecision(entry.decision) ? (
+                        ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnPardons(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) ? (
+                          <button type="button" className="template-inline-link">Manual Review Required</button>
                         ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleRefreshPreview(entry.decision)}>Refresh Preview</button>
                         ) : (
@@ -690,6 +693,10 @@ function isFailedDecision(decision: { status: string }) {
 function isPreviewChurnBlockedDecision(decision: DecisionLogEntry) {
   return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
     && String(decision.executionIntentReason || "").toLowerCase().includes("preview churn is severe");
+}
+
+function hasRemainingPreviewChurnPardons(decision: DecisionLogEntry) {
+  return (Number(decision.executionIntentPreviewChurnPardonCount || 0) || 0) < MAX_PREVIEW_CHURN_PARDONS;
 }
 
 function isFailedOrder(order: ExecutionLogOrderEntry) {

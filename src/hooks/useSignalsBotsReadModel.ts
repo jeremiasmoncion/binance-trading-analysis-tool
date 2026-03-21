@@ -90,6 +90,7 @@ function createDecisionTimeline(decisions: Array<{
       executionIntentDispatchAttemptedAt: String(decision.metadata?.executionIntentDispatchAttemptedAt || ""),
       executionIntentDispatchedAt: String(decision.metadata?.executionIntentDispatchedAt || ""),
       executionIntentPreviewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
+      executionIntentPreviewChurnPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
       executionStatus: String(decision.metadata?.executionStatus || ""),
       executionOutcomeStatus: String(decision.metadata?.executionOutcomeStatus || ""),
       executionLinkedAt: String(decision.metadata?.executionLinkedAt || ""),

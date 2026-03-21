@@ -987,6 +987,9 @@ function buildPreviewChurnNote(bot: {
   }
   if (pardonCount > 0) {
     parts.push(`${pardonCount} pardons across ${pardonedIntentCount} intents`);
+    if (pardonCount >= 2) {
+      parts.push("Pardon limit reached, so stronger manual review is now required.");
+    }
   }
   if (priority === "urgent") {
     parts.push("This churn is now severe enough to keep the bot in urgent attention.");

@@ -229,6 +229,9 @@ function buildBotAttentionNote(bot: {
   }
   if (bot.previewPardonCount) {
     parts.push(`${bot.previewPardonCount} churn pardons`);
+    if (bot.previewPardonCount >= 2) {
+      parts.push("pardon limit reached");
+    }
   }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);

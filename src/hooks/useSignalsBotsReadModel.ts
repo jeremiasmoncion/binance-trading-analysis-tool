@@ -979,6 +979,7 @@ function createOperationalReadinessSummary(bot: {
   readyContention?: {
     isContended?: boolean;
     peerCount?: number;
+    isLeader?: boolean;
   } | null;
   executionIntentSummary?: {
     readyCount: number;
@@ -1006,7 +1007,7 @@ function createOperationalReadinessSummary(bot: {
   const dispatchReady = bot.status === "active"
     && !finalReviewOnly
     && (bot.attention?.priority || "") !== "urgent"
-    && !contentionActive
+    && (!contentionActive || Boolean(bot.readyContention?.isLeader))
     && (((summary?.readyCount || 0) + (summary?.queuedCount || 0) + (summary?.dispatchRequestedCount || 0)) > 0);
 
   const state = finalReviewOnly
@@ -1049,6 +1050,17 @@ function summarizeReadyContention(
   bots: Array<{
     id: string;
     name: string;
+    decisions?: Array<{
+      createdAt?: string;
+      updatedAt?: string;
+      metadata?: {
+        executionIntentLane?: string | null;
+        executionIntentLaneStatus?: string | null;
+        executionIntentDispatchRequestedAt?: string | null;
+        generatedByOperationalLoop?: boolean | null;
+        executionOrderId?: number | null;
+      } | null;
+    }>;
     workspaceSettings?: {
       primaryPair?: string | null;
     } | null;
@@ -1059,6 +1071,21 @@ function summarizeReadyContention(
 ) {
   const readyBots = bots.filter((bot) => bot.operationalReadiness.dispatchReady);
   const readyBotsByPair = new Map<string, typeof readyBots>();
+  const rankBotTimestamp = (bot: typeof readyBots[number]) => {
+    const activeDecision = (bot.decisions || [])
+      .filter((decision) => (
+        decision.metadata?.generatedByOperationalLoop
+        && !decision.metadata?.executionOrderId
+        && String(decision.metadata?.executionIntentLane || "").trim() === "paper"
+        && ["queued", "dispatch-requested", "previewed", "preview-recorded", "preview-expired"].includes(String(decision.metadata?.executionIntentLaneStatus || "").trim())
+      ))
+      .sort((left, right) => {
+        const leftTime = new Date(String(left.metadata?.executionIntentDispatchRequestedAt || left.updatedAt || left.createdAt || "")).getTime();
+        const rightTime = new Date(String(right.metadata?.executionIntentDispatchRequestedAt || right.updatedAt || right.createdAt || "")).getTime();
+        return leftTime - rightTime;
+      })[0];
+    return new Date(String(activeDecision?.metadata?.executionIntentDispatchRequestedAt || activeDecision?.updatedAt || activeDecision?.createdAt || "")).getTime() || Number.MAX_SAFE_INTEGER;
+  };
 
   readyBots.forEach((bot) => {
     const pair = (bot.workspaceSettings?.primaryPair || "").trim().toUpperCase();
@@ -1072,12 +1099,19 @@ function summarizeReadyContention(
 
   const entries = Array.from(readyBotsByPair.entries())
     .filter(([, pairBots]) => pairBots.length > 1)
-    .map(([pair, pairBots]) => ({
+    .map(([pair, pairBots]) => {
+      const orderedBots = pairBots
+        .slice()
+        .sort((left, right) => rankBotTimestamp(left) - rankBotTimestamp(right) || left.name.localeCompare(right.name));
+      return ({
       pair,
-      botIds: pairBots.map((bot) => bot.id),
-      botNames: pairBots.map((bot) => bot.name),
-      count: pairBots.length,
-    }))
+      botIds: orderedBots.map((bot) => bot.id),
+      botNames: orderedBots.map((bot) => bot.name),
+      leaderBotId: orderedBots[0]?.id || null,
+      leaderBotName: orderedBots[0]?.name || null,
+      count: orderedBots.length,
+    });
+    })
     .sort((left, right) => right.count - left.count || left.pair.localeCompare(right.pair));
 
   return {
@@ -1097,6 +1131,9 @@ function createBotAttentionSummary(bot: {
     pair?: string | null;
     peerCount?: number;
     peerNames?: string[];
+    isLeader?: boolean;
+    leaderBotName?: string | null;
+    queuePosition?: number;
   } | null;
   executionIntentSummary?: {
     previewExpiredCount: number;
@@ -1130,7 +1167,7 @@ function createBotAttentionSummary(bot: {
   score += Math.min(previewPardonCount * 8, 24);
   score += Math.min(previewManualClearCount * 12, 36);
   score += Math.min(previewHardResetCount * 18, 36);
-  score += Math.min(contentionPeerCount * 14, 28);
+  score += contentionActive && !bot.readyContention?.isLeader ? Math.min(contentionPeerCount * 14, 28) : 0;
   if (severePreviewChurn) score += 20;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
@@ -1156,7 +1193,9 @@ function createBotAttentionSummary(bot: {
   }
   if (contentionActive) {
     noteParts.push(
-      `${contentionPeerCount + 1} ready bots are currently overlapping on ${bot.readyContention?.pair || "the same pair"}${bot.readyContention?.peerNames?.length ? ` (${bot.readyContention.peerNames.join(", ")})` : ""}.`,
+      bot.readyContention?.isLeader
+        ? `This bot currently leads the shared ready queue on ${bot.readyContention?.pair || "the same pair"}${bot.readyContention?.peerNames?.length ? ` ahead of ${bot.readyContention.peerNames.join(", ")}` : ""}.`
+        : `${contentionPeerCount + 1} ready bots are currently overlapping on ${bot.readyContention?.pair || "the same pair"}${bot.readyContention?.leaderBotName ? ` and ${bot.readyContention.leaderBotName} is ahead in the shared queue` : ""}${bot.readyContention?.peerNames?.length ? ` (${bot.readyContention.peerNames.join(", ")})` : ""}.`,
     );
   }
   if (severePreviewChurn) {
@@ -1397,6 +1436,9 @@ export function useSignalsBotsReadModel() {
           peerNames: matchingEntry
             ? matchingEntry.botNames.filter((name) => name !== bot.name)
             : [],
+          isLeader: matchingEntry ? matchingEntry.leaderBotId === bot.id : false,
+          leaderBotName: matchingEntry?.leaderBotName || null,
+          queuePosition: matchingEntry ? Math.max(matchingEntry.botIds.indexOf(bot.id) + 1, 0) : 0,
         },
       };
     }).map((bot) => {

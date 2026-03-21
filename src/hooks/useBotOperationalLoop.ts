@@ -337,13 +337,32 @@ function getBotReadyContentionSummary(bot: Bot, decisions: BotDecisionRecord[], 
     && String(candidate.workspaceSettings?.primaryPair || "").trim().toUpperCase() === primaryPair
   ));
 
-  const contendingPeers = peerBots.filter((peer) => decisions.some((decision) => (
-    decision.botId === peer.id
-    && decision.metadata?.generatedByOperationalLoop
-    && !decision.metadata?.executionOrderId
-    && String(decision.metadata?.executionIntentLane || "").trim() === "paper"
-    && CONTENTION_ACTIVE_LANE_STATUSES.has(getEffectiveDecisionIntentLaneStatus(decision))
-  )));
+  const activeLaneDecisions = (candidateBotId: string) => decisions
+    .filter((decision) => (
+      decision.botId === candidateBotId
+      && decision.metadata?.generatedByOperationalLoop
+      && !decision.metadata?.executionOrderId
+      && String(decision.metadata?.executionIntentLane || "").trim() === "paper"
+      && CONTENTION_ACTIVE_LANE_STATUSES.has(getEffectiveDecisionIntentLaneStatus(decision))
+    ))
+    .sort((left, right) => {
+      const leftTime = new Date(String(left.metadata?.executionIntentDispatchRequestedAt || left.updatedAt || left.createdAt || "")).getTime();
+      const rightTime = new Date(String(right.metadata?.executionIntentDispatchRequestedAt || right.updatedAt || right.createdAt || "")).getTime();
+      return leftTime - rightTime;
+    });
+
+  const contendingPeers = peerBots.filter((peer) => activeLaneDecisions(peer.id).length > 0);
+  const orderedBots = [bot, ...contendingPeers]
+    .filter((candidate, index, collection) => collection.findIndex((value) => value.id === candidate.id) === index)
+    .sort((left, right) => {
+      const leftDecision = activeLaneDecisions(left.id)[0];
+      const rightDecision = activeLaneDecisions(right.id)[0];
+      const leftTime = new Date(String(leftDecision?.metadata?.executionIntentDispatchRequestedAt || leftDecision?.updatedAt || leftDecision?.createdAt || "")).getTime() || Number.MAX_SAFE_INTEGER;
+      const rightTime = new Date(String(rightDecision?.metadata?.executionIntentDispatchRequestedAt || rightDecision?.updatedAt || rightDecision?.createdAt || "")).getTime() || Number.MAX_SAFE_INTEGER;
+      return leftTime - rightTime || left.name.localeCompare(right.name);
+    });
+  const queuePosition = orderedBots.findIndex((candidate) => candidate.id === bot.id);
+  const leader = orderedBots[0] || null;
 
   return {
     isContended: contendingPeers.length > 0,
@@ -351,7 +370,11 @@ function getBotReadyContentionSummary(bot: Bot, decisions: BotDecisionRecord[], 
     peerBotIds: contendingPeers.map((peer) => peer.id),
     peerNames: contendingPeers.map((peer) => peer.name),
     peerCount: contendingPeers.length,
-    severe: contendingPeers.length > 0,
+    severe: contendingPeers.length > 0 && queuePosition > 0,
+    isLeader: queuePosition <= 0,
+    leaderBotId: leader?.id || null,
+    leaderBotName: leader?.name || null,
+    queuePosition: queuePosition >= 0 ? queuePosition + 1 : 0,
   };
 }
 
@@ -607,10 +630,7 @@ export function useBotOperationalLoop() {
             continue;
           }
 
-          if (
-            dispatchMode === "preview"
-            && readyContention.severe
-          ) {
+          if (dispatchMode === "preview" && readyContention.severe) {
             await updateDecision(decision.id, {
               status: "blocked",
               metadata: {
@@ -621,7 +641,7 @@ export function useBotOperationalLoop() {
                 executionIntentDispatchStatus: "blocked",
                 executionIntentDispatchMode: dispatchMode,
                 executionIntentDispatchSignalId: signalId,
-                executionIntentReason: `Paper preview dispatch paused because ready contention is active on ${readyContention.pair || decision.symbol} with ${readyContention.peerNames.join(", ") || `${readyContention.peerCount} peer bots`}.`,
+                executionIntentReason: `Paper preview dispatch paused because ready contention is active on ${readyContention.pair || decision.symbol} and ${readyContention.leaderBotName || "another bot"} currently leads queue position 1 while this intent is in position ${readyContention.queuePosition || 2}.`,
               },
             });
             continue;

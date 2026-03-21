@@ -1036,6 +1036,9 @@ function buildOperationalReadinessNote(bot: {
   readyContention?: {
     pair?: string | null;
     peerNames?: string[];
+    isLeader?: boolean;
+    leaderBotName?: string | null;
+    queuePosition?: number;
   } | null;
   executionEnvironment?: string | null;
   attention?: {
@@ -1050,7 +1053,9 @@ function buildOperationalReadinessNote(bot: {
   const state = String(bot?.operationalReadiness?.state || "").trim();
   const contentionActive = Boolean(bot?.operationalReadiness?.contentionActive);
   const contentionNote = contentionActive
-    ? ` Ready contention is currently active on ${bot?.readyContention?.pair || "the same pair"}${bot?.readyContention?.peerNames?.length ? ` with ${bot.readyContention.peerNames.join(", ")}` : ""}.`
+    ? bot?.readyContention?.isLeader
+      ? ` This bot currently leads the shared queue on ${bot?.readyContention?.pair || "the same pair"}${bot?.readyContention?.peerNames?.length ? ` ahead of ${bot.readyContention.peerNames.join(", ")}` : ""}.`
+      : ` This bot is waiting in queue position ${bot?.readyContention?.queuePosition || 2} on ${bot?.readyContention?.pair || "the same pair"} behind ${bot?.readyContention?.leaderBotName || bot?.readyContention?.peerNames?.[0] || "another ready bot"}.`
     : "";
   if (state === "ready") {
     return `${bot?.executionIntentSummary?.readyCount || 0} ready • ${bot?.executionIntentSummary?.queuedCount || 0} queued • ${bot?.executionIntentSummary?.dispatchRequestedCount || 0} dispatch requested inside the governed ${bot?.executionEnvironment || "paper"} lane.${contentionNote}`;
@@ -1062,7 +1067,9 @@ function buildOperationalReadinessNote(bot: {
     return "The paper lane exhausted its governed recovery overrides and now stays in final manual review.";
   }
   if (contentionActive) {
-    return `This bot is ready in isolation, but shared-lane contention with ${bot?.operationalReadiness?.contentionPeerCount || 0} peer bots is keeping it out of a clean dispatch-ready state.`;
+    return bot?.readyContention?.isLeader
+      ? `This bot currently holds the lead slot in the shared-lane queue with ${bot?.operationalReadiness?.contentionPeerCount || 0} ready peer bots behind it.`
+      : `This bot is ready in isolation, but shared-lane contention is keeping it in queue position ${bot?.readyContention?.queuePosition || 2} behind ${bot?.readyContention?.leaderBotName || "another bot"}.`;
   }
   return "The bot is not yet in a clean dispatch-ready state under the current governance model.";
 }

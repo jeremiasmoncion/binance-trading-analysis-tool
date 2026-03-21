@@ -327,6 +327,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           pair: bot.readyContention?.pair || pair,
           peerCount: bot.readyContention?.peerCount || 0,
           peerNames: bot.readyContention?.peerNames || [],
+          isLeader: bot.readyContention?.isLeader || false,
+          leaderBotName: bot.readyContention?.leaderBotName || null,
+          queuePosition: bot.readyContention?.queuePosition || 0,
         },
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
@@ -1010,7 +1013,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                     <p>
                       Ready contention: {bot.readyContention.pair || bot.pair}
                       {" · "}
-                      peers: {bot.readyContention.peerNames.join(", ") || "another ready bot"}
+                      {bot.readyContention.isLeader
+                        ? `leader ahead of ${bot.readyContention.peerNames.join(", ") || "other ready bots"}`
+                        : `queue #${bot.readyContention.queuePosition || 2} behind ${bot.readyContention.leaderBotName || bot.readyContention.peerNames[0] || "another ready bot"}`}
                     </p>
                   ) : null}
                   <p>

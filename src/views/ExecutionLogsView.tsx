@@ -393,6 +393,9 @@ export function ExecutionLogsView() {
         contentionPair: bot.readyContention?.pair || bot.workspaceSettings.primaryPair || null,
         contentionPeerCount: bot.readyContention?.peerCount || 0,
         contentionPeers: bot.readyContention?.peerNames || [],
+        contentionIsLeader: bot.readyContention?.isLeader || false,
+        contentionLeaderBotName: bot.readyContention?.leaderBotName || null,
+        contentionQueuePosition: bot.readyContention?.queuePosition || 0,
       }));
   }, [botScope, readModel.attentionBots, readModel.botCards]);
   const botSummaries = useMemo(() => {
@@ -458,6 +461,9 @@ export function ExecutionLogsView() {
         contentionPair: bot.readyContention?.pair || bot.workspaceSettings.primaryPair || null,
         contentionPeerCount: bot.readyContention?.peerCount || 0,
         contentionPeers: bot.readyContention?.peerNames || [],
+        contentionIsLeader: bot.readyContention?.isLeader || false,
+        contentionLeaderBotName: bot.readyContention?.leaderBotName || null,
+        contentionQueuePosition: bot.readyContention?.queuePosition || 0,
         latestTimestamp: latestEntry
           ? formatTimestamp(latestEntry.kind === "decision"
             ? (latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt)
@@ -586,7 +592,9 @@ export function ExecutionLogsView() {
                     <p>
                       Ready contention: {bot.contentionPair || bot.pair}
                       {" · "}
-                      peers: {bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}
+                      {bot.contentionIsLeader
+                        ? `leader ahead of ${bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}`
+                        : `queue #${bot.contentionQueuePosition || 2} behind ${bot.contentionLeaderBotName || bot.contentionPeers[0] || "another ready bot"}`}
                     </p>
                   ) : null}
                   <p>{bot.latestGuardrailReason || "The shared intent lane is now available for paper/demo review."}</p>
@@ -629,7 +637,9 @@ export function ExecutionLogsView() {
                     <p>
                       Ready contention: {bot.contentionPair || bot.pair}
                       {" · "}
-                      peers: {bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}
+                      {bot.contentionIsLeader
+                        ? `leader ahead of ${bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}`
+                        : `queue #${bot.contentionQueuePosition || 2} behind ${bot.contentionLeaderBotName || bot.contentionPeers[0] || "another ready bot"}`}
                     </p>
                   ) : null}
                   {bot.dispatchMode || bot.dispatchStatus ? (

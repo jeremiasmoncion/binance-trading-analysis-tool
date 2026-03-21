@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` ready contention queue ordering round
+
+### Completed
+
+- Evolved ready contention from a simple pause into a shared `leader / follower` ordering for the safe lane.
+- The bot with the oldest live paper intent on a shared pair now becomes the current queue leader.
+- Follower bots stay visible in contention, but their readiness and runtime behavior now explain that they are waiting behind the leader instead of just showing a generic contention block.
+- `Signal Bot`, `Bot Settings`, and `Execution Logs` now all use the same queue language:
+  - leader
+  - queue position
+  - waiting behind another bot
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating every contended bot as equally blocked when one bot can legitimately hold the current lead slot.
+- It also avoids a vague contention model that cannot explain which bot should move first inside the governed paper lane.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether the leader/follower queue should advance automatically when the leader clears
+  - validate multi-bot paper behavior under this stricter queue model
+  - keep real trading execution out of scope until concurrent safe-lane sequencing remains stable
+
+### Phase
+
 `Bot Core` ready contention dispatch guardrail round
 
 ### Completed

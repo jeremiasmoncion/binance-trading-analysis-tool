@@ -55,6 +55,8 @@ The redesign also now has dedicated documentation for:
 - updated `Signal Bot` so the selected bot's `Paper Readiness` note now explains when shared-lane contention is what is keeping it out of a clean ready state
 - added a real `paper` dispatch guardrail for ready contention so active bots sharing the same pair do not progress preview dispatch in parallel
 - added `Retry Dispatch` in `Execution Logs` for decisions paused by ready contention, keeping the recovery path inside the same shared review seam
+- evolved ready contention into a shared `leader / follower` queue model so one bot can legitimately hold the current safe-lane slot while peers wait behind it
+- surfaced queue position and leader language in `Signal Bot`, `Bot Settings`, and `Execution Logs`
 
 - mapped major current components related to:
   - strategy generation

@@ -682,8 +682,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         selectBot(createdBot.id);
         showToast({
           tone: "success",
-          title: "Bot creado",
-          message: `${createdBot.name} ya forma parte del registro real.`,
+          title: "Bot creado correctamente",
+          message: `${createdBot.name} ya fue creado como ${formatBotTypeLabel(createdBot.botType)} y quedó vinculado a ${selectedAccount?.label || "la cuenta elegida"}.`,
         });
       } else if (quickEditDraft.botId) {
         await updateBot(quickEditDraft.botId, {
@@ -704,10 +704,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       }
       setQuickEditDraft(null);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Inténtalo otra vez.";
       showToast({
         tone: "error",
-        title: "No se pudo guardar",
-        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+        title: quickEditDraft.mode === "create" ? "No se pudo crear el bot" : "No se pudo guardar",
+        message,
       });
     } finally {
       stopLoading(loaderId);

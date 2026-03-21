@@ -1,8 +1,6 @@
 import { useMemo } from "react";
-import type { ExecutionOrderRecord, SignalSnapshot } from "../types";
+import type { ExecutionOrderRecord } from "../types";
 import {
-  EMPTY_MEMORY_SUMMARY,
-  EMPTY_PERFORMANCE_SUMMARY,
   INITIAL_BOT_REGISTRY_STATE,
   type BotExecutionIntentLane,
   type BotExecutionIntentLaneStatus,
@@ -283,13 +281,6 @@ function filterSignalsForBotPair<T extends { context: { symbol: string } }>(sign
   const normalizedPair = normalizePair(primaryPair);
   if (!normalizedPair) return signals;
   const scoped = signals.filter((signal) => normalizePair(signal.context.symbol) === normalizedPair);
-  return scoped.length ? scoped : signals;
-}
-
-function filterSnapshotsForBotPair<T extends { coin: string }>(signals: T[], primaryPair: string) {
-  const normalizedPair = normalizePair(primaryPair);
-  if (!normalizedPair) return signals;
-  const scoped = signals.filter((signal) => normalizePair(signal.coin) === normalizedPair);
   return scoped.length ? scoped : signals;
 }
 
@@ -1401,58 +1392,6 @@ function createBotAttentionSummary(bot: {
   };
 }
 
-function summarizeSignalsPerformance(primaryPair: string, signalMemory: SignalSnapshot[]) {
-  const scopedSignals = filterSnapshotsForBotPair(signalMemory, primaryPair);
-  const closedSignals = scopedSignals.filter((signal) => signal.outcome_status !== "pending");
-  const winningSignals = closedSignals.filter((signal) => Number(signal.outcome_pnl || 0) > 0);
-  const realizedPnlUsd = closedSignals.reduce((sum, signal) => sum + Number(signal.outcome_pnl || 0), 0);
-  const latestSignal = scopedSignals
-    .slice()
-    .sort((left, right) => new Date(right.updated_at || right.created_at).getTime() - new Date(left.updated_at || left.created_at).getTime())[0] || null;
-
-  return {
-    localMemory: {
-      ...EMPTY_MEMORY_SUMMARY,
-      layer: "local" as const,
-      lastUpdatedAt: latestSignal?.updated_at || latestSignal?.created_at || null,
-      signalCount: scopedSignals.length,
-      decisionCount: scopedSignals.filter((signal) => signal.signal_label !== "Esperar").length,
-      outcomeCount: closedSignals.length,
-      notes: latestSignal ? [`Última señal observada en ${latestSignal.coin} (${latestSignal.timeframe}).`] : [],
-    },
-    performance: {
-      ...EMPTY_PERFORMANCE_SUMMARY,
-      updatedAt: latestSignal?.updated_at || latestSignal?.created_at || null,
-      closedSignals: closedSignals.length,
-      winRate: closedSignals.length ? (winningSignals.length / closedSignals.length) * 100 : 0,
-      realizedPnlUsd,
-      avgPnlUsd: closedSignals.length ? realizedPnlUsd / closedSignals.length : 0,
-      avgHoldMinutes: null,
-      bestSymbol: latestSignal?.coin || null,
-      worstSymbol: latestSignal?.coin || null,
-    },
-    audit: {
-      lastDecisionAt: latestSignal?.updated_at || latestSignal?.created_at || null,
-      lastExecutionAt: closedSignals[0]?.updated_at || closedSignals[0]?.created_at || null,
-      lastPolicyChangeAt: null,
-    },
-    activity: {
-      lastSignalConsumedAt: latestSignal?.created_at || null,
-      lastSignalLayer: null,
-      lastDecisionAction: null,
-      lastDecisionStatus: null,
-      lastDecisionSymbol: latestSignal?.coin || null,
-      lastDecisionSource: null,
-      pendingCount: scopedSignals.filter((signal) => signal.outcome_status === "pending").length,
-      approvedCount: 0,
-      blockedCount: 0,
-      executedCount: closedSignals.length,
-      recentDecisionIds: [],
-      recentSymbols: [...new Set(scopedSignals.map((signal) => signal.coin).filter(Boolean))].slice(0, 6),
-    },
-  };
-}
-
 export function useSignalsBotsReadModel() {
   const core = useMarketSignalsCore();
   const { selectedBotId, state: registryState } = useSelectedBotState();
@@ -1499,9 +1438,24 @@ export function useSignalsBotsReadModel() {
       const accepted = acceptedSignals.length;
       const blocked = blockedSignals.length;
       const leadingSignal = acceptedSignals[0] || blockedSignals[0] || scopedRankedSignals[0] || null;
+      const hasOwnedRuntime =
+        botDecisions.length > 0
+        || Boolean(bot.localMemory.lastUpdatedAt || bot.performance.updatedAt || bot.audit.lastDecisionAt || bot.audit.lastExecutionAt);
       const derivedRuntime = botDecisions.length
         ? summarizeBotDecisionRuntime(botDecisions)
-        : summarizeSignalsPerformance(primaryPair, core.signalCore.signalMemory);
+        : hasOwnedRuntime
+          ? {
+              localMemory: bot.localMemory,
+              performance: bot.performance,
+              audit: bot.audit,
+              activity: bot.activity,
+            }
+          : {
+              localMemory: bot.localMemory,
+              performance: bot.performance,
+              audit: {},
+              activity: bot.activity,
+            };
       return {
         ...bot,
         localMemory: {

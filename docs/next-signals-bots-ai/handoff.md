@@ -382,6 +382,9 @@ The redesign also now has dedicated documentation for:
     - `previewStaleCount`
   - current heuristic:
     - `preview-recorded` becomes stale after 6 hours without further progress
+  - stale paper previews now also get an explicit effective lifecycle meaning inside the shared seam:
+    - `preview-expired`
+  - `Execution Logs`, `Signal Bot`, and owned-memory notes now use that expiry language directly instead of only saying “stale”
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

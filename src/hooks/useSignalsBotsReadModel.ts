@@ -83,7 +83,7 @@ function createDecisionTimeline(decisions: Array<{
       executionOrderId: normalizeSignalId(decision.metadata?.executionOrderId) || null,
       executionIntentStatus: String(decision.metadata?.executionIntentStatus || ""),
       executionIntentLane: String(decision.metadata?.executionIntentLane || ""),
-      executionIntentLaneStatus: String(decision.metadata?.executionIntentLaneStatus || ""),
+      executionIntentLaneStatus: getEffectiveDecisionExecutionIntentLaneStatus(decision, 6) || "",
       executionIntentReason: String(decision.metadata?.executionIntentReason || decision.metadata?.guardrailReason || ""),
       executionIntentDispatchStatus: String(decision.metadata?.executionIntentDispatchStatus || ""),
       executionIntentDispatchMode: String(decision.metadata?.executionIntentDispatchMode || ""),
@@ -663,10 +663,12 @@ function createOwnedMemorySummary<
     : null;
   const latestNote = latestEntry
     ? latestEntry.kind === "decision"
-      ? latestEntry.linkedOrder?.hasOutcome
-        ? `${label} latest owned outcome: ${latestEntry.decision.symbol} ${String(latestEntry.linkedOrder.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.linkedOrder.pnlUsd)}.`
-        : String(latestEntry.decision.executionIntentLaneStatus || "").trim() === "preview-recorded"
-          ? `${label} latest paper preview: ${latestEntry.decision.symbol} is now recorded in the shared execution plane.`
+        ? latestEntry.linkedOrder?.hasOutcome
+          ? `${label} latest owned outcome: ${latestEntry.decision.symbol} ${String(latestEntry.linkedOrder.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.linkedOrder.pnlUsd)}.`
+          : String(latestEntry.decision.executionIntentLaneStatus || "").trim() === "preview-recorded"
+            ? `${label} latest paper preview: ${latestEntry.decision.symbol} is now recorded in the shared execution plane.`
+            : String(latestEntry.decision.executionIntentLaneStatus || "").trim() === "preview-expired"
+              ? `${label} latest paper preview: ${latestEntry.decision.symbol} is now stale and should be refreshed before reuse.`
           : `${label} latest decision: ${latestEntry.decision.symbol} still awaiting owned execution linkage.`
       : `${label} latest unlinked execution: ${latestEntry.order.symbol} ${String(latestEntry.order.status || "").toLowerCase()} ${formatOwnedOutcomePnl(latestEntry.order.pnlUsd)}.`
     : `No ${label.toLowerCase()} memory yet.`;
@@ -813,6 +815,17 @@ function isOlderThanHours(value: string | null | undefined, hours: number) {
   return Date.now() - timestamp > hours * 60 * 60 * 1000;
 }
 
+function getEffectiveDecisionExecutionIntentLaneStatus(
+  decision: { metadata?: Record<string, unknown>; updatedAt?: string; createdAt?: string },
+  previewStaleHours: number,
+) {
+  const laneStatus = getDecisionExecutionIntentLaneStatus(decision);
+  if (laneStatus === "preview-recorded" && isOlderThanHours(decision.updatedAt || decision.createdAt || null, previewStaleHours)) {
+    return "preview-expired" as const;
+  }
+  return laneStatus;
+}
+
 function createExecutionIntentSummary<
   TDecision extends {
     symbol?: string | null;
@@ -827,7 +840,7 @@ function createExecutionIntentSummary<
       decision,
       intentStatus: getDecisionExecutionIntentStatus(decision),
       lane: getDecisionExecutionIntentLane(decision),
-      laneStatus: getDecisionExecutionIntentLaneStatus(decision),
+      laneStatus: getEffectiveDecisionExecutionIntentLaneStatus(decision, previewStaleHours),
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -845,11 +858,12 @@ function createExecutionIntentSummary<
     autoExecutableCount: ranked.filter((entry) => entry.intentStatus === "ready").length,
     queuedCount: ranked.filter((entry) => entry.laneStatus === "queued").length,
     dispatchRequestedCount: ranked.filter((entry) => entry.laneStatus === "dispatch-requested").length,
-    dispatchedCount: ranked.filter((entry) => entry.laneStatus === "previewed" || entry.laneStatus === "preview-recorded" || entry.laneStatus === "execution-submitted").length,
-    previewedCount: ranked.filter((entry) => entry.laneStatus === "previewed" || entry.laneStatus === "preview-recorded").length,
+    dispatchedCount: ranked.filter((entry) => entry.laneStatus === "previewed" || entry.laneStatus === "preview-recorded" || entry.laneStatus === "preview-expired" || entry.laneStatus === "execution-submitted").length,
+    previewedCount: ranked.filter((entry) => entry.laneStatus === "previewed" || entry.laneStatus === "preview-recorded" || entry.laneStatus === "preview-expired").length,
     previewRecordedCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded").length,
-    previewFreshCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded" && !isOlderThanHours(entry.updatedAt, previewStaleHours)).length,
-    previewStaleCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded" && isOlderThanHours(entry.updatedAt, previewStaleHours)).length,
+    previewExpiredCount: ranked.filter((entry) => entry.laneStatus === "preview-expired").length,
+    previewFreshCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded").length,
+    previewStaleCount: ranked.filter((entry) => entry.laneStatus === "preview-expired").length,
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,

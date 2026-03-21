@@ -21,7 +21,7 @@ export type BotSignalLayer = "informational" | "observational" | "operable" | "a
 export type BotPerformanceOrigin = "manual" | "signal" | "bot" | "auto";
 export type BotExecutionIntentStatus = "observe-only" | "assist-only" | "approval-needed" | "ready" | "guardrail-blocked";
 export type BotExecutionIntentLane = "paper" | "demo" | "real";
-export type BotExecutionIntentLaneStatus = "queued" | "dispatch-requested" | "previewed" | "preview-recorded" | "execution-submitted" | "awaiting-approval" | "assist-only" | "observe-only" | "blocked" | "linked";
+export type BotExecutionIntentLaneStatus = "queued" | "dispatch-requested" | "previewed" | "preview-recorded" | "preview-expired" | "execution-submitted" | "awaiting-approval" | "assist-only" | "observe-only" | "blocked" | "linked";
 
 export interface BotIdentity {
   family: string;
@@ -212,6 +212,7 @@ export interface BotExecutionIntentSummary {
   dispatchedCount: number;
   previewedCount: number;
   previewRecordedCount: number;
+  previewExpiredCount: number;
   previewFreshCount: number;
   previewStaleCount: number;
   executionSubmittedCount: number;

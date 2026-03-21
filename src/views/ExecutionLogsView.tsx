@@ -185,6 +185,7 @@ export function ExecutionLogsView() {
         dispatchedCount: bot.executionIntentSummary?.dispatchedCount || 0,
         previewedCount: bot.executionIntentSummary?.previewedCount || 0,
         previewRecordedCount: bot.executionIntentSummary?.previewRecordedCount || 0,
+        previewExpiredCount: bot.executionIntentSummary?.previewExpiredCount || 0,
         previewFreshCount: bot.executionIntentSummary?.previewFreshCount || 0,
         previewStaleCount: bot.executionIntentSummary?.previewStaleCount || 0,
         executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
@@ -342,7 +343,7 @@ export function ExecutionLogsView() {
                 <article key={`intent-${bot.id}`} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>
-                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded ({bot.previewFreshCount} fresh / {bot.previewStaleCount} stale) · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded · {bot.previewExpiredCount} preview expired ({bot.previewFreshCount} fresh / {bot.previewStaleCount} stale) · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
                   </p>
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>
@@ -535,7 +536,7 @@ function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter) {
   if (!laneStatus) return false;
   if (filter === "queued") return laneStatus === "queued";
   if (filter === "dispatch-requested") return laneStatus === "dispatch-requested";
-  if (filter === "dispatched") return laneStatus === "previewed" || laneStatus === "preview-recorded" || laneStatus === "execution-submitted";
+  if (filter === "dispatched") return laneStatus === "previewed" || laneStatus === "preview-recorded" || laneStatus === "preview-expired" || laneStatus === "execution-submitted";
   if (filter === "awaiting-approval") return laneStatus === "awaiting-approval";
   if (filter === "blocked") return laneStatus === "blocked";
   return laneStatus === "linked";
@@ -675,6 +676,7 @@ function formatDecisionStatus(status: string, linkedOrderStatus?: string | null,
   if (intentLaneStatus === "dispatch-requested") return "Dispatch Requested";
   if (intentLaneStatus === "previewed") return "Previewed";
   if (intentLaneStatus === "preview-recorded") return "Preview Recorded";
+  if (intentLaneStatus === "preview-expired") return "Preview Expired";
   if (intentLaneStatus === "execution-submitted") return "Execution Submitted";
   if (intentLaneStatus === "awaiting-approval") return "Awaiting Approval";
   if (intentLaneStatus === "blocked") return "Intent Blocked";
@@ -696,7 +698,7 @@ function formatDecisionActionLink(decision: DecisionLogEntry, linkedOrder?: Exec
   if (decision.executionIntentLaneStatus === "blocked") {
     return decision.executionIntentReason || decision.source || "Blocked intent";
   }
-  if (decision.executionIntentLaneStatus === "previewed" || decision.executionIntentLaneStatus === "preview-recorded" || decision.executionIntentLaneStatus === "execution-submitted") {
+  if (decision.executionIntentLaneStatus === "previewed" || decision.executionIntentLaneStatus === "preview-recorded" || decision.executionIntentLaneStatus === "preview-expired" || decision.executionIntentLaneStatus === "execution-submitted") {
     return `${formatDispatchMode(decision.executionIntentDispatchMode)} · ${formatDispatchStatus(decision.executionIntentDispatchStatus)}`;
   }
   if (decision.executionIntentLaneStatus) {

@@ -4,6 +4,38 @@
 
 ### Phase
 
+`Bot Core` preview expiry semantics round
+
+### Completed
+
+- Added the first explicit expiry semantics for stale paper previews inside the shared bot-intent seam.
+- The shared read-model now upgrades old `preview-recorded` states into an effective:
+  - `preview-expired`
+- Current heuristic:
+  - a preview record expires after 6 hours without further progress
+- Shared execution-intent summaries now also expose:
+  - `previewExpiredCount`
+- `Execution Logs` and `Signal Bot` now use that expiration language directly instead of only saying “stale”.
+- Owned-memory notes now also explain when the latest paper preview is already expired and should be refreshed before reuse.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids leaving stale paper previews in a half-alive audit state with no operational consequence.
+- It also avoids forcing each surface to invent its own stale-preview interpretation outside the shared seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `preview-expired` should support explicit refresh actions
+  - decide whether expired previews should count against attention scoring
+  - keep real trading execution out of scope until the safe paper/demo lane is fully trustworthy
+
+### Phase
+
 `Bot Core` preview freshness round
 
 ### Completed

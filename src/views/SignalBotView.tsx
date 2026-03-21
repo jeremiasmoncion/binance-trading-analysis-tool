@@ -530,6 +530,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                       ? `${feedReadModel.selectedBotExecutionIntentSummary.latestIntentSymbol} • ${formatExecutionIntentLaneStatus(feedReadModel.selectedBotExecutionIntentSummary.latestLaneStatus)} • ${formatRelative(feedReadModel.selectedBotExecutionIntentSummary.latestIntentAt || "")}`
                       : "The operational loop has not produced an intent summary yet."}
                   />
+                  <MetricTile
+                    label="Paper Readiness"
+                    value={formatOperationalReadinessState(selectedBotCard?.operationalReadiness?.state)}
+                    note={buildOperationalReadinessNote(selectedBotCard)}
+                  />
                 </div>
               </SectionCard>
 
@@ -1012,6 +1017,41 @@ function buildPreviewChurnNote(bot: {
     parts.push("This churn should be watched before trusting repeated paper dispatches.");
   }
   return parts.join(" • ");
+}
+
+function formatOperationalReadinessState(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "ready") return "Ready";
+  if (normalized === "recovery") return "Recovery";
+  if (normalized === "final-review") return "Final Review";
+  return "Monitor";
+}
+
+function buildOperationalReadinessNote(bot: {
+  operationalReadiness?: {
+    state?: string;
+  } | null;
+  executionEnvironment?: string | null;
+  attention?: {
+    note?: string | null;
+  } | null;
+  executionIntentSummary?: {
+    readyCount?: number;
+    queuedCount?: number;
+    dispatchRequestedCount?: number;
+  } | null;
+} | null) {
+  const state = String(bot?.operationalReadiness?.state || "").trim();
+  if (state === "ready") {
+    return `${bot?.executionIntentSummary?.readyCount || 0} ready • ${bot?.executionIntentSummary?.queuedCount || 0} queued • ${bot?.executionIntentSummary?.dispatchRequestedCount || 0} dispatch requested inside the governed ${bot?.executionEnvironment || "paper"} lane.`;
+  }
+  if (state === "recovery") {
+    return bot?.attention?.note || "This bot is still moving through paper-lane recovery governance.";
+  }
+  if (state === "final-review") {
+    return "The paper lane exhausted its governed recovery overrides and now stays in final manual review.";
+  }
+  return "The bot is not yet in a clean dispatch-ready state under the current governance model.";
 }
 
 function buildOwnershipHealthNote(value: string) {

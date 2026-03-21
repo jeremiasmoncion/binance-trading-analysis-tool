@@ -970,6 +970,72 @@ function summarizeFleetAdaptation(
   };
 }
 
+function createOperationalReadinessSummary(bot: {
+  status: string;
+  executionEnvironment: string;
+  attention?: {
+    priority?: string;
+  } | null;
+  executionIntentSummary?: {
+    readyCount: number;
+    queuedCount: number;
+    dispatchRequestedCount: number;
+    previewExpiredCount: number;
+    previewPardonCount: number;
+    previewManualClearCount: number;
+    previewHardResetCount: number;
+  } | null;
+}) {
+  const summary = bot.executionIntentSummary;
+  const isPaperLane = bot.executionEnvironment === "paper";
+  const finalReviewOnly = isPaperLane
+    && (summary?.previewHardResetCount || 0) > 0
+    && (bot.attention?.priority || "") === "urgent";
+  const recoveryActive = isPaperLane && (
+    (summary?.previewExpiredCount || 0) > 0
+    || (summary?.previewPardonCount || 0) > 0
+    || (summary?.previewManualClearCount || 0) > 0
+    || (summary?.previewHardResetCount || 0) > 0
+  );
+  const dispatchReady = bot.status === "active"
+    && !finalReviewOnly
+    && (bot.attention?.priority || "") !== "urgent"
+    && (((summary?.readyCount || 0) + (summary?.queuedCount || 0) + (summary?.dispatchRequestedCount || 0)) > 0);
+
+  const state = finalReviewOnly
+    ? "final-review"
+    : dispatchReady
+      ? "ready"
+      : recoveryActive
+        ? "recovery"
+        : "monitor";
+
+  return {
+    state,
+    isPaperLane,
+    finalReviewOnly,
+    recoveryActive,
+    dispatchReady,
+  };
+}
+
+function summarizeFleetOperationalReadiness(
+  bots: Array<{
+    operationalReadiness: {
+      state: string;
+      dispatchReady: boolean;
+      recoveryActive: boolean;
+      finalReviewOnly: boolean;
+    };
+  }>,
+) {
+  return {
+    operationalReadyBots: bots.filter((bot) => bot.operationalReadiness.dispatchReady).length,
+    recoveryBots: bots.filter((bot) => bot.operationalReadiness.recoveryActive && !bot.operationalReadiness.finalReviewOnly).length,
+    finalReviewBots: bots.filter((bot) => bot.operationalReadiness.finalReviewOnly).length,
+  };
+}
+
 function createBotAttentionSummary(bot: {
   ownership: {
     unresolvedOwnershipCount: number;
@@ -1241,10 +1307,22 @@ export function useSignalsBotsReadModel() {
           bot.performance,
         ),
       };
-    }).map((bot) => ({
-      ...bot,
-      attention: createBotAttentionSummary(bot),
-    }));
+    }).map((bot) => {
+      const attention = createBotAttentionSummary(bot);
+      const operationalReadiness = createOperationalReadinessSummary({
+        status: bot.status,
+        executionEnvironment: bot.executionEnvironment,
+        attention,
+        executionIntentSummary: bot.executionIntentSummary,
+      });
+      return {
+        ...bot,
+        attention,
+        operationalReadiness,
+      };
+    });
+
+    const fleetOperationalReadiness = summarizeFleetOperationalReadiness(botCardsWithSharedMemory);
 
     const selectedBotCard = botCardsWithSharedMemory.find((bot) => bot.id === selectedBotId) || botCardsWithSharedMemory[0] || null;
     const selectedBotFeed = selectedBotCard
@@ -1359,6 +1437,9 @@ export function useSignalsBotsReadModel() {
         highConfidenceBots: fleetAdaptation.highConfidenceBots,
         mediumConfidenceBots: fleetAdaptation.mediumConfidenceBots,
         lowConfidenceBots: fleetAdaptation.lowConfidenceBots,
+        operationalReadyBots: fleetOperationalReadiness.operationalReadyBots,
+        recoveryBots: fleetOperationalReadiness.recoveryBots,
+        finalReviewBots: fleetOperationalReadiness.finalReviewBots,
       },
     };
   }, [core, decisions, executionLogs.recentOrders, registryState, selectedBotId]);

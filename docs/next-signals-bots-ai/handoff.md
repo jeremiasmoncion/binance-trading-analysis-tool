@@ -397,6 +397,7 @@ The redesign also now has dedicated documentation for:
   - `Execution Logs` now also has a dedicated `Recovery Governance` filter and recovery counts in bot summaries, so expired previews, pardons, manual clears, and manual-review cases can be operated as their own backlog
   - `Execution Logs` now also exposes a final `Hard Reset` recovery action after `Manual Clear`, and the shared runtime counts and consumes that override separately so the strongest recovery path is still governed and visible
   - `Hard Reset` is now treated and labeled as the final paper-lane override; after that boundary the product switches to final manual review language instead of implying more hidden recovery steps
+  - the shared seam now also exposes `operational readiness` so the fleet hub and the selected bot can say explicitly whether a bot is `ready`, still in `recovery`, or already in `final review`
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

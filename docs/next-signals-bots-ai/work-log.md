@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` operational readiness summaries round
+
+### Completed
+
+- Added an explicit shared `operational readiness` reading for the governed paper/demo lane.
+- The fleet hub now distinguishes:
+  - bots operationally ready
+  - bots still in recovery
+  - bots already in final review
+- `Signal Bot` now also exposes `Paper Readiness` for the selected bot, so readiness is no longer inferred indirectly from several cards.
+- This keeps the final paper-lane governance visible as an operational state, not only as scattered intent metrics.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids forcing operators to infer readiness from preview churn, attention, and queued counts separately.
+- It also avoids fleet-level and selected-bot views speaking different readiness language.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - validate multi-bot behavior under this final paper governance model
+  - decide whether the same readiness abstraction should now be mirrored more strongly into `demo`
+  - keep real trading execution out of scope until paper/demo readiness remains stable under concurrent bot activity
+
+### Phase
+
 `Bot Core` final paper override declaration round
 
 ### Completed

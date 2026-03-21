@@ -266,6 +266,13 @@ function formatSymbolRanking(items: Array<{ symbol: string; count: number }> | u
   return items.map((item) => `${item.symbol} (${item.count})`).join(", ");
 }
 
+function formatOperationalReadiness(value: string | undefined) {
+  if (value === "ready") return "Ready";
+  if (value === "recovery") return "Recovery";
+  if (value === "final-review") return "Final Review";
+  return "Monitor";
+}
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
@@ -314,6 +321,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
         previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
         previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
+        operationalReadiness: bot.operationalReadiness?.state || "monitor",
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,
@@ -908,6 +916,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             tone="info"
             icon={<AutomationBoltIcon />}
           />
+          <BotSummaryCard
+            label="Operational Ready"
+            value={String(readModel.summary.operationalReadyBots || 0)}
+            note={`${readModel.summary.recoveryBots || 0} recovery / ${readModel.summary.finalReviewBots || 0} final review`}
+            tone="success"
+            icon={<AutomationBoltIcon />}
+          />
         </div>
 
         {activeTab === "all-bots" && readModel.attentionBots.length ? (
@@ -924,7 +939,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               {readModel.attentionBots.map((bot) => (
                 <article key={bot.id} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
-                  <p>{buildBotAttentionNote(bot)}</p>
+                  <p>{buildBotAttentionNote(bot)} · {formatOperationalReadiness(bot.operationalReadiness)}</p>
                   <p>
                     Decision backlog: {formatSymbolRanking(bot.unresolvedDecisionRanking)}
                     {" · "}

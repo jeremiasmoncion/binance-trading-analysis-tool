@@ -843,6 +843,7 @@ function createExecutionIntentSummary<
       lane: getDecisionExecutionIntentLane(decision),
       laneStatus: getEffectiveDecisionExecutionIntentLaneStatus(decision, previewStaleHours),
       previewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
+      previewPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -868,6 +869,8 @@ function createExecutionIntentSummary<
     previewStaleCount: ranked.filter((entry) => entry.laneStatus === "preview-expired").length,
     refreshedPreviewCount: ranked.filter((entry) => entry.previewRefreshCount > 0).length,
     previewRefreshCount: ranked.reduce((sum, entry) => sum + entry.previewRefreshCount, 0),
+    pardonedPreviewCount: ranked.filter((entry) => entry.previewPardonCount > 0).length,
+    previewPardonCount: ranked.reduce((sum, entry) => sum + entry.previewPardonCount, 0),
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,
@@ -967,6 +970,8 @@ function createBotAttentionSummary(bot: {
     previewExpiredCount: number;
     previewRefreshCount: number;
     refreshedPreviewCount: number;
+    previewPardonCount: number;
+    pardonedPreviewCount: number;
   } | null;
   adaptationSummary?: {
     trainingConfidence: string;
@@ -976,11 +981,13 @@ function createBotAttentionSummary(bot: {
   let score = 0;
   const previewExpiredCount = bot.executionIntentSummary?.previewExpiredCount || 0;
   const previewRefreshCount = bot.executionIntentSummary?.previewRefreshCount || 0;
+  const previewPardonCount = bot.executionIntentSummary?.previewPardonCount || 0;
   const severePreviewChurn = previewExpiredCount >= 2 || previewRefreshCount >= 3;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
   score += previewExpiredCount * 12;
   score += Math.min(previewRefreshCount * 6, 30);
+  score += Math.min(previewPardonCount * 8, 24);
   if (severePreviewChurn) score += 20;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
@@ -993,6 +1000,9 @@ function createBotAttentionSummary(bot: {
   }
   if (previewRefreshCount > 0) {
     noteParts.push(`${previewRefreshCount} preview refreshes already happened across ${bot.executionIntentSummary?.refreshedPreviewCount || 0} intents.`);
+  }
+  if (previewPardonCount > 0) {
+    noteParts.push(`${previewPardonCount} churn pardons were already granted across ${bot.executionIntentSummary?.pardonedPreviewCount || 0} intents.`);
   }
   if (severePreviewChurn) {
     noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");

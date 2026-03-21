@@ -213,6 +213,7 @@ function buildBotAttentionNote(bot: {
   adaptationConfidence: string;
   previewExpiredCount?: number;
   previewRefreshCount?: number;
+  previewPardonCount?: number;
   healthLabel?: string;
 }) {
   const parts = [
@@ -225,6 +226,9 @@ function buildBotAttentionNote(bot: {
   }
   if (bot.previewRefreshCount) {
     parts.push(`${bot.previewRefreshCount} preview refreshes`);
+  }
+  if (bot.previewPardonCount) {
+    parts.push(`${bot.previewPardonCount} churn pardons`);
   }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
@@ -295,6 +299,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         unlinkedExecutionRanking: bot.ownership.unlinkedExecutionRanking || [],
         previewExpiredCount: bot.executionIntentSummary?.previewExpiredCount || 0,
         previewRefreshCount: bot.executionIntentSummary?.previewRefreshCount || 0,
+        previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,

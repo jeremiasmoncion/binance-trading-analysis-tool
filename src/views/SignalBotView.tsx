@@ -515,7 +515,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   />
                   <MetricTile
                     label="Preview Churn"
-                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes`}
+                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewPardonCount || 0)} pardons`}
                     note={buildPreviewChurnNote(selectedBotCard)}
                   />
                   <MetricTile
@@ -958,6 +958,8 @@ function buildPreviewChurnNote(bot: {
     previewExpiredCount?: number;
     previewRefreshCount?: number;
     refreshedPreviewCount?: number;
+    previewPardonCount?: number;
+    pardonedPreviewCount?: number;
   } | null;
   attention?: {
     priority?: string | null;
@@ -968,6 +970,8 @@ function buildPreviewChurnNote(bot: {
   const expiredCount = summary?.previewExpiredCount || 0;
   const refreshCount = summary?.previewRefreshCount || 0;
   const refreshedIntentCount = summary?.refreshedPreviewCount || 0;
+  const pardonCount = summary?.previewPardonCount || 0;
+  const pardonedIntentCount = summary?.pardonedPreviewCount || 0;
   const priority = String(bot?.attention?.priority || "").trim();
 
   if (!expiredCount && !refreshCount) {
@@ -980,6 +984,9 @@ function buildPreviewChurnNote(bot: {
   ];
   if (refreshedIntentCount > 0) {
     parts.push(`${refreshedIntentCount} intents already recycled`);
+  }
+  if (pardonCount > 0) {
+    parts.push(`${pardonCount} pardons across ${pardonedIntentCount} intents`);
   }
   if (priority === "urgent") {
     parts.push("This churn is now severe enough to keep the bot in urgent attention.");

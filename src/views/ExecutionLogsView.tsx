@@ -45,6 +45,7 @@ type DecisionLogEntry = {
   executionIntentDispatchAttemptedAt?: string | null;
   executionIntentDispatchedAt?: string | null;
   executionIntentPreviewRefreshCount?: number | null;
+  executionIntentPreviewChurnPardonCount?: number | null;
   executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -183,6 +184,7 @@ export function ExecutionLogsView() {
         metadata: {
           executionIntentStatus: "ready",
           executionIntentLaneStatus: "dispatch-requested",
+          executionIntentPreviewChurnPardonCount: Number(decision.executionIntentPreviewChurnPardonCount || 0) + 1,
           executionIntentLastUpdatedAt: now,
           executionIntentDispatchRequestedAt: now,
           executionIntentPreviewChurnPardonGrantedAt: now,

@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` preview pardon diagnostics round
+
+### Completed
+
+- Turned preview churn pardons into a tracked shared signal instead of leaving them as hidden recovery metadata.
+- Pardon grants now persist as `executionIntentPreviewChurnPardonCount` on the bot-decision seam.
+- Shared intent summaries now expose:
+  - `pardonedPreviewCount`
+  - `previewPardonCount`
+- Shared bot attention scoring now also gets harder when repeated churn pardons accumulate.
+- `Signal Bot` and `Bot Settings` now surface pardon load as part of the same paper-lane diagnostics.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids repeated churn pardons acting like invisible operator overrides.
+- It also avoids understating bot instability when recovery attempts keep stacking up.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether repeated churn pardons should eventually stop being available without stronger review
+  - decide whether `Execution Logs` should get a dedicated pardon-focused filter or summary
+  - keep real trading execution out of scope until paper/demo recovery overrides remain tightly governed
+
+### Phase
+
 `Bot Core` preview churn pardon round
 
 ### Completed

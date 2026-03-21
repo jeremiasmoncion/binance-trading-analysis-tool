@@ -1049,46 +1049,6 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           </section>
         ) : null}
 
-        {activeTab === "all-bots" && readModel.attentionBots.length ? (
-          <section className="botsettings-panel card" style={{ marginBottom: "1.25rem" }}>
-            <div className="botsettings-general-head" style={{ marginBottom: "1rem" }}>
-              <div className="botsettings-general-title">
-                <div className="botsettings-general-icon is-warning">
-                  <WarningTriangleIcon />
-                </div>
-                <h3>Bots Needing Attention</h3>
-              </div>
-            </div>
-            <div className="signalbot-insight-stack">
-              {readModel.attentionBots.map((bot) => (
-                <article key={bot.id} className="signalbot-insight-card">
-                  <strong>{bot.name} · {bot.pair}</strong>
-                  <p>{buildBotAttentionNote(bot)} · {formatOperationalReadiness(bot.operationalReadiness)}</p>
-                  {bot.readyContention.isContended ? (
-                    <p>
-                      Ready contention: {bot.readyContention.pair || bot.pair}
-                      {" · "}
-                      {bot.readyContention.isLeader
-                        ? `leader ahead of ${bot.readyContention.peerNames.join(", ") || "other ready bots"}`
-                        : `queue #${bot.readyContention.queuePosition || 2} behind ${bot.readyContention.leaderBotName || bot.readyContention.peerNames[0] || "another ready bot"}`}
-                    </p>
-                  ) : null}
-                  <p>
-                    Decision backlog: {formatSymbolRanking(bot.unresolvedDecisionRanking)}
-                    {" · "}
-                    Execution backlog: {formatSymbolRanking(bot.unlinkedExecutionRanking)}
-                  </p>
-                  <p>
-                    Best pocket: {bot.bestPocketSymbol || "forming"}
-                    {" · "}
-                    Weak pocket: {bot.weakPocketSymbol || "not clear"}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         <section className="botsettings-panel card">
           <div className="botsettings-tab-bar">
             {BOT_TABS.map((tab) => (

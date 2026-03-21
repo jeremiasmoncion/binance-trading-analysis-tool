@@ -4,6 +4,34 @@
 
 ### Phase
 
+`Bot Core` fleet operational verdict round
+
+### Completed
+
+- Added a shared fleet-level `operational verdict` derived from safe-lane stability, contention, recovery pressure, final review pressure, and unstable queue churn.
+- `Bot Settings` now shows:
+  - an `Operational Verdict` summary card
+  - a matching insight inside the readiness panel
+- This makes the hub much closer to answering the real question: is the governed paper lane still forming, validating, close, or not ready?
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids forcing the operator to interpret several fleet metrics manually before deciding if the bots are near an operational threshold.
+- It also avoids promoting a vague “looks okay” reading when contention and queue churn still make the lane fragile.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use this operational verdict for a final concurrency validation pass
+  - decide if the current `close / validating / not-ready / forming` thresholds are strong enough to declare the safe lane operational
+  - keep real trading execution out of scope until that verdict holds up under repeated concurrent cycles
+
+### Phase
+
 `Bot Core` fleet safe-lane stability round
 
 ### Completed

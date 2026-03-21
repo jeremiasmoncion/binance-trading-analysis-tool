@@ -65,6 +65,7 @@ The redesign also now has dedicated documentation for:
 - added a dedicated `Auto-Promoted` review path in `Execution Logs` so automatic queue promotions can be audited directly
 - added fleet-level queue churn summaries so repeated queue auto-promotions are also visible from `Bot Settings`
 - added a shared fleet-level `safe-lane stability` reading so the hub can judge whether the governed paper lane is forming, stable, watch-level, or fragile
+- added a shared fleet-level `operational verdict` so the hub can now speak in a more direct readiness language: forming, validating, close, or not ready
 
 - mapped major current components related to:
   - strategy generation

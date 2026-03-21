@@ -214,6 +214,14 @@ function formatSafeLaneStability(value?: string | null) {
   return "Forming";
 }
 
+function formatOperationalVerdict(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "close") return "Close";
+  if (normalized === "validating") return "Validating";
+  if (normalized === "not-ready") return "Not Ready";
+  return "Forming";
+}
+
 function buildBotAttentionNote(bot: {
   unresolvedOwnershipCount: number;
   reconciliationPct: number;
@@ -970,6 +978,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             icon={<AutomationBoltIcon />}
             progress={readModel.summary.safeLaneStabilityPct || 0}
           />
+          <BotSummaryCard
+            label="Operational Verdict"
+            value={formatOperationalVerdict(readModel.summary.operationalVerdictState)}
+            note={readModel.summary.operationalVerdictNote || "The safe lane is still being validated."}
+            tone="info"
+            icon={<AutomationBoltIcon />}
+          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
@@ -1033,6 +1048,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <strong>Safe-Lane Stability</strong>
                 <p>{Math.round(readModel.summary.safeLaneStabilityPct || 0)}% · {formatSafeLaneStability(readModel.summary.safeLaneStabilityState)}</p>
                 <p>{readModel.summary.stableReadyBots || 0} bots currently look stably ready after accounting for contention and queue churn.</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Operational Verdict</strong>
+                <p>{formatOperationalVerdict(readModel.summary.operationalVerdictState)}</p>
+                <p>{readModel.summary.operationalVerdictNote || "The safe lane is still being validated."}</p>
               </article>
             </div>
           </section>

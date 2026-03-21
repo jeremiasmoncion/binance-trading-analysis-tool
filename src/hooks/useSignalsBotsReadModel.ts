@@ -1097,6 +1097,37 @@ function summarizeFleetSafeLaneStability(input: {
   };
 }
 
+function summarizeFleetOperationalVerdict(input: {
+  totalBots: number;
+  safeLaneStabilityState: string;
+  safeLaneStabilityPct: number;
+  stableReadyBots: number;
+  finalReviewBots: number;
+  unstableQueueBots: number;
+  contendedReadyBots: number;
+}) {
+  const state = input.safeLaneStabilityState === "stable" && input.safeLaneStabilityPct >= 50
+    ? "close"
+    : input.safeLaneStabilityState === "watch"
+      ? "validating"
+      : input.safeLaneStabilityState === "fragile"
+        ? "not-ready"
+        : "forming";
+
+  const note = state === "close"
+    ? `${input.stableReadyBots} bots look stably ready and the safe lane is nearing an operational threshold.`
+    : state === "validating"
+      ? `${input.contendedReadyBots} contended ready bots and ${input.unstableQueueBots} unstable queue bots still keep the lane in validation.`
+      : state === "not-ready"
+        ? `${input.finalReviewBots} bots are already in final review or queue instability is still too high for an operational verdict.`
+        : `The safe lane is still forming and needs more stable ready capacity before it can be considered operational.`;
+
+  return {
+    state,
+    note,
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1529,6 +1560,15 @@ export function useSignalsBotsReadModel() {
       contendedReadyBots: readyContention.contendedReadyBots,
       unstableQueueBots: fleetQueueChurn.unstableQueueBots,
     });
+    const fleetOperationalVerdict = summarizeFleetOperationalVerdict({
+      totalBots: botCardsWithOperationalContention.length,
+      safeLaneStabilityState: fleetSafeLaneStability.state,
+      safeLaneStabilityPct: fleetSafeLaneStability.stabilityPct,
+      stableReadyBots: fleetSafeLaneStability.stableReadyBots,
+      finalReviewBots: fleetOperationalReadiness.finalReviewBots,
+      unstableQueueBots: fleetQueueChurn.unstableQueueBots,
+      contendedReadyBots: readyContention.contendedReadyBots,
+    });
 
     const selectedBotCard = botCardsWithOperationalContention.find((bot) => bot.id === selectedBotId) || botCardsWithOperationalContention[0] || null;
     const selectedBotFeed = selectedBotCard
@@ -1653,6 +1693,8 @@ export function useSignalsBotsReadModel() {
         safeLaneStabilityState: fleetSafeLaneStability.state,
         safeLaneStabilityPct: fleetSafeLaneStability.stabilityPct,
         stableReadyBots: fleetSafeLaneStability.stableReadyBots,
+        operationalVerdictState: fleetOperationalVerdict.state,
+        operationalVerdictNote: fleetOperationalVerdict.note,
         contendedReadySymbols: readyContention.contendedReadySymbols,
         contendedReadyBots: readyContention.contendedReadyBots,
       },

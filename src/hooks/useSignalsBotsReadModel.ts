@@ -1128,6 +1128,48 @@ function summarizeFleetOperationalVerdict(input: {
   };
 }
 
+function summarizeBotOperationalVerdict(bot: {
+  operationalReadiness?: {
+    state?: string;
+    finalReviewOnly?: boolean;
+    unstableQueueChurn?: boolean;
+    contentionActive?: boolean;
+  } | null;
+  executionIntentSummary?: {
+    readyCount?: number;
+    dispatchRequestedCount?: number;
+    queuedCount?: number;
+    readyContentionAutoPromotionCount?: number;
+  } | null;
+}) {
+  const readinessState = String(bot.operationalReadiness?.state || "").trim();
+  const autoPromotionCount = bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0;
+  const activeIntentCount = (bot.executionIntentSummary?.readyCount || 0)
+    + (bot.executionIntentSummary?.queuedCount || 0)
+    + (bot.executionIntentSummary?.dispatchRequestedCount || 0);
+
+  const state = readinessState === "final-review"
+    ? "not-ready"
+    : readinessState === "ready"
+      ? "close"
+      : readinessState === "recovery" || bot.operationalReadiness?.unstableQueueChurn || bot.operationalReadiness?.contentionActive
+        ? "validating"
+        : "forming";
+
+  const note = state === "close"
+    ? `${activeIntentCount} active safe-lane intents are still progressing under a clean enough readiness envelope.`
+    : state === "validating"
+      ? `${autoPromotionCount} queue auto-promotions and current recovery/contension pressure are still keeping this bot in validation.`
+      : state === "not-ready"
+        ? "This bot exhausted the current governed path and should not be treated as operational in the safe lane."
+        : "This bot is still forming a stable enough safe-lane rhythm to be considered operational.";
+
+  return {
+    state,
+    note,
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1598,6 +1640,12 @@ export function useSignalsBotsReadModel() {
         )
       : null;
     const selectedBotExecutionIntentSummary = selectedBotCard?.executionIntentSummary || null;
+    const selectedBotOperationalVerdict = selectedBotCard
+      ? summarizeBotOperationalVerdict({
+          operationalReadiness: selectedBotCard.operationalReadiness,
+          executionIntentSummary: selectedBotCard.executionIntentSummary,
+        })
+      : null;
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
@@ -1664,6 +1712,7 @@ export function useSignalsBotsReadModel() {
       selectedBotPerformanceBreakdowns,
       selectedBotAdaptationSummary,
       selectedBotExecutionIntentSummary,
+      selectedBotOperationalVerdict,
       attentionBots,
       attentionBotIds: attentionCandidates.map((bot) => bot.id),
       readyContention,

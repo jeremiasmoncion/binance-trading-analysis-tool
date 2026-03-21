@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` selected-bot operational verdict round
+
+### Completed
+
+- Extended `Signal Bot` so the selected bot now consumes the same shared `operational verdict` language already introduced at fleet level.
+- Added `Operational Verdict` inside the execution-intent workspace metrics and the settings tab for the selected bot.
+- Kept that verdict derived from the shared read-model seam instead of recomputing a local per-screen interpretation.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids teaching the operator one operational-verdict language in `Bot Settings` and another one inside `Signal Bot`.
+- It also avoids burying selected-bot readiness confidence behind several smaller intent/readiness cards when the shared verdict can already summarize it directly.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use the shared verdict and safe-lane stability signals for a final concurrency validation pass
+  - decide whether repeated concurrent cycles already justify declaring the governed `paper/demo` lane operational
+  - keep real trading execution out of scope until that verdict remains stable under repeated multi-bot cycles
+
+### Phase
+
 `Bot Core` fleet operational verdict round
 
 ### Completed

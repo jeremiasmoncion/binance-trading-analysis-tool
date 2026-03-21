@@ -66,6 +66,8 @@ The redesign also now has dedicated documentation for:
 - added fleet-level queue churn summaries so repeated queue auto-promotions are also visible from `Bot Settings`
 - added a shared fleet-level `safe-lane stability` reading so the hub can judge whether the governed paper lane is forming, stable, watch-level, or fragile
 - added a shared fleet-level `operational verdict` so the hub can now speak in a more direct readiness language: forming, validating, close, or not ready
+- extended that same shared `operational verdict` into `Signal Bot` so the selected bot now exposes the same readiness language in both the execution-intent workspace and settings tab
+- kept the selected-bot verdict derived from the shared read-model seam instead of introducing a local per-screen verdict computation
 
 - mapped major current components related to:
   - strategy generation

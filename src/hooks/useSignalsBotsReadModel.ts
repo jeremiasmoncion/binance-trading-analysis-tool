@@ -1069,6 +1069,34 @@ function summarizeFleetQueueChurn(
   };
 }
 
+function summarizeFleetSafeLaneStability(input: {
+  totalBots: number;
+  operationalReadyBots: number;
+  recoveryBots: number;
+  finalReviewBots: number;
+  contendedReadyBots: number;
+  unstableQueueBots: number;
+}) {
+  const stableReadyBots = Math.max(0, input.operationalReadyBots - input.contendedReadyBots);
+  const stabilityPct = input.totalBots > 0
+    ? (stableReadyBots / input.totalBots) * 100
+    : 0;
+
+  const state = input.finalReviewBots > 0 || input.unstableQueueBots > 1
+    ? "fragile"
+    : input.recoveryBots > 0 || input.contendedReadyBots > 0 || input.unstableQueueBots > 0
+      ? "watch"
+      : stableReadyBots > 0
+        ? "stable"
+        : "forming";
+
+  return {
+    state,
+    stabilityPct,
+    stableReadyBots,
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1493,6 +1521,14 @@ export function useSignalsBotsReadModel() {
       };
     });
     const fleetQueueChurn = summarizeFleetQueueChurn(botCardsWithOperationalContention);
+    const fleetSafeLaneStability = summarizeFleetSafeLaneStability({
+      totalBots: botCardsWithOperationalContention.length,
+      operationalReadyBots: fleetOperationalReadiness.operationalReadyBots,
+      recoveryBots: fleetOperationalReadiness.recoveryBots,
+      finalReviewBots: fleetOperationalReadiness.finalReviewBots,
+      contendedReadyBots: readyContention.contendedReadyBots,
+      unstableQueueBots: fleetQueueChurn.unstableQueueBots,
+    });
 
     const selectedBotCard = botCardsWithOperationalContention.find((bot) => bot.id === selectedBotId) || botCardsWithOperationalContention[0] || null;
     const selectedBotFeed = selectedBotCard
@@ -1614,6 +1650,9 @@ export function useSignalsBotsReadModel() {
         queueChurnBots: fleetQueueChurn.queueChurnBots,
         unstableQueueBots: fleetQueueChurn.unstableQueueBots,
         queueAutoPromotions: fleetQueueChurn.queueAutoPromotions,
+        safeLaneStabilityState: fleetSafeLaneStability.state,
+        safeLaneStabilityPct: fleetSafeLaneStability.stabilityPct,
+        stableReadyBots: fleetSafeLaneStability.stableReadyBots,
         contendedReadySymbols: readyContention.contendedReadySymbols,
         contendedReadyBots: readyContention.contendedReadyBots,
       },

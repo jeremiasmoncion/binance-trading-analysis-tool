@@ -206,6 +206,14 @@ function summarizeAdaptationBias(value: string) {
   return value;
 }
 
+function formatSafeLaneStability(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "stable") return "Stable";
+  if (normalized === "watch") return "Watch";
+  if (normalized === "fragile") return "Fragile";
+  return "Forming";
+}
+
 function buildBotAttentionNote(bot: {
   unresolvedOwnershipCount: number;
   reconciliationPct: number;
@@ -954,6 +962,14 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             tone="warning"
             icon={<WarningTriangleIcon />}
           />
+          <BotSummaryCard
+            label="Safe-Lane Stability"
+            value={`${Math.round(readModel.summary.safeLaneStabilityPct || 0)}%`}
+            note={`${formatSafeLaneStability(readModel.summary.safeLaneStabilityState)} • ${readModel.summary.stableReadyBots || 0} stable ready bots`}
+            tone="primary"
+            icon={<AutomationBoltIcon />}
+            progress={readModel.summary.safeLaneStabilityPct || 0}
+          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
@@ -1013,6 +1029,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   <p>These bots are relying on repeated queue auto-promotions and should be watched for unstable concurrent sequencing.</p>
                 </article>
               ) : null}
+              <article className="signalbot-insight-card">
+                <strong>Safe-Lane Stability</strong>
+                <p>{Math.round(readModel.summary.safeLaneStabilityPct || 0)}% · {formatSafeLaneStability(readModel.summary.safeLaneStabilityState)}</p>
+                <p>{readModel.summary.stableReadyBots || 0} bots currently look stably ready after accounting for contention and queue churn.</p>
+              </article>
             </div>
           </section>
         ) : null}

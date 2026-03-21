@@ -4,6 +4,38 @@
 
 ### Phase
 
+`Bot Core` fleet safe-lane stability round
+
+### Completed
+
+- Added a shared fleet-level `safe-lane stability` summary that combines:
+  - operationally ready bots
+  - contention-adjusted stable ready bots
+  - recovery/final-review pressure
+  - unstable queue churn
+- `Bot Settings` now shows:
+  - a `Safe-Lane Stability` summary card
+  - a compact insight inside `Operational Readiness`
+- This gives the fleet hub a more direct answer to whether the governed paper lane is forming, stable, watch-level, or fragile.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids forcing the operator to mentally combine readiness, contention, queue churn, and final review counts just to estimate if the safe lane is stable.
+- It also avoids declaring the lane healthier than it really is when queue churn and contention are eating into usable readiness.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use this new fleet stability reading to decide whether the safe lane is close enough to be declared operational
+  - validate a few more repeated concurrent cycles under this summary
+  - keep real trading execution out of scope until the safe lane stays stable enough over time
+
+### Phase
+
 `Bot Core` fleet queue churn summary round
 
 ### Completed

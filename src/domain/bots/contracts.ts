@@ -296,6 +296,12 @@ export interface Bot {
   slug: string;
   name: string;
   botType?: string;
+  executionAccount?: {
+    id: string;
+    label: string;
+    provider: string;
+    environment: string;
+  } | null;
   description: string;
   identity: BotIdentity;
   status: BotStatus;

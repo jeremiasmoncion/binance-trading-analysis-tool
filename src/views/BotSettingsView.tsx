@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { DownloadIcon, SearchIcon, SlidersHorizontalIcon, WarningTriangleIcon, BellIcon } from "../components/Icons";
 import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
 import { useSelectedBotState } from "../hooks/useSelectedBot";
+import { binanceService } from "../services/api";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { ViewName } from "../types";
 
@@ -14,6 +15,7 @@ interface QuickEditDraft {
   botId: string | null;
   botName: string;
   botType: string;
+  executionAccountId: string;
   pair: string;
   investmentAmount: string;
   stopLossPct: string;
@@ -22,10 +24,23 @@ interface QuickEditDraft {
   accentClass: string;
 }
 
+interface TradingAccountOption {
+  value: string;
+  label: string;
+  provider: string;
+  environment: "paper" | "demo" | "real";
+}
+
 interface QuickEditSource {
   id: string;
   name: string;
   botType?: string;
+  executionAccount?: {
+    id: string;
+    label: string;
+    provider: string;
+    environment: string;
+  } | null;
   pair: string;
   capital: {
     allocatedUsd: number;
@@ -197,6 +212,17 @@ function formatBotTypeLabel(value?: string | null) {
   return String(value || "").trim() === "signal-bot" ? "Signal Bot" : "Signal Bot";
 }
 
+function createTradingAccountOptions(accountAlias?: string | null): TradingAccountOption[] {
+  return [
+    {
+      value: "binance-demo",
+      label: accountAlias ? `${accountAlias} · Binance Demo` : "Binance Demo",
+      provider: "binance",
+      environment: "demo",
+    },
+  ];
+}
+
 function formatSafeLaneStability(value?: string | null) {
   const normalized = String(value || "").trim();
   if (normalized === "stable") return "Stable";
@@ -234,6 +260,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
+  const [tradingAccountOptions, setTradingAccountOptions] = useState<TradingAccountOption[]>([]);
   const feedReadModel = useSignalsBotsReadModel();
   const { createBot, selectBot, updateBot, loading: botsLoading, error: botsError, hydrated: botsHydrated } = useSelectedBotState();
   const selectedSettingsBot = feedReadModel.selectedBotCard || feedReadModel.botCards[0] || null;
@@ -482,6 +509,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       botId: bot.id,
       botName: bot.name,
       botType: bot.botType || "signal-bot",
+      executionAccountId: bot.executionAccount?.id || tradingAccountOptions[0]?.value || "",
       pair: bot.pair,
       investmentAmount: String(Math.round(bot.capital.allocatedUsd || 0)),
       stopLossPct: String(bot.workspaceSettings.stopLossPct ?? bot.riskPolicy.maxDrawdownPct ?? ""),
@@ -523,12 +551,32 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     setNotificationSettings(buildNotificationSettingsState(selectedSettingsBot));
   }, [selectedSettingsBot?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    binanceService.getConnection()
+      .then((connection) => {
+        if (cancelled) return;
+        const options = connection?.connected ? createTradingAccountOptions(connection.accountAlias) : [];
+        setTradingAccountOptions(options);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTradingAccountOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleCreateBot = async () => {
     setQuickEditDraft({
       mode: "create",
       botId: null,
       botName: `Signal Bot ${readModel.cards.length + 1}`,
       botType: "signal-bot",
+      executionAccountId: tradingAccountOptions[0]?.value || "",
       pair: "BTC/USDT",
       investmentAmount: "0",
       stopLossPct: "5",
@@ -570,9 +618,18 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       });
       return;
     }
+    if (!quickEditDraft.executionAccountId) {
+      showToast({
+        tone: "error",
+        title: "Cuenta obligatoria",
+        message: "Debes elegir la cuenta con la que este bot va a trabajar.",
+      });
+      return;
+    }
     const loaderId = startLoading({ label: "Guardando bot", detail: quickEditDraft.botName });
     try {
       const normalizedPair = quickEditDraft.pair.trim() || "BTC/USDT";
+      const selectedAccount = tradingAccountOptions.find((account) => account.value === quickEditDraft.executionAccountId) || null;
       const existingBot = quickEditDraft.botId ? readModel.cards.find((bot) => bot.id === quickEditDraft.botId) || null : null;
       const nextExecutionPolicy = existingBot
         ? {
@@ -590,6 +647,14 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       const botPayload = {
         name: normalizedName,
         botType: quickEditDraft.botType,
+        executionAccount: selectedAccount
+          ? {
+              id: selectedAccount.value,
+              label: selectedAccount.label,
+              provider: selectedAccount.provider,
+              environment: selectedAccount.environment,
+            }
+          : null,
         capital: {
           allocatedUsd: Number(quickEditDraft.investmentAmount || 0),
           availableUsd: Number(quickEditDraft.investmentAmount || 0),
@@ -610,7 +675,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         const createdBot = await createBot({
           status: "draft",
           automationMode: quickEditDraft.automaticModeEnabled ? "auto" : "observe",
-          executionEnvironment: "paper",
+          executionEnvironment: selectedAccount?.environment || "paper",
           executionPolicy: nextExecutionPolicy,
           ...botPayload,
         });
@@ -624,6 +689,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         await updateBot(quickEditDraft.botId, {
           ...botPayload,
           automationMode: quickEditDraft.automaticModeEnabled ? "auto" : "observe",
+          executionEnvironment: selectedAccount?.environment || existingBot?.executionEnvironment || "paper",
           executionPolicy: nextExecutionPolicy,
           capital: {
             ...botPayload.capital,
@@ -1970,6 +2036,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   options={QUICK_EDIT_BOT_TYPE_OPTIONS}
                   onChange={(value) => updateQuickEdit("botType", value)}
                 />
+                <FormSelect
+                  label="Trading Account"
+                  value={quickEditDraft.executionAccountId}
+                  options={tradingAccountOptions}
+                  onChange={(value) => updateQuickEdit("executionAccountId", value)}
+                  note="Choose the linked trading account this bot will use."
+                />
                 <FormInput
                   label="Investment Amount"
                   value={quickEditDraft.investmentAmount}
@@ -2065,6 +2138,7 @@ function FormSelect(props: {
   value: string;
   options: ReadonlyArray<string | { value: string; label: string }>;
   onChange: (value: string) => void;
+  note?: string;
 }) {
   return (
     <div className="botsettings-field-block">
@@ -2079,6 +2153,7 @@ function FormSelect(props: {
         </select>
         <SelectChevronIcon />
       </label>
+      {props.note ? <span className="botsettings-field-note">{props.note}</span> : null}
     </div>
   );
 }

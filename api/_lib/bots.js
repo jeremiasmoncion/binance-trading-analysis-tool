@@ -72,6 +72,14 @@ function createDefaultBotPayload(overrides = {}) {
     slug,
     name,
     botType: normalizeBotType(overrides.botType),
+    executionAccount: overrides.executionAccount && typeof overrides.executionAccount === "object"
+      ? {
+          id: String(overrides.executionAccount.id || "").trim(),
+          label: String(overrides.executionAccount.label || "").trim(),
+          provider: String(overrides.executionAccount.provider || "").trim(),
+          environment: String(overrides.executionAccount.environment || "").trim(),
+        }
+      : null,
     description: String(
       overrides.description
       || "Bot principal para consumir señales del sistema con políticas estándar y ejecución controlada.",

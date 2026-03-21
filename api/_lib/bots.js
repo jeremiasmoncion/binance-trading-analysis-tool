@@ -339,32 +339,9 @@ async function listBotRowsForUser(username) {
   return (await supabaseRequest(`${BOTS_TABLE}?${params.toString()}`)) || [];
 }
 
-async function ensureSeedBotForUser(username) {
-  const currentRows = await listBotRowsForUser(username);
-  if (currentRows.length) return currentRows;
-
-  const seedBot = createDefaultBotPayload({
-    id: "signal-bot-core",
-    slug: "signal-bot-core",
-    name: "Signal Bot Core",
-    primaryPair: "BTC/USDT",
-    status: "active",
-    automationMode: "assist",
-    tags: ["system", "signals", "phase-3"],
-  });
-
-  await supabaseRequest(BOTS_TABLE, {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: [botToRow(username, seedBot)],
-  });
-
-  return listBotRowsForUser(username);
-}
-
 async function listBots(req) {
   const session = requireSession(req);
-  const rows = await ensureSeedBotForUser(session.username);
+  const rows = await listBotRowsForUser(session.username);
   return {
     bots: rows.map(rowToBot),
     lastHydratedAt: nowIso(),

@@ -992,12 +992,15 @@ function createOperationalReadinessSummary(bot: {
     previewPardonCount: number;
     previewManualClearCount: number;
     previewHardResetCount: number;
+    readyContentionAutoPromotionCount: number;
   } | null;
 }) {
   const summary = bot.executionIntentSummary;
   const isPaperLane = bot.executionEnvironment === "paper";
   const contentionActive = Boolean(bot.readyContention?.isContended);
   const contentionPeerCount = Number(bot.readyContention?.peerCount || 0);
+  const queueAutoPromotionCount = summary?.readyContentionAutoPromotionCount || 0;
+  const unstableQueueChurn = queueAutoPromotionCount >= 3;
   const finalReviewOnly = isPaperLane
     && (summary?.previewHardResetCount || 0) > 0
     && (bot.attention?.priority || "") === "urgent";
@@ -1006,10 +1009,12 @@ function createOperationalReadinessSummary(bot: {
     || (summary?.previewPardonCount || 0) > 0
     || (summary?.previewManualClearCount || 0) > 0
     || (summary?.previewHardResetCount || 0) > 0
+    || unstableQueueChurn
   );
   const dispatchReady = bot.status === "active"
     && !finalReviewOnly
     && (bot.attention?.priority || "") !== "urgent"
+    && !unstableQueueChurn
     && (!contentionActive || Boolean(bot.readyContention?.isLeader))
     && (((summary?.readyCount || 0) + (summary?.queuedCount || 0) + (summary?.dispatchRequestedCount || 0)) > 0);
 
@@ -1029,6 +1034,7 @@ function createOperationalReadinessSummary(bot: {
     dispatchReady,
     contentionActive,
     contentionPeerCount,
+    unstableQueueChurn,
   };
 }
 
@@ -1148,6 +1154,8 @@ function createBotAttentionSummary(bot: {
     manuallyClearedPreviewCount: number;
     previewHardResetCount: number;
     hardResetPreviewCount: number;
+    readyContentionAutoPromotionCount: number;
+    autoPromotedContentionIntentCount: number;
   } | null;
   adaptationSummary?: {
     trainingConfidence: string;
@@ -1160,9 +1168,12 @@ function createBotAttentionSummary(bot: {
   const previewPardonCount = bot.executionIntentSummary?.previewPardonCount || 0;
   const previewManualClearCount = bot.executionIntentSummary?.previewManualClearCount || 0;
   const previewHardResetCount = bot.executionIntentSummary?.previewHardResetCount || 0;
+  const readyContentionAutoPromotionCount = bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0;
+  const autoPromotedContentionIntentCount = bot.executionIntentSummary?.autoPromotedContentionIntentCount || 0;
   const contentionActive = Boolean(bot.readyContention?.isContended);
   const contentionPeerCount = Number(bot.readyContention?.peerCount || 0);
   const severePreviewChurn = previewExpiredCount >= 2 || previewRefreshCount >= 3;
+  const unstableQueueChurn = readyContentionAutoPromotionCount >= 3;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
   score += previewExpiredCount * 12;
@@ -1171,7 +1182,9 @@ function createBotAttentionSummary(bot: {
   score += Math.min(previewManualClearCount * 12, 36);
   score += Math.min(previewHardResetCount * 18, 36);
   score += contentionActive && !bot.readyContention?.isLeader ? Math.min(contentionPeerCount * 14, 28) : 0;
+  score += Math.min(readyContentionAutoPromotionCount * 5, 20);
   if (severePreviewChurn) score += 20;
+  if (unstableQueueChurn) score += 15;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
   if (bot.adaptationSummary?.trainingConfidence === "medium") score += 8;
@@ -1201,8 +1214,14 @@ function createBotAttentionSummary(bot: {
         : `${contentionPeerCount + 1} ready bots are currently overlapping on ${bot.readyContention?.pair || "the same pair"}${bot.readyContention?.leaderBotName ? ` and ${bot.readyContention.leaderBotName} is ahead in the shared queue` : ""}${bot.readyContention?.peerNames?.length ? ` (${bot.readyContention.peerNames.join(", ")})` : ""}.`,
     );
   }
+  if (readyContentionAutoPromotionCount > 0) {
+    noteParts.push(`${readyContentionAutoPromotionCount} queue auto-promotions already happened across ${autoPromotedContentionIntentCount} intents.`);
+  }
   if (severePreviewChurn) {
     noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");
+  }
+  if (unstableQueueChurn) {
+    noteParts.push("Queue auto-promotions are happening often enough to keep this bot out of a clean ready state.");
   }
 
   return {

@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` queue churn attention round
+
+### Completed
+
+- Hardened the shared read-model so repeated queue auto-promotions now count as operational churn, not just neutral telemetry.
+- Bots with too many contention auto-promotions now lose clean `dispatch-ready` status and move more naturally into a recovery-like reading.
+- The shared attention note now explains when queue auto-promotions are frequent enough to keep a bot out of a clean ready state.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating repeated queue auto-promotions as harmless even when they indicate unstable concurrent sequencing.
+- It also avoids waiting for a later backend/reporting layer just to make queue churn matter operationally.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - validate whether this queue-churn penalty is enough under repeated multi-bot cycles
+  - decide whether automatic queue promotion events should surface even more explicitly in `Execution Logs`
+  - keep real trading execution out of scope until concurrent safe-lane churn stays predictable
+
+### Phase
+
 `Bot Core` ready queue promotion telemetry round
 
 ### Completed

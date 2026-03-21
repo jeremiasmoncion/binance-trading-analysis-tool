@@ -61,6 +61,7 @@ The redesign also now has dedicated documentation for:
 - kept that promotion inside the existing operational loop and decision metadata instead of creating a separate queue worker
 - added shared telemetry for queue auto-promotions so concurrent safe-lane validation can measure how often followers are being re-promoted automatically
 - surfaced queue auto-promotion counts in `Signal Bot`, `Bot Settings`, and `Execution Logs`
+- promoted repeated queue auto-promotions into shared attention/readiness logic so unstable contention churn now degrades clean ready state
 
 - mapped major current components related to:
   - strategy generation

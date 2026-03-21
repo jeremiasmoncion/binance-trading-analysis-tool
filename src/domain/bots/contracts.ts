@@ -295,6 +295,7 @@ export interface Bot {
   id: string;
   slug: string;
   name: string;
+  botType?: string;
   description: string;
   identity: BotIdentity;
   status: BotStatus;

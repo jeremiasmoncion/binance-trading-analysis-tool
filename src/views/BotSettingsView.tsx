@@ -13,33 +13,30 @@ interface QuickEditDraft {
   mode: "create" | "edit";
   botId: string | null;
   botName: string;
+  botType: string;
   pair: string;
-  strategy: string;
   investmentAmount: string;
-  rangeLower: string;
-  rangeUpper: string;
-  gridCount: string;
   stopLossPct: string;
   takeProfitPct: string;
-  autoCompoundProfits: boolean;
+  automaticModeEnabled: boolean;
   accentClass: string;
 }
 
 interface QuickEditSource {
   id: string;
   name: string;
+  botType?: string;
   pair: string;
-  strategy: string;
   capital: {
     allocatedUsd: number;
   };
   workspaceSettings: {
-    rangeLower: number | null;
-    rangeUpper: number | null;
-    gridCount: number | null;
     stopLossPct: number | null;
     takeProfitPct: number | null;
-    autoCompoundProfits: boolean;
+  };
+  automationMode?: string;
+  executionPolicy?: {
+    autoExecutionEnabled?: boolean;
   };
   riskPolicy: {
     maxDrawdownPct: number;
@@ -134,6 +131,7 @@ const INITIAL_NOTIFICATION_SETTINGS = {
 
 const STYLE_OPTIONS = ["scalping", "swing", "long"] as const;
 const TIMEFRAME_OPTIONS = ["5m", "15m", "1h", "4h", "1d"] as const;
+const QUICK_EDIT_BOT_TYPE_OPTIONS = [{ value: "signal-bot", label: "Signal Bot" }] as const;
 type GeneralSettingsState = typeof INITIAL_GENERAL_SETTINGS;
 
 function buildGeneralSettingsState(selectedSettingsBot: any | null): GeneralSettingsState {
@@ -193,6 +191,10 @@ function slugifyBotName(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "") || "signal-bot";
+}
+
+function formatBotTypeLabel(value?: string | null) {
+  return String(value || "").trim() === "signal-bot" ? "Signal Bot" : "Signal Bot";
 }
 
 function formatSafeLaneStability(value?: string | null) {
@@ -479,15 +481,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       mode: "edit",
       botId: bot.id,
       botName: bot.name,
+      botType: bot.botType || "signal-bot",
       pair: bot.pair,
-      strategy: bot.strategy,
       investmentAmount: String(Math.round(bot.capital.allocatedUsd || 0)),
-      rangeLower: String(bot.workspaceSettings.rangeLower ?? ""),
-      rangeUpper: String(bot.workspaceSettings.rangeUpper ?? ""),
-      gridCount: String(bot.workspaceSettings.gridCount ?? ""),
       stopLossPct: String(bot.workspaceSettings.stopLossPct ?? bot.riskPolicy.maxDrawdownPct ?? ""),
       takeProfitPct: String(bot.workspaceSettings.takeProfitPct ?? ""),
-      autoCompoundProfits: bot.workspaceSettings.autoCompoundProfits,
+      automaticModeEnabled: bot.automationMode === "auto" || Boolean(bot.executionPolicy?.autoExecutionEnabled),
       accentClass: getAssetAccentClass(bot.pair.split("/")[0] || bot.name),
     });
   };
@@ -529,15 +528,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       mode: "create",
       botId: null,
       botName: `Signal Bot ${readModel.cards.length + 1}`,
+      botType: "signal-bot",
       pair: "BTC/USDT",
-      strategy: "Signals",
       investmentAmount: "0",
-      rangeLower: "",
-      rangeUpper: "",
-      gridCount: "",
       stopLossPct: "5",
       takeProfitPct: "10",
-      autoCompoundProfits: false,
+      automaticModeEnabled: false,
       accentClass: getAssetAccentClass("BTC"),
     });
   };
@@ -565,12 +561,35 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
 
   const handleSaveQuickEdit = async () => {
     if (!quickEditDraft) return;
+    const normalizedName = quickEditDraft.botName.trim();
+    if (!normalizedName) {
+      showToast({
+        tone: "error",
+        title: "Nombre obligatorio",
+        message: "El bot no se puede guardar con el nombre en blanco.",
+      });
+      return;
+    }
     const loaderId = startLoading({ label: "Guardando bot", detail: quickEditDraft.botName });
     try {
-      const normalizedName = quickEditDraft.botName.trim() || "Signal Bot";
       const normalizedPair = quickEditDraft.pair.trim() || "BTC/USDT";
+      const existingBot = quickEditDraft.botId ? readModel.cards.find((bot) => bot.id === quickEditDraft.botId) || null : null;
+      const nextExecutionPolicy = existingBot
+        ? {
+            ...existingBot.executionPolicy,
+            autoExecutionEnabled: quickEditDraft.automaticModeEnabled,
+            suggestionsOnly: !quickEditDraft.automaticModeEnabled,
+          }
+        : {
+            canOpenPositions: true,
+            suggestionsOnly: !quickEditDraft.automaticModeEnabled,
+            requiresHumanApproval: true,
+            autoExecutionEnabled: quickEditDraft.automaticModeEnabled,
+            realExecutionEnabled: false,
+          };
       const botPayload = {
         name: normalizedName,
+        botType: quickEditDraft.botType,
         capital: {
           allocatedUsd: Number(quickEditDraft.investmentAmount || 0),
           availableUsd: Number(quickEditDraft.investmentAmount || 0),
@@ -578,20 +597,21 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         },
         workspaceSettings: {
           primaryPair: normalizedPair,
-          rangeLower: quickEditDraft.rangeLower ? Number(quickEditDraft.rangeLower) : null,
-          rangeUpper: quickEditDraft.rangeUpper ? Number(quickEditDraft.rangeUpper) : null,
-          gridCount: quickEditDraft.gridCount ? Number(quickEditDraft.gridCount) : null,
+          rangeLower: null,
+          rangeUpper: null,
+          gridCount: null,
           stopLossPct: quickEditDraft.stopLossPct ? Number(quickEditDraft.stopLossPct) : null,
           takeProfitPct: quickEditDraft.takeProfitPct ? Number(quickEditDraft.takeProfitPct) : null,
-          autoCompoundProfits: quickEditDraft.autoCompoundProfits,
+          autoCompoundProfits: false,
         },
       };
 
       if (quickEditDraft.mode === "create") {
         const createdBot = await createBot({
           status: "draft",
-          automationMode: "observe",
+          automationMode: quickEditDraft.automaticModeEnabled ? "auto" : "observe",
           executionEnvironment: "paper",
+          executionPolicy: nextExecutionPolicy,
           ...botPayload,
         });
         selectBot(createdBot.id);
@@ -603,6 +623,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       } else if (quickEditDraft.botId) {
         await updateBot(quickEditDraft.botId, {
           ...botPayload,
+          automationMode: quickEditDraft.automaticModeEnabled ? "auto" : "observe",
+          executionPolicy: nextExecutionPolicy,
           capital: {
             ...botPayload.capital,
             accountingScope: quickEditDraft.botId,
@@ -1931,7 +1953,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 </div>
                 <div className="botsettings-drawer-summary-copy">
                   <strong>{quickEditDraft.botName}</strong>
-                  <span>{quickEditDraft.pair} • {quickEditDraft.strategy}</span>
+                  <span>{quickEditDraft.pair} • {formatBotTypeLabel(quickEditDraft.botType)}</span>
                 </div>
               </div>
 
@@ -1940,29 +1962,19 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   label="Bot Name"
                   value={quickEditDraft.botName}
                   onChange={(value) => updateQuickEdit("botName", value)}
+                  note="Required. The bot cannot be saved with an empty name."
+                />
+                <FormSelect
+                  label="Bot Type"
+                  value={quickEditDraft.botType}
+                  options={QUICK_EDIT_BOT_TYPE_OPTIONS}
+                  onChange={(value) => updateQuickEdit("botType", value)}
                 />
                 <FormInput
                   label="Investment Amount"
                   value={quickEditDraft.investmentAmount}
                   onChange={(value) => updateQuickEdit("investmentAmount", value)}
                   prefix="$"
-                />
-                <div className="botsettings-time-grid">
-                  <FormInput
-                    label="Grid Lower"
-                    value={quickEditDraft.rangeLower}
-                    onChange={(value) => updateQuickEdit("rangeLower", value)}
-                  />
-                  <FormInput
-                    label="Grid Upper"
-                    value={quickEditDraft.rangeUpper}
-                    onChange={(value) => updateQuickEdit("rangeUpper", value)}
-                  />
-                </div>
-                <FormInput
-                  label="Number of Grids"
-                  value={quickEditDraft.gridCount}
-                  onChange={(value) => updateQuickEdit("gridCount", value)}
                 />
                 <div className="botsettings-time-grid">
                   <FormInput
@@ -1977,10 +1989,10 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   />
                 </div>
                 <ToggleRow
-                  title="Auto-compound profits"
-                  note="Reinvest profits into the grid"
-                  checked={quickEditDraft.autoCompoundProfits}
-                  onToggle={() => updateQuickEdit("autoCompoundProfits", !quickEditDraft.autoCompoundProfits)}
+                  title="Automatic Bot Mode"
+                  note="Let this bot work automatically inside the governed bot lane."
+                  checked={quickEditDraft.automaticModeEnabled}
+                  onToggle={() => updateQuickEdit("automaticModeEnabled", !quickEditDraft.automaticModeEnabled)}
                 />
               </div>
 
@@ -2048,15 +2060,20 @@ function MetricCell(props: { label: string; value: string; tone: "positive" | "n
   );
 }
 
-function FormSelect(props: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+function FormSelect(props: {
+  label: string;
+  value: string;
+  options: ReadonlyArray<string | { value: string; label: string }>;
+  onChange: (value: string) => void;
+}) {
   return (
     <div className="botsettings-field-block">
       <label className="botsettings-field-label">{props.label}</label>
       <label className="botsettings-select-shell ui-input-shell is-select">
         <select value={props.value} onChange={(event) => props.onChange(event.target.value)} aria-label={props.label}>
           {props.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
+            <option key={typeof option === "string" ? option : option.value} value={typeof option === "string" ? option : option.value}>
+              {typeof option === "string" ? option : option.label}
             </option>
           ))}
         </select>

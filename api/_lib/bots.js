@@ -3,6 +3,7 @@ import { getSession, parseJsonBody, sendJson } from "./auth.js";
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const BOTS_TABLE = process.env.SUPABASE_BOTS_TABLE || "bot_profiles";
+const SUPPORTED_BOT_TYPES = new Set(["signal-bot"]);
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -53,6 +54,11 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function normalizeBotType(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return SUPPORTED_BOT_TYPES.has(normalized) ? normalized : "signal-bot";
+}
+
 function createDefaultBotPayload(overrides = {}) {
   const createdAt = overrides.createdAt || nowIso();
   const slug = slugify(overrides.slug || overrides.name || overrides.id || "signal-bot");
@@ -65,6 +71,7 @@ function createDefaultBotPayload(overrides = {}) {
     id,
     slug,
     name,
+    botType: normalizeBotType(overrides.botType),
     description: String(
       overrides.description
       || "Bot principal para consumir señales del sistema con políticas estándar y ejecución controlada.",
@@ -260,6 +267,7 @@ function normalizeBotPayload(value) {
     id: source.id,
     slug: source.slug,
     name: source.name,
+    botType: source.botType,
     description: source.description,
     status: source.status,
     executionEnvironment: source.executionEnvironment,
@@ -351,13 +359,18 @@ async function listBots(req) {
 async function createBot(req) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
-  const sourceName = String(body?.name || "").trim() || `Signal Bot ${Date.now()}`;
+  const rawName = String(body?.name || "").trim();
+  if (!rawName) {
+    throw new Error("El nombre del bot es obligatorio.");
+  }
+  const sourceName = rawName;
   const baseSlug = slugify(body?.slug || sourceName || "signal-bot");
   const uniqueId = `${baseSlug}-${Date.now()}`;
   const bot = createDefaultBotPayload({
     id: uniqueId,
     slug: baseSlug,
     name: sourceName,
+    botType: normalizeBotType(body?.botType),
     primaryPair: body?.workspaceSettings?.primaryPair || body?.primaryPair || "BTC/USDT",
     allocatedUsd: body?.capital?.allocatedUsd || body?.allocatedUsd || 0,
     availableUsd: body?.capital?.availableUsd || body?.availableUsd || 0,
@@ -388,6 +401,9 @@ async function createBot(req) {
 async function updateBot(req, botId) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
+  if (Object.prototype.hasOwnProperty.call(body || {}, "name") && !String(body?.name || "").trim()) {
+    throw new Error("El nombre del bot es obligatorio.");
+  }
   const params = new URLSearchParams({
     select: "*",
     username: `eq.${String(session.username)}`,
@@ -404,6 +420,9 @@ async function updateBot(req, botId) {
   const nextBot = normalizeBotPayload({
     ...existingBot,
     ...body,
+    botType: Object.prototype.hasOwnProperty.call(body || {}, "botType")
+      ? normalizeBotType(body?.botType)
+      : existingBot.botType,
     identity: body?.identity ? { ...existingBot.identity, ...body.identity } : existingBot.identity,
     capital: body?.capital ? { ...existingBot.capital, ...body.capital } : existingBot.capital,
     workspaceSettings: body?.workspaceSettings

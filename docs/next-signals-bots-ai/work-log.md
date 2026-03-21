@@ -4117,3 +4117,100 @@ Phase 3 - Signal Bot hard-close refinement
 ### Files Updated
 
 - `src/views/ProfileView.tsx`
+
+## 2026-03-21 - Signal Bot Workspace Hardening And Signal Feed Closure
+
+### Phase
+
+Signal Bot feed/runtime closure pass
+
+### What Changed
+
+- Closed a long run of `Signal Bot` work so the page now behaves much closer to a real bot workspace instead of a generic signal surface.
+- Reworked `Active Signals` to consume the selected bot's real scoped feed instead of leaning on generic/global fallbacks.
+- Strengthened bot scoping so active cards now respect the selected bot's:
+  - configured pairs
+  - configured timeframes
+  - execution environment/account
+- Added `Signal Settings` inside `Signal Bot -> Bot Settings` and wired the block to the selected bot for:
+  - auto-execute
+  - push notifications
+  - max position size
+  - capital
+- Added `Active Trading Pairs` management to the selected bot workspace:
+  - add pair drawer
+  - exchange-aware pair search
+  - duplicate prevention
+  - remove pair action
+- Added `Active Timeframes` management to the selected bot workspace:
+  - add timeframe drawer
+  - duplicate prevention
+  - lower-to-higher ordering
+  - remove timeframe action
+- Removed the older lower settings summary grid from `Signal Bot -> Bot Settings`.
+- Added timeframe badges to active signal cards.
+- Added active-signal pagination in groups of six.
+- Added a right-side signal detail drawer opened from the eye icon.
+- Fixed the signal detail drawer footer so the action buttons stay visible at the bottom.
+- Wired the signal-card action buttons to real bot behavior:
+  - `play` dispatches the signal into the governed execution path
+  - `X` dismisses the signal through the bot decision seam
+- Updated the read-model so signals already handled manually by the bot disappear from `Active Signals`.
+- Fixed signal snapshot reconciliation so different cards no longer collapse onto one BTC snapshot by mistake.
+- Improved direction inference and card shaping for real signal metadata.
+- Fixed active-signal counting so the top metric no longer inflates from repeated historical snapshots.
+- Deduped the active cohort by `symbol + timeframe` before counting and pagination.
+
+### Why This Mattered
+
+- The page had already become visually strong, but several behaviors still lagged behind the product intent.
+- The user was configuring real bot policy in `Bot Settings`, so `Signal Bot` had to obey that same scope or the whole flow would feel fake.
+- The signal cards also needed to graduate from "template-like visuals" into real bot-operating controls.
+
+### Real Problems Corrected
+
+- incomplete coupling between bot config and signal feed scope
+- active feed showing out-of-scope timeframes
+- duplicated/repeated signal cards across pages
+- inflated active-signal counts
+- signal cards with repeated snapshot values
+- missing detail inspection drawer
+- missing real execute/dismiss actions from the card surface
+- settings blocks that looked editable but still lacked enough real persistence
+
+### Files Updated
+
+- `api/_lib/bots.js`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+- `docs/next-signals-bots-ai/handoff.md`
+- `docs/next-signals-bots-ai/work-log.md`
+
+### What Should Be Verified In Review
+
+- `Signal Bot -> Active Signals` should only show signals within the bot's configured pair/timeframe scope.
+- Cards should display a timeframe badge to the left of the direction badge.
+- The first page should show six signals max.
+- Extra signals should move to later pages without cloning the same first-page cohort.
+- Clicking the eye icon should open a detailed right drawer.
+- Clicking play should try to execute the signal through the governed path.
+- Clicking X should dismiss the signal and remove it from the active grid.
+- `Signal Bot -> Bot Settings` should now act as a real control surface for pair/timeframe/capital policy.
+
+### Remaining Risk
+
+- Strong client-side guardrails are now in place, but the same validation logic should eventually be mirrored server-side for full protection.
+- The feed can still naturally cluster around a subset of symbols if `signal core` is publishing that way in the moment; the UI now handles that more honestly and more cleanly.
+
+### Next Step
+
+- Keep validating the live bot against the real feed and finish the last hardening pass around:
+  - runtime correctness after manual execute/dismiss
+  - feed stability under longer active sessions
+  - final backend-side duplication of the most important validations
+
+### Progress Estimate
+
+- Estimated remaining work to leave this `Signal Bot` / bot-facing signal workflow at the current target state: `5% - 10%`.

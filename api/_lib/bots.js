@@ -276,6 +276,7 @@ function normalizeBotPayload(value) {
     slug: source.slug,
     name: source.name,
     botType: source.botType,
+    executionAccount: source.executionAccount,
     description: source.description,
     status: source.status,
     executionEnvironment: source.executionEnvironment,
@@ -374,25 +375,22 @@ async function createBot(req) {
   const sourceName = rawName;
   const baseSlug = slugify(body?.slug || sourceName || "signal-bot");
   const uniqueId = `${baseSlug}-${Date.now()}`;
-  const bot = createDefaultBotPayload({
+  const bot = normalizeBotPayload({
+    ...body,
     id: uniqueId,
     slug: baseSlug,
     name: sourceName,
     botType: normalizeBotType(body?.botType),
-    primaryPair: body?.workspaceSettings?.primaryPair || body?.primaryPair || "BTC/USDT",
-    allocatedUsd: body?.capital?.allocatedUsd || body?.allocatedUsd || 0,
-    availableUsd: body?.capital?.availableUsd || body?.availableUsd || 0,
-    rangeLower: body?.workspaceSettings?.rangeLower,
-    rangeUpper: body?.workspaceSettings?.rangeUpper,
-    gridCount: body?.workspaceSettings?.gridCount,
-    stopLossPct: body?.workspaceSettings?.stopLossPct,
-    takeProfitPct: body?.workspaceSettings?.takeProfitPct,
-    autoCompoundProfits: body?.workspaceSettings?.autoCompoundProfits,
     status: body?.status || "draft",
-    executionEnvironment: body?.executionEnvironment || "paper",
+    executionEnvironment: body?.executionEnvironment || body?.executionAccount?.environment || "paper",
     automationMode: body?.automationMode || "observe",
+    primaryPair: body?.workspaceSettings?.primaryPair || body?.primaryPair || body?.universePolicy?.symbols?.[0] || "BTC/USDT",
+    allocatedUsd: body?.capital?.allocatedUsd || body?.allocatedUsd || 0,
+    availableUsd: body?.capital?.availableUsd ?? body?.availableUsd ?? body?.capital?.allocatedUsd ?? body?.allocatedUsd ?? 0,
     description: body?.description,
     tags: Array.isArray(body?.tags) ? body.tags : undefined,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
   });
 
   const rows = await supabaseRequest(BOTS_TABLE, {

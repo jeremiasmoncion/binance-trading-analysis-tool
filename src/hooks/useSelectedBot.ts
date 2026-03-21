@@ -220,6 +220,7 @@ export async function updateBotProfile(botId: string, payload: Partial<Bot>) {
   patchBotInRegistry(botId, (bot) => ({
     ...bot,
     ...payload,
+    executionAccount: payload.executionAccount ?? bot.executionAccount,
     identity: payload.identity ? { ...bot.identity, ...payload.identity } : bot.identity,
     capital: payload.capital ? { ...bot.capital, ...payload.capital } : bot.capital,
     workspaceSettings: payload.workspaceSettings

@@ -1495,3 +1495,99 @@ Keep the work phased.
 - The account page should now open directly into the tab surface without the upper summary band.
 - `Binance` should no longer appear as a visible tab.
 - The tabs should now look like the same family used in `Bot Settings`, not like the older generic `ModuleTabs`.
+
+## Implementador - 2026-03-21 - Signal Bot Runtime, Feed, And Workspace Hardening
+
+### What Was Done
+
+- Reworked `Signal Bot -> Active Signals` so the selected bot now reads a real scoped signal feed instead of depending on generic or overly narrow fallbacks.
+- Hardened the bot scope so signals now respect the selected bot's configured:
+  - active trading pairs
+  - active timeframes
+  - execution/account context
+- Added `Signal Settings` inside `Signal Bot -> Bot Settings` with real controls for:
+  - `Auto-Execute Trades`
+  - `Push Notifications`
+  - `Max Position Size`
+  - `Capital`
+- Added real `Active Trading Pairs` management:
+  - chip removal
+  - `Add Pair` drawer
+  - exchange-aware pair search
+  - duplicate prevention
+- Added real `Active Timeframes` management:
+  - chip removal
+  - `Add Timeframe` drawer
+  - duplicate prevention
+  - stable lower-to-higher ordering
+- Removed the older lower settings summary grid from `Signal Bot -> Bot Settings` so the page now stays focused on configuration blocks that actually mutate the bot.
+- Added timeframe badges to active signal cards.
+- Added pagination to active signals in groups of six.
+- Added a signal detail drawer opened from the eye icon so the user can inspect:
+  - confidence
+  - entry/current/target/stop
+  - AI analysis notes
+  - risk/reward
+  - potential profit
+- Fixed the signal detail drawer footer so `Dismiss` and `Execute Trade` remain visible at the bottom.
+- Wired manual signal actions from the workspace:
+  - `play` now dispatches the signal into the governed execution path
+  - `X` now dismisses the signal through the bot decision seam
+- Updated the read-model so handled signals disappear from `Active Signals` after the bot executes or dismisses them.
+- Fixed snapshot reconciliation so different signal cards no longer reuse the same BTC snapshot values by mistake.
+- Tightened signal-card direction and metadata shaping so real cards no longer lean on weak heuristics when better signal context exists.
+- Corrected `Signal Bot` active-signal counting and paging so the header no longer inflates counts with repeated historical snapshots.
+
+### Why This Was Correct
+
+- The bot workspace can no longer behave like a decorative shell over a generic market feed.
+- The selected bot now exposes the same real operating scope that the user configures from the bot settings blocks.
+- Manual actions in the signal grid now match product intent:
+  - inspect
+  - execute
+  - dismiss
+- This removes a large class of UX drift where the workspace looked correct visually but still behaved like a partial lab surface.
+
+### Files Touched
+
+- `api/_lib/bots.js`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/user-experience-architecture.md`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### What To Review
+
+- `Signal Bot -> Active Signals` should now:
+  - page in groups of six
+  - show timeframe badges
+  - exclude signals outside the bot's configured timeframes
+  - avoid repeating the same `symbol + timeframe` card cohort across pages
+- The eye icon should now open a real right drawer with signal detail.
+- The play icon should now attempt real governed execution.
+- The X icon should now dismiss the signal and remove it from the active feed.
+- `Signal Bot -> Bot Settings` should now manage the selected bot's:
+  - capital
+  - max position size
+  - pairs
+  - timeframes
+  - auto-execute
+  - notifications
+
+### Remaining Risk
+
+- Critical financial validation is now much stronger in the client, but the strongest next hardening step would still be to mirror the same guardrails at the backend/API layer.
+- Signal production can still legitimately cluster around one symbol if `signal core` is emitting that way in the moment; the workspace now dedupes and paginates better, but it does not artificially invent symbol diversity.
+
+### Next Recommended Step
+
+- Keep validating the live bot with the current production feed and confirm:
+  - execute/dismiss actions produce the right downstream runtime behavior
+  - the active signal cohort stays stable over time
+  - no out-of-scope timeframe or duplicate-card regressions return
+
+### Progress Estimate
+
+- Estimated remaining work to leave `Signal Bot` and the bot-facing signal workflow at the current target quality bar: `5% - 10%`.

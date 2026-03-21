@@ -167,7 +167,40 @@ More specific rule for template migration:
      - notification channels and alert types
    - `Security & API Keys` must read the real exchange connection currently owned by the user
    - do not render fake exchange cards when the system already has a real Binance Demo connection available
-   - exchange connect / refresh / disconnect actions should reuse the existing shared profile/binance actions, not a second API path
+ - exchange connect / refresh / disconnect actions should reuse the existing shared profile/binance actions, not a second API path
+  - destructive or high-impact actions must use a confirmation notification/modal standard before execution
+  - that confirmation standard should:
+    - explain the consequence in direct product language
+    - offer explicit `Yes / No` actions
+    - only execute the mutation after the user confirms
+    - keep the resulting success/error feedback in the shared notification layer
+ - examples for this standard include:
+    - disable bot
+    - disconnect exchange account
+    - remove persistent user-owned configuration
+ - for `Signal Bot -> Active Signals`:
+   - the active-signal grid must be driven by the selected bot's real scope, not by a generic market feed
+   - visible signal cards must respect the bot's configured:
+     - trading pairs
+     - timeframes
+     - execution/account context
+   - repeated snapshots of the same `symbol + timeframe` should collapse into one representative active card for the user-facing workspace
+   - when more than six active cards exist, paginate the grid in groups of six
+   - signal cards must expose three direct user actions:
+     - observe
+     - execute
+     - dismiss
+   - `observe` should open an in-context right drawer with the full signal detail
+   - `execute` should dispatch the signal into the governed execution path, not just log a local UI action
+   - `dismiss` should remove that signal from the bot's active feed through the shared bot decision seam
+   - signal detail drawers should keep their primary actions visible at the bottom of the panel
+   - signal card metadata should expose at least:
+     - symbol
+     - venue/exchange context
+     - timeframe
+     - direction
+     - entry / target / stop loss
+     - AI confidence
 
 ## Core UX Rule
 

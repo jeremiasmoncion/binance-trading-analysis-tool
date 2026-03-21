@@ -1,4 +1,4 @@
-export type BotStatus = "draft" | "active" | "paused" | "archived";
+export type BotStatus = "draft" | "active" | "paused" | "disabled" | "archived";
 
 export type BotExecutionEnvironment = "paper" | "demo" | "real";
 

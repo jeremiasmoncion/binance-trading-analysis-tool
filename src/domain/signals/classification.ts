@@ -56,7 +56,18 @@ export function publishSystemSignal(
 }
 
 function matchesBotUniverse(bot: Bot, signal: PublishedSignal): { matched: boolean; note: string } {
+  const explicitSymbols = (bot.universePolicy.symbols || []).filter(Boolean);
+
   if (bot.universePolicy.kind === "watchlist") {
+    if (explicitSymbols.length) {
+      const matched = signal.audience === "watchlist" || explicitSymbols.includes(signal.context.symbol);
+      return {
+        matched,
+        note: matched
+          ? "Coincide con watchlist o con la lista explicita de pares del bot."
+          : "Fuera del universo watchlist y de los pares activos del bot.",
+      };
+    }
     return {
       matched: signal.audience === "watchlist",
       note: signal.audience === "watchlist" ? "Coincide con universo watchlist." : "Fuera del universo watchlist del bot.",
@@ -64,7 +75,7 @@ function matchesBotUniverse(bot: Bot, signal: PublishedSignal): { matched: boole
   }
 
   if (bot.universePolicy.kind === "custom-list") {
-    const matched = bot.universePolicy.symbols.includes(signal.context.symbol);
+    const matched = explicitSymbols.includes(signal.context.symbol);
     return {
       matched,
       note: matched ? "Coincide con la lista propia del bot." : "La moneda no esta en la lista propia del bot.",
@@ -72,7 +83,7 @@ function matchesBotUniverse(bot: Bot, signal: PublishedSignal): { matched: boole
   }
 
   if (bot.universePolicy.kind === "hybrid") {
-    const matched = signal.audience === "watchlist" || bot.universePolicy.symbols.includes(signal.context.symbol);
+    const matched = signal.audience === "watchlist" || explicitSymbols.includes(signal.context.symbol);
     return {
       matched,
       note: matched ? "Coincide con el universo hibrido del bot." : "Fuera del universo hibrido del bot.",

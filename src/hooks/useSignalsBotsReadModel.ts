@@ -206,6 +206,31 @@ function dedupeRankedSignals<T extends { id: string }>(signals: T[]) {
   });
 }
 
+function dedupeRankedSignalsByScope<T extends { id: string; context: { symbol: string; timeframe: string } }>(signals: T[]) {
+  const seenScopes = new Set<string>();
+  return signals.filter((signal) => {
+    const scopeKey = `${normalizePair(signal.context.symbol)}|${normalizeToken(signal.context.timeframe)}`;
+    if (seenScopes.has(scopeKey)) return false;
+    seenScopes.add(scopeKey);
+    return true;
+  });
+}
+
+function getPublishedSignalIdFromBotConsumableId(value: unknown) {
+  const normalized = String(value || "").trim();
+  const markerIndex = normalized.indexOf(":bot:");
+  return markerIndex >= 0 ? normalized.slice(0, markerIndex) : normalized;
+}
+
+function getDecisionPublishedSignalKey(decision: { metadata?: Record<string, unknown>; signalSnapshotId?: number | null }) {
+  const publishedSignalId = getPublishedSignalIdFromBotConsumableId(decision.metadata?.publishedSignalId);
+  if (publishedSignalId) return publishedSignalId;
+  const signalId = getPublishedSignalIdFromBotConsumableId(decision.metadata?.signalId);
+  if (signalId) return signalId;
+  const snapshotId = normalizeSignalId(decision.signalSnapshotId);
+  return snapshotId ? String(snapshotId) : "";
+}
+
 function normalizePair(value: string | null | undefined) {
   return String(value || "").trim().toUpperCase();
 }
@@ -277,11 +302,34 @@ function hasClosedExecutionOutcome(order: ExecutionOrderRecord) {
   return lifecycleStatus.startsWith("closed") || lifecycleStatus === "filled";
 }
 
-function filterSignalsForBotPair<T extends { context: { symbol: string } }>(signals: T[], primaryPair: string) {
-  const normalizedPair = normalizePair(primaryPair);
-  if (!normalizedPair) return signals;
-  const scoped = signals.filter((signal) => normalizePair(signal.context.symbol) === normalizedPair);
-  return scoped.length ? scoped : signals;
+function filterSignalsForBotScope<T extends { context: { symbol: string; timeframe: string } }>(
+  signals: T[],
+  symbols: string[],
+  primaryPair: string,
+  allowedTimeframes: string[] = [],
+) {
+  const normalizedSymbols = [...new Set(
+    (symbols || [])
+      .map((symbol) => normalizePair(symbol))
+      .filter(Boolean),
+  )];
+  const normalizedPrimaryPair = normalizePair(primaryPair);
+  const scope = normalizedSymbols.length
+    ? normalizedSymbols
+    : normalizedPrimaryPair
+      ? [normalizedPrimaryPair]
+      : [];
+  const normalizedTimeframes = [...new Set(
+    (allowedTimeframes || [])
+      .map((timeframe) => normalizeToken(timeframe))
+      .filter(Boolean),
+  )];
+
+  return signals.filter((signal) => {
+    const symbolMatches = !scope.length || scope.includes(normalizePair(signal.context.symbol));
+    const timeframeMatches = !normalizedTimeframes.length || normalizedTimeframes.includes(normalizeToken(signal.context.timeframe));
+    return symbolMatches && timeframeMatches;
+  });
 }
 
 function scoreExecutionOrderForBot(
@@ -1432,9 +1480,24 @@ export function useSignalsBotsReadModel() {
       const feed = createBotConsumableFeed(bot, botReadyRankedSignals, rankedFeed.generatedAt);
       const primaryPair = bot.workspaceSettings.primaryPair || "";
       const botDecisions = decisions.filter((decision) => decision.botId === bot.id);
-      const acceptedSignals = filterSignalsForBotPair(selectAcceptedBotConsumableSignals(feed), primaryPair);
-      const blockedSignals = filterSignalsForBotPair(selectBlockedBotConsumableSignals(feed), primaryPair);
-      const scopedRankedSignals = filterSignalsForBotPair(rankedSignals, primaryPair);
+      const acceptedSignals = filterSignalsForBotScope(
+        selectAcceptedBotConsumableSignals(feed),
+        bot.universePolicy?.symbols || [],
+        primaryPair,
+        bot.timeframePolicy?.allowedTimeframes || [],
+      );
+      const blockedSignals = filterSignalsForBotScope(
+        selectBlockedBotConsumableSignals(feed),
+        bot.universePolicy?.symbols || [],
+        primaryPair,
+        bot.timeframePolicy?.allowedTimeframes || [],
+      );
+      const scopedRankedSignals = filterSignalsForBotScope(
+        rankedSignals,
+        bot.universePolicy?.symbols || [],
+        primaryPair,
+        bot.timeframePolicy?.allowedTimeframes || [],
+      );
       const accepted = acceptedSignals.length;
       const blocked = blockedSignals.length;
       const leadingSignal = acceptedSignals[0] || blockedSignals[0] || scopedRankedSignals[0] || null;
@@ -1632,6 +1695,11 @@ export function useSignalsBotsReadModel() {
     const selectedBotApprovedSignals = selectAcceptedBotConsumableSignals(selectedBotFeed);
     const selectedBotBlockedSignals = selectBlockedBotConsumableSignals(selectedBotFeed);
     const selectedBotDecisions = selectedBotCard?.decisions || [];
+    const selectedBotHandledSignalKeys = new Set(
+      selectedBotDecisions
+        .map((decision) => getDecisionPublishedSignalKey(decision))
+        .filter(Boolean),
+    );
     const selectedBotDecisionTimeline = selectedBotCard?.decisionTimeline?.slice(0, 12) || [];
     const selectedBotExecutionTimeline = selectedBotCard?.executionTimeline?.slice(0, 12) || [];
     const selectedBotActivityTimeline = createBotActivityTimeline(
@@ -1672,9 +1740,14 @@ export function useSignalsBotsReadModel() {
       operationalBots: paperDemoOperationalStatus.operationalBots,
     });
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
-    const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
-      .map((signal) => rankedSignalById.get(signal.id) || null)
-      .filter((signal): signal is (typeof rankedSignals)[number] => Boolean(signal));
+    const selectedBotApprovedRankedSignals = dedupeRankedSignalsByScope(dedupeRankedSignals(
+      selectedBotApprovedSignals
+        .map((signal) => rankedSignalById.get(getPublishedSignalIdFromBotConsumableId(signal.id)) || null)
+        .filter((signal): signal is (typeof rankedSignals)[number] => Boolean(signal)),
+    )).filter((signal) => !selectedBotHandledSignalKeys.has(getPublishedSignalIdFromBotConsumableId(signal.id)));
+    const selectedBotScopedRankedSignals = dedupeRankedSignalsByScope(dedupeRankedSignals(
+      selectedBotCard?.scopedRankedSignals || [],
+    )).filter((signal) => !selectedBotHandledSignalKeys.has(getPublishedSignalIdFromBotConsumableId(signal.id)));
     const activeBots = botCardsWithOperationalContention.filter((bot) => bot.status === "active");
     const allBotDecisionTimeline = botCardsWithOperationalContention
       .flatMap((bot) => bot.decisionTimeline.map((entry) => ({
@@ -1729,6 +1802,7 @@ export function useSignalsBotsReadModel() {
       selectedBotFeed,
       selectedBotApprovedSignals,
       selectedBotApprovedRankedSignals,
+      selectedBotScopedRankedSignals,
       selectedBotBlockedSignals,
       selectedBotDecisions,
       selectedBotDecisionTimeline,

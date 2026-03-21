@@ -7,7 +7,7 @@ import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { ViewName } from "../types";
 
 type BotSettingsTab = "all-bots" | "general-settings" | "risk-management" | "notifications";
-type BotStatusFilter = "all" | "running" | "paused" | "stopped";
+type BotStatusFilter = "all" | "running" | "paused" | "draft" | "disabled";
 type BotLayoutMode = "grid" | "table";
 
 interface QuickEditDraft {
@@ -251,6 +251,52 @@ function formatBotsOperationalNow(value?: string | null) {
   return String(value || "").trim() === "yes" ? "Yes" : "No";
 }
 
+function titleCaseToken(value?: string | null) {
+  const normalized = String(value || "").trim();
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase() : "";
+}
+
+function formatExecutionAccountTag(account?: { label?: string; provider?: string; environment?: string } | null) {
+  if (!account) return "Unassigned";
+  const provider = titleCaseToken(account.provider);
+  const environment = String(account.environment || "").trim().toLowerCase();
+  if (provider && environment === "demo") return `${provider} Demo`;
+  if (provider && environment === "paper") return `${provider} Paper`;
+  if (provider && environment === "real") return provider;
+  return String(account.label || provider || "Unassigned").trim() || "Unassigned";
+}
+
+function resolveExecutionAccountForDisplay(
+  account: { label?: string; provider?: string; environment?: string } | null | undefined,
+  environment: string | null | undefined,
+  tradingAccountOptions: TradingAccountOption[],
+) {
+  if (account?.provider || account?.label) {
+    return account;
+  }
+
+  const normalizedEnvironment = String(environment || "").trim().toLowerCase();
+  const exactMatch = tradingAccountOptions.find((option) => option.environment === normalizedEnvironment);
+  if (exactMatch) {
+    return {
+      label: exactMatch.label,
+      provider: exactMatch.provider,
+      environment: exactMatch.environment,
+    };
+  }
+
+  if (tradingAccountOptions.length === 1) {
+    const onlyOption = tradingAccountOptions[0];
+    return {
+      label: onlyOption.label,
+      provider: onlyOption.provider,
+      environment: onlyOption.environment,
+    };
+  }
+
+  return null;
+}
+
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");
@@ -260,6 +306,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
+  const [disableConfirmBot, setDisableConfirmBot] = useState<{ botId: string; botName: string } | null>(null);
   const [tradingAccountOptions, setTradingAccountOptions] = useState<TradingAccountOption[]>([]);
   const feedReadModel = useSignalsBotsReadModel();
   const { createBot, selectBot, updateBot, loading: botsLoading, error: botsError, hydrated: botsHydrated } = useSelectedBotState();
@@ -272,17 +319,20 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       const strategy = formatStrategyLabel(bot.strategyPolicy.preferredStrategyIds[0] || bot.tags[1] || bot.stylePolicy.dominantStyle);
       const trades24h = bot.localMemory.outcomeCount;
       const profit24h = bot.performance.realizedPnlUsd;
-      const allocated = bot.capital.allocatedUsd;
-      const capacity = Math.max(bot.riskPolicy.maxPositionUsd * bot.riskPolicy.maxOpenPositions, allocated, 1);
+      const maxCapitalUsd = Math.max(Number(bot.capital.allocatedUsd || 0), 0);
+      const availableCapitalUsd = Math.max(Number(bot.capital.availableUsd || 0), 0);
+      const usedCapitalUsd = Math.max(maxCapitalUsd - availableCapitalUsd, 0);
       return {
         ...bot,
+        executionAccountDisplay: resolveExecutionAccountForDisplay(bot.executionAccount, bot.executionEnvironment, tradingAccountOptions),
         pair,
         strategy,
         trades24h,
         profit24h,
         winRate: bot.performance.winRate,
-        allocationPct: Math.min((allocated / capacity) * 100, 100),
-        capacityUsd: capacity,
+        capitalUsagePct: maxCapitalUsd > 0 ? Math.min((usedCapitalUsd / maxCapitalUsd) * 100, 100) : 0,
+        usedCapitalUsd,
+        maxCapitalUsd,
         acceptedCount: bot.accepted,
         blockedCount: bot.blocked,
         ownedOutcomeCount: bot.ownership.ownedOutcomeCount,
@@ -325,7 +375,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           ? bot.status === "active"
           : statusFilter === "paused"
             ? bot.status === "paused"
-            : bot.status === "draft" || bot.status === "archived";
+            : statusFilter === "draft"
+              ? bot.status === "draft"
+              : bot.status === "disabled" || bot.status === "archived";
       const matchesSearch = needle
         ? [bot.name, bot.slug, bot.pair, bot.strategy].some((value) => value.toLowerCase().includes(needle))
         : true;
@@ -524,6 +576,14 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   };
 
   const openBotWorkspace = (bot: (typeof readModel.filteredCards)[number]) => {
+    if (bot.status === "disabled") {
+      showToast({
+        tone: "warning",
+        title: "Bot deshabilitado",
+        message: `${bot.name} está deshabilitado y solo queda visible para auditoría.`,
+      });
+      return;
+    }
     // Keep bot selection in one shared seam so Bot Settings and the full bot
     // workspace stay aligned without introducing a second local runtime.
     selectBot(bot.id);
@@ -587,7 +647,23 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   };
 
   const handleToggleBotStatus = async (bot: (typeof readModel.filteredCards)[number]) => {
+    if (bot.status === "disabled") {
+      showToast({
+        tone: "warning",
+        title: "Bot deshabilitado",
+        message: `${bot.name} no puede volver a operar mientras siga deshabilitado.`,
+      });
+      return;
+    }
     const nextStatus = bot.status === "active" ? "paused" : "active";
+    if (nextStatus === "active" && Number(bot.maxCapitalUsd || 0) <= 0) {
+      showToast({
+        tone: "error",
+        title: "Capital requerido",
+        message: `${bot.name} no puede iniciar mientras su capital máximo siga en $0. Actualiza el capital del bot primero.`,
+      });
+      return;
+    }
     const loaderId = startLoading({ label: "Actualizando bot", detail: `${bot.name} → ${getBotStatusLabel(nextStatus)}` });
     try {
       await updateBot(bot.id, { status: nextStatus });
@@ -600,6 +676,40 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       showToast({
         tone: "error",
         title: "No se pudo actualizar el bot",
+        message: error instanceof Error ? error.message : "Inténtalo otra vez.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleConfirmDisableBot = async () => {
+    if (!disableConfirmBot?.botId) return;
+    const loaderId = startLoading({ label: "Deshabilitando bot", detail: disableConfirmBot.botName });
+    try {
+      await updateBot(disableConfirmBot.botId, {
+        status: "disabled",
+        automationMode: "observe",
+        executionPolicy: {
+          autoExecutionEnabled: false,
+          suggestionsOnly: true,
+          canOpenPositions: false,
+          requiresHumanApproval: true,
+          realExecutionEnabled: false,
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Bot deshabilitado",
+        message: `${disableConfirmBot.botName} fue movido a la lista de bots deshabilitados para auditoría.`,
+      });
+      setDisableConfirmBot(null);
+      setQuickEditDraft(null);
+      setStatusFilter("disabled");
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "No se pudo deshabilitar el bot",
         message: error instanceof Error ? error.message : "Inténtalo otra vez.",
       });
     } finally {
@@ -636,11 +746,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             ...existingBot.executionPolicy,
             autoExecutionEnabled: quickEditDraft.automaticModeEnabled,
             suggestionsOnly: !quickEditDraft.automaticModeEnabled,
+            requiresHumanApproval: quickEditDraft.automaticModeEnabled ? false : existingBot.executionPolicy.requiresHumanApproval,
           }
         : {
             canOpenPositions: true,
             suggestionsOnly: !quickEditDraft.automaticModeEnabled,
-            requiresHumanApproval: true,
+            requiresHumanApproval: quickEditDraft.automaticModeEnabled ? false : true,
             autoExecutionEnabled: quickEditDraft.automaticModeEnabled,
             realExecutionEnabled: false,
           };
@@ -668,6 +779,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
           stopLossPct: quickEditDraft.stopLossPct ? Number(quickEditDraft.stopLossPct) : null,
           takeProfitPct: quickEditDraft.takeProfitPct ? Number(quickEditDraft.takeProfitPct) : null,
           autoCompoundProfits: false,
+        },
+        universePolicy: {
+          kind: "custom-list" as const,
+          watchlistIds: existingBot?.universePolicy?.watchlistIds || [],
+          symbols: [normalizedPair],
+          filters: existingBot?.universePolicy?.filters || { preferredTimeframes: ["1h"] },
         },
       };
 
@@ -1089,7 +1206,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                     { key: "all", label: "All" },
                     { key: "running", label: "Running" },
                     { key: "paused", label: "Paused" },
-                    { key: "stopped", label: "Stopped" },
+                    { key: "draft", label: "Draft" },
+                    { key: "disabled", label: "Disabled" },
                   ] as Array<{ key: BotStatusFilter; label: string }>).map((filter) => (
                     <button
                       key={filter.key}
@@ -1138,6 +1256,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         </div>
 
                         <div className="botsettings-card-head-actions">
+                          <span className="botsettings-status-pill is-account">{formatExecutionAccountTag(bot.executionAccountDisplay)}</span>
                           <span className={`botsettings-status-pill ${getBotStatusClass(bot.status)}`}>{getBotStatusLabel(bot.status)}</span>
                           <button type="button" className="botsettings-menu-button" aria-label={`Open ${bot.name} options`}>
                             <KebabIcon />
@@ -1154,11 +1273,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
 
                       <div className="botsettings-allocation">
                         <div className="botsettings-allocation-head">
-                          <span>Allocation</span>
-                          <strong>{formatUsd(bot.capital.allocatedUsd)} / {formatUsd(bot.capacityUsd)}</strong>
+                          <span>Capital</span>
+                          <strong>{formatUsd(bot.usedCapitalUsd)} / {formatUsd(bot.maxCapitalUsd)}</strong>
                         </div>
                         <div className="botsettings-allocation-track">
-                          <div className={`botsettings-allocation-fill ${getBotStatusClass(bot.status)}`} style={{ width: `${bot.allocationPct}%` }} />
+                          <div className={`botsettings-allocation-fill ${getBotStatusClass(bot.status)}`} style={{ width: `${bot.capitalUsagePct}%` }} />
                         </div>
                       </div>
 
@@ -1166,14 +1285,16 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         <button
                           type="button"
                           className={`botsettings-primary-action ${bot.status === "active" ? "is-pause" : "is-start"}`}
+                          disabled={bot.status === "disabled"}
                           onClick={() => void handleToggleBotStatus(bot)}
                         >
                           {bot.status === "active" ? <PauseMiniIcon /> : <PlayMiniIcon />}
-                          {bot.status === "active" ? "Pause" : "Start"}
+                          {bot.status === "disabled" ? "Disabled" : bot.status === "active" ? "Pause" : "Start"}
                         </button>
                         <button
                           type="button"
                           className="botsettings-secondary-action"
+                          disabled={bot.status === "disabled"}
                           onClick={() => openBotWorkspace(bot)}
                           aria-label={`Open full workspace for ${bot.name}`}
                         >
@@ -2071,7 +2192,17 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               </div>
 
               <div className="botsettings-drawer-actions">
-                <button type="button" className="botsettings-drawer-danger" aria-label={`Delete ${quickEditDraft.botName}`} disabled={quickEditDraft.mode === "create"}>
+                <button
+                  type="button"
+                  className="botsettings-drawer-danger"
+                  aria-label={`Disable ${quickEditDraft.botName}`}
+                  disabled={quickEditDraft.mode === "create" || quickEditDraft.botId == null}
+                  onClick={() => {
+                    if (!quickEditDraft.botId) return;
+                    setDisableConfirmBot({ botId: quickEditDraft.botId, botName: quickEditDraft.botName });
+                    setQuickEditDraft(null);
+                  }}
+                >
                   <TrashMiniIcon />
                 </button>
                 <button type="button" className="botsettings-reset-button ui-button" onClick={() => setQuickEditDraft(null)}>
@@ -2083,6 +2214,32 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 </button>
               </div>
             </aside>
+          </div>
+        ) : null}
+
+        {disableConfirmBot ? (
+          <div className="botsettings-confirm-shell" role="dialog" aria-modal="true" aria-label="Disable bot confirmation">
+            <button type="button" className="botsettings-confirm-backdrop" aria-label="Close disable confirmation" onClick={() => setDisableConfirmBot(null)} />
+            <div className="botsettings-confirm-card">
+              <div className="botsettings-confirm-icon">
+                <WarningTriangleIcon />
+              </div>
+              <div className="botsettings-confirm-copy">
+                <h3>Disable bot?</h3>
+                <p>
+                  {disableConfirmBot.botName} no se borrará. Pasará a estado <strong>disabled</strong>, quedará fuera de uso
+                  operativo y solo permanecerá visible en la lista de bots deshabilitados para auditoría. ¿Seguro que quieres continuar?
+                </p>
+              </div>
+              <div className="botsettings-confirm-actions">
+                <button type="button" className="botsettings-reset-button ui-button" onClick={() => setDisableConfirmBot(null)}>
+                  No
+                </button>
+                <button type="button" className="botsettings-confirm-danger ui-button" onClick={() => void handleConfirmDisableBot()}>
+                  Yes
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
       </section>
@@ -2261,18 +2418,21 @@ function getBotStatusLabel(status: string) {
   if (status === "active") return "Running";
   if (status === "paused") return "Paused";
   if (status === "draft") return "Draft";
+  if (status === "disabled") return "Disabled";
   return "Stopped";
 }
 
 function getBotStatusClass(status: string) {
   if (status === "active") return "is-running";
   if (status === "paused") return "is-paused";
+  if (status === "disabled") return "is-disabled";
   return "is-stopped";
 }
 
 function getBotCardTone(status: string) {
   if (status === "active") return "is-running";
   if (status === "paused") return "is-paused";
+  if (status === "disabled") return "is-disabled";
   return "is-draft";
 }
 

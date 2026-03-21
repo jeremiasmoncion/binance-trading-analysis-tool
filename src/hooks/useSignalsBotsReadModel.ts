@@ -91,6 +91,7 @@ function createDecisionTimeline(decisions: Array<{
       executionIntentDispatchedAt: String(decision.metadata?.executionIntentDispatchedAt || ""),
       executionIntentPreviewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
       executionIntentPreviewChurnPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
+      executionIntentPreviewChurnManualClearCount: Number(decision.metadata?.executionIntentPreviewChurnManualClearCount || 0) || 0,
       executionStatus: String(decision.metadata?.executionStatus || ""),
       executionOutcomeStatus: String(decision.metadata?.executionOutcomeStatus || ""),
       executionLinkedAt: String(decision.metadata?.executionLinkedAt || ""),
@@ -845,6 +846,7 @@ function createExecutionIntentSummary<
       laneStatus: getEffectiveDecisionExecutionIntentLaneStatus(decision, previewStaleHours),
       previewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
       previewPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
+      previewManualClearCount: Number(decision.metadata?.executionIntentPreviewChurnManualClearCount || 0) || 0,
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -872,6 +874,8 @@ function createExecutionIntentSummary<
     previewRefreshCount: ranked.reduce((sum, entry) => sum + entry.previewRefreshCount, 0),
     pardonedPreviewCount: ranked.filter((entry) => entry.previewPardonCount > 0).length,
     previewPardonCount: ranked.reduce((sum, entry) => sum + entry.previewPardonCount, 0),
+    manuallyClearedPreviewCount: ranked.filter((entry) => entry.previewManualClearCount > 0).length,
+    previewManualClearCount: ranked.reduce((sum, entry) => sum + entry.previewManualClearCount, 0),
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,
@@ -973,6 +977,8 @@ function createBotAttentionSummary(bot: {
     refreshedPreviewCount: number;
     previewPardonCount: number;
     pardonedPreviewCount: number;
+    previewManualClearCount: number;
+    manuallyClearedPreviewCount: number;
   } | null;
   adaptationSummary?: {
     trainingConfidence: string;
@@ -983,12 +989,14 @@ function createBotAttentionSummary(bot: {
   const previewExpiredCount = bot.executionIntentSummary?.previewExpiredCount || 0;
   const previewRefreshCount = bot.executionIntentSummary?.previewRefreshCount || 0;
   const previewPardonCount = bot.executionIntentSummary?.previewPardonCount || 0;
+  const previewManualClearCount = bot.executionIntentSummary?.previewManualClearCount || 0;
   const severePreviewChurn = previewExpiredCount >= 2 || previewRefreshCount >= 3;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
   score += previewExpiredCount * 12;
   score += Math.min(previewRefreshCount * 6, 30);
   score += Math.min(previewPardonCount * 8, 24);
+  score += Math.min(previewManualClearCount * 12, 36);
   if (severePreviewChurn) score += 20;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
@@ -1004,6 +1012,9 @@ function createBotAttentionSummary(bot: {
   }
   if (previewPardonCount > 0) {
     noteParts.push(`${previewPardonCount} churn pardons were already granted across ${bot.executionIntentSummary?.pardonedPreviewCount || 0} intents.`);
+  }
+  if (previewManualClearCount > 0) {
+    noteParts.push(`${previewManualClearCount} manual clears were already used across ${bot.executionIntentSummary?.manuallyClearedPreviewCount || 0} intents.`);
   }
   if (severePreviewChurn) {
     noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");

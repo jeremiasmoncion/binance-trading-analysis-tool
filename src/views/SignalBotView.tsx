@@ -515,7 +515,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   />
                   <MetricTile
                     label="Preview Churn"
-                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewPardonCount || 0)} pardons`}
+                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewPardonCount || 0)} pardons / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewManualClearCount || 0)} clears`}
                     note={buildPreviewChurnNote(selectedBotCard)}
                   />
                   <MetricTile
@@ -960,6 +960,8 @@ function buildPreviewChurnNote(bot: {
     refreshedPreviewCount?: number;
     previewPardonCount?: number;
     pardonedPreviewCount?: number;
+    previewManualClearCount?: number;
+    manuallyClearedPreviewCount?: number;
   } | null;
   attention?: {
     priority?: string | null;
@@ -972,6 +974,8 @@ function buildPreviewChurnNote(bot: {
   const refreshedIntentCount = summary?.refreshedPreviewCount || 0;
   const pardonCount = summary?.previewPardonCount || 0;
   const pardonedIntentCount = summary?.pardonedPreviewCount || 0;
+  const manualClearCount = summary?.previewManualClearCount || 0;
+  const manuallyClearedIntentCount = summary?.manuallyClearedPreviewCount || 0;
   const priority = String(bot?.attention?.priority || "").trim();
 
   if (!expiredCount && !refreshCount) {
@@ -990,6 +994,9 @@ function buildPreviewChurnNote(bot: {
     if (pardonCount >= 2) {
       parts.push("Pardon limit reached, so stronger manual review is now required.");
     }
+  }
+  if (manualClearCount > 0) {
+    parts.push(`${manualClearCount} manual clears across ${manuallyClearedIntentCount} intents`);
   }
   if (priority === "urgent") {
     parts.push("This churn is now severe enough to keep the bot in urgent attention.");

@@ -214,6 +214,7 @@ function buildBotAttentionNote(bot: {
   previewExpiredCount?: number;
   previewRefreshCount?: number;
   previewPardonCount?: number;
+  previewManualClearCount?: number;
   healthLabel?: string;
 }) {
   const parts = [
@@ -232,6 +233,9 @@ function buildBotAttentionNote(bot: {
     if (bot.previewPardonCount >= 2) {
       parts.push("pardon limit reached");
     }
+  }
+  if (bot.previewManualClearCount) {
+    parts.push(`${bot.previewManualClearCount} manual clears`);
   }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
@@ -303,6 +307,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         previewExpiredCount: bot.executionIntentSummary?.previewExpiredCount || 0,
         previewRefreshCount: bot.executionIntentSummary?.previewRefreshCount || 0,
         previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
+        previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,

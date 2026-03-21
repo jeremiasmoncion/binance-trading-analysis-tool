@@ -46,6 +46,7 @@ type DecisionLogEntry = {
   executionIntentDispatchedAt?: string | null;
   executionIntentPreviewRefreshCount?: number | null;
   executionIntentPreviewChurnPardonCount?: number | null;
+  executionIntentPreviewChurnManualClearCount?: number | null;
   executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -57,6 +58,7 @@ type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
 type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "linked";
 const MAX_PREVIEW_CHURN_PARDONS = 2;
+const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
@@ -201,6 +203,42 @@ export function ExecutionLogsView() {
       showToast({
         tone: "error",
         title: "Preview pardon failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleManualClearPreviewChurn = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Granting manual clear",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentPreviewChurnManualClearCount: Number(decision.executionIntentPreviewChurnManualClearCount || 0) + 1,
+          executionIntentPreviewChurnManualClearGrantedAt: now,
+          executionIntentReason: "Paper preview churn manually cleared from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Manual clear granted",
+        message: `${decision.symbol} can attempt one stronger paper recovery dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Manual clear failed",
         message: error instanceof Error ? error.message : "Try again.",
       });
     } finally {
@@ -548,6 +586,8 @@ export function ExecutionLogsView() {
                           <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnPardons(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnManualClears(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleManualClearPreviewChurn(entry.decision)}>Manual Clear</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) ? (
                           <button type="button" className="template-inline-link">Manual Review Required</button>
                         ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
@@ -697,6 +737,10 @@ function isPreviewChurnBlockedDecision(decision: DecisionLogEntry) {
 
 function hasRemainingPreviewChurnPardons(decision: DecisionLogEntry) {
   return (Number(decision.executionIntentPreviewChurnPardonCount || 0) || 0) < MAX_PREVIEW_CHURN_PARDONS;
+}
+
+function hasRemainingPreviewChurnManualClears(decision: DecisionLogEntry) {
+  return (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) < MAX_PREVIEW_CHURN_MANUAL_CLEARS;
 }
 
 function isFailedOrder(order: ExecutionLogOrderEntry) {

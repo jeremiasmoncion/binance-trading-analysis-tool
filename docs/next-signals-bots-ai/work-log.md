@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` manual clear recovery round
+
+### Completed
+
+- Added a stronger recovery override after preview churn pardons are exhausted.
+- `Execution Logs` now escalates from:
+  - `Pardon Churn`
+  - to `Manual Clear`
+  - and finally to `Manual Review Required`
+- The shared runtime now consumes a one-time `manual clear` override separately from churn pardons.
+- Shared diagnostics now count manual clears so recovery pressure remains visible instead of hidden.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids forcing the operator into a dead-end once churn pardons are exhausted.
+- It also avoids making stronger overrides invisible to bot diagnostics.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `manual clear` should be the final override or whether a harder reset path still makes sense
+  - decide whether `Execution Logs` needs a dedicated recovery-governance filter
+  - keep real trading execution out of scope until paper/demo override governance is fully disciplined
+
+### Phase
+
 `Bot Core` preview pardon governance round
 
 ### Completed

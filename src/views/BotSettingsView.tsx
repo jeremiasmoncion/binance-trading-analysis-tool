@@ -234,75 +234,12 @@ function formatBotsOperationalNow(value?: string | null) {
   return String(value || "").trim() === "yes" ? "Yes" : "No";
 }
 
-function buildBotAttentionNote(bot: {
-  unresolvedOwnershipCount: number;
-  reconciliationPct: number;
-  ownedOutcomeCount: number;
-  adaptationConfidence: string;
-  previewExpiredCount?: number;
-  previewRefreshCount?: number;
-  previewPardonCount?: number;
-  previewManualClearCount?: number;
-  previewHardResetCount?: number;
-  readyContentionAutoPromotionCount?: number;
-  healthLabel?: string;
-}) {
-  const parts = [
-    `${bot.unresolvedOwnershipCount} unresolved items`,
-    `${bot.reconciliationPct.toFixed(0)}% reconciled`,
-    `${bot.ownedOutcomeCount} owned outcomes`,
-  ];
-  if (bot.previewExpiredCount) {
-    parts.push(`${bot.previewExpiredCount} expired previews`);
-  }
-  if (bot.previewRefreshCount) {
-    parts.push(`${bot.previewRefreshCount} preview refreshes`);
-  }
-  if (bot.previewPardonCount) {
-    parts.push(`${bot.previewPardonCount} churn pardons`);
-    if (bot.previewPardonCount >= 2) {
-      parts.push("pardon limit reached");
-    }
-  }
-  if (bot.previewManualClearCount) {
-    parts.push(`${bot.previewManualClearCount} manual clears`);
-  }
-  if (bot.previewHardResetCount) {
-    parts.push(`${bot.previewHardResetCount} hard resets`);
-    parts.push("final override reached");
-  }
-  if (bot.readyContentionAutoPromotionCount) {
-    parts.push(`${bot.readyContentionAutoPromotionCount} queue auto-promotions`);
-  }
-  if (bot.healthLabel) {
-    parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
-  }
-  if (bot.adaptationConfidence === "low") {
-    parts.push("adaptation confidence still low");
-  } else if (bot.adaptationConfidence === "medium") {
-    parts.push("adaptation confidence still maturing");
-  }
-  return parts.join(" • ");
-}
-
 function formatHealthLabel(value: string) {
   if (value === "needs-attention") return "Needs attention";
   if (value === "watch") return "Watch";
   if (value === "stable") return "Stable";
   if (value === "healthy") return "Healthy";
   return capitalize(value);
-}
-
-function formatSymbolRanking(items: Array<{ symbol: string; count: number }> | undefined) {
-  if (!items?.length) return "clear";
-  return items.map((item) => `${item.symbol} (${item.count})`).join(", ");
-}
-
-function formatOperationalReadiness(value: string | undefined) {
-  if (value === "ready") return "Ready";
-  if (value === "recovery") return "Recovery";
-  if (value === "final-review") return "Final Review";
-  return "Monitor";
 }
 
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {

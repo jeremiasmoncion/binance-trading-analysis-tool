@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` execution-logs operational verdict round
+
+### Completed
+
+- Extended `Execution Logs` so the same shared `operational verdict` and `safe-lane stability` language now appears in the operational review surface, not only in `Bot Settings` and `Signal Bot`.
+- Added top-level stat cards and a compact verdict insight so the review console can read the fleet with the same governed paper-lane judgment already used elsewhere.
+- Kept the review screen on the shared read-model seam instead of recomputing a separate local verdict.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids teaching the operator a third operational language inside `Execution Logs` after the hub and selected-bot workspace already converged on the same verdict model.
+- It also avoids forcing the review screen to stay focused only on row-level noise when the fleet-level safe-lane judgment is already important for operating the lane.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use the shared verdict across hub, selected bot, and execution review for a final concurrency validation pass
+  - decide if repeated concurrent cycles now justify declaring the governed `paper/demo` lane operational
+  - keep real trading execution out of scope until that shared verdict holds under repeated multi-bot cycles
+
+### Phase
+
 `Bot Core` selected-bot operational verdict round
 
 ### Completed

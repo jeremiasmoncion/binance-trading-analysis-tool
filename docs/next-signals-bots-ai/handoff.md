@@ -68,6 +68,8 @@ The redesign also now has dedicated documentation for:
 - added a shared fleet-level `operational verdict` so the hub can now speak in a more direct readiness language: forming, validating, close, or not ready
 - extended that same shared `operational verdict` into `Signal Bot` so the selected bot now exposes the same readiness language in both the execution-intent workspace and settings tab
 - kept the selected-bot verdict derived from the shared read-model seam instead of introducing a local per-screen verdict computation
+- extended that same shared `operational verdict` and `safe-lane stability` language into `Execution Logs` so the review console now uses the same fleet judgment as the hub and selected-bot workspace
+- kept `Execution Logs` on the shared seam instead of creating a console-specific operational verdict
 
 - mapped major current components related to:
   - strategy generation

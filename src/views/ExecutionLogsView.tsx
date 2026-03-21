@@ -329,6 +329,7 @@ export function ExecutionLogsView() {
       logs,
       orders,
       botNameById,
+      botSummary: botsReadModel.botSummary,
       attentionBotIds,
       contendedBotIds: new Set((botsReadModel.readyContention?.entries || []).flatMap((entry) => entry.botIds)),
       readyContention: botsReadModel.readyContention || { entries: [], contendedReadySymbols: 0, contendedReadyBots: 0 },
@@ -338,7 +339,7 @@ export function ExecutionLogsView() {
       failed: failedOrders + failedDecisions,
       totalVolume: orders.reduce((sum, order) => sum + Number(order.notionalUsd || 0), 0),
     };
-  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.attentionBots, botsReadModel.botCards, botsReadModel.readyContention, decisions.length]);
+  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.attentionBots, botsReadModel.botCards, botsReadModel.botSummary, botsReadModel.readyContention, decisions.length]);
 
   const filteredLogs = readModel.logs
     .filter((entry) => matchesTab(entry, activeTab))
@@ -499,6 +500,18 @@ export function ExecutionLogsView() {
           <StatCard label="Success Rate" value={`${readModel.successRate.toFixed(1)}%`} sub="Successful and completed entries" accentClass="accent-green" />
           <StatCard label="Failed Trades" value={String(readModel.failed)} sub="Entries that need attention" accentClass="accent-amber" />
           <StatCard label="Total Volume" value={formatUsd(readModel.totalVolume)} sub="Recent notional volume" accentClass="accent-emerald" />
+          <StatCard
+            label="Safe-Lane Stability"
+            value={formatSafeLaneStability(readModel.botSummary.safeLaneStabilityState)}
+            sub={`${Math.round(readModel.botSummary.safeLaneStabilityPct || 0)}% stable • ${readModel.botSummary.stableReadyBots || 0} stable ready bots`}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Operational Verdict"
+            value={formatOperationalVerdict(readModel.botSummary.operationalVerdictState)}
+            sub={readModel.botSummary.operationalVerdictNote || "The governed paper/demo lane is still forming its operational verdict."}
+            accentClass="accent-amber"
+          />
         </div>
 
         <SectionCard className="template-panel">
@@ -544,6 +557,24 @@ export function ExecutionLogsView() {
               <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setIntentFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
+
+          {readModel.botSummary.operationalVerdictState ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              <article className="signalbot-insight-card">
+                <strong>Operational Verdict</strong>
+                <p>
+                  {formatOperationalVerdict(readModel.botSummary.operationalVerdictState)}
+                  {" • "}
+                  {formatSafeLaneStability(readModel.botSummary.safeLaneStabilityState)}
+                  {" • "}
+                  {readModel.botSummary.stableReadyBots || 0}
+                  {" "}
+                  stable ready bots
+                </p>
+                <p>{readModel.botSummary.operationalVerdictNote || "The governed paper/demo lane is still forming its operational verdict."}</p>
+              </article>
+            </div>
+          ) : null}
 
           {readModel.readyContention.entries.length ? (
             <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
@@ -862,6 +893,22 @@ function formatOwnershipHealth(value: string) {
   if (value === "stable") return "Stable";
   if (value === "healthy") return "Healthy";
   return value;
+}
+
+function formatSafeLaneStability(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "stable") return "Stable";
+  if (normalized === "watch") return "Watch";
+  if (normalized === "fragile") return "Fragile";
+  return "Forming";
+}
+
+function formatOperationalVerdict(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "close") return "Close";
+  if (normalized === "validating") return "Validating";
+  if (normalized === "not-ready") return "Not Ready";
+  return "Forming";
 }
 
 function rankSymbols(symbols: Array<string | null | undefined>) {

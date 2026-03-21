@@ -1072,17 +1072,6 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                         <MetricCell label="Trades (24h)" value={String(bot.trades24h)} tone="neutral" />
                         <MetricCell label="Profit (24h)" value={formatUsd(bot.profit24h)} tone={bot.profit24h > 0 ? "positive" : bot.profit24h < 0 ? "negative" : "neutral"} />
                         <MetricCell label="Win Rate" value={`${bot.winRate.toFixed(1)}%`} tone={bot.winRate >= 60 ? "positive" : bot.winRate >= 45 ? "neutral" : "negative"} />
-                        <MetricCell label="Owned Outcomes" value={String(bot.ownedOutcomeCount)} tone={bot.ownedOutcomeCount > 0 ? "positive" : "neutral"} />
-                        <MetricCell label="Needs Link" value={String(bot.unresolvedOwnershipCount)} tone={bot.unresolvedOwnershipCount > 0 ? "negative" : "positive"} />
-                      </div>
-
-                      <div className="botsettings-card-meta" style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>
-                        <span>{bot.reconciliationPct.toFixed(0)}% reconciled activity</span>
-                        <span>{bot.acceptedCount} accepted / {bot.blockedCount} blocked</span>
-                      </div>
-                      <div className="botsettings-card-meta" style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem", color: "var(--text-muted)", fontSize: "0.82rem" }}>
-                        <span>{capitalize(bot.adaptationConfidence)} adaptation confidence</span>
-                        <span>{summarizeAdaptationBias(bot.adaptationBias)}</span>
                       </div>
 
                       <div className="botsettings-allocation">

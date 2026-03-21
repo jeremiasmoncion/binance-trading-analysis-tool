@@ -215,6 +215,8 @@ export interface BotExecutionIntentSummary {
   previewExpiredCount: number;
   previewFreshCount: number;
   previewStaleCount: number;
+  refreshedPreviewCount: number;
+  previewRefreshCount: number;
   executionSubmittedCount: number;
   awaitingApprovalCount: number;
   blockedLaneCount: number;

@@ -386,6 +386,8 @@ The redesign also now has dedicated documentation for:
     - `preview-expired`
   - `Execution Logs`, `Signal Bot`, and owned-memory notes now use that expiry language directly instead of only saying “stale”
   - `Execution Logs` now also lets the operator refresh a `preview-expired` intent back into `dispatch-requested` without leaving the shared bot-decision seam
+  - repeated preview refreshes now persist on the same decision seam and increase shared bot-attention scoring
+  - expired preview load and preview refresh churn now surface in `Bot Settings` weakest-bot diagnostics instead of staying implicit
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

@@ -89,6 +89,7 @@ function createDecisionTimeline(decisions: Array<{
       executionIntentDispatchMode: String(decision.metadata?.executionIntentDispatchMode || ""),
       executionIntentDispatchAttemptedAt: String(decision.metadata?.executionIntentDispatchAttemptedAt || ""),
       executionIntentDispatchedAt: String(decision.metadata?.executionIntentDispatchedAt || ""),
+      executionIntentPreviewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
       executionStatus: String(decision.metadata?.executionStatus || ""),
       executionOutcomeStatus: String(decision.metadata?.executionOutcomeStatus || ""),
       executionLinkedAt: String(decision.metadata?.executionLinkedAt || ""),
@@ -841,6 +842,7 @@ function createExecutionIntentSummary<
       intentStatus: getDecisionExecutionIntentStatus(decision),
       lane: getDecisionExecutionIntentLane(decision),
       laneStatus: getEffectiveDecisionExecutionIntentLaneStatus(decision, previewStaleHours),
+      previewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -864,6 +866,8 @@ function createExecutionIntentSummary<
     previewExpiredCount: ranked.filter((entry) => entry.laneStatus === "preview-expired").length,
     previewFreshCount: ranked.filter((entry) => entry.laneStatus === "preview-recorded").length,
     previewStaleCount: ranked.filter((entry) => entry.laneStatus === "preview-expired").length,
+    refreshedPreviewCount: ranked.filter((entry) => entry.previewRefreshCount > 0).length,
+    previewRefreshCount: ranked.reduce((sum, entry) => sum + entry.previewRefreshCount, 0),
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,
@@ -959,6 +963,11 @@ function createBotAttentionSummary(bot: {
     unresolvedOwnershipCount: number;
     reconciliationPct: number;
   };
+  executionIntentSummary?: {
+    previewExpiredCount: number;
+    previewRefreshCount: number;
+    refreshedPreviewCount: number;
+  } | null;
   adaptationSummary?: {
     trainingConfidence: string;
     adaptationBias: string;
@@ -967,16 +976,25 @@ function createBotAttentionSummary(bot: {
   let score = 0;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
+  score += (bot.executionIntentSummary?.previewExpiredCount || 0) * 12;
+  score += Math.min((bot.executionIntentSummary?.previewRefreshCount || 0) * 6, 30);
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
   if (bot.adaptationSummary?.trainingConfidence === "medium") score += 8;
 
   const priority = score >= 90 ? "urgent" : score >= 45 ? "watch" : score > 0 ? "monitor" : "clear";
+  const noteParts = [bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve."];
+  if ((bot.executionIntentSummary?.previewExpiredCount || 0) > 0) {
+    noteParts.push(`${bot.executionIntentSummary?.previewExpiredCount || 0} expired previews still need attention.`);
+  }
+  if ((bot.executionIntentSummary?.previewRefreshCount || 0) > 0) {
+    noteParts.push(`${bot.executionIntentSummary?.previewRefreshCount || 0} preview refreshes already happened across ${bot.executionIntentSummary?.refreshedPreviewCount || 0} intents.`);
+  }
 
   return {
     score,
     priority,
-    note: bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve.",
+    note: noteParts.join(" "),
   };
 }
 

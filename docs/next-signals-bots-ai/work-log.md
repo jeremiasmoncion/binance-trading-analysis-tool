@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` preview attention scoring round
+
+### Completed
+
+- Hardened the shared bot-attention scoring so stale preview churn now matters operationally instead of staying only visual.
+- `preview-expired` now increases shared attention pressure per bot.
+- Repeated preview refreshes now persist as `executionIntentPreviewRefreshCount` on the decision seam.
+- Shared intent summaries now expose:
+  - `refreshedPreviewCount`
+  - `previewRefreshCount`
+- `Bot Settings` now reflects expired preview load and refresh churn inside the weakest-bots diagnostics.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating repeated preview expiry/refresh cycles as harmless noise.
+- It also avoids inventing local screen-only scoring outside the shared read-model seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether repeated preview churn should also surface inside `Signal Bot`
+  - decide whether severe churn should escalate from `watch` to `needs-attention`
+  - keep real trading execution out of scope until the safe paper/demo lane remains stable under repeated refresh cycles
+
+### Phase
+
 `Bot Core` preview refresh round
 
 ### Completed

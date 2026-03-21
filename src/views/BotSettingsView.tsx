@@ -211,6 +211,8 @@ function buildBotAttentionNote(bot: {
   reconciliationPct: number;
   ownedOutcomeCount: number;
   adaptationConfidence: string;
+  previewExpiredCount?: number;
+  previewRefreshCount?: number;
   healthLabel?: string;
 }) {
   const parts = [
@@ -218,6 +220,12 @@ function buildBotAttentionNote(bot: {
     `${bot.reconciliationPct.toFixed(0)}% reconciled`,
     `${bot.ownedOutcomeCount} owned outcomes`,
   ];
+  if (bot.previewExpiredCount) {
+    parts.push(`${bot.previewExpiredCount} expired previews`);
+  }
+  if (bot.previewRefreshCount) {
+    parts.push(`${bot.previewRefreshCount} preview refreshes`);
+  }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
   }
@@ -285,6 +293,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         unlinkedExecutionSymbols: bot.ownership.unlinkedExecutionSymbols || [],
         unresolvedDecisionRanking: bot.ownership.unresolvedDecisionRanking || [],
         unlinkedExecutionRanking: bot.ownership.unlinkedExecutionRanking || [],
+        previewExpiredCount: bot.executionIntentSummary?.previewExpiredCount || 0,
+        previewRefreshCount: bot.executionIntentSummary?.previewRefreshCount || 0,
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,

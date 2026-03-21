@@ -44,6 +44,7 @@ type DecisionLogEntry = {
   executionIntentDispatchMode?: string | null;
   executionIntentDispatchAttemptedAt?: string | null;
   executionIntentDispatchedAt?: string | null;
+  executionIntentPreviewRefreshCount?: number | null;
   executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -147,6 +148,7 @@ export function ExecutionLogsView() {
         metadata: {
           executionIntentStatus: "ready",
           executionIntentLaneStatus: "dispatch-requested",
+          executionIntentPreviewRefreshCount: Number(decision.executionIntentPreviewRefreshCount || 0) + 1,
           executionIntentLastUpdatedAt: now,
           executionIntentDispatchRequestedAt: now,
           executionIntentReason: "Expired paper preview refreshed from execution review.",

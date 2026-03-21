@@ -349,6 +349,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       attentionBots: (feedReadModel.attentionBots || [])
         .map((attentionBot) => cards.find((bot) => bot.id === attentionBot.id) || null)
         .filter((bot): bot is (typeof cards)[number] => Boolean(bot)),
+      readiness: {
+        readyBots: cards.filter((bot) => bot.operationalReadiness === "ready").slice(0, 4),
+        recoveryBots: cards.filter((bot) => bot.operationalReadiness === "recovery").slice(0, 4),
+        finalReviewBots: cards.filter((bot) => bot.operationalReadiness === "final-review").slice(0, 4),
+      },
       summary: feedReadModel.botSummary,
       tabs: {
         general: [
@@ -924,6 +929,42 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             icon={<AutomationBoltIcon />}
           />
         </div>
+
+        {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
+          <section className="botsettings-panel card" style={{ marginBottom: "1.25rem" }}>
+            <div className="botsettings-general-head" style={{ marginBottom: "1rem" }}>
+              <div className="botsettings-general-title">
+                <div className="botsettings-general-icon is-success">
+                  <AutomationBoltIcon />
+                </div>
+                <h3>Operational Readiness</h3>
+              </div>
+            </div>
+            <div className="signalbot-insight-stack">
+              {readModel.readiness.readyBots.length ? (
+                <article className="signalbot-insight-card">
+                  <strong>Ready</strong>
+                  <p>{readModel.readiness.readyBots.map((bot) => `${bot.name} (${bot.pair})`).join(", ")}</p>
+                  <p>These bots still have governed dispatch capacity inside the safe lane.</p>
+                </article>
+              ) : null}
+              {readModel.readiness.recoveryBots.length ? (
+                <article className="signalbot-insight-card">
+                  <strong>Recovery</strong>
+                  <p>{readModel.readiness.recoveryBots.map((bot) => `${bot.name} (${bot.pair})`).join(", ")}</p>
+                  <p>These bots are still moving through preview recovery governance before returning to a cleaner ready state.</p>
+                </article>
+              ) : null}
+              {readModel.readiness.finalReviewBots.length ? (
+                <article className="signalbot-insight-card">
+                  <strong>Final Review</strong>
+                  <p>{readModel.readiness.finalReviewBots.map((bot) => `${bot.name} (${bot.pair})`).join(", ")}</p>
+                  <p>These bots exhausted the governed paper recovery path and now stay in final manual review.</p>
+                </article>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         {activeTab === "all-bots" && readModel.attentionBots.length ? (
           <section className="botsettings-panel card" style={{ marginBottom: "1.25rem" }}>

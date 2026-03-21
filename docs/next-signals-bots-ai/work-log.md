@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` fleet readiness hub round
+
+### Completed
+
+- Brought the new operational-readiness seam into the fleet hub instead of leaving it only as summary counts.
+- `Bot Settings` now shows a dedicated `Operational Readiness` section with:
+  - `Ready`
+  - `Recovery`
+  - `Final Review`
+- This gives the operator a fast fleet-level answer to which bots can still move inside the governed paper lane right now.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids burying readiness behind summary cards only.
+- It also avoids forcing the operator to inspect each bot individually just to know which ones are still usable in the safe lane.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - validate multi-bot behavior under this final paper governance model
+  - decide whether `demo` should now receive a similarly explicit readiness and recovery envelope
+  - keep real trading execution out of scope until concurrent paper/demo bot behavior stays stable
+
+### Phase
+
 `Bot Core` operational readiness summaries round
 
 ### Completed

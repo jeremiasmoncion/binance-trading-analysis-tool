@@ -961,64 +961,6 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             icon={<TargetSummaryIcon />}
             progress={readModel.summary.averageWinRate}
           />
-          <BotSummaryCard
-            label="Adaptation Ready"
-            value={String(readModel.summary.learningReadyBots || 0)}
-            note={`${readModel.summary.highConfidenceBots || 0} high / ${readModel.summary.mediumConfidenceBots || 0} medium / ${readModel.summary.lowConfidenceBots || 0} low confidence`}
-            tone="info"
-            icon={<AutomationBoltIcon />}
-          />
-          <BotSummaryCard
-            label="Operational Ready"
-            value={String(readModel.summary.operationalReadyBots || 0)}
-            note={`${readModel.summary.recoveryBots || 0} recovery / ${readModel.summary.finalReviewBots || 0} final review`}
-            tone="success"
-            icon={<AutomationBoltIcon />}
-          />
-          <BotSummaryCard
-            label="Queue Churn"
-            value={String(readModel.summary.queueAutoPromotions || 0)}
-            note={`${readModel.summary.queueChurnBots || 0} bots affected / ${readModel.summary.unstableQueueBots || 0} unstable`}
-            tone="warning"
-            icon={<WarningTriangleIcon />}
-          />
-          <BotSummaryCard
-            label="Safe-Lane Stability"
-            value={`${Math.round(readModel.summary.safeLaneStabilityPct || 0)}%`}
-            note={`${formatSafeLaneStability(readModel.summary.safeLaneStabilityState)} • ${readModel.summary.stableReadyBots || 0} stable ready bots`}
-            tone="primary"
-            icon={<AutomationBoltIcon />}
-            progress={readModel.summary.safeLaneStabilityPct || 0}
-          />
-          <BotSummaryCard
-            label="Operational Verdict"
-            value={formatOperationalVerdict(readModel.summary.operationalVerdictState)}
-            note={readModel.summary.operationalVerdictNote || "The safe lane is still being validated."}
-            tone="info"
-            icon={<AutomationBoltIcon />}
-          />
-          <BotSummaryCard
-            label="Governed Demo Gate"
-            value={formatGovernedDemoGate(readModel.summary.governedDemoGateState)}
-            note={readModel.summary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}
-            tone="info"
-            icon={<AutomationBoltIcon />}
-          />
-          <BotSummaryCard
-            label="Paper/Demo Status"
-            value={formatPaperDemoOperationalState(readModel.summary.paperDemoOperationalState)}
-            note={readModel.summary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}
-            tone="primary"
-            icon={<AutomationBoltIcon />}
-            progress={readModel.summary.paperDemoOperationalCoveragePct || 0}
-          />
-          <BotSummaryCard
-            label="Bots Operational Now"
-            value={formatBotsOperationalNow(readModel.summary.botsOperationalNowState)}
-            note={readModel.summary.botsOperationalNowNote || "Bots are not operational in the governed paper/demo lane yet."}
-            tone="primary"
-            icon={<AutomationBoltIcon />}
-          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (

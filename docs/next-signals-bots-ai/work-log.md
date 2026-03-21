@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` recovery governance review round
+
+### Completed
+
+- Added a dedicated recovery-governance view inside `Execution Logs` instead of mixing preview recovery signals with generic blocked intents.
+- `Execution Logs` now has a `Recovery Governance` filter focused on:
+  - expired previews
+  - churn pardons
+  - manual clears
+  - cases already requiring manual review
+- Bot-level intent summaries now also expose recovery-specific counts so operators can prioritize the recovery backlog faster.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids burying preview recovery governance inside generic blocked-intent review.
+- It also avoids making operators scan row-by-row to understand which bots are already exhausting recovery overrides.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `Manual Clear` should be the final override of the paper lane
+  - decide whether a final hard reset path is still necessary
+  - keep real trading execution out of scope until recovery governance is fully closed and predictable
+
+### Phase
+
 `Bot Core` manual clear recovery round
 
 ### Completed

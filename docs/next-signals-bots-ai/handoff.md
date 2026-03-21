@@ -394,6 +394,7 @@ The redesign also now has dedicated documentation for:
   - churn pardons are now counted in the shared intent summary and feed back into bot attention diagnostics instead of remaining hidden as one-off recovery metadata
   - repeated churn pardons are no longer effectively unlimited: once the safe limit is reached, `Execution Logs` switches the action to `Manual Review Required` and the runtime keeps paper preview dispatch blocked
   - after churn pardons are exhausted, `Execution Logs` now exposes a stronger one-time `Manual Clear` override, and the shared runtime consumes it separately from pardons while still counting it in shared diagnostics
+  - `Execution Logs` now also has a dedicated `Recovery Governance` filter and recovery counts in bot summaries, so expired previews, pardons, manual clears, and manual-review cases can be operated as their own backlog
   - `memoryPolicy` now exists in the bot contract and persistence seam so shared learning is governable instead of implicit
   - `Bot Settings -> General Settings` now also persists shared-learning governance:
     - family sharing

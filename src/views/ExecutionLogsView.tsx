@@ -56,7 +56,7 @@ type ActivityLogEntry =
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
-type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "linked";
+type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "linked";
 const MAX_PREVIEW_CHURN_PARDONS = 2;
 const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
 
@@ -300,6 +300,8 @@ export function ExecutionLogsView() {
         previewExpiredCount: bot.executionIntentSummary?.previewExpiredCount || 0,
         previewFreshCount: bot.executionIntentSummary?.previewFreshCount || 0,
         previewStaleCount: bot.executionIntentSummary?.previewStaleCount || 0,
+        previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
+        previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
         executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
         awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
         blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
@@ -444,6 +446,7 @@ export function ExecutionLogsView() {
               <button type="button" className={`template-chip ${intentFilter === "dispatched" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("dispatched")}>Dispatched</button>
               <button type="button" className={`template-chip ${intentFilter === "awaiting-approval" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("awaiting-approval")}>Awaiting Approval</button>
               <button type="button" className={`template-chip ${intentFilter === "blocked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("blocked")}>Blocked Intents</button>
+              <button type="button" className={`template-chip ${intentFilter === "recovery" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("recovery")}>Recovery Governance</button>
               <button type="button" className={`template-chip ${intentFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("linked")}>Linked Intents</button>
               <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setIntentFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
@@ -456,6 +459,9 @@ export function ExecutionLogsView() {
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>
                     {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded · {bot.previewExpiredCount} preview expired ({bot.previewFreshCount} fresh / {bot.previewStaleCount} stale) · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                  </p>
+                  <p>
+                    Recovery: {bot.previewExpiredCount} expired · {bot.previewPardonCount} pardons · {bot.previewManualClearCount} manual clears · {countRecoveryReviewRequired(botLogsFromBot(bot.id, filteredLogs))} manual review required
                   </p>
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>
@@ -659,6 +665,7 @@ function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter) {
   if (filter === "dispatched") return laneStatus === "previewed" || laneStatus === "preview-recorded" || laneStatus === "preview-expired" || laneStatus === "execution-submitted";
   if (filter === "awaiting-approval") return laneStatus === "awaiting-approval";
   if (filter === "blocked") return laneStatus === "blocked";
+  if (filter === "recovery") return matchesRecoveryGovernance(entry.decision);
   return laneStatus === "linked";
 }
 
@@ -741,6 +748,23 @@ function hasRemainingPreviewChurnPardons(decision: DecisionLogEntry) {
 
 function hasRemainingPreviewChurnManualClears(decision: DecisionLogEntry) {
   return (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) < MAX_PREVIEW_CHURN_MANUAL_CLEARS;
+}
+
+function hasReachedPreviewChurnManualReview(decision: DecisionLogEntry) {
+  return isPreviewChurnBlockedDecision(decision)
+    && !hasRemainingPreviewChurnPardons(decision)
+    && !hasRemainingPreviewChurnManualClears(decision);
+}
+
+function matchesRecoveryGovernance(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "preview-expired"
+    || isPreviewChurnBlockedDecision(decision)
+    || (Number(decision.executionIntentPreviewChurnPardonCount || 0) || 0) > 0
+    || (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) > 0;
+}
+
+function countRecoveryReviewRequired(entries: ActivityLogEntry[]) {
+  return entries.filter((entry) => entry.kind === "decision" && hasReachedPreviewChurnManualReview(entry.decision)).length;
 }
 
 function isFailedOrder(order: ExecutionLogOrderEntry) {

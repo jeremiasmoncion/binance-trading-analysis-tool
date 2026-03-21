@@ -57,7 +57,7 @@ type ActivityLogEntry =
   | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
 type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
 type ActivityBotScope = "all" | "attention";
-type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "contention" | "linked";
+type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "contention" | "auto-promoted" | "linked";
 const MAX_PREVIEW_CHURN_PARDONS = 2;
 const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
 const MAX_PREVIEW_CHURN_HARD_RESETS = 1;
@@ -539,6 +539,7 @@ export function ExecutionLogsView() {
               <button type="button" className={`template-chip ${intentFilter === "blocked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("blocked")}>Blocked Intents</button>
               <button type="button" className={`template-chip ${intentFilter === "recovery" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("recovery")}>Recovery Governance</button>
               <button type="button" className={`template-chip ${intentFilter === "contention" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("contention")}>Ready Contention</button>
+              <button type="button" className={`template-chip ${intentFilter === "auto-promoted" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("auto-promoted")}>Auto-Promoted</button>
               <button type="button" className={`template-chip ${intentFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("linked")}>Linked Intents</button>
               <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setIntentFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
@@ -577,6 +578,9 @@ export function ExecutionLogsView() {
                     <p>
                       Queue auto-promotions: {bot.readyContentionAutoPromotionCount} across {bot.autoPromotedContentionIntentCount} intents
                     </p>
+                  ) : null}
+                  {bot.latestGuardrailReason && bot.latestGuardrailReason.toLowerCase().includes("automatic promotion") ? (
+                    <p>Latest queue event: Auto-promoted back into dispatch review.</p>
                   ) : null}
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>
@@ -794,6 +798,10 @@ function matchesBotScope(entry: ActivityLogEntry, scope: ActivityBotScope, atten
 
 function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter, contendedBotIds?: Set<string>) {
   if (filter === "all") return true;
+  if (filter === "auto-promoted") {
+    return entry.kind === "decision"
+      && String(entry.decision.executionIntentReason || "").toLowerCase().includes("automatic promotion");
+  }
   if (filter === "contention") {
     const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
     return Boolean(botId && contendedBotIds?.has(botId));
@@ -1008,6 +1016,9 @@ function formatDecisionActionLink(decision: DecisionLogEntry, linkedOrder?: Exec
     const orderId = linkedOrder?.orderId || decision.executionOrderId;
     const outcome = decision.executionOutcomeStatus || linkedOrder?.status;
     return outcome ? `Order ${String(outcome).toLowerCase()}` : `Order #${orderId}`;
+  }
+  if (String(decision.executionIntentReason || "").toLowerCase().includes("automatic promotion")) {
+    return "Auto-promoted into dispatch";
   }
   if (decision.executionIntentLaneStatus === "blocked") {
     return decision.executionIntentReason || decision.source || "Blocked intent";

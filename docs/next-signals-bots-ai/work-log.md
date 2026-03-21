@@ -4,6 +4,33 @@
 
 ### Phase
 
+`Bot Core` queue auto-promotion review round
+
+### Completed
+
+- Made queue auto-promotions much easier to review directly in `Execution Logs`.
+- Added an explicit `Auto-Promoted` filter so operators can isolate followers that re-entered dispatch automatically after contention cleared.
+- Decision rows now label those cases as `Auto-promoted into dispatch` instead of burying them in generic intent text.
+- Bot intent summaries now also call out when the latest queue event was an automatic promotion.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids making queue auto-promotions technically measurable but still operationally opaque.
+- It also avoids forcing operators to infer auto-promotions from long reason strings in the table.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - validate repeated auto-promotion cycles directly from logs now that they are easy to isolate
+  - decide whether excessive auto-promotion should eventually get its own stronger visual badge or fleet-level summary
+  - keep real trading execution out of scope until concurrent safe-lane promotion cycles stay predictable
+
+### Phase
+
 `Bot Core` queue churn attention round
 
 ### Completed

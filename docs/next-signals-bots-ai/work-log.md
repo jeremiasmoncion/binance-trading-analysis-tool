@@ -4,6 +4,33 @@
 
 ### Phase
 
+`Bot Core` final paper override declaration round
+
+### Completed
+
+- Declared `Hard Reset` as the final override of the paper recovery lane.
+- Shared bot attention notes now say explicitly that after a hard reset the bot should remain in manual review.
+- `Signal Bot`, `Bot Settings`, and `Execution Logs` now use that same final-governance language.
+- `Execution Logs` now switches from generic manual review wording to `Final Review Only` once the final override boundary is reached.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids leaving operators unsure whether another hidden recovery step still exists.
+- It also avoids runtime and UI implying different recovery ceilings.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - treat the paper recovery lane as operationally closed
+  - validate multi-bot behavior under this final governance model
+  - decide whether the same discipline should now be mirrored more strongly in `demo`
+
+### Phase
+
 `Bot Core` hard reset recovery round
 
 ### Completed

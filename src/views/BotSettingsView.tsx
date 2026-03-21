@@ -240,6 +240,7 @@ function buildBotAttentionNote(bot: {
   }
   if (bot.previewHardResetCount) {
     parts.push(`${bot.previewHardResetCount} hard resets`);
+    parts.push("final override reached");
   }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);

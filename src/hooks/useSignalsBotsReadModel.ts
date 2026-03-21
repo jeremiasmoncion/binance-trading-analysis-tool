@@ -1026,6 +1026,7 @@ function createBotAttentionSummary(bot: {
   }
   if (previewHardResetCount > 0) {
     noteParts.push(`${previewHardResetCount} hard resets were already used across ${bot.executionIntentSummary?.hardResetPreviewCount || 0} intents.`);
+    noteParts.push("Hard reset is now the final paper-lane override before the bot stays in manual review.");
   }
   if (severePreviewChurn) {
     noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");

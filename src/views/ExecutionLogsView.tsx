@@ -636,7 +636,7 @@ export function ExecutionLogsView() {
                         ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnHardResets(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleHardResetPreviewChurn(entry.decision)}>Hard Reset</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) ? (
-                          <button type="button" className="template-inline-link">Manual Review Required</button>
+                          <button type="button" className="template-inline-link">{hasReachedFinalPreviewRecoveryBoundary(entry.decision) ? "Final Review Only" : "Manual Review Required"}</button>
                         ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleRefreshPreview(entry.decision)}>Refresh Preview</button>
                         ) : (
@@ -800,6 +800,11 @@ function hasReachedPreviewChurnManualReview(decision: DecisionLogEntry) {
     && !hasRemainingPreviewChurnPardons(decision)
     && !hasRemainingPreviewChurnManualClears(decision)
     && !hasRemainingPreviewChurnHardResets(decision);
+}
+
+function hasReachedFinalPreviewRecoveryBoundary(decision: DecisionLogEntry) {
+  return hasReachedPreviewChurnManualReview(decision)
+    && (Number(decision.executionIntentPreviewChurnHardResetCount || 0) || 0) >= MAX_PREVIEW_CHURN_HARD_RESETS;
 }
 
 function matchesRecoveryGovernance(decision: DecisionLogEntry) {

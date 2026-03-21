@@ -1004,6 +1004,7 @@ function buildPreviewChurnNote(bot: {
   }
   if (hardResetCount > 0) {
     parts.push(`${hardResetCount} hard resets across ${hardResetIntentCount} intents`);
+    parts.push("Hard reset is the final paper-lane override before the bot remains in manual review.");
   }
   if (priority === "urgent") {
     parts.push("This churn is now severe enough to keep the bot in urgent attention.");

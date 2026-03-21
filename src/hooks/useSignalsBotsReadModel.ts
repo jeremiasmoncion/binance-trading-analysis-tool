@@ -92,6 +92,7 @@ function createDecisionTimeline(decisions: Array<{
       executionIntentPreviewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
       executionIntentPreviewChurnPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
       executionIntentPreviewChurnManualClearCount: Number(decision.metadata?.executionIntentPreviewChurnManualClearCount || 0) || 0,
+      executionIntentPreviewChurnHardResetCount: Number(decision.metadata?.executionIntentPreviewChurnHardResetCount || 0) || 0,
       executionStatus: String(decision.metadata?.executionStatus || ""),
       executionOutcomeStatus: String(decision.metadata?.executionOutcomeStatus || ""),
       executionLinkedAt: String(decision.metadata?.executionLinkedAt || ""),
@@ -847,6 +848,7 @@ function createExecutionIntentSummary<
       previewRefreshCount: Number(decision.metadata?.executionIntentPreviewRefreshCount || 0) || 0,
       previewPardonCount: Number(decision.metadata?.executionIntentPreviewChurnPardonCount || 0) || 0,
       previewManualClearCount: Number(decision.metadata?.executionIntentPreviewChurnManualClearCount || 0) || 0,
+      previewHardResetCount: Number(decision.metadata?.executionIntentPreviewChurnHardResetCount || 0) || 0,
       updatedAt: decision.updatedAt || decision.createdAt || null,
     }))
     .filter((entry): entry is typeof entry & { intentStatus: BotExecutionIntentStatus } => Boolean(entry.intentStatus))
@@ -876,6 +878,8 @@ function createExecutionIntentSummary<
     previewPardonCount: ranked.reduce((sum, entry) => sum + entry.previewPardonCount, 0),
     manuallyClearedPreviewCount: ranked.filter((entry) => entry.previewManualClearCount > 0).length,
     previewManualClearCount: ranked.reduce((sum, entry) => sum + entry.previewManualClearCount, 0),
+    hardResetPreviewCount: ranked.filter((entry) => entry.previewHardResetCount > 0).length,
+    previewHardResetCount: ranked.reduce((sum, entry) => sum + entry.previewHardResetCount, 0),
     executionSubmittedCount: ranked.filter((entry) => entry.laneStatus === "execution-submitted").length,
     awaitingApprovalCount: ranked.filter((entry) => entry.laneStatus === "awaiting-approval").length,
     blockedLaneCount: ranked.filter((entry) => entry.laneStatus === "blocked").length,
@@ -979,6 +983,8 @@ function createBotAttentionSummary(bot: {
     pardonedPreviewCount: number;
     previewManualClearCount: number;
     manuallyClearedPreviewCount: number;
+    previewHardResetCount: number;
+    hardResetPreviewCount: number;
   } | null;
   adaptationSummary?: {
     trainingConfidence: string;
@@ -990,6 +996,7 @@ function createBotAttentionSummary(bot: {
   const previewRefreshCount = bot.executionIntentSummary?.previewRefreshCount || 0;
   const previewPardonCount = bot.executionIntentSummary?.previewPardonCount || 0;
   const previewManualClearCount = bot.executionIntentSummary?.previewManualClearCount || 0;
+  const previewHardResetCount = bot.executionIntentSummary?.previewHardResetCount || 0;
   const severePreviewChurn = previewExpiredCount >= 2 || previewRefreshCount >= 3;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
@@ -997,6 +1004,7 @@ function createBotAttentionSummary(bot: {
   score += Math.min(previewRefreshCount * 6, 30);
   score += Math.min(previewPardonCount * 8, 24);
   score += Math.min(previewManualClearCount * 12, 36);
+  score += Math.min(previewHardResetCount * 18, 36);
   if (severePreviewChurn) score += 20;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
@@ -1015,6 +1023,9 @@ function createBotAttentionSummary(bot: {
   }
   if (previewManualClearCount > 0) {
     noteParts.push(`${previewManualClearCount} manual clears were already used across ${bot.executionIntentSummary?.manuallyClearedPreviewCount || 0} intents.`);
+  }
+  if (previewHardResetCount > 0) {
+    noteParts.push(`${previewHardResetCount} hard resets were already used across ${bot.executionIntentSummary?.hardResetPreviewCount || 0} intents.`);
   }
   if (severePreviewChurn) {
     noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");

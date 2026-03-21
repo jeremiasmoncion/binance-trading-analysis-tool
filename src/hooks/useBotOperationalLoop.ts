@@ -15,6 +15,7 @@ import { useSelectedBotState } from "./useSelectedBot";
 
 const MAX_PREVIEW_CHURN_PARDONS = 2;
 const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
+const MAX_PREVIEW_CHURN_HARD_RESETS = 1;
 
 function dedupeRankedSignals<T extends { id: string }>(signals: T[]) {
   const seen = new Set<string>();
@@ -340,6 +341,18 @@ function getPreviewChurnManualClearCount(decision: BotDecisionRecord) {
   return Number(decision.metadata?.executionIntentPreviewChurnManualClearCount || 0) || 0;
 }
 
+function hasActivePreviewChurnHardReset(decision: BotDecisionRecord) {
+  const grantedAt = String(decision.metadata?.executionIntentPreviewChurnHardResetGrantedAt || "").trim();
+  const consumedAt = String(decision.metadata?.executionIntentPreviewChurnHardResetConsumedAt || "").trim();
+  if (!grantedAt) return false;
+  if (!consumedAt) return true;
+  return new Date(grantedAt).getTime() > new Date(consumedAt).getTime();
+}
+
+function getPreviewChurnHardResetCount(decision: BotDecisionRecord) {
+  return Number(decision.metadata?.executionIntentPreviewChurnHardResetCount || 0) || 0;
+}
+
 function getDispatchModeForLane(lane: string) {
   if (lane === "paper") return "preview" as const;
   if (lane === "demo") return "execute" as const;
@@ -559,9 +572,11 @@ export function useBotOperationalLoop() {
             && previewChurn.severePreviewChurn
             && !hasActivePreviewChurnPardon(decision)
             && !hasActivePreviewChurnManualClear(decision)
+            && !hasActivePreviewChurnHardReset(decision)
           ) {
             const pardonCount = getPreviewChurnPardonCount(decision);
             const manualClearCount = getPreviewChurnManualClearCount(decision);
+            const hardResetCount = getPreviewChurnHardResetCount(decision);
             await updateDecision(decision.id, {
               status: "blocked",
               metadata: {
@@ -571,11 +586,14 @@ export function useBotOperationalLoop() {
                 executionIntentDispatchAttemptedAt: now,
                 executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentPreviewChurnManualClearConsumedAt: decision.metadata?.executionIntentPreviewChurnManualClearGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnManualClearConsumedAt || null,
+                executionIntentPreviewChurnHardResetConsumedAt: decision.metadata?.executionIntentPreviewChurnHardResetGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnHardResetConsumedAt || null,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentDispatchMode: dispatchMode,
                 executionIntentDispatchSignalId: signalId,
                 executionIntentReason:
-                  manualClearCount >= MAX_PREVIEW_CHURN_MANUAL_CLEARS
+                  hardResetCount >= MAX_PREVIEW_CHURN_HARD_RESETS
+                    ? `Paper preview dispatch paused because preview churn is severe and the hard reset limit was reached (${previewChurn.previewExpiredCount} expired / ${previewChurn.previewRefreshCount} refreshes / ${pardonCount} pardons / ${manualClearCount} manual clears / ${hardResetCount} hard resets).`
+                    : manualClearCount >= MAX_PREVIEW_CHURN_MANUAL_CLEARS
                     ? `Paper preview dispatch paused because preview churn is severe and the manual clear limit was reached (${previewChurn.previewExpiredCount} expired / ${previewChurn.previewRefreshCount} refreshes / ${pardonCount} pardons / ${manualClearCount} manual clears).`
                     : pardonCount >= MAX_PREVIEW_CHURN_PARDONS
                       ? `Paper preview dispatch paused because preview churn is severe and the pardon limit was reached (${previewChurn.previewExpiredCount} expired / ${previewChurn.previewRefreshCount} refreshes / ${pardonCount} pardons).`
@@ -595,6 +613,7 @@ export function useBotOperationalLoop() {
                 executionIntentDispatchAttemptedAt: now,
                 executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentPreviewChurnManualClearConsumedAt: decision.metadata?.executionIntentPreviewChurnManualClearGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnManualClearConsumedAt || null,
+                executionIntentPreviewChurnHardResetConsumedAt: decision.metadata?.executionIntentPreviewChurnHardResetGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnHardResetConsumedAt || null,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentReason: "The bot intent is missing a published signal id for paper/demo dispatch.",
               },
@@ -620,6 +639,7 @@ export function useBotOperationalLoop() {
                 executionIntentDispatchAttemptedAt: now,
                 executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentPreviewChurnManualClearConsumedAt: decision.metadata?.executionIntentPreviewChurnManualClearGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnManualClearConsumedAt || null,
+                executionIntentPreviewChurnHardResetConsumedAt: decision.metadata?.executionIntentPreviewChurnHardResetGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnHardResetConsumedAt || null,
                 executionIntentDispatchStatus: candidateStatus || "failed",
                 executionIntentDispatchMode: dispatchMode,
                 executionIntentDispatchSignalId: signalId,
@@ -639,6 +659,7 @@ export function useBotOperationalLoop() {
               executionIntentDispatchedAt: now,
               executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
               executionIntentPreviewChurnManualClearConsumedAt: decision.metadata?.executionIntentPreviewChurnManualClearGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnManualClearConsumedAt || null,
+              executionIntentPreviewChurnHardResetConsumedAt: decision.metadata?.executionIntentPreviewChurnHardResetGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnHardResetConsumedAt || null,
               executionIntentDispatchStatus: candidateStatus || "submitted",
               executionIntentDispatchMode: dispatchMode,
               executionIntentDispatchSignalId: signalId,

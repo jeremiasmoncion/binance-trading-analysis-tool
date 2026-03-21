@@ -221,6 +221,8 @@ export interface BotExecutionIntentSummary {
   previewPardonCount: number;
   manuallyClearedPreviewCount: number;
   previewManualClearCount: number;
+  hardResetPreviewCount: number;
+  previewHardResetCount: number;
   executionSubmittedCount: number;
   awaitingApprovalCount: number;
   blockedLaneCount: number;

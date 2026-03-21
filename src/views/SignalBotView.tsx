@@ -515,7 +515,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                   />
                   <MetricTile
                     label="Preview Churn"
-                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewPardonCount || 0)} pardons / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewManualClearCount || 0)} clears`}
+                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewPardonCount || 0)} pardons / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewManualClearCount || 0)} clears / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewHardResetCount || 0)} resets`}
                     note={buildPreviewChurnNote(selectedBotCard)}
                   />
                   <MetricTile
@@ -962,6 +962,8 @@ function buildPreviewChurnNote(bot: {
     pardonedPreviewCount?: number;
     previewManualClearCount?: number;
     manuallyClearedPreviewCount?: number;
+    previewHardResetCount?: number;
+    hardResetPreviewCount?: number;
   } | null;
   attention?: {
     priority?: string | null;
@@ -976,6 +978,8 @@ function buildPreviewChurnNote(bot: {
   const pardonedIntentCount = summary?.pardonedPreviewCount || 0;
   const manualClearCount = summary?.previewManualClearCount || 0;
   const manuallyClearedIntentCount = summary?.manuallyClearedPreviewCount || 0;
+  const hardResetCount = summary?.previewHardResetCount || 0;
+  const hardResetIntentCount = summary?.hardResetPreviewCount || 0;
   const priority = String(bot?.attention?.priority || "").trim();
 
   if (!expiredCount && !refreshCount) {
@@ -997,6 +1001,9 @@ function buildPreviewChurnNote(bot: {
   }
   if (manualClearCount > 0) {
     parts.push(`${manualClearCount} manual clears across ${manuallyClearedIntentCount} intents`);
+  }
+  if (hardResetCount > 0) {
+    parts.push(`${hardResetCount} hard resets across ${hardResetIntentCount} intents`);
   }
   if (priority === "urgent") {
     parts.push("This churn is now severe enough to keep the bot in urgent attention.");

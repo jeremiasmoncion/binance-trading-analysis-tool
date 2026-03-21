@@ -4,6 +4,37 @@
 
 ### Phase
 
+`Bot Core` hard reset recovery round
+
+### Completed
+
+- Added a final explicit `Hard Reset` override for preview churn after `Pardon Churn` and `Manual Clear`.
+- `Execution Logs` recovery actions now step through:
+  - `Pardon Churn`
+  - `Manual Clear`
+  - `Hard Reset`
+  - `Manual Review Required`
+- The shared runtime now consumes `hard reset` separately and counts it in shared intent diagnostics.
+- `Signal Bot`, `Bot Settings`, and `Execution Logs` now all expose hard reset usage instead of hiding that strongest recovery override.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids leaving the final recovery step implicit or manual-only.
+- It also avoids understating how far a bot had to go to recover its paper lane.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether `Hard Reset` is officially the last override of the paper lane
+  - decide whether any further recovery should be refused and left purely to manual investigation
+  - keep real trading execution out of scope until this final recovery governance is fully settled
+
+### Phase
+
 `Bot Core` recovery governance review round
 
 ### Completed

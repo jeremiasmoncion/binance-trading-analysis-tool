@@ -47,6 +47,7 @@ type DecisionLogEntry = {
   executionIntentPreviewRefreshCount?: number | null;
   executionIntentPreviewChurnPardonCount?: number | null;
   executionIntentPreviewChurnManualClearCount?: number | null;
+  executionIntentPreviewChurnHardResetCount?: number | null;
   executionOutcomeStatus?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -59,6 +60,7 @@ type ActivityBotScope = "all" | "attention";
 type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "linked";
 const MAX_PREVIEW_CHURN_PARDONS = 2;
 const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
+const MAX_PREVIEW_CHURN_HARD_RESETS = 1;
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
@@ -246,6 +248,42 @@ export function ExecutionLogsView() {
     }
   };
 
+  const handleHardResetPreviewChurn = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Granting hard reset",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentPreviewChurnHardResetCount: Number(decision.executionIntentPreviewChurnHardResetCount || 0) + 1,
+          executionIntentPreviewChurnHardResetGrantedAt: now,
+          executionIntentReason: "Paper preview churn hard reset granted from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Hard reset granted",
+        message: `${decision.symbol} can attempt one final hard-reset paper recovery dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Hard reset failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
   const readModel = useMemo(() => {
     const orders = botsReadModel.allBotExecutionTimeline;
     const botNameById = new Map(botsReadModel.botCards.map((bot) => [bot.id, bot.name]));
@@ -302,6 +340,7 @@ export function ExecutionLogsView() {
         previewStaleCount: bot.executionIntentSummary?.previewStaleCount || 0,
         previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
         previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
+        previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
         executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
         awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
         blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
@@ -461,7 +500,7 @@ export function ExecutionLogsView() {
                     {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded · {bot.previewExpiredCount} preview expired ({bot.previewFreshCount} fresh / {bot.previewStaleCount} stale) · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
                   </p>
                   <p>
-                    Recovery: {bot.previewExpiredCount} expired · {bot.previewPardonCount} pardons · {bot.previewManualClearCount} manual clears · {countRecoveryReviewRequired(botLogsFromBot(bot.id, filteredLogs))} manual review required
+                    Recovery: {bot.previewExpiredCount} expired · {bot.previewPardonCount} pardons · {bot.previewManualClearCount} manual clears · {bot.previewHardResetCount} hard resets · {countRecoveryReviewRequired(botLogsFromBot(bot.id, filteredLogs))} manual review required
                   </p>
                   {bot.latestDispatchMode || bot.latestDispatchStatus ? (
                     <p>
@@ -594,6 +633,8 @@ export function ExecutionLogsView() {
                           <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnManualClears(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleManualClearPreviewChurn(entry.decision)}>Manual Clear</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnHardResets(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleHardResetPreviewChurn(entry.decision)}>Hard Reset</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) ? (
                           <button type="button" className="template-inline-link">Manual Review Required</button>
                         ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
@@ -750,17 +791,23 @@ function hasRemainingPreviewChurnManualClears(decision: DecisionLogEntry) {
   return (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) < MAX_PREVIEW_CHURN_MANUAL_CLEARS;
 }
 
+function hasRemainingPreviewChurnHardResets(decision: DecisionLogEntry) {
+  return (Number(decision.executionIntentPreviewChurnHardResetCount || 0) || 0) < MAX_PREVIEW_CHURN_HARD_RESETS;
+}
+
 function hasReachedPreviewChurnManualReview(decision: DecisionLogEntry) {
   return isPreviewChurnBlockedDecision(decision)
     && !hasRemainingPreviewChurnPardons(decision)
-    && !hasRemainingPreviewChurnManualClears(decision);
+    && !hasRemainingPreviewChurnManualClears(decision)
+    && !hasRemainingPreviewChurnHardResets(decision);
 }
 
 function matchesRecoveryGovernance(decision: DecisionLogEntry) {
   return String(decision.executionIntentLaneStatus || "").trim() === "preview-expired"
     || isPreviewChurnBlockedDecision(decision)
     || (Number(decision.executionIntentPreviewChurnPardonCount || 0) || 0) > 0
-    || (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) > 0;
+    || (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) > 0
+    || (Number(decision.executionIntentPreviewChurnHardResetCount || 0) || 0) > 0;
 }
 
 function countRecoveryReviewRequired(entries: ActivityLogEntry[]) {

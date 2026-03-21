@@ -215,6 +215,7 @@ function buildBotAttentionNote(bot: {
   previewRefreshCount?: number;
   previewPardonCount?: number;
   previewManualClearCount?: number;
+  previewHardResetCount?: number;
   healthLabel?: string;
 }) {
   const parts = [
@@ -236,6 +237,9 @@ function buildBotAttentionNote(bot: {
   }
   if (bot.previewManualClearCount) {
     parts.push(`${bot.previewManualClearCount} manual clears`);
+  }
+  if (bot.previewHardResetCount) {
+    parts.push(`${bot.previewHardResetCount} hard resets`);
   }
   if (bot.healthLabel) {
     parts.push(`${formatHealthLabel(bot.healthLabel)} state`);
@@ -308,6 +312,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         previewRefreshCount: bot.executionIntentSummary?.previewRefreshCount || 0,
         previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
         previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
+        previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,

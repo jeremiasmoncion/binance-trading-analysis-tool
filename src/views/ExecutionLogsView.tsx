@@ -134,6 +134,40 @@ export function ExecutionLogsView() {
     }
   };
 
+  const handleRefreshPreview = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Refreshing preview",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentReason: "Expired paper preview refreshed from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Preview refreshed",
+        message: `${decision.symbol} moved back into paper preview dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Preview refresh failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
   const readModel = useMemo(() => {
     const orders = botsReadModel.allBotExecutionTimeline;
     const botNameById = new Map(botsReadModel.botCards.map((bot) => [bot.id, bot.name]));
@@ -472,6 +506,8 @@ export function ExecutionLogsView() {
                           </>
                         ) : entry.decision.executionIntentLaneStatus === "queued" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
+                        ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleRefreshPreview(entry.decision)}>Refresh Preview</button>
                         ) : (
                           <button type="button" className="template-inline-link">{formatDecisionActionLink(entry.decision, entry.linkedOrder)}</button>
                         )}

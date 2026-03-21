@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` preview refresh round
+
+### Completed
+
+- Turned `preview-expired` into an actionable paper-path state instead of a dead-end label.
+- `Execution Logs` now lets the operator refresh an expired preview directly from the same bot-decision review seam.
+- Refreshing an expired preview now moves the decision back into:
+  - `executionIntentStatus = ready`
+  - `executionIntentLaneStatus = dispatch-requested`
+- The action stays inside the same governed intent lane instead of opening a side workflow.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids making expired paper previews purely informational with no operational recovery path.
+- It also avoids opening a second refresh flow outside the shared bot-decision seam.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether refreshed previews should count in attention scoring
+  - decide whether repeated preview expiry should escalate warnings per bot
+  - keep real trading execution out of scope until the safe paper/demo lane is fully trustworthy
+
+### Phase
+
 `Bot Core` preview expiry semantics round
 
 ### Completed

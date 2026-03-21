@@ -426,6 +426,11 @@ function getDispatchSignalId(decision: BotDecisionRecord) {
     || normalizeSignalId(decision.signalSnapshotId);
 }
 
+function isReadyContentionBlockedDecision(decision: BotDecisionRecord) {
+  return getDecisionIntentLaneStatus(decision) === "blocked"
+    && String(decision.metadata?.executionIntentReason || "").toLowerCase().includes("ready contention is active");
+}
+
 function buildIntentLanePatch(bot: Bot, decision: BotDecisionRecord): Partial<BotDecisionRecord> | null {
   if (!decision.metadata?.generatedByOperationalLoop) return null;
   if (decision.metadata?.executionOrderId) return null;
@@ -578,6 +583,53 @@ export function useBotOperationalLoop() {
       cancelled = true;
     };
   }, [pendingIntentLanePatches, updateDecision]);
+
+  const readyContentionAutoPromotions = useMemo(() => {
+    if (!botsHydrated || !decisionsHydrated) return [];
+
+    const botById = new Map(registryState.bots.map((bot) => [bot.id, bot]));
+    const activeBots = registryState.bots.filter((bot) => bot.status === "active");
+    return decisions
+      .map((decision) => {
+        const bot = botById.get(decision.botId);
+        if (!bot || bot.status !== "active") return null;
+        if (!decision.metadata?.generatedByOperationalLoop) return null;
+        if (!isReadyContentionBlockedDecision(decision)) return null;
+        if (decision.metadata?.executionOrderId) return null;
+        const contention = getBotReadyContentionSummary(bot, decisions, activeBots);
+        if (contention.severe) return null;
+        return { decision, contention };
+      })
+      .filter((entry): entry is { decision: BotDecisionRecord; contention: ReturnType<typeof getBotReadyContentionSummary> } => Boolean(entry));
+  }, [botsHydrated, decisions, decisionsHydrated, registryState.bots]);
+
+  useEffect(() => {
+    if (!readyContentionAutoPromotions.length) return;
+
+    let cancelled = false;
+    void (async () => {
+      for (const { decision, contention } of readyContentionAutoPromotions) {
+        if (cancelled) return;
+        await updateDecision(decision.id, {
+          status: "approved",
+          metadata: {
+            ...decision.metadata,
+            executionIntentStatus: "ready",
+            executionIntentLaneStatus: "dispatch-requested",
+            executionIntentLastUpdatedAt: new Date().toISOString(),
+            executionIntentDispatchRequestedAt: new Date().toISOString(),
+            executionIntentReason: contention.isLeader
+              ? `Ready contention cleared enough for automatic promotion because this bot now leads ${contention.pair || decision.symbol}.`
+              : `Ready contention cleared enough for automatic promotion because no peer bot is still ahead on ${contention.pair || decision.symbol}.`,
+          },
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [readyContentionAutoPromotions, updateDecision]);
 
   const pendingDispatches = useMemo(() => {
     if (!botsHydrated || !decisionsHydrated) return [];

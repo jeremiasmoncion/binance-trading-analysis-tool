@@ -57,6 +57,8 @@ The redesign also now has dedicated documentation for:
 - added `Retry Dispatch` in `Execution Logs` for decisions paused by ready contention, keeping the recovery path inside the same shared review seam
 - evolved ready contention into a shared `leader / follower` queue model so one bot can legitimately hold the current safe-lane slot while peers wait behind it
 - surfaced queue position and leader language in `Signal Bot`, `Bot Settings`, and `Execution Logs`
+- added automatic promotion back to `dispatch-requested` when a contention-blocked follower no longer has a live paper-lane leader ahead of it
+- kept that promotion inside the existing operational loop and decision metadata instead of creating a separate queue worker
 
 - mapped major current components related to:
   - strategy generation

@@ -4,6 +4,33 @@
 
 ### Phase
 
+`Bot Core` ready queue auto-promotion round
+
+### Completed
+
+- Added an automatic queue promotion path for intents that had been blocked only by ready contention.
+- When a follower bot no longer has another live paper-lane peer ahead of it, the runtime now moves that intent back to `dispatch-requested` automatically.
+- This reduces operator dependence on manual `Retry Dispatch` clicks while keeping the promotion fully inside the same shared decision seam.
+- The promotion also leaves an explicit reason on the decision so review surfaces still explain why the bot re-entered the safe lane.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids follower bots getting stranded behind a cleared lane just because no one clicked retry.
+- It also avoids introducing a second queue worker outside the existing operational loop.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether queue promotion should be surfaced more explicitly in logs and readiness notes
+  - validate multi-bot paper behavior under repeated leader clear / follower promotion cycles
+  - keep real trading execution out of scope until this safe-lane sequencing stays stable
+
+### Phase
+
 `Bot Core` ready contention queue ordering round
 
 ### Completed

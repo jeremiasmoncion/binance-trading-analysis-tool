@@ -90,6 +90,8 @@ The estimate does not need to claim absolute certainty, but it should make the r
 - stopped treating `validating` as sufficient for demo progression, keeping the lane conservative until the shared stability threshold is truly met
 - added a shared `Governed Demo Gate` summary derived from that same fleet verdict
 - surfaced the governed demo gate in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the final demo unlock is now explicit across the main operational surfaces
+- added a shared `Paper/Demo Operational Status` declaration derived from the governed demo gate
+- surfaced that final operational declaration in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the main surfaces now say explicitly whether the governed paper/demo lane is operational or not
 
 - mapped major current components related to:
   - strategy generation

@@ -518,6 +518,12 @@ export function ExecutionLogsView() {
             sub={readModel.botSummary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}
             accentClass="accent-blue"
           />
+          <StatCard
+            label="Paper/Demo Status"
+            value={formatPaperDemoOperationalState(readModel.botSummary.paperDemoOperationalState)}
+            sub={readModel.botSummary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}
+            accentClass="accent-green"
+          />
         </div>
 
         <SectionCard className="template-panel">
@@ -583,6 +589,11 @@ export function ExecutionLogsView() {
                 <strong>Governed Demo Gate</strong>
                 <p>{formatGovernedDemoGate(readModel.botSummary.governedDemoGateState)}</p>
                 <p>{readModel.botSummary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Paper/Demo Operational Status</strong>
+                <p>{formatPaperDemoOperationalState(readModel.botSummary.paperDemoOperationalState)}</p>
+                <p>{readModel.botSummary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}</p>
               </article>
             </div>
           ) : null}
@@ -924,6 +935,10 @@ function formatOperationalVerdict(value?: string | null) {
 
 function formatGovernedDemoGate(value?: string | null) {
   return String(value || "").trim() === "open" ? "Open" : "Closed";
+}
+
+function formatPaperDemoOperationalState(value?: string | null) {
+  return String(value || "").trim() === "operational" ? "Operational" : "Not Operational";
 }
 
 function rankSymbols(symbols: Array<string | null | undefined>) {

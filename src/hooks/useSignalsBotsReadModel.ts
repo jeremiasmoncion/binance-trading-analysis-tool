@@ -1187,6 +1187,26 @@ function summarizeGovernedDemoGate(input: {
   };
 }
 
+function summarizePaperDemoOperationalStatus(input: {
+  governedDemoGateState: string;
+  governedDemoGateNote: string;
+  stableReadyBots: number;
+  totalBots: number;
+}) {
+  const gateState = String(input.governedDemoGateState || "").trim();
+  const state = gateState === "open" && input.stableReadyBots > 0 ? "operational" : "not-operational";
+  const note = state === "operational"
+    ? `${input.stableReadyBots} stable ready bots currently keep the governed paper/demo lane operational.`
+    : `The governed paper/demo lane is not operational yet. ${input.governedDemoGateNote}`.trim();
+
+  return {
+    state,
+    note,
+    operationalBots: state === "operational" ? input.stableReadyBots : 0,
+    coveragePct: input.totalBots > 0 ? (input.stableReadyBots / input.totalBots) * 100 : 0,
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1668,6 +1688,12 @@ export function useSignalsBotsReadModel() {
       operationalVerdictNote: fleetOperationalVerdict.note,
       stableReadyBots: fleetSafeLaneStability.stableReadyBots,
     });
+    const paperDemoOperationalStatus = summarizePaperDemoOperationalStatus({
+      governedDemoGateState: governedDemoGate.state,
+      governedDemoGateNote: governedDemoGate.note,
+      stableReadyBots: fleetSafeLaneStability.stableReadyBots,
+      totalBots: botCardsWithOperationalContention.length,
+    });
     const rankedSignalById = new Map(rankedSignals.map((signal) => [signal.id, signal]));
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
@@ -1736,6 +1762,7 @@ export function useSignalsBotsReadModel() {
       selectedBotExecutionIntentSummary,
       selectedBotOperationalVerdict,
       governedDemoGate,
+      paperDemoOperationalStatus,
       attentionBots,
       attentionBotIds: attentionCandidates.map((bot) => bot.id),
       readyContention,
@@ -1769,6 +1796,10 @@ export function useSignalsBotsReadModel() {
         operationalVerdictNote: fleetOperationalVerdict.note,
         governedDemoGateState: governedDemoGate.state,
         governedDemoGateNote: governedDemoGate.note,
+        paperDemoOperationalState: paperDemoOperationalStatus.state,
+        paperDemoOperationalNote: paperDemoOperationalStatus.note,
+        paperDemoOperationalBots: paperDemoOperationalStatus.operationalBots,
+        paperDemoOperationalCoveragePct: paperDemoOperationalStatus.coveragePct,
         contendedReadySymbols: readyContention.contendedReadySymbols,
         contendedReadyBots: readyContention.contendedReadyBots,
       },

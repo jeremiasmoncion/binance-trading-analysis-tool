@@ -4,6 +4,32 @@
 
 ### Phase
 
+`Bot Core` paper-demo operational status round
+
+### Completed
+
+- Added a shared `Paper/Demo Operational Status` summary derived from the governed demo gate.
+- Surfaced that declaration in `Bot Settings`, `Signal Bot`, and `Execution Logs` so the product can now say explicitly whether the governed paper/demo lane is operational or not.
+- Kept the declaration derived from the same shared seam instead of inventing a separate per-screen interpretation of “already operational.”
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids leaving the final answer to “are bots operational in paper/demo yet?” as a human inference from verdict and gate cards.
+- It also avoids teaching different surfaces to declare operational status in slightly different ways.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - use this explicit operational status for a final live concurrency check
+  - confirm that the governed paper/demo lane can stay operational repeatably
+  - keep real trading execution out of scope until that operational status remains stable over repeated cycles
+
+### Phase
+
 `Bot Core` governed demo gate summaries round
 
 ### Completed

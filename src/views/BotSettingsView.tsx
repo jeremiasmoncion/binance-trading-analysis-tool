@@ -226,6 +226,10 @@ function formatGovernedDemoGate(value?: string | null) {
   return String(value || "").trim() === "open" ? "Open" : "Closed";
 }
 
+function formatPaperDemoOperationalState(value?: string | null) {
+  return String(value || "").trim() === "operational" ? "Operational" : "Not Operational";
+}
+
 function buildBotAttentionNote(bot: {
   unresolvedOwnershipCount: number;
   reconciliationPct: number;
@@ -996,6 +1000,14 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             tone="info"
             icon={<AutomationBoltIcon />}
           />
+          <BotSummaryCard
+            label="Paper/Demo Status"
+            value={formatPaperDemoOperationalState(readModel.summary.paperDemoOperationalState)}
+            note={readModel.summary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}
+            tone="primary"
+            icon={<AutomationBoltIcon />}
+            progress={readModel.summary.paperDemoOperationalCoveragePct || 0}
+          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
@@ -1069,6 +1081,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <strong>Governed Demo Gate</strong>
                 <p>{formatGovernedDemoGate(readModel.summary.governedDemoGateState)}</p>
                 <p>{readModel.summary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Paper/Demo Operational Status</strong>
+                <p>{formatPaperDemoOperationalState(readModel.summary.paperDemoOperationalState)}</p>
+                <p>{readModel.summary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}</p>
               </article>
             </div>
           </section>

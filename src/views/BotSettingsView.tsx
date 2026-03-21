@@ -234,14 +234,6 @@ function formatBotsOperationalNow(value?: string | null) {
   return String(value || "").trim() === "yes" ? "Yes" : "No";
 }
 
-function formatHealthLabel(value: string) {
-  if (value === "needs-attention") return "Needs attention";
-  if (value === "watch") return "Watch";
-  if (value === "stable") return "Stable";
-  if (value === "healthy") return "Healthy";
-  return capitalize(value);
-}
-
 export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [activeTab, setActiveTab] = useState<BotSettingsTab>("all-bots");
   const [statusFilter, setStatusFilter] = useState<BotStatusFilter>("all");

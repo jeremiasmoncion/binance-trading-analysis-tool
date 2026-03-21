@@ -974,21 +974,28 @@ function createBotAttentionSummary(bot: {
   } | null;
 }) {
   let score = 0;
+  const previewExpiredCount = bot.executionIntentSummary?.previewExpiredCount || 0;
+  const previewRefreshCount = bot.executionIntentSummary?.previewRefreshCount || 0;
+  const severePreviewChurn = previewExpiredCount >= 2 || previewRefreshCount >= 3;
   score += bot.ownership.unresolvedOwnershipCount * 10;
   score += Math.max(0, 100 - bot.ownership.reconciliationPct);
-  score += (bot.executionIntentSummary?.previewExpiredCount || 0) * 12;
-  score += Math.min((bot.executionIntentSummary?.previewRefreshCount || 0) * 6, 30);
+  score += previewExpiredCount * 12;
+  score += Math.min(previewRefreshCount * 6, 30);
+  if (severePreviewChurn) score += 20;
 
   if (bot.adaptationSummary?.trainingConfidence === "low") score += 20;
   if (bot.adaptationSummary?.trainingConfidence === "medium") score += 8;
 
-  const priority = score >= 90 ? "urgent" : score >= 45 ? "watch" : score > 0 ? "monitor" : "clear";
+  const priority = severePreviewChurn || score >= 90 ? "urgent" : score >= 45 ? "watch" : score > 0 ? "monitor" : "clear";
   const noteParts = [bot.adaptationSummary?.adaptationBias || "Adaptation will stay conservative until owned outcomes improve."];
-  if ((bot.executionIntentSummary?.previewExpiredCount || 0) > 0) {
-    noteParts.push(`${bot.executionIntentSummary?.previewExpiredCount || 0} expired previews still need attention.`);
+  if (previewExpiredCount > 0) {
+    noteParts.push(`${previewExpiredCount} expired previews still need attention.`);
   }
-  if ((bot.executionIntentSummary?.previewRefreshCount || 0) > 0) {
-    noteParts.push(`${bot.executionIntentSummary?.previewRefreshCount || 0} preview refreshes already happened across ${bot.executionIntentSummary?.refreshedPreviewCount || 0} intents.`);
+  if (previewRefreshCount > 0) {
+    noteParts.push(`${previewRefreshCount} preview refreshes already happened across ${bot.executionIntentSummary?.refreshedPreviewCount || 0} intents.`);
+  }
+  if (severePreviewChurn) {
+    noteParts.push("Paper preview churn is now severe enough to escalate the bot into urgent attention.");
   }
 
   return {

@@ -514,6 +514,11 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                     note={`${feedReadModel.selectedBotExecutionIntentSummary?.previewFreshCount || 0} fresh previews • ${feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0} expired • ${buildLatestDispatchNote(selectedBotCard)}`}
                   />
                   <MetricTile
+                    label="Preview Churn"
+                    value={`${String(feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0)} expired / ${String(feedReadModel.selectedBotExecutionIntentSummary?.previewRefreshCount || 0)} refreshes`}
+                    note={buildPreviewChurnNote(selectedBotCard)}
+                  />
+                  <MetricTile
                     label="Guardrail Blocks"
                     value={String(feedReadModel.selectedBotExecutionIntentSummary?.guardrailBlockedCount || 0)}
                     note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailReason || "No recent guardrail block is standing out."}
@@ -650,6 +655,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
               <SettingsCard title="Identity" value={formatOperatingProfile(selectedBotCard)} note={`${selectedBotCard?.identity.family || "signal-core"} • ${selectedBotCard?.executionEnvironment || "paper"} • ${selectedBotCard?.automationMode || "observe"}`} />
               <SettingsCard title="Policy Envelope" value={formatPolicyEnvelope(selectedBotCard)} note={`Overlap ${selectedBotCard?.overlapPolicy.executionOverlap || "block"} • priority ${selectedBotCard?.overlapPolicy.priority ?? 0}`} />
               <SettingsCard title="Execution Intent" value={`${formatExecutionIntentStatus(feedReadModel.selectedBotExecutionIntentSummary?.latestIntentStatus)} • ${String(feedReadModel.selectedBotExecutionIntentSummary?.queuedCount || 0)} queued`} note={feedReadModel.selectedBotExecutionIntentSummary?.latestGuardrailCode ? `Last block: ${feedReadModel.selectedBotExecutionIntentSummary.latestGuardrailCode}` : `${feedReadModel.selectedBotExecutionIntentSummary?.dispatchRequestedCount || 0} dispatch requested • ${feedReadModel.selectedBotExecutionIntentSummary?.previewFreshCount || 0} fresh previewed • ${feedReadModel.selectedBotExecutionIntentSummary?.previewExpiredCount || 0} expired previewed • ${feedReadModel.selectedBotExecutionIntentSummary?.executionSubmittedCount || 0} demo submitted • ${buildLatestDispatchNote(selectedBotCard)}`} />
+              <SettingsCard title="Intent Attention" value={formatAttentionPriority(selectedBotCard?.attention?.priority)} note={selectedBotCard?.attention?.note || "No preview churn or intent backlog is standing out right now."} />
               <SettingsCard title="Ownership Health" value={`${formatOwnershipHealthLabel(selectedBotCard?.ownership?.healthLabel)} • ${Math.round(selectedBotCard?.ownership?.reconciliationPct || 0)}% reconciled`} note={`${selectedBotCard?.ownership?.ownedOutcomeCount || 0} owned outcomes • ${selectedBotCard?.ownership?.unresolvedOwnershipCount || 0} still need linkage`} />
               <SettingsCard title="Latest Activity" value={selectedBotCard?.activity.lastDecisionAction ? formatDecisionAction(selectedBotCard.activity.lastDecisionAction) : "No decisions yet"} note={selectedBotCard?.activity.lastDecisionSymbol ? `${selectedBotCard.activity.lastDecisionSymbol} • ${formatDecisionStatus(selectedBotCard.activity.lastDecisionStatus || "pending")}` : "The bot has not consumed a tracked signal yet."} />
               <div className="signalbot-settings-cta">
@@ -939,6 +945,48 @@ function buildLatestDispatchNote(bot: {
   return timestamp
     ? `${modeLabel} • ${statusLabel} • ${formatRelative(timestamp)}`
     : `${modeLabel} • ${statusLabel}`;
+}
+
+function formatAttentionPriority(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Clear";
+  return normalized.split("-").map(capitalize).join(" ");
+}
+
+function buildPreviewChurnNote(bot: {
+  executionIntentSummary?: {
+    previewExpiredCount?: number;
+    previewRefreshCount?: number;
+    refreshedPreviewCount?: number;
+  } | null;
+  attention?: {
+    priority?: string | null;
+    note?: string | null;
+  } | null;
+} | null) {
+  const summary = bot?.executionIntentSummary;
+  const expiredCount = summary?.previewExpiredCount || 0;
+  const refreshCount = summary?.previewRefreshCount || 0;
+  const refreshedIntentCount = summary?.refreshedPreviewCount || 0;
+  const priority = String(bot?.attention?.priority || "").trim();
+
+  if (!expiredCount && !refreshCount) {
+    return "Paper preview churn is currently quiet for this bot.";
+  }
+
+  const parts = [
+    `${expiredCount} expired previews`,
+    `${refreshCount} refreshes`,
+  ];
+  if (refreshedIntentCount > 0) {
+    parts.push(`${refreshedIntentCount} intents already recycled`);
+  }
+  if (priority === "urgent") {
+    parts.push("This churn is now severe enough to keep the bot in urgent attention.");
+  } else if (priority === "watch") {
+    parts.push("This churn should be watched before trusting repeated paper dispatches.");
+  }
+  return parts.join(" • ");
 }
 
 function buildOwnershipHealthNote(value: string) {

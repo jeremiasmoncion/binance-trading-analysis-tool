@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` selected-bot intent attention round
+
+### Completed
+
+- Brought severe paper-preview churn into the selected bot workspace instead of leaving it only at fleet level.
+- Shared bot attention now escalates to `urgent` when preview expiry/refresh churn becomes severe enough.
+- `Signal Bot` now shows:
+  - `Preview Churn`
+  - `Intent Attention`
+- This keeps churn severity attached to the operational intent lane rather than overloading ownership health with a different concern.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids hiding severe paper-lane instability inside fleet-only diagnostics.
+- It also avoids mislabeling preview churn as pure ownership failure.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether severe intent churn should also influence execution review prioritization more aggressively
+  - decide whether `urgent` intent churn should suppress new paper dispatch attempts for the affected bot
+  - keep real trading execution out of scope until the safe paper/demo lane remains stable under this stricter attention model
+
+### Phase
+
 `Bot Core` preview attention scoring round
 
 ### Completed

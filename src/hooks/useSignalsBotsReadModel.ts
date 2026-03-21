@@ -1055,6 +1055,20 @@ function summarizeFleetOperationalReadiness(
   };
 }
 
+function summarizeFleetQueueChurn(
+  bots: Array<{
+    executionIntentSummary?: {
+      readyContentionAutoPromotionCount?: number;
+    } | null;
+  }>,
+) {
+  return {
+    queueChurnBots: bots.filter((bot) => (bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0) > 0).length,
+    unstableQueueBots: bots.filter((bot) => (bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0) >= 3).length,
+    queueAutoPromotions: bots.reduce((sum, bot) => sum + (bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0), 0),
+  };
+}
+
 function summarizeReadyContention(
   bots: Array<{
     id: string;
@@ -1478,6 +1492,7 @@ export function useSignalsBotsReadModel() {
         operationalReadiness,
       };
     });
+    const fleetQueueChurn = summarizeFleetQueueChurn(botCardsWithOperationalContention);
 
     const selectedBotCard = botCardsWithOperationalContention.find((bot) => bot.id === selectedBotId) || botCardsWithOperationalContention[0] || null;
     const selectedBotFeed = selectedBotCard
@@ -1596,6 +1611,9 @@ export function useSignalsBotsReadModel() {
         operationalReadyBots: fleetOperationalReadiness.operationalReadyBots,
         recoveryBots: fleetOperationalReadiness.recoveryBots,
         finalReviewBots: fleetOperationalReadiness.finalReviewBots,
+        queueChurnBots: fleetQueueChurn.queueChurnBots,
+        unstableQueueBots: fleetQueueChurn.unstableQueueBots,
+        queueAutoPromotions: fleetQueueChurn.queueAutoPromotions,
         contendedReadySymbols: readyContention.contendedReadySymbols,
         contendedReadyBots: readyContention.contendedReadyBots,
       },

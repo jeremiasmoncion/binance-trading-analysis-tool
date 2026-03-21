@@ -4,6 +4,35 @@
 
 ### Phase
 
+`Bot Core` fleet queue churn summary round
+
+### Completed
+
+- Brought queue auto-promotion churn up to the fleet hub instead of leaving it only in bot-level views and logs.
+- The shared read-model now summarizes:
+  - total queue auto-promotions
+  - bots affected by queue churn
+  - bots already in unstable queue churn
+- `Bot Settings` now shows a fleet-level `Queue Churn` summary card and a compact readiness insight for the bots most affected by repeated queue auto-promotions.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids hiding concurrent queue instability inside individual bot cards or logs only.
+- It also avoids making fleet-level readiness look healthier than it really is when queue churn is accumulating under the surface.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - validate whether fleet queue churn now gives enough signal to declare the safe lane operational
+  - decide whether unstable queue churn should enter the top attention list even more aggressively
+  - keep real trading execution out of scope until concurrent safe-lane behavior remains stable
+
+### Phase
+
 `Bot Core` queue auto-promotion review round
 
 ### Completed

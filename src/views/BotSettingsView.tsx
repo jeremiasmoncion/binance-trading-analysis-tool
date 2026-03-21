@@ -368,6 +368,10 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         recoveryBots: cards.filter((bot) => bot.operationalReadiness === "recovery").slice(0, 4),
         finalReviewBots: cards.filter((bot) => bot.operationalReadiness === "final-review").slice(0, 4),
       },
+      queueChurnBots: cards
+        .filter((bot) => (bot.readyContentionAutoPromotionCount || 0) > 0)
+        .sort((left, right) => (right.readyContentionAutoPromotionCount || 0) - (left.readyContentionAutoPromotionCount || 0))
+        .slice(0, 4),
       readyContention: feedReadModel.readyContention || { entries: [], contendedReadySymbols: 0, contendedReadyBots: 0 },
       summary: feedReadModel.botSummary,
       tabs: {
@@ -943,6 +947,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             tone="success"
             icon={<AutomationBoltIcon />}
           />
+          <BotSummaryCard
+            label="Queue Churn"
+            value={String(readModel.summary.queueAutoPromotions || 0)}
+            note={`${readModel.summary.queueChurnBots || 0} bots affected / ${readModel.summary.unstableQueueBots || 0} unstable`}
+            tone="warning"
+            icon={<WarningTriangleIcon />}
+          />
         </div>
 
         {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
@@ -993,6 +1004,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                     {" "}
                     shared market lanes.
                   </p>
+                </article>
+              ) : null}
+              {readModel.queueChurnBots.length ? (
+                <article className="signalbot-insight-card">
+                  <strong>Queue Churn</strong>
+                  <p>{readModel.queueChurnBots.map((bot) => `${bot.name} (${bot.readyContentionAutoPromotionCount || 0})`).join(", ")}</p>
+                  <p>These bots are relying on repeated queue auto-promotions and should be watched for unstable concurrent sequencing.</p>
                 </article>
               ) : null}
             </div>

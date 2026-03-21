@@ -4,6 +4,33 @@
 
 ### Phase
 
+`Bot Core` ready contention dispatch guardrail round
+
+### Completed
+
+- Added a real runtime pause for safe-lane `paper` dispatch when another active bot is already holding the same pair with a live paper intent.
+- This turns ready contention into an actual dispatch guardrail instead of leaving it only as a readiness downgrade.
+- `Execution Logs` now lets the operator retry those contention-paused intents with `Retry Dispatch` once the shared lane is clear enough to try again.
+- The same contention reason stays visible through the shared review surfaces instead of becoming a hidden runtime-only pause.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids two active paper-lane bots trying to progress the same pair at the same time just because both looked individually ready.
+- It also avoids introducing a dead-end pause by giving the operator a controlled retry path inside `Execution Logs`.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - decide whether ready contention should evolve from pause-only into staggering/queueing between competing bots
+  - validate multi-bot paper behavior now that contention is both visible and enforced at dispatch time
+  - keep real trading execution out of scope until concurrent safe-lane behavior remains stable
+
+### Phase
+
 `Bot Core` ready contention governance round
 
 ### Completed

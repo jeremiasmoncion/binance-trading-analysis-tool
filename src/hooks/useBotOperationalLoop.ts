@@ -16,6 +16,7 @@ import { useSelectedBotState } from "./useSelectedBot";
 const MAX_PREVIEW_CHURN_PARDONS = 2;
 const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
 const MAX_PREVIEW_CHURN_HARD_RESETS = 1;
+const CONTENTION_ACTIVE_LANE_STATUSES = new Set(["queued", "dispatch-requested", "previewed", "preview-recorded", "preview-expired"]);
 
 function dedupeRankedSignals<T extends { id: string }>(signals: T[]) {
   const seen = new Set<string>();
@@ -317,6 +318,43 @@ function getBotPreviewChurnSummary(botId: string, decisions: BotDecisionRecord[]
   };
 }
 
+function getBotReadyContentionSummary(bot: Bot, decisions: BotDecisionRecord[], bots: Bot[]) {
+  const primaryPair = String(bot.workspaceSettings?.primaryPair || "").trim().toUpperCase();
+  if (!primaryPair) {
+    return {
+      isContended: false,
+      pair: null,
+      peerBotIds: [] as string[],
+      peerNames: [] as string[],
+      peerCount: 0,
+      severe: false,
+    };
+  }
+
+  const peerBots = bots.filter((candidate) => (
+    candidate.id !== bot.id
+    && candidate.status === "active"
+    && String(candidate.workspaceSettings?.primaryPair || "").trim().toUpperCase() === primaryPair
+  ));
+
+  const contendingPeers = peerBots.filter((peer) => decisions.some((decision) => (
+    decision.botId === peer.id
+    && decision.metadata?.generatedByOperationalLoop
+    && !decision.metadata?.executionOrderId
+    && String(decision.metadata?.executionIntentLane || "").trim() === "paper"
+    && CONTENTION_ACTIVE_LANE_STATUSES.has(getEffectiveDecisionIntentLaneStatus(decision))
+  )));
+
+  return {
+    isContended: contendingPeers.length > 0,
+    pair: primaryPair,
+    peerBotIds: contendingPeers.map((peer) => peer.id),
+    peerNames: contendingPeers.map((peer) => peer.name),
+    peerCount: contendingPeers.length,
+    severe: contendingPeers.length > 0,
+  };
+}
+
 function hasActivePreviewChurnPardon(decision: BotDecisionRecord) {
   const grantedAt = String(decision.metadata?.executionIntentPreviewChurnPardonGrantedAt || "").trim();
   const consumedAt = String(decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || "").trim();
@@ -539,7 +577,8 @@ export function useBotOperationalLoop() {
 
     let cancelled = false;
     void (async () => {
-      for (const { decision } of pendingDispatches) {
+      const activeBots = registryState.bots.filter((bot) => bot.status === "active");
+      for (const { bot, decision } of pendingDispatches) {
         if (cancelled) return;
         if (dispatchInFlightRef.current.has(decision.id)) continue;
         dispatchInFlightRef.current.add(decision.id);
@@ -550,6 +589,7 @@ export function useBotOperationalLoop() {
           const signalId = getDispatchSignalId(decision);
           const now = new Date().toISOString();
           const previewChurn = getBotPreviewChurnSummary(decision.botId, decisions);
+          const readyContention = getBotReadyContentionSummary(bot, decisions, activeBots);
 
           if (!dispatchMode) {
             await updateDecision(decision.id, {
@@ -562,6 +602,26 @@ export function useBotOperationalLoop() {
                 executionIntentPreviewChurnPardonConsumedAt: decision.metadata?.executionIntentPreviewChurnPardonGrantedAt ? now : decision.metadata?.executionIntentPreviewChurnPardonConsumedAt || null,
                 executionIntentDispatchStatus: "blocked",
                 executionIntentReason: `The ${lane || "unknown"} lane cannot dispatch through the shared paper/demo adapter.`,
+              },
+            });
+            continue;
+          }
+
+          if (
+            dispatchMode === "preview"
+            && readyContention.severe
+          ) {
+            await updateDecision(decision.id, {
+              status: "blocked",
+              metadata: {
+                ...decision.metadata,
+                executionIntentLaneStatus: "blocked",
+                executionIntentLastUpdatedAt: now,
+                executionIntentDispatchAttemptedAt: now,
+                executionIntentDispatchStatus: "blocked",
+                executionIntentDispatchMode: dispatchMode,
+                executionIntentDispatchSignalId: signalId,
+                executionIntentReason: `Paper preview dispatch paused because ready contention is active on ${readyContention.pair || decision.symbol} with ${readyContention.peerNames.join(", ") || `${readyContention.peerCount} peer bots`}.`,
               },
             });
             continue;
@@ -678,5 +738,5 @@ export function useBotOperationalLoop() {
     return () => {
       cancelled = true;
     };
-  }, [pendingDispatches, updateDecision]);
+  }, [decisions, pendingDispatches, registryState.bots, updateDecision]);
 }

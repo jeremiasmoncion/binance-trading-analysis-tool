@@ -284,6 +284,40 @@ export function ExecutionLogsView() {
     }
   };
 
+  const handleRetryReadyContention = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Retrying dispatch",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentReason: "Ready contention retry requested from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Dispatch retried",
+        message: `${decision.symbol} moved back into dispatch request after contention review.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Retry failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
   const readModel = useMemo(() => {
     const orders = botsReadModel.allBotExecutionTimeline;
     const botNameById = new Map(botsReadModel.botCards.map((bot) => [bot.id, bot.name]));
@@ -672,6 +706,8 @@ export function ExecutionLogsView() {
                           </>
                         ) : entry.decision.executionIntentLaneStatus === "queued" ? (
                           <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
+                        ) : isReadyContentionBlockedDecision(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleRetryReadyContention(entry.decision)}>Retry Dispatch</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnPardons(entry.decision) ? (
                           <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
                         ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnManualClears(entry.decision) ? (
@@ -828,6 +864,11 @@ function isFailedDecision(decision: { status: string }) {
 function isPreviewChurnBlockedDecision(decision: DecisionLogEntry) {
   return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
     && String(decision.executionIntentReason || "").toLowerCase().includes("preview churn is severe");
+}
+
+function isReadyContentionBlockedDecision(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
+    && String(decision.executionIntentReason || "").toLowerCase().includes("ready contention is active");
 }
 
 function hasRemainingPreviewChurnPardons(decision: DecisionLogEntry) {

@@ -53,6 +53,8 @@ The redesign also now has dedicated documentation for:
 - promoted ready contention into shared attention/readiness logic so contended ready bots no longer remain counted as clean dispatch-ready
 - surfaced ready contention in `Execution Logs` as a dedicated review filter and summary block
 - updated `Signal Bot` so the selected bot's `Paper Readiness` note now explains when shared-lane contention is what is keeping it out of a clean ready state
+- added a real `paper` dispatch guardrail for ready contention so active bots sharing the same pair do not progress preview dispatch in parallel
+- added `Retry Dispatch` in `Execution Logs` for decisions paused by ready contention, keeping the recovery path inside the same shared review seam
 
 - mapped major current components related to:
   - strategy generation

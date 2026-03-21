@@ -4,6 +4,36 @@
 
 ### Phase
 
+`Bot Core` ready contention diagnostics round
+
+### Completed
+
+- Added a shared `ready contention` summary for the safe lane so fleet-level readiness now shows when multiple `ready` bots are competing on the same market.
+- The read-model now exposes:
+  - contended ready symbols
+  - contended ready bot count
+  - symbol-level contention entries with the overlapping bots
+- `Bot Settings` now surfaces that contention inside the fleet `Operational Readiness` section and also annotates attention bots when they are overlapping with other ready peers on the same pair.
+- This gives the operator a first concurrent multi-bot validation signal without opening another runtime or bespoke monitor.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+  - `npm run preview -- --host 127.0.0.1 --port 4173`
+
+### Risk Avoided
+
+- This avoids treating several `ready` bots on the same pair as independently safe when they are actually contending for the same paper lane.
+- It also avoids inventing a second fleet-monitoring seam just to explain concurrent readiness pressure.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - deepen multi-bot validation by deciding whether ready contention should also reduce readiness or raise attention automatically
+  - bring the same concurrency reading into `Execution Logs` if operators need row-level review of contended safe-lane bots
+  - keep real trading execution out of scope until concurrent paper/demo readiness remains stable
+
+### Phase
+
 `Bot Core` fleet readiness hub round
 
 ### Completed

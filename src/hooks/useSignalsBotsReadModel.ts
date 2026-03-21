@@ -1036,6 +1036,48 @@ function summarizeFleetOperationalReadiness(
   };
 }
 
+function summarizeReadyContention(
+  bots: Array<{
+    id: string;
+    name: string;
+    workspaceSettings?: {
+      primaryPair?: string | null;
+    } | null;
+    operationalReadiness: {
+      dispatchReady: boolean;
+    };
+  }>,
+) {
+  const readyBots = bots.filter((bot) => bot.operationalReadiness.dispatchReady);
+  const readyBotsByPair = new Map<string, typeof readyBots>();
+
+  readyBots.forEach((bot) => {
+    const pair = (bot.workspaceSettings?.primaryPair || "").trim().toUpperCase();
+    if (!pair) {
+      return;
+    }
+    const existing = readyBotsByPair.get(pair) || [];
+    existing.push(bot);
+    readyBotsByPair.set(pair, existing);
+  });
+
+  const entries = Array.from(readyBotsByPair.entries())
+    .filter(([, pairBots]) => pairBots.length > 1)
+    .map(([pair, pairBots]) => ({
+      pair,
+      botIds: pairBots.map((bot) => bot.id),
+      botNames: pairBots.map((bot) => bot.name),
+      count: pairBots.length,
+    }))
+    .sort((left, right) => right.count - left.count || left.pair.localeCompare(right.pair));
+
+  return {
+    entries,
+    contendedReadySymbols: entries.length,
+    contendedReadyBots: new Set(entries.flatMap((entry) => entry.botIds)).size,
+  };
+}
+
 function createBotAttentionSummary(bot: {
   ownership: {
     unresolvedOwnershipCount: number;
@@ -1323,8 +1365,23 @@ export function useSignalsBotsReadModel() {
     });
 
     const fleetOperationalReadiness = summarizeFleetOperationalReadiness(botCardsWithSharedMemory);
+    const readyContention = summarizeReadyContention(botCardsWithSharedMemory);
+    const botCardsWithOperationalContention = botCardsWithSharedMemory.map((bot) => {
+      const matchingEntry = readyContention.entries.find((entry) => entry.botIds.includes(bot.id)) || null;
+      return {
+        ...bot,
+        readyContention: {
+          isContended: Boolean(matchingEntry),
+          pair: matchingEntry?.pair || (bot.workspaceSettings?.primaryPair || null),
+          peerCount: matchingEntry ? Math.max(matchingEntry.count - 1, 0) : 0,
+          peerNames: matchingEntry
+            ? matchingEntry.botNames.filter((name) => name !== bot.name)
+            : [],
+        },
+      };
+    });
 
-    const selectedBotCard = botCardsWithSharedMemory.find((bot) => bot.id === selectedBotId) || botCardsWithSharedMemory[0] || null;
+    const selectedBotCard = botCardsWithOperationalContention.find((bot) => bot.id === selectedBotId) || botCardsWithOperationalContention[0] || null;
     const selectedBotFeed = selectedBotCard
       ? createBotConsumableFeed(
           selectedBotCard,
@@ -1356,8 +1413,8 @@ export function useSignalsBotsReadModel() {
     const selectedBotApprovedRankedSignals = selectedBotApprovedSignals
       .map((signal) => rankedSignalById.get(signal.id) || null)
       .filter((signal): signal is (typeof rankedSignals)[number] => Boolean(signal));
-    const activeBots = botCardsWithSharedMemory.filter((bot) => bot.status === "active");
-    const allBotDecisionTimeline = botCardsWithSharedMemory
+    const activeBots = botCardsWithOperationalContention.filter((bot) => bot.status === "active");
+    const allBotDecisionTimeline = botCardsWithOperationalContention
       .flatMap((bot) => bot.decisionTimeline.map((entry) => ({
         ...entry,
         botId: bot.id,
@@ -1366,18 +1423,18 @@ export function useSignalsBotsReadModel() {
       .sort((left, right) => new Date(right.updatedAt || right.createdAt).getTime() - new Date(left.updatedAt || left.createdAt).getTime());
     const allBotExecutionTimeline = executionOwnership.allEntries;
     const allBotActivityTimeline = createBotActivityTimeline(allBotDecisionTimeline, allBotExecutionTimeline);
-    const totalTrades = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0);
-    const totalProfit = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0);
-    const averageWinRate = botCardsWithSharedMemory.length
-      ? botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.performance.winRate, 0) / botCardsWithSharedMemory.length
+    const totalTrades = botCardsWithOperationalContention.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0);
+    const totalProfit = botCardsWithOperationalContention.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0);
+    const averageWinRate = botCardsWithOperationalContention.length
+      ? botCardsWithOperationalContention.reduce((sum, bot) => sum + bot.performance.winRate, 0) / botCardsWithOperationalContention.length
       : 0;
-    const unresolvedOwnershipCount = botCardsWithSharedMemory.reduce(
+    const unresolvedOwnershipCount = botCardsWithOperationalContention.reduce(
       (sum, bot) => sum + bot.ownership.unresolvedDecisionCount + bot.ownership.unlinkedExecutionCount,
       0,
     );
-    const ownedOutcomeCount = botCardsWithSharedMemory.reduce((sum, bot) => sum + bot.ownership.ownedOutcomeCount, 0);
-    const fleetAdaptation = summarizeFleetAdaptation(botCardsWithSharedMemory);
-    const attentionCandidates = botCardsWithSharedMemory
+    const ownedOutcomeCount = botCardsWithOperationalContention.reduce((sum, bot) => sum + bot.ownership.ownedOutcomeCount, 0);
+    const fleetAdaptation = summarizeFleetAdaptation(botCardsWithOperationalContention);
+    const attentionCandidates = botCardsWithOperationalContention
       .filter((bot) => bot.attention.score > 0)
       .sort((left, right) => right.attention.score - left.attention.score);
     const attentionBots = attentionCandidates
@@ -1390,7 +1447,7 @@ export function useSignalsBotsReadModel() {
       signalCore: core.signalCore,
       registry,
       bots,
-      botCards: botCardsWithSharedMemory,
+      botCards: botCardsWithOperationalContention,
       selectedBotCard,
       signalBot,
       publishedFeed,
@@ -1420,14 +1477,15 @@ export function useSignalsBotsReadModel() {
       selectedBotExecutionIntentSummary,
       attentionBots,
       attentionBotIds: attentionCandidates.map((bot) => bot.id),
+      readyContention,
       allBotDecisionTimeline,
       allBotExecutionTimeline,
       allBotActivityTimeline,
       botSummary: {
-        totalBots: botCardsWithSharedMemory.length,
+        totalBots: botCardsWithOperationalContention.length,
         activeBots: activeBots.length,
-        pausedBots: botCardsWithSharedMemory.filter((bot) => bot.status === "paused").length,
-        draftBots: botCardsWithSharedMemory.filter((bot) => bot.status === "draft").length,
+        pausedBots: botCardsWithOperationalContention.filter((bot) => bot.status === "paused").length,
+        draftBots: botCardsWithOperationalContention.filter((bot) => bot.status === "draft").length,
         totalTrades,
         totalProfit,
         averageWinRate,
@@ -1440,6 +1498,8 @@ export function useSignalsBotsReadModel() {
         operationalReadyBots: fleetOperationalReadiness.operationalReadyBots,
         recoveryBots: fleetOperationalReadiness.recoveryBots,
         finalReviewBots: fleetOperationalReadiness.finalReviewBots,
+        contendedReadySymbols: readyContention.contendedReadySymbols,
+        contendedReadyBots: readyContention.contendedReadyBots,
       },
     };
   }, [core, decisions, executionLogs.recentOrders, registryState, selectedBotId]);

@@ -322,6 +322,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
         previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
         operationalReadiness: bot.operationalReadiness?.state || "monitor",
+        readyContention: {
+          isContended: bot.readyContention?.isContended || false,
+          pair: bot.readyContention?.pair || pair,
+          peerCount: bot.readyContention?.peerCount || 0,
+          peerNames: bot.readyContention?.peerNames || [],
+        },
         bestPocketSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
         weakPocketSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
         attentionScore: bot.attention?.score || 0,
@@ -354,6 +360,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         recoveryBots: cards.filter((bot) => bot.operationalReadiness === "recovery").slice(0, 4),
         finalReviewBots: cards.filter((bot) => bot.operationalReadiness === "final-review").slice(0, 4),
       },
+      readyContention: feedReadModel.readyContention || { entries: [], contendedReadySymbols: 0, contendedReadyBots: 0 },
       summary: feedReadModel.botSummary,
       tabs: {
         general: [
@@ -962,6 +969,24 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   <p>These bots exhausted the governed paper recovery path and now stay in final manual review.</p>
                 </article>
               ) : null}
+              {readModel.readyContention.entries.length ? (
+                <article className="signalbot-insight-card">
+                  <strong>Ready Contention</strong>
+                  <p>
+                    {readModel.readyContention.entries
+                      .slice(0, 4)
+                      .map((entry) => `${entry.pair} (${entry.count})`)
+                      .join(", ")}
+                  </p>
+                  <p>
+                    {readModel.readyContention.contendedReadyBots} ready bots are currently overlapping on
+                    {" "}
+                    {readModel.readyContention.contendedReadySymbols}
+                    {" "}
+                    shared market lanes.
+                  </p>
+                </article>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -981,6 +1006,13 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                 <article key={bot.id} className="signalbot-insight-card">
                   <strong>{bot.name} · {bot.pair}</strong>
                   <p>{buildBotAttentionNote(bot)} · {formatOperationalReadiness(bot.operationalReadiness)}</p>
+                  {bot.readyContention.isContended ? (
+                    <p>
+                      Ready contention: {bot.readyContention.pair || bot.pair}
+                      {" · "}
+                      peers: {bot.readyContention.peerNames.join(", ") || "another ready bot"}
+                    </p>
+                  ) : null}
                   <p>
                     Decision backlog: {formatSymbolRanking(bot.unresolvedDecisionRanking)}
                     {" · "}

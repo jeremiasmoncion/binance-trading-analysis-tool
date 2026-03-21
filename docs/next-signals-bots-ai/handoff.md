@@ -17,6 +17,7 @@ The current product/engineering focus remains:
 - deepen `Bot Core` over the cleaner `Signal Core`
 - close real bot identity, policy, memory, activity/history, performance, and missing persisted settings
 - strengthen the bridge between consumed signals and bot decisions
+- validate multi-bot safe-lane behavior before claiming bots are operational inside `paper/demo`
 
 The first code-level Phase 2 foundation now exists in an isolated domain module under `src/domain/`.
 
@@ -43,6 +44,12 @@ The redesign also now has dedicated documentation for:
 - single-AI onboarding/context pack
 
 ## What Has Been Done
+
+- added shared `ready contention` diagnostics for the safe lane so the fleet can see when multiple operationally ready bots overlap on the same pair
+- exposed ready-contention entries, contended-ready bot count, and contended-ready symbol count from the shared read-model
+- surfaced that contention in `Bot Settings` inside the fleet `Operational Readiness` section
+- annotated `Bots Needing Attention` when a weak bot is also overlapping with another ready peer on the same pair
+- kept concurrency diagnostics inside the same read-model seam instead of creating a separate fleet monitor
 
 - mapped major current components related to:
   - strategy generation

@@ -5503,3 +5503,32 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `35% complete`
 - Remaining work for this front: `65%`
+
+## 2026-03-22 - Performance polish: targeted connected-domain hydration
+
+### What Changed
+
+- Tightened [src/hooks/useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) so the authenticated startup no longer hydrates full portfolio/execution/dashboard data on every connected screen by default.
+- Added explicit connected-domain load plans for:
+  - initial authenticated bootstrap
+  - view transitions into `balance`, `dashboard`, `stats`, `memory`, and `trading`
+
+### Why This Matters
+
+- Before this pass, a connected user could still trigger a full portfolio hydrate on screens that do not consume portfolio state at all, especially during login/session restore.
+- At the same time, some execution-heavy screens like `trading` and `stats` depended on background intervals before they got a fresh operational snapshot.
+- Now the app:
+  - skips unnecessary connected-domain hydration on non-financial screens
+  - immediately hydrates execution or portfolio when the user lands on a screen that actually needs it
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `performance/polish`: `50% complete`
+- Remaining work for this front: `50%`

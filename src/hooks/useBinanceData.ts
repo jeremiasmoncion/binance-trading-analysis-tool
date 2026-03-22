@@ -31,6 +31,18 @@ interface ConnectedViewLoadPlan {
   refreshDashboard: boolean;
 }
 
+function viewNeedsPortfolioHydration(view: ViewName) {
+  return view === "balance" || view === "dashboard" || view === "stats";
+}
+
+function viewNeedsExecutionHydration(view: ViewName) {
+  return view === "memory" || view === "trading" || view === "stats";
+}
+
+function viewNeedsDashboardHydration(view: ViewName) {
+  return view === "dashboard";
+}
+
 function hasConnectionChanged(current: BinanceConnection | null, next: BinanceConnection | null) {
   if (current === next) return false;
   if (!current || !next) return current !== next;
@@ -411,10 +423,38 @@ function buildConnectedViewLoadPlan(view: ViewName, previousView: ViewName, stre
     };
   }
 
+  if (view === "stats") {
+    return {
+      portfolioMode,
+      refreshExecution: true,
+      refreshDashboard: false,
+    };
+  }
+
+  if (view === "trading") {
+    return {
+      portfolioMode: null,
+      refreshExecution: true,
+      refreshDashboard: false,
+    };
+  }
+
   return {
     portfolioMode: null,
     refreshExecution: false,
     refreshDashboard: false,
+  };
+}
+
+function buildInitialConnectedLoadPlan(view: ViewName, streamEnabled: boolean, portfolioMode: "full" | "live"): ConnectedViewLoadPlan {
+  const needsPortfolio = viewNeedsPortfolioHydration(view);
+  const needsExecution = viewNeedsExecutionHydration(view);
+  const needsDashboard = viewNeedsDashboardHydration(view);
+
+  return {
+    portfolioMode: needsPortfolio ? (view === "balance" ? "full" : portfolioMode) : null,
+    refreshExecution: needsExecution || (needsDashboard && !streamEnabled),
+    refreshDashboard: needsDashboard && !streamEnabled,
   };
 }
 
@@ -765,16 +805,29 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     void (async () => {
       const result = await refreshProfileData();
       if (result.connection?.connected) {
-        await refreshPortfolio(portfolioPeriod, "full");
-        if (!refreshPolicy.systemOverlayStreamEnabled) {
-          await Promise.all([
-            refreshExecutionCenter(),
-            refreshDashboardSummary(true).catch(() => null),
-          ]);
-        }
+        const loadPlan = buildInitialConnectedLoadPlan(
+          currentView,
+          refreshPolicy.systemOverlayStreamEnabled,
+          refreshPolicy.portfolioMode,
+        );
+        await Promise.all([
+          loadPlan.portfolioMode ? refreshPortfolio(portfolioPeriod, loadPlan.portfolioMode) : Promise.resolve(null),
+          loadPlan.refreshExecution ? refreshExecutionCenter() : Promise.resolve(null),
+          loadPlan.refreshDashboard ? refreshDashboardSummary(true).catch(() => null) : Promise.resolve(null),
+        ]);
       }
     })();
-  }, [currentUser, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio, refreshProfileData, portfolioPeriod]);
+  }, [
+    currentUser,
+    currentView,
+    refreshDashboardSummary,
+    refreshExecutionCenter,
+    refreshPolicy.portfolioMode,
+    refreshPolicy.systemOverlayStreamEnabled,
+    refreshPortfolio,
+    refreshProfileData,
+    portfolioPeriod,
+  ]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return;

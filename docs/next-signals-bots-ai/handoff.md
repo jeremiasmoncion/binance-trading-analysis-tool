@@ -2932,3 +2932,37 @@ Keep the work phased.
 
 - `performance/polish`: `35% complete`
 - Remaining work for this front: `65%`
+
+## 2026-03-22 - Performance polish: targeted connected-domain hydration
+
+### What Was Added / Changed
+
+- Tightened [src/hooks/useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) so the connected startup path no longer hydrates full portfolio/execution/dashboard payloads indiscriminately.
+- Added explicit connected-domain load plans for:
+  - initial authenticated bootstrap
+  - transitions into `balance`, `dashboard`, `stats`, `memory`, and `trading`
+
+### Why This Matters
+
+- Non-financial screens no longer pay for immediate full connected-domain hydration just because the user has an active Binance connection.
+- Financial/execution-heavy screens now receive targeted data immediately instead of waiting for the next polling interval.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- This is the third concrete `performance/polish` pass after certification.
+- The next best targets remain:
+  - `useSignalMemory`
+  - `useMemoryRuntime`
+  - any remaining shell-level synchronization that can be deferred until a view actually needs it
+
+### Progress Estimate
+
+- `performance/polish`: `50% complete`
+- Remaining work for this front: `50%`

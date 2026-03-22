@@ -1081,7 +1081,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
         <div className="signalbot-header">
           <div className="signalbot-header-copy">
             <span className="signalbot-kicker ui-pill">BOT WORKSPACE</span>
-            <h1 className="signalbot-title">{selectedBotName}</h1>
+            <h1 className="signalbot-title" data-testid="signalbot-title">{selectedBotName}</h1>
             <p className="signalbot-subtitle">{selectedBotPair} • {selectedBotStrategy} • {selectedBotStatus}</p>
           </div>
 
@@ -1465,6 +1465,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                       role="switch"
                       aria-checked={autoExecuteEnabled}
                       aria-label="Toggle auto execute trades"
+                      data-testid="signalbot-auto-execute-toggle"
                       className={`botsettings-switch ${autoExecuteEnabled ? "is-active" : ""}`}
                       onClick={() => void handleToggleAutoExecute()}
                     >

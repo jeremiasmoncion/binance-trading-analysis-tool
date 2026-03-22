@@ -97,6 +97,56 @@ function orderRequiresExplicitSide(order) {
   return lifecycle !== "blocked";
 }
 
+function computeBotAutomationConsistency(bots) {
+  const normalizedBots = asArray(bots).map((bot) => {
+    const payload = bot?.bot_payload && typeof bot.bot_payload === "object" ? bot.bot_payload : bot;
+    const executionPolicy = payload?.executionPolicy && typeof payload.executionPolicy === "object" ? payload.executionPolicy : {};
+    return {
+      botId: String(bot?.bot_id || payload?.id || ""),
+      name: String(bot?.name || payload?.name || ""),
+      status: String(bot?.status || payload?.status || "").trim().toLowerCase(),
+      automationMode: String(payload?.automationMode || "").trim().toLowerCase(),
+      executionEnvironment: String(payload?.executionEnvironment || "").trim().toLowerCase(),
+      executionPolicy,
+    };
+  });
+
+  const inconsistentBots = normalizedBots
+    .map((bot) => {
+      const reasons = [];
+      if (bot.automationMode === "auto") {
+        if (!bot.executionPolicy.autoExecutionEnabled) reasons.push("autoExecutionEnabled should be true");
+        if (bot.executionPolicy.suggestionsOnly) reasons.push("suggestionsOnly should be false");
+        if (bot.executionPolicy.requiresHumanApproval) reasons.push("requiresHumanApproval should be false");
+        if (!bot.executionPolicy.canOpenPositions) reasons.push("canOpenPositions should be true");
+      } else if (bot.automationMode === "assist") {
+        if (bot.executionPolicy.autoExecutionEnabled) reasons.push("autoExecutionEnabled should be false");
+        if (bot.executionPolicy.suggestionsOnly) reasons.push("suggestionsOnly should be false");
+        if (!bot.executionPolicy.requiresHumanApproval) reasons.push("requiresHumanApproval should be true");
+        if (!bot.executionPolicy.canOpenPositions) reasons.push("canOpenPositions should be true");
+      } else if (bot.automationMode === "observe") {
+        if (bot.executionPolicy.autoExecutionEnabled) reasons.push("autoExecutionEnabled should be false");
+        if (!bot.executionPolicy.suggestionsOnly) reasons.push("suggestionsOnly should be true");
+        if (!bot.executionPolicy.requiresHumanApproval) reasons.push("requiresHumanApproval should be true");
+        if (bot.executionPolicy.canOpenPositions) reasons.push("canOpenPositions should be false");
+      }
+
+      if (bot.executionEnvironment !== "real" && bot.executionPolicy.realExecutionEnabled) {
+        reasons.push("realExecutionEnabled should be false outside real environment");
+      }
+
+      return reasons.length ? { ...bot, reasons } : null;
+    })
+    .filter(Boolean);
+
+  return {
+    totalBots: normalizedBots.length,
+    activeBots: normalizedBots.filter((bot) => bot.status === "active").length,
+    autoBots: normalizedBots.filter((bot) => bot.automationMode === "auto").length,
+    inconsistentBots,
+  };
+}
+
 async function fetchSignalsByIdsForUser(username, ids) {
   const normalizedIds = [...new Set(
     (Array.isArray(ids) ? ids : [])
@@ -227,6 +277,15 @@ function buildFindings(reportByUser, globalData) {
         detail: `${username} shows warned invariants in summary but returned no invariant detail rows.`,
       });
     }
+
+    if (report.botAutomation.inconsistentBots.length > 0) {
+      findings.push({
+        severity: "high",
+        scope: username,
+        title: "Bot automation contracts drifted from runtime policy",
+        detail: `${username} has ${report.botAutomation.inconsistentBots.length} bots with inconsistent automationMode/executionPolicy flags.`,
+      });
+    }
   }
 
   if (globalData.crossUser.botIdOverlap.length > 0) {
@@ -265,7 +324,7 @@ async function auditUser(username, strategyEngine, executionEngine, options) {
 
   const [lab, botsRes, decisionsRes, signalsRes, ordersRes, watchlistRes] = await Promise.all([
     strategyEngine.getStrategyValidationLabForUser(username),
-    supabaseFetch(`bot_profiles?select=bot_id,status,name&username=eq.${username}&order=created_at.asc`),
+    supabaseFetch(`bot_profiles?select=bot_id,status,name,bot_payload&username=eq.${username}&order=created_at.asc`),
     supabaseFetch(`bot_decisions?select=decision_id,status,action,bot_id&username=eq.${username}&order=created_at.desc&limit=500`),
     supabaseFetch(`signal_snapshots?select=id,coin,timeframe,outcome_status,execution_order_id,execution_status&username=eq.${username}&order=created_at.desc&limit=500`),
     supabaseFetch(`execution_orders?select=id,signal_id,coin,timeframe,lifecycle_status,signal_outcome_status,side&username=eq.${username}&order=created_at.desc&limit=500`),
@@ -290,6 +349,7 @@ async function auditUser(username, strategyEngine, executionEngine, options) {
       ids: bots.map((bot) => String(bot.bot_id || "")),
       byStatus: bucketBy(bots, (bot) => bot.status),
     },
+    botAutomation: computeBotAutomationConsistency(bots),
     decisions: {
       total: decisions.length,
       byStatus: bucketBy(decisions, (decision) => decision.status),
@@ -385,6 +445,7 @@ if (isCliEntry) {
 }
 
 export {
+  computeBotAutomationConsistency,
   computeSignalOrderConsistency,
   hasExplicitExecutionSide,
   orderRequiresExplicitSide,

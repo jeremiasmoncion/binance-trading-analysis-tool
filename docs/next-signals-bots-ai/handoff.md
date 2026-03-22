@@ -3228,3 +3228,58 @@ Keep the work phased.
 ### Progress Estimate
 
 - Focused sidebar browser recertification: `100% complete`
+
+## 2026-03-22 - Automatic bot certification and contract hardening
+
+### What Was Added / Changed
+
+- Introduced [src/domain/bots/operationalLoop.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/operationalLoop.ts) to host pure automatic-bot loop rules that were previously embedded in [useBotOperationalLoop.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotOperationalLoop.ts).
+- Hardened [api/_lib/bots.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/bots.js) so persisted bot rows now:
+  - normalize before guardrails
+  - self-heal invalid legacy payloads during hydration
+  - repair automation/policy drift during `listBots`
+- Expanded backend regression:
+  - [bot-operational-loop.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-operational-loop.test.mjs)
+  - [bots-contract.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bots-contract.test.mjs)
+  - [system-audit.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/system-audit.test.mjs)
+- Extended [system-audit.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/scripts/system-audit.mjs) so it now reports `botAutomation` consistency per user and fails when stored bots drift away from their expected execution policy contract.
+- Added browser regression [auto-bot.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/auto-bot.spec.mjs) and stable UI hooks in [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx) to validate the `Auto-Execute` toggle end-to-end.
+- Repaired real persisted bot rows for `jeremias` and `yeudy` so the stored data now matches the hardened auto/observe policy rules.
+
+### Why This Matters
+
+- This is the first time the automatic bot flow is certified across:
+  - backend contract
+  - persisted data
+  - system audit
+  - browser UI
+- The toggle is no longer “just a visual switch”; it is now verified as a policy transition with reload persistence and normalized backend truth.
+
+### Validation
+
+- `npm run test:backend` -> pass (`43/43`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-5avdmvdc8.vercel.app' npm run test:e2e -- --project=chrome tests/e2e/auto-bot.spec.mjs` -> pass
+- `PLAYWRIGHT_ENABLE_FIREFOX=1 E2E_BASE_URL='https://binance-trading-analysis-tool-5avdmvdc8.vercel.app' npm run test:e2e -- --project=firefox tests/e2e/auto-bot.spec.mjs` -> pass
+- `PLAYWRIGHT_ENABLE_WEBKIT=1 E2E_BASE_URL='https://binance-trading-analysis-tool-5avdmvdc8.vercel.app' npm run test:e2e -- --project=webkit tests/e2e/auto-bot.spec.mjs` -> pass
+
+### Notes For The Next Agent
+
+- Treat the automatic bot toggle as certified for this phase:
+  - Chrome
+  - Firefox
+  - WebKit
+- If a future regression appears in auto mode, start from:
+  - [src/domain/bots/operationalLoop.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/operationalLoop.ts)
+  - [api/_lib/bots.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/bots.js)
+  - [tests/e2e/auto-bot.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/auto-bot.spec.mjs)
+- The next sensible focus after this certification is product behavior quality:
+  - auto-execution rules
+  - bot-visible UX
+  - history/log semantics
+
+### Progress Estimate
+
+- Automatic bot certification: `100% complete` for this phase

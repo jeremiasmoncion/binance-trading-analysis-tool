@@ -722,8 +722,53 @@ function normalizeBotPayload(value) {
   });
 }
 
+function sanitizeStoredBotForHydration(bot) {
+  const nextBot = normalizeBotPayload(bot);
+  const allocatedUsd = Math.max(0, toFiniteNumber(nextBot.capital?.allocatedUsd, 0));
+  const primaryPair = normalizePair(nextBot.workspaceSettings?.primaryPair || nextBot.generalSettings?.defaultTradingPair || nextBot.universePolicy?.symbols?.[0] || "");
+  const normalizedSymbols = uniquePairs(nextBot.universePolicy?.symbols || []);
+
+  if (nextBot.universePolicy?.kind === "custom-list" && !normalizedSymbols.length) {
+    if (primaryPair) {
+      nextBot.universePolicy = {
+        ...nextBot.universePolicy,
+        symbols: [primaryPair],
+      };
+    } else {
+      nextBot.universePolicy = {
+        ...nextBot.universePolicy,
+        kind: "watchlist",
+      };
+    }
+  } else if (nextBot.universePolicy?.kind === "custom-list" && primaryPair && !normalizedSymbols.includes(primaryPair)) {
+    nextBot.universePolicy = {
+      ...nextBot.universePolicy,
+      symbols: [...normalizedSymbols, primaryPair],
+    };
+  }
+
+  nextBot.riskPolicy = {
+    ...nextBot.riskPolicy,
+    maxPositionUsd: Math.min(
+      Math.max(0, toFiniteNumber(nextBot.riskPolicy?.maxPositionUsd, 0)),
+      allocatedUsd,
+    ),
+  };
+
+  nextBot.capital = {
+    ...nextBot.capital,
+    allocatedUsd,
+    availableUsd: Math.min(
+      Math.max(0, toFiniteNumber(nextBot.capital?.availableUsd, allocatedUsd)),
+      allocatedUsd,
+    ),
+  };
+
+  return nextBot;
+}
+
 function rowToBot(row) {
-  return normalizeBotPayload({
+  const source = sanitizeStoredBotForHydration({
     ...(row?.bot_payload && typeof row.bot_payload === "object" ? row.bot_payload : {}),
     id: row?.bot_id,
     slug: row?.slug,
@@ -732,6 +777,8 @@ function rowToBot(row) {
     createdAt: row?.created_at,
     updatedAt: row?.updated_at,
   });
+
+  return applyBotGuardrails(source);
 }
 
 function botToRow(username, bot) {
@@ -757,9 +804,50 @@ async function listBotRowsForUser(username) {
   return (await supabaseRequest(`${BOTS_TABLE}?${params.toString()}`)) || [];
 }
 
+function doesRowNeedContractRepair(username, row) {
+  const hydratedBot = rowToBot(row);
+  const normalizedRow = botToRow(username, hydratedBot);
+  return (
+    String(row?.status || "") !== String(normalizedRow.status || "")
+    || String(row?.slug || "") !== String(normalizedRow.slug || "")
+    || String(row?.name || "") !== String(normalizedRow.name || "")
+    || JSON.stringify(row?.bot_payload || {}) !== JSON.stringify(normalizedRow.bot_payload || {})
+  );
+}
+
+async function repairStoredBotContractsForUser(username, rows) {
+  const normalizedUsername = String(username || "").trim();
+  if (!normalizedUsername || !Array.isArray(rows) || !rows.length) return rows || [];
+
+  const nextRows = [...rows];
+  for (let index = 0; index < nextRows.length; index += 1) {
+    const row = nextRows[index];
+    if (!doesRowNeedContractRepair(normalizedUsername, row)) continue;
+
+    const hydratedBot = rowToBot(row);
+    const normalizedRow = botToRow(normalizedUsername, hydratedBot);
+    const updateParams = new URLSearchParams({
+      username: `eq.${normalizedUsername}`,
+      bot_id: `eq.${String(row?.bot_id || normalizedRow.bot_id || "")}`,
+    });
+    const patchedRows = await supabaseRequest(`${BOTS_TABLE}?${updateParams.toString()}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: normalizedRow,
+    }).catch(() => null);
+
+    nextRows[index] = patchedRows?.[0] || normalizedRow;
+  }
+
+  return nextRows;
+}
+
 async function listBots(req) {
   const session = requireSession(req);
-  const rows = await listBotRowsForUser(session.username);
+  const rows = await repairStoredBotContractsForUser(
+    session.username,
+    await listBotRowsForUser(session.username),
+  );
   return {
     bots: rows.map(rowToBot),
     lastHydratedAt: nowIso(),
@@ -893,4 +981,7 @@ export const __botInternals = {
   mergeTimeframePolicy,
   applyBotGuardrails,
   normalizeBotPayload,
+  sanitizeStoredBotForHydration,
+  rowToBot,
+  doesRowNeedContractRepair,
 };

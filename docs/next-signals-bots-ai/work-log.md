@@ -5751,3 +5751,53 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Focused sidebar browser recertification: `100% complete`
+
+## 2026-03-22 - Automatic bot certification and contract hardening
+
+### What Changed
+
+- Extracted pure automatic-bot loop helpers into [src/domain/bots/operationalLoop.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/operationalLoop.ts) and wired [useBotOperationalLoop.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotOperationalLoop.ts) to consume that domain layer instead of keeping those rules inline in the hook.
+- Hardened stored bot hydration in [api/_lib/bots.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/bots.js) so legacy rows are normalized before guardrails run:
+  - invalid `custom-list` payloads get repaired
+  - `maxPositionUsd` gets clamped against allocated capital
+  - invalid `availableUsd` is normalized
+  - drifted stored rows are self-repaired during `listBots`
+- Expanded backend contract coverage:
+  - [tests/backend/bot-operational-loop.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-operational-loop.test.mjs)
+  - [tests/backend/bots-contract.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bots-contract.test.mjs)
+  - [tests/backend/system-audit.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/system-audit.test.mjs)
+- Extended [scripts/system-audit.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/scripts/system-audit.mjs) with `botAutomation` consistency checks so the audit now catches `automationMode` / `executionPolicy` drift explicitly.
+- Added stable UI hooks in [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx) for:
+  - `signalbot-title`
+  - `signalbot-auto-execute-toggle`
+- Added browser smoke [tests/e2e/auto-bot.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/auto-bot.spec.mjs) to certify:
+  - opening `Signal Bot`
+  - switching to the inner `Bot Settings` tab
+  - toggling `Auto-Execute`
+  - verifying normalized policy through `/api/bots`
+  - reloading and confirming persistence
+  - restoring the original state
+- Repaired drifted persisted bot rows for `jeremias` and `yeudy` so browser certification now runs against contract-safe real data instead of stale legacy rows.
+
+### Why This Matters
+
+- The automatic bot path now follows the same architecture rule as the rest of the cleanup:
+  - UI intent
+  - domain rules
+  - backend authority
+  - audit/tests as guardrails
+- This closes the biggest uncertainty left in the bots module: whether `Auto-Execute` actually persists a coherent policy and survives reloads in the real app.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`43/43`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-5avdmvdc8.vercel.app' npm run test:e2e -- --project=chrome tests/e2e/auto-bot.spec.mjs` -> pass
+- `PLAYWRIGHT_ENABLE_FIREFOX=1 E2E_BASE_URL='https://binance-trading-analysis-tool-5avdmvdc8.vercel.app' npm run test:e2e -- --project=firefox tests/e2e/auto-bot.spec.mjs` -> pass
+- `PLAYWRIGHT_ENABLE_WEBKIT=1 E2E_BASE_URL='https://binance-trading-analysis-tool-5avdmvdc8.vercel.app' npm run test:e2e -- --project=webkit tests/e2e/auto-bot.spec.mjs` -> pass
+
+### Progress Estimate
+
+- Automatic bot certification: `100% complete` for this phase

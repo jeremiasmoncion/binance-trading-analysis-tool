@@ -3318,3 +3318,33 @@ Keep the work phased.
 ### Progress Estimate
 
 - Signal Bot history/activity semantic split: `100% complete` for this phase
+
+## 2026-03-22 - Bot Settings live refresh warm-up fix
+
+### What Was Added / Changed
+
+- Extracted connected-view warm-up orchestration into [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts).
+- Updated [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) to consume that shared load plan.
+- Bot operational surfaces now request `execution center` immediately on entry instead of waiting for the next interval tick.
+- Added deterministic coverage in [binance-view-load-plan.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/binance-view-load-plan.test.mjs).
+- Added browser smoke coverage in [bot-settings-refresh.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/bot-settings-refresh.spec.mjs).
+
+### Why This Matters
+
+- The stale `Bot Settings` KPI/card issue was rooted in view orchestration, not in the bot cards themselves.
+- The app now treats bot operational views as execution-driven surfaces during startup and navigation, which keeps `Bot Settings` aligned with the same hot data used by `Signal Bot` and `Execution Logs`.
+
+### Validation
+
+- `npm run test:backend` -> pass (`47/47`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes For The Next Agent
+
+- Prefer fixing future live-refresh issues by adjusting [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts) or [refreshPolicy.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/refreshPolicy.ts), not by inserting view-local polling.
+- Local Playwright browser launch was unstable during this run, so the pure load-plan regression is the current trusted gate for this specific issue.
+
+### Progress Estimate
+
+- Bot Settings live-refresh warm-up issue: `100% complete`

@@ -5840,3 +5840,35 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Signal Bot history/activity semantic split: `100% complete` for this phase
+
+## 2026-03-22 - Bot Settings live refresh warm-up fix
+
+### What Changed
+
+- Fixed the connected-view warm-up policy so bot operational surfaces request `execution center` immediately instead of waiting for the next refresh interval.
+- `control-bot-settings`, `control-execution-logs`, `ai-signal-bot`, `control-overview`, `signals`, `bots`, and `trading` now all inherit the same execution warm-up classification through [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts).
+- [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) now consumes that extracted load-plan module instead of keeping the view orchestration inline.
+- Added a deterministic regression in [binance-view-load-plan.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/binance-view-load-plan.test.mjs) to guarantee that entering `Bot Settings` and `Execution Logs` triggers immediate execution hydration.
+- Added a browser smoke in [bot-settings-refresh.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/bot-settings-refresh.spec.mjs) that asserts `Bot Settings` requests `/api/binance/execution` on entry.
+
+### Why This Matters
+
+- The stale `Bot Settings` behavior was not caused by the cards themselves. The real issue was that the screen depended on execution/decision overlays, but the orchestration layer did not refresh those overlays immediately on entry.
+- This fix keeps the solution architectural:
+  - no ad hoc polling inside the view
+  - no manual refresh hack in `BotSettingsView`
+  - one shared load-plan policy for connected surfaces
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`47/47`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes
+
+- The new browser smoke is kept in the repo, but local Playwright launch was unstable on this machine during this run (`SIGABRT` before the browser opened). The deterministic regression now lives in backend tests as the reliable gate for the warm-up policy itself.
+
+### Progress Estimate
+
+- Bot Settings live-refresh warm-up issue: `100% complete`

@@ -15,7 +15,7 @@ function isDashboardLikeView(view: ViewName) {
   return view === "dashboard";
 }
 
-function isBotOperationalView(view: ViewName) {
+export function isBotOperationalView(view: ViewName) {
   return view === "ai-signal-bot"
     || view === "signals"
     || view === "bots"

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authService, binanceService } from "../services/api";
+import { buildConnectedViewLoadPlan, buildInitialConnectedLoadPlan } from "../data-platform/connectedLoadPlan";
 import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
 import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type {
@@ -23,24 +24,6 @@ interface BinanceFormState {
 interface UseBinanceDataOptions {
   currentUser: UserSession | null;
   currentView: ViewName;
-}
-
-interface ConnectedViewLoadPlan {
-  portfolioMode: "full" | "live" | null;
-  refreshExecution: boolean;
-  refreshDashboard: boolean;
-}
-
-function viewNeedsPortfolioHydration(view: ViewName) {
-  return view === "balance" || view === "dashboard" || view === "stats";
-}
-
-function viewNeedsExecutionHydration(view: ViewName) {
-  return view === "memory" || view === "trading" || view === "stats";
-}
-
-function viewNeedsDashboardHydration(view: ViewName) {
-  return view === "dashboard";
 }
 
 function hasConnectionChanged(current: BinanceConnection | null, next: BinanceConnection | null) {
@@ -392,69 +375,6 @@ function mergePortfolioLivePayload(previous: PortfolioPayload | null, live: Port
       hiddenLockedAssetsCount: hiddenLockedAssets.length,
       updatedAt: live.portfolio?.updatedAt || new Date().toISOString(),
     },
-  };
-}
-
-function buildConnectedViewLoadPlan(view: ViewName, previousView: ViewName, streamEnabled: boolean, portfolioMode: "full" | "live"): ConnectedViewLoadPlan {
-  // Keep the remaining view-specific warm-up behavior centralized so the hook
-  // can keep shrinking toward refresh-policy-driven orchestration instead of
-  // scattering one-off branches across multiple effects.
-  if (view === "balance") {
-    return {
-      portfolioMode: previousView === "balance" ? "live" : "full",
-      refreshExecution: false,
-      refreshDashboard: false,
-    };
-  }
-
-  if (view === "memory") {
-    return {
-      portfolioMode: null,
-      refreshExecution: !streamEnabled,
-      refreshDashboard: false,
-    };
-  }
-
-  if (view === "dashboard") {
-    return {
-      portfolioMode: streamEnabled ? null : portfolioMode,
-      refreshExecution: !streamEnabled,
-      refreshDashboard: !streamEnabled,
-    };
-  }
-
-  if (view === "stats") {
-    return {
-      portfolioMode,
-      refreshExecution: true,
-      refreshDashboard: false,
-    };
-  }
-
-  if (view === "trading") {
-    return {
-      portfolioMode: null,
-      refreshExecution: true,
-      refreshDashboard: false,
-    };
-  }
-
-  return {
-    portfolioMode: null,
-    refreshExecution: false,
-    refreshDashboard: false,
-  };
-}
-
-function buildInitialConnectedLoadPlan(view: ViewName, streamEnabled: boolean, portfolioMode: "full" | "live"): ConnectedViewLoadPlan {
-  const needsPortfolio = viewNeedsPortfolioHydration(view);
-  const needsExecution = viewNeedsExecutionHydration(view);
-  const needsDashboard = viewNeedsDashboardHydration(view);
-
-  return {
-    portfolioMode: needsPortfolio ? (view === "balance" ? "full" : portfolioMode) : null,
-    refreshExecution: needsExecution || (needsDashboard && !streamEnabled),
-    refreshDashboard: needsDashboard && !streamEnabled,
   };
 }
 

@@ -982,6 +982,10 @@ export interface ExecutionOrderRecord {
   closed_at?: string;
   notes?: string;
   response_payload?: Record<string, unknown> & {
+    botContext?: {
+      botId?: string | null;
+      botName?: string | null;
+    };
     learning_snapshot?: {
       updatedAt?: string;
       origin?: string;

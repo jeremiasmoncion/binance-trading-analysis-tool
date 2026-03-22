@@ -3546,3 +3546,51 @@ Keep the work phased.
   - `my-wallet`
   - `bot-settings`
   - `signal-bot`
+
+## 2026-03-22 - Bot attribution and stale-cache diagnosis
+
+### What Was Proven
+
+- The stale bot screens are not explained by refresh timing alone.
+- Production data showed two real issues:
+  1. `execution_orders` historically missed `response_payload.botContext` on most rows
+  2. one `yeudy` order still carried a foreign bot id from `jeremias`
+
+### What Was Fixed
+
+- [executionEngine.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/executionEngine.js) now repairs execution-order `botContext` from linked bot decisions and clears invalid foreign bot ids.
+- [botDecisions.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/botDecisions.js) now exposes user-scoped decision listing helpers used by the repair path.
+- [bots.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/bots.js) now exposes user-scoped bot id listing so execution repair can validate bot ownership.
+- [useSelectedBot.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSelectedBot.ts) and [useBotDecisions.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotDecisions.ts) now refuse to present old local cache as first-paint truth once the cache is stale.
+
+### Production Verification
+
+- Before repair:
+  - `jeremias`: `withBotContext 7 / 500`, `foreign 0`
+  - `yeudy`: `withBotContext 7 / 200`, `foreign 1`
+- After repair:
+  - `jeremias`: `withBotContext 7 / 500`, `foreign 0`
+  - `yeudy`: `withBotContext 6 / 200`, `foreign 0`
+
+### Important Remaining Finding
+
+- `bot_profiles.bot_payload` still stores old runtime summaries that can disagree with canonical execution truth.
+- Example:
+  - `jeremias / signal-bot-1-1774061968667`
+    - stored `tradeCount 8`, stored `realizedPnlUsd -5.91881975`
+    - canonical linked result `closedCount 5`, `realizedPnlUsd -3.76`
+- This means bot surfaces can still drift if they render persisted bot payload before the fresh runtime overlay wins.
+
+### Recommended Next Step
+
+- Continue on the remaining app-wide freshness path:
+  - inspect first-paint data coming from `realtime bootstrap` vs direct connected refresh
+  - verify whether `Dashboard` / `My Wallet` are still opening over a stale external-core snapshot
+  - keep bot surfaces tied to canonical execution truth instead of persisted runtime payload
+
+### Current Validation Gate
+
+- `npm run test:backend` OK `59/59`
+- `npm run typecheck` OK
+- `npm run build` OK
+- `npm run system-audit -- --env-file=/tmp/crype-db-check.env --users=jeremias,yeudy` OK with `findings: []`

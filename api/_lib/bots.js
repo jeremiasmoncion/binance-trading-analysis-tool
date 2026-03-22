@@ -804,6 +804,13 @@ async function listBotRowsForUser(username) {
   return (await supabaseRequest(`${BOTS_TABLE}?${params.toString()}`)) || [];
 }
 
+async function listBotIdsForUser(username) {
+  const rows = await listBotRowsForUser(username);
+  return rows
+    .map((row) => String(row?.bot_id || row?.id || "").trim())
+    .filter(Boolean);
+}
+
 function doesRowNeedContractRepair(username, row) {
   const hydratedBot = rowToBot(row);
   const normalizedRow = botToRow(username, hydratedBot);
@@ -969,6 +976,7 @@ async function updateBot(req, botId) {
 
 export {
   createBot,
+  listBotIdsForUser,
   listBots,
   sendJson,
   updateBot,

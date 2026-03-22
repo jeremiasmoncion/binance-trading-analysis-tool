@@ -154,3 +154,101 @@ test("execution reconciliation skips execution learning writes when the persiste
 
   assert.equal(shouldPersist, false);
 });
+
+test("execution reconciliation backfills missing botContext from linked bot decisions", () => {
+  const repairs = __executionEngineInternals.buildExecutionOrderBotContextRepairs(
+    [
+      {
+        id: 744,
+        response_payload: {},
+      },
+      {
+        id: 745,
+        response_payload: {
+          botContext: {
+            botId: "signal-bot-1",
+          },
+        },
+      },
+    ],
+    [
+      {
+        botId: "signal-bot-2",
+        metadata: {
+          executionOrderId: 744,
+        },
+      },
+      {
+        botId: "signal-bot-3",
+        metadata: {
+          executionOrderId: 999,
+        },
+      },
+    ],
+  );
+
+  assert.deepEqual(repairs, [
+    {
+      orderId: 744,
+      botContext: {
+        botId: "signal-bot-2",
+      },
+    },
+  ]);
+});
+
+test("execution reconciliation does not backfill botContext when the order is already attributed", () => {
+  const repairs = __executionEngineInternals.buildExecutionOrderBotContextRepairs(
+    [
+      {
+        id: 744,
+        response_payload: {
+          botContext: {
+            botId: "signal-bot-2",
+          },
+        },
+      },
+    ],
+    [
+      {
+        botId: "signal-bot-2",
+        metadata: {
+          executionOrderId: 744,
+        },
+      },
+    ],
+  );
+
+  assert.deepEqual(repairs, []);
+});
+
+test("execution reconciliation ignores decision bot ids that do not belong to the user and clears invalid botContext", () => {
+  const repairs = __executionEngineInternals.buildExecutionOrderBotContextRepairs(
+    [
+      {
+        id: 744,
+        response_payload: {
+          botContext: {
+            botId: "foreign-bot",
+          },
+        },
+      },
+    ],
+    [
+      {
+        botId: "foreign-bot",
+        metadata: {
+          executionOrderId: 744,
+        },
+      },
+    ],
+    ["local-bot-1", "local-bot-2"],
+  );
+
+  assert.deepEqual(repairs, [
+    {
+      orderId: 744,
+      botContext: null,
+    },
+  ]);
+});

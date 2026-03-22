@@ -15,6 +15,7 @@ interface BotDecisionRuntimeState {
 }
 
 const BOT_DECISIONS_STORAGE_KEY_PREFIX = "crype-bot-decisions";
+const BOT_DECISIONS_CACHE_TTL_MS = 15_000;
 let runtimeState: BotDecisionRuntimeState = {
   decisions: [],
   lastHydratedAt: null,
@@ -43,14 +44,28 @@ function emit() {
   listeners.forEach((listener) => listener());
 }
 
-function readCache(username: string | null | undefined) {
+function isDecisionCacheFresh(lastHydratedAt: string | null | undefined, maxAgeMs = BOT_DECISIONS_CACHE_TTL_MS) {
+  const hydratedAt = Date.parse(String(lastHydratedAt || ""));
+  if (!Number.isFinite(hydratedAt)) return false;
+  return Date.now() - hydratedAt <= maxAgeMs;
+}
+
+function readCache(
+  username: string | null | undefined,
+  options: { allowStale?: boolean } = {},
+) {
   if (typeof window === "undefined") return null;
+  const { allowStale = false } = options;
   try {
     const raw = window.localStorage.getItem(buildDecisionStorageKey(username));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.decisions)) return null;
-    return parsed as Pick<BotDecisionRuntimeState, "decisions" | "lastHydratedAt">;
+    const cache = parsed as Pick<BotDecisionRuntimeState, "decisions" | "lastHydratedAt">;
+    if (!allowStale && !isDecisionCacheFresh(cache.lastHydratedAt)) {
+      return null;
+    }
+    return cache;
   } catch {
     return null;
   }
@@ -152,7 +167,7 @@ async function hydrate(forceFresh = false) {
       return runtimeState.decisions;
     })
     .catch((error) => {
-      const cached = readCache(sessionUsername);
+      const cached = readCache(sessionUsername, { allowStale: true });
       setState({
         decisions: cached?.decisions || runtimeState.decisions,
         lastHydratedAt: cached?.lastHydratedAt || runtimeState.lastHydratedAt,

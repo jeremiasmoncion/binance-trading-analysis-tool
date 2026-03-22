@@ -111,23 +111,34 @@ function decisionToRow(username, decision) {
   };
 }
 
-async function listBotDecisions(req) {
-  const session = requireSession(req);
-  const botId = typeof req.query?.botId === "string" ? req.query.botId : "";
-  const limit = Number(req.query?.limit || 200);
+async function listBotDecisionRowsForUser(username, options = {}) {
+  const botId = String(options.botId || "").trim();
+  const limit = Number(options.limit || 200);
   const params = new URLSearchParams({
     select: "*",
-    username: `eq.${session.username}`,
+    username: `eq.${String(username)}`,
     order: "created_at.desc",
-    limit: String(Number.isFinite(limit) ? Math.max(1, Math.min(limit, 500)) : 200),
+    limit: String(Number.isFinite(limit) ? Math.max(1, Math.min(limit, 1000)) : 200),
   });
   if (botId) {
     params.set("bot_id", `eq.${botId}`);
   }
 
-  const rows = (await supabaseRequest(`${BOT_DECISIONS_TABLE}?${params.toString()}`)) || [];
+  return (await supabaseRequest(`${BOT_DECISIONS_TABLE}?${params.toString()}`)) || [];
+}
+
+async function listBotDecisionsForUser(username, options = {}) {
+  const rows = await listBotDecisionRowsForUser(username, options);
+  return rows.map(rowToDecision);
+}
+
+async function listBotDecisions(req) {
+  const session = requireSession(req);
   return {
-    decisions: rows.map(rowToDecision),
+    decisions: await listBotDecisionsForUser(session.username, {
+      botId: typeof req.query?.botId === "string" ? req.query.botId : "",
+      limit: Number(req.query?.limit || 200),
+    }),
     lastHydratedAt: nowIso(),
   };
 }
@@ -205,6 +216,7 @@ async function updateBotDecision(req, decisionId) {
 export {
   createBotDecision,
   listBotDecisions,
+  listBotDecisionsForUser,
   sendJson,
   updateBotDecision,
 };

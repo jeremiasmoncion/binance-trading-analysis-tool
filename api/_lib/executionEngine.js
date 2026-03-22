@@ -1,4 +1,6 @@
 import { parseJsonBody } from "./auth.js";
+import { listBotDecisionsForUser } from "./botDecisions.js";
+import { listBotIdsForUser } from "./bots.js";
 import {
   fetchBinancePublic,
   fetchBinanceSigned,
@@ -574,6 +576,116 @@ function canAutoRetryProtection(record) {
   return true;
 }
 
+function getExecutionOrderBotContextId(order) {
+  const value = String(order?.response_payload?.botContext?.botId || "").trim();
+  return value || "";
+}
+
+function getDecisionExecutionOrderId(decision) {
+  const value = Number(decision?.metadata?.executionOrderId || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function buildExecutionOrderBotContextRepairs(executionOrders = [], decisions = [], validBotIds = []) {
+  const validBotIdSet = new Set(
+    (Array.isArray(validBotIds) ? validBotIds : [])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean),
+  );
+  const botContextByOrderId = new Map();
+
+  for (const decision of Array.isArray(decisions) ? decisions : []) {
+    const orderId = getDecisionExecutionOrderId(decision);
+    const botId = String(decision?.botId || "").trim();
+    if (!orderId || !botId || (validBotIdSet.size && !validBotIdSet.has(botId)) || botContextByOrderId.has(orderId)) continue;
+    botContextByOrderId.set(orderId, {
+      botId,
+    });
+  }
+
+  return (Array.isArray(executionOrders) ? executionOrders : [])
+    .filter((order) => Number.isFinite(Number(order?.id || 0)) && Number(order.id) > 0)
+    .map((order) => {
+      const orderId = Number(order.id);
+      const currentBotId = getExecutionOrderBotContextId(order);
+      const currentBotIdIsValid = currentBotId && (!validBotIdSet.size || validBotIdSet.has(currentBotId));
+      const botContext = botContextByOrderId.get(orderId) || null;
+      if (botContext) {
+        if (currentBotId === botContext.botId) return null;
+        return {
+          orderId,
+          botContext,
+        };
+      }
+      if (currentBotId && !currentBotIdIsValid) {
+        return {
+          orderId,
+          botContext: null,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
+async function repairExecutionOrderBotContextForUser(username, executionOrders = [], options = {}) {
+  const safeOrders = Array.isArray(executionOrders) ? executionOrders : [];
+  if (!safeOrders.length) {
+    return safeOrders;
+  }
+
+  const validBotIds = Array.isArray(options.validBotIds)
+    ? options.validBotIds
+    : await listBotIdsForUser(username).catch(() => []);
+  const validBotIdSet = new Set(validBotIds.map((value) => String(value || "").trim()).filter(Boolean));
+  const hasRepairableOrders = safeOrders.some((order) => {
+    const currentBotId = getExecutionOrderBotContextId(order);
+    return !currentBotId || (validBotIdSet.size > 0 && !validBotIdSet.has(currentBotId));
+  });
+  if (!hasRepairableOrders) {
+    return safeOrders;
+  }
+
+  const decisions = Array.isArray(options.decisions)
+    ? options.decisions
+    : await listBotDecisionsForUser(username, {
+      limit: Number(options.decisionsLimit || 500),
+    }).catch(() => []);
+  const repairs = buildExecutionOrderBotContextRepairs(safeOrders, decisions, validBotIds);
+  if (!repairs.length) {
+    return safeOrders;
+  }
+
+  const patchedByOrderId = new Map();
+  for (const repair of repairs) {
+    const currentOrder = safeOrders.find((order) => Number(order?.id || 0) === repair.orderId);
+    if (!currentOrder) continue;
+    const nextPayload = {
+      ...(currentOrder.response_payload && typeof currentOrder.response_payload === "object"
+        ? currentOrder.response_payload
+        : {}),
+    };
+    if (repair.botContext) {
+      nextPayload.botContext = repair.botContext;
+    } else {
+      delete nextPayload.botContext;
+    }
+    const patched = await updateExecutionRecord(repair.orderId, {
+      response_payload: nextPayload,
+    }).catch(() => null);
+    patchedByOrderId.set(repair.orderId, patched || {
+      ...currentOrder,
+      response_payload: nextPayload,
+    });
+  }
+
+  if (!patchedByOrderId.size) {
+    return safeOrders;
+  }
+
+  return safeOrders.map((order) => patchedByOrderId.get(Number(order?.id || 0)) || order);
+}
+
 async function getExecutionProfileForUser(username) {
   const params = new URLSearchParams({
     select: "*",
@@ -667,7 +779,10 @@ async function buildExecutionCenterFromDependencies({
   const safeSignals = signals || [];
   const safeExecutionOrdersRaw = executionOrdersRaw || [];
 
-  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, safeSignals, safeExecutionOrdersRaw);
+  const executionOrders = await repairExecutionOrderBotContextForUser(
+    username,
+    await syncExecutionOrdersForUser(username, portfolioPayload, safeSignals, safeExecutionOrdersRaw),
+  );
   const openExecutionSignalIds = new Set(
     executionOrders
       .filter((item) => isExecutionOpenStatus(item.lifecycle_status || item.status))
@@ -768,7 +883,10 @@ async function buildExecutionDashboardSummaryFromDependencies({
   const safeProfile = profile || DEFAULT_PROFILE;
   const safeSignals = signals || [];
   const safeExecutionOrdersRaw = executionOrdersRaw || [];
-  const executionOrders = await syncExecutionOrdersForUser(username, portfolioPayload, safeSignals, safeExecutionOrdersRaw);
+  const executionOrders = await repairExecutionOrderBotContextForUser(
+    username,
+    await syncExecutionOrdersForUser(username, portfolioPayload, safeSignals, safeExecutionOrdersRaw),
+  );
   const recentExecuteOrders = (executionOrders || [])
     .filter((item) => item.mode === "execute")
     .slice(0, 20);
@@ -1782,7 +1900,10 @@ async function reconcileExecutionRecordsForUser(username, options = {}) {
 
   const signalMap = new Map((signals || []).map((item) => [Number(item.id), item]));
   const missingSignalIds = collectMissingSignalIds(signalMap, executionOrdersRaw || []);
-  const reconciledOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals, executionOrdersRaw || []);
+  const reconciledOrders = await repairExecutionOrderBotContextForUser(
+    username,
+    await syncExecutionOrdersForUser(username, portfolioPayload, signals, executionOrdersRaw || []),
+  );
 
   return {
     username,
@@ -1794,8 +1915,11 @@ async function reconcileExecutionRecordsForUser(username, options = {}) {
 }
 
 const __executionEngineInternals = {
+  buildExecutionOrderBotContextRepairs,
   collectMissingSignalIds,
   deriveExecutionSide,
+  getDecisionExecutionOrderId,
+  getExecutionOrderBotContextId,
   getSignalExecutionSide,
   normalizeExecutionSideValue,
   shouldPersistSignalExecutionLearning,

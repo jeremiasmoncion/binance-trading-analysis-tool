@@ -17,6 +17,7 @@ interface BotRegistryRuntimeState {
 }
 
 const BOT_REGISTRY_STORAGE_KEY_PREFIX = "crype-bot-registry";
+const BOT_REGISTRY_CACHE_TTL_MS = 15_000;
 const EMPTY_BOT_REGISTRY_STATE: BotRegistryState = {
   bots: [],
   selectedBotId: null,
@@ -66,8 +67,18 @@ function buildRegistryStorageKey(username: string | null | undefined) {
   return normalized ? `${BOT_REGISTRY_STORAGE_KEY_PREFIX}:${normalized}` : BOT_REGISTRY_STORAGE_KEY_PREFIX;
 }
 
-function readCachedRegistry(username: string | null | undefined) {
+function isRegistryCacheFresh(lastHydratedAt: string | null | undefined, maxAgeMs = BOT_REGISTRY_CACHE_TTL_MS) {
+  const hydratedAt = Date.parse(String(lastHydratedAt || ""));
+  if (!Number.isFinite(hydratedAt)) return false;
+  return Date.now() - hydratedAt <= maxAgeMs;
+}
+
+function readCachedRegistry(
+  username: string | null | undefined,
+  options: { allowStale?: boolean } = {},
+) {
   if (typeof window === "undefined") return null;
+  const { allowStale = false } = options;
 
   try {
     const raw = window.localStorage.getItem(buildRegistryStorageKey(username));
@@ -77,6 +88,9 @@ function readCachedRegistry(username: string | null | undefined) {
     const nextRegistry = parsed as BotRegistryState;
     if (isTemplateRegistry(nextRegistry) || !nextRegistry.bots.every(isCacheBotShapeValid)) {
       window.localStorage.removeItem(buildRegistryStorageKey(username));
+      return null;
+    }
+    if (!allowStale && !isRegistryCacheFresh(nextRegistry.lastHydratedAt)) {
       return null;
     }
     return nextRegistry;
@@ -217,7 +231,7 @@ async function hydrateBotRegistry(forceFresh = false) {
       return nextRegistry;
     })
     .catch((error) => {
-      const cachedRegistry = readCachedRegistry(sessionUsername);
+      const cachedRegistry = readCachedRegistry(sessionUsername, { allowStale: true });
       const fallbackRegistry = cachedRegistry || (isTemplateRegistry(runtimeState.registry) ? EMPTY_BOT_REGISTRY_STATE : runtimeState.registry);
       setRegistry(fallbackRegistry);
       setRuntimePatch({

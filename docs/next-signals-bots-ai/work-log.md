@@ -6104,3 +6104,73 @@ Signal Bot feed/runtime closure pass
 ### Notes
 
 - This diagnostic is intentionally reusable so we can rerun it after each root-cause fix and verify whether the drift disappears or just moves.
+
+## 2026-03-22 - Bot execution attribution repair and stale bot cache hardening
+
+### What Was Confirmed In Production
+
+- We inspected production data for both `jeremias` and `yeudy` before deleting anything.
+- The root problem was not only refresh timing:
+  - `execution_orders` historically missed `response_payload.botContext` on most rows
+  - one `yeudy` order still carried a foreign bot id from `jeremias`
+- Production snapshot before the hardened repair:
+  - `jeremias`: `withBotContext 7 / 500`, `foreign 0`
+  - `yeudy`: `withBotContext 7 / 200`, `foreign 1`
+- The foreign example was:
+  - `orderId 692 -> signal-bot-1-1774061968667`
+
+### What Changed In Code
+
+- Hardened [executionEngine.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/executionEngine.js) so execution-order bot attribution:
+  - backfills from linked bot decisions
+  - only accepts bot ids that belong to the current user
+  - clears invalid foreign `botContext` values instead of preserving them
+- Added user-scoped decision helpers in [botDecisions.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/botDecisions.js).
+- Added user-scoped bot id helpers in [bots.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/bots.js).
+- Extended [execution-reconciliation.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/execution-reconciliation.test.mjs) to cover:
+  - backfill from linked decisions
+  - preserving already-attributed orders
+  - rejecting and clearing foreign bot ids
+- Hardened the frontend warm caches:
+  - [useSelectedBot.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSelectedBot.ts)
+  - [useBotDecisions.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotDecisions.ts)
+- Bot registry and bot-decision caches now stop presenting old entries as first-paint truth once they age past a short TTL; stale cache is only used as fallback if hydration fails.
+
+### What Was Repaired In Production
+
+- Ran the hardened execution repair path against production data after pulling fresh envs.
+- Production snapshot after the repair:
+  - `jeremias`: `withBotContext 7 / 500`, `foreign 0`
+  - `yeudy`: `withBotContext 6 / 200`, `foreign 0`
+- This means the bad cross-user bot attribution was cleared without wiping bot data.
+
+### Additional Database Finding
+
+- The bot module also still has historical drift inside `bot_profiles.bot_payload`.
+- Example live comparison after the repair:
+  - `jeremias / signal-bot-1-1774061968667`
+    - stored `tradeCount 8`, stored `realizedPnlUsd -5.91881975`
+    - linked canonical `closedCount 5`, linked `realizedPnlUsd -3.76`
+  - `jeremias / signal-bot-2-1774123433443`
+    - stored `tradeCount 3`, stored `realizedPnlUsd -0.6813`
+    - linked canonical `closedCount 2`, linked `realizedPnlUsd -0.68`
+- This confirms the bot screens were not only fighting refresh delay; they were also capable of opening over stale persisted bot payloads.
+
+### Why This Matters
+
+- We now have evidence for two distinct layers:
+  - app-wide freshness drift
+  - bot-specific stale runtime payloads / attribution drift
+- The data should not be wiped yet.
+- The correct path is:
+  - repair attribution first
+  - stop trusting stale local bot caches as first paint truth
+  - then continue auditing the remaining app-wide bootstrap freshness path
+
+### Validation Snapshot
+
+- `npm run test:backend` OK `59/59`
+- `npm run typecheck` OK
+- `npm run build` OK
+- `npm run system-audit -- --env-file=/tmp/crype-db-check.env --users=jeremias,yeudy` OK
+- `findings: []`

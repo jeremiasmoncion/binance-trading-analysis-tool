@@ -3468,3 +3468,46 @@ Keep the work phased.
 ### Progress Estimate
 
 - Workspace hydration deadlock hotfix: `100% complete`
+
+## 2026-03-22 - Remove blocking view gate and switch bot KPIs to canonical live trades
+
+### What Was Added / Changed
+
+- Removed the authenticated-navigation view gate in [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx) so `Sincronizando vista` no longer blocks `Dashboard`, `My Wallet`, `Bot Settings`, or `Signal Bot`.
+- Kept [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) as a background first-entry refresher instead of a full-screen blocker.
+- Updated [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts) so `dashboard` always pulls a fresh live summary on initial entry and when returning to the view.
+- Added `liveTradeStats` to the canonical bot workspace in [workspace.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/workspace.ts).
+- Switched visible bot KPIs in:
+  - [BotSettingsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/BotSettingsView.tsx)
+  - [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx)
+  to read canonical trade truth instead of stale persisted `localMemory/performance`.
+- Fixed the percent contract in [adapters.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/adapters.ts) so win rate is returned as `0..100`.
+
+### Why This Matters
+
+- The full-screen view sync gate solved the wrong problem and hurt UX.
+- The real product bug was that bot cards and bot top summaries were showing delayed persisted runtime, then “catching up” later after reconciliation.
+- The module now keeps the architecture we wanted:
+  - immediate navigation
+  - background entry refresh
+  - visible KPI truth coming from the canonical trade chain
+
+### Validation
+
+- `npm run test:backend` -> pass (`56/56`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- Do not reintroduce a full-screen view-sync overlay for normal navigation.
+- If freshness regresses:
+  - inspect [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts)
+  - inspect [workspace.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/workspace.ts)
+  - inspect [BotSettingsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/BotSettingsView.tsx)
+  - inspect [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx)
+- The goal is:
+  - no blocking overlay between views
+  - first-entry refreshes still happen
+  - visible metrics stay tied to canonical trade/execution truth

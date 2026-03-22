@@ -45,7 +45,7 @@ export function buildConnectedViewLoadPlan(
     return {
       portfolioMode: streamEnabled ? null : portfolioMode,
       refreshExecution: !streamEnabled,
-      refreshDashboard: !streamEnabled,
+      refreshDashboard: true,
     };
   }
 
@@ -84,6 +84,6 @@ export function buildInitialConnectedLoadPlan(
   return {
     portfolioMode: needsPortfolio ? (view === "balance" ? "full" : portfolioMode) : null,
     refreshExecution: needsExecution || (needsDashboard && !streamEnabled),
-    refreshDashboard: needsDashboard && !streamEnabled,
+    refreshDashboard: needsDashboard,
   };
 }

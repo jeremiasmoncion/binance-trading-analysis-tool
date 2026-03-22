@@ -230,9 +230,9 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const selectedBotPair = selectedBotCard?.workspaceSettings.primaryPair || selectedBotCard?.leadingSignal?.context.symbol || inferBotWorkspacePair(selectedBotCard);
   const selectedBotStrategy = formatBotWorkspaceStrategy(selectedBotCard);
   const selectedBotStatus = selectedBotCard ? getBotStatusLabel(selectedBotCard.status) : "Draft";
-  const selectedBotWinRate = selectedBotCard?.performance.winRate ?? 0;
-  const selectedBotProfit = selectedBotCard?.performance.realizedPnlUsd ?? 0;
-  const selectedBotTradeCount = selectedBotCard?.localMemory.outcomeCount ?? 0;
+  const selectedBotWinRate = selectedBotCard?.liveTradeStats.winRate ?? 0;
+  const selectedBotProfit = selectedBotCard?.liveTradeStats.realizedPnlUsd ?? 0;
+  const selectedBotTradeCount = selectedBotCard?.liveTradeStats.tradeCount ?? 0;
   const selectedBotActiveSignalCount = selectedBotSignals.length;
   const selectedBotPendingSignalCount = selectedBotCard?.activity.pendingCount ?? 0;
   const statusPanelSummary = buildSignalBotStatusSummary(selectedBotCard, selectedBotWinRate);

@@ -297,8 +297,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       const topSignal = bot.leadingSignal;
       const pair = bot.workspaceSettings.primaryPair || topSignal?.context.symbol || inferBotPair(bot.slug, bot.name);
       const strategy = formatStrategyLabel(bot.strategyPolicy.preferredStrategyIds[0] || bot.tags[1] || bot.stylePolicy.dominantStyle);
-      const trades24h = bot.localMemory.outcomeCount;
-      const profit24h = bot.performance.realizedPnlUsd;
+      const trades24h = bot.liveTradeStats.tradeCount;
+      const profit24h = bot.liveTradeStats.realizedPnlUsd;
       const maxCapitalUsd = Math.max(Number(bot.capital.allocatedUsd || 0), 0);
       const availableCapitalUsd = Math.max(Number(bot.capital.availableUsd || 0), 0);
       const usedCapitalUsd = Math.max(maxCapitalUsd - availableCapitalUsd, 0);
@@ -309,7 +309,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         strategy,
         trades24h,
         profit24h,
-        winRate: bot.performance.winRate,
+        winRate: bot.liveTradeStats.winRate,
         capitalUsagePct: maxCapitalUsd > 0 ? Math.min((usedCapitalUsd / maxCapitalUsd) * 100, 100) : 0,
         usedCapitalUsd,
         maxCapitalUsd,

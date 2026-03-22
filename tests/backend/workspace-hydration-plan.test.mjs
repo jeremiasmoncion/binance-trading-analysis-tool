@@ -3,28 +3,28 @@ import assert from "node:assert/strict";
 
 import { buildWorkspaceEntryHydrationPlan } from "../../src/data-platform/workspaceHydration.ts";
 
-test("dashboard blocks first entry and refreshes connected data", () => {
+test("dashboard refreshes connected data without blocking first entry", () => {
   const plan = buildWorkspaceEntryHydrationPlan("dashboard");
 
-  assert.equal(plan.blockOnFirstEntry, true);
+  assert.equal(plan.blockOnFirstEntry, false);
   assert.equal(plan.refreshConnectedData, true);
   assert.equal(plan.refreshSignals, true);
   assert.equal(plan.refreshBotRuntime, false);
 });
 
-test("bot settings blocks first entry and warms bot runtime", () => {
+test("bot settings warms bot runtime without blocking first entry", () => {
   const plan = buildWorkspaceEntryHydrationPlan("control-bot-settings");
 
-  assert.equal(plan.blockOnFirstEntry, true);
+  assert.equal(plan.blockOnFirstEntry, false);
   assert.equal(plan.refreshConnectedData, true);
   assert.equal(plan.refreshSignals, true);
   assert.equal(plan.refreshBotRuntime, true);
 });
 
-test("signal bot blocks first entry and warms the full bot workspace", () => {
+test("signal bot warms the full bot workspace without blocking first entry", () => {
   const plan = buildWorkspaceEntryHydrationPlan("ai-signal-bot");
 
-  assert.equal(plan.blockOnFirstEntry, true);
+  assert.equal(plan.blockOnFirstEntry, false);
   assert.equal(plan.refreshConnectedData, true);
   assert.equal(plan.refreshSignals, true);
   assert.equal(plan.refreshBotRuntime, true);

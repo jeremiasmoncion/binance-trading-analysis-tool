@@ -34,7 +34,7 @@ export function summarizeBotPerformanceFromOrders(orders: ExecutionOrderRecord[]
   return {
     updatedAt: closedOrders.at(-1)?.closed_at ?? closedOrders.at(-1)?.created_at ?? null,
     closedSignals: closedOrders.length,
-    winRate: closedOrders.length ? winningOrders / closedOrders.length : 0,
+    winRate: closedOrders.length ? (winningOrders / closedOrders.length) * 100 : 0,
     realizedPnlUsd,
     avgPnlUsd: closedOrders.length ? realizedPnlUsd / closedOrders.length : 0,
     avgHoldMinutes: holdMinutes.length ? holdMinutes.reduce((sum, value) => sum + value, 0) / holdMinutes.length : null,

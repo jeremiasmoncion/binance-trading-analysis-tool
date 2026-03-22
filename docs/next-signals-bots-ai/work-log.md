@@ -6018,3 +6018,43 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Workspace hydration deadlock hotfix: `100% complete`
+
+## 2026-03-22 - Remove blocking view gate and switch bot KPIs to canonical live trades
+
+### What Changed
+
+- Removed the full-screen `Sincronizando vista` gate from normal authenticated navigation in [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx).
+- Kept [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) running in the background so first-entry refreshes still happen, but without blocking the shell.
+- Fixed [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts) so `dashboard` always refreshes its live summary on initial entry and when returning from another view, even when the realtime stream is healthy.
+- Added canonical `liveTradeStats` to bot workspace cards in [workspace.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/workspace.ts), sourced from `tradeTimeline` instead of stale persisted bot runtime.
+- Updated [BotSettingsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/BotSettingsView.tsx) and [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx) to render visible trade/profit/win-rate metrics from canonical live trade stats.
+- Corrected [adapters.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/adapters.ts) so `winRate` is expressed as a percentage, matching the rest of the product contract.
+- Extended regressions in:
+  - [binance-view-load-plan.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/binance-view-load-plan.test.mjs)
+  - [workspace-hydration-plan.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/workspace-hydration-plan.test.mjs)
+  - [bot-read-model.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-read-model.test.mjs)
+
+### Why This Matters
+
+- The blocking view overlay was the wrong UX answer for a real data-freshness problem.
+- The deeper bot issue was that cards and top summaries were still reading stale persisted bot runtime (`localMemory/performance`) instead of the canonical trade chain already built from decisions, orders, and signal ownership.
+- The product now behaves more correctly:
+  - navigation stays immediate
+  - refreshes still happen on entry
+  - visible bot KPIs come from live execution truth instead of waiting for delayed runtime reconciliation
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`56/56`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes
+
+- This is intentionally a root-cause correction, not a UX mask.
+- If stale bot cards reappear, inspect:
+  - [workspace.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/workspace.ts)
+  - [BotSettingsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/BotSettingsView.tsx)
+  - [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx)
+  - [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts)

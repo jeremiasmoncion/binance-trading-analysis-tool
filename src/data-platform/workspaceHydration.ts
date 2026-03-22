@@ -14,7 +14,10 @@ export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntry
   const refreshConnectedData = view === "dashboard" || view === "balance" || isBotOperationalView(view);
   const refreshSignals = viewNeedsSharedSignalMemoryBootstrap(view);
   const refreshBotRuntime = viewNeedsBotRuntimeBootstrap(view);
-  const blockOnFirstEntry = refreshConnectedData || refreshSignals || refreshBotRuntime;
+  // Navigation between live surfaces should feel immediate. We still refresh
+  // the relevant domains on first entry, but the shell no longer blocks the
+  // whole screen while those refreshes land.
+  const blockOnFirstEntry = false;
 
   if (view === "dashboard") {
     return {

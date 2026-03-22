@@ -87,7 +87,7 @@ export function App() {
   const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser, currentView });
   const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
-  const workspaceHydration = useWorkspaceEntryHydration({
+  useWorkspaceEntryHydration({
     currentUser: auth.currentUser,
     currentView,
     hydrateConnectedView: binance.hydrateConnectedView,
@@ -668,13 +668,11 @@ export function App() {
     );
   }
 
-  if (startupPending || workspaceHydration.pending) {
+  if (startupPending) {
     return (
       <StartupOverlay
-        title={startupPending ? "Preparando CRYPE" : "Sincronizando vista"}
-        detail={startupPending
-          ? "Cargando capital, bot system, mercado y estado realtime inicial."
-          : workspaceHydration.detail}
+        title="Preparando CRYPE"
+        detail="Cargando capital, bot system, mercado y estado realtime inicial."
       />
     );
   }

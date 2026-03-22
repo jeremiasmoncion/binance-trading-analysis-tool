@@ -71,6 +71,14 @@ type ReadyContention = ReturnType<typeof summarizeReadyContention>;
 type FleetQueueChurn = ReturnType<typeof summarizeFleetQueueChurn>;
 type FleetSafeLaneStability = ReturnType<typeof summarizeFleetSafeLaneStability>;
 type FleetOperationalVerdict = ReturnType<typeof summarizeFleetOperationalVerdict>;
+type BotLiveTradeStats = {
+  tradeCount: number;
+  realizedPnlUsd: number;
+  winRate: number;
+  closedTradeCount: number;
+  winningTradeCount: number;
+  lastTradeAt: string | null;
+};
 
 export type BotWorkspaceCard = Bot & {
   accepted: number;
@@ -88,6 +96,7 @@ export type BotExecutionWorkspaceCard = BotWorkspaceCard & {
   executionOrders: ExecutionOrderRecord[];
   executionTimeline: OwnershipEntry[];
   tradeTimeline: BotCanonicalTrade[];
+  liveTradeStats: BotLiveTradeStats;
   executionBreakdowns: ExecutionBreakdown[];
   ownership: OwnershipSummary;
   executionIntentSummary: ExecutionIntentSummary;
@@ -108,6 +117,22 @@ export type BotOperationalWorkspaceCard = BotExecutionWorkspaceCard & {
   };
 };
 
+function createBotLiveTradeStats(tradeTimeline: BotCanonicalTrade[]): BotLiveTradeStats {
+  const trades = Array.isArray(tradeTimeline) ? tradeTimeline : [];
+  const closedTrades = trades.filter((trade) => trade.hasOutcome);
+  const realizedPnlUsd = closedTrades.reduce((sum, trade) => sum + Number(trade.realizedPnlUsd || 0), 0);
+  const winningTradeCount = closedTrades.filter((trade) => Number(trade.realizedPnlUsd || 0) > 0).length;
+
+  return {
+    tradeCount: trades.length,
+    realizedPnlUsd,
+    winRate: closedTrades.length ? (winningTradeCount / closedTrades.length) * 100 : 0,
+    closedTradeCount: closedTrades.length,
+    winningTradeCount,
+    lastTradeAt: trades[0]?.endedAt || trades[0]?.startedAt || null,
+  };
+}
+
 export function createBotCardsWithExecutionContext(input: {
   botCards: BotWorkspaceCard[];
   recentOrders: ExecutionOrderRecord[] | null | undefined;
@@ -125,6 +150,7 @@ export function createBotCardsWithExecutionContext(input: {
       executionOrders,
       signals: input.signalMemory || [],
     });
+    const liveTradeStats = createBotLiveTradeStats(tradeTimeline);
     const tradeOrderIds = new Set(tradeTimeline.map((entry) => entry.orderId));
     const canonicalExecutionOrders = executionOrders.filter((order) => tradeOrderIds.has(Number(order.id)));
     const executionPerformance = canonicalExecutionOrders.length
@@ -137,13 +163,20 @@ export function createBotCardsWithExecutionContext(input: {
       localMemory: {
         ...bot.localMemory,
         ...createOwnedMemorySummary("local", "Local", bot.decisionTimeline, executionTimeline),
+        outcomeCount: liveTradeStats.tradeCount,
       },
       performance: executionPerformance
         ? {
             ...bot.performance,
             ...executionPerformance,
+            realizedPnlUsd: liveTradeStats.realizedPnlUsd,
+            winRate: liveTradeStats.winRate,
           }
-        : bot.performance,
+        : {
+            ...bot.performance,
+            realizedPnlUsd: liveTradeStats.realizedPnlUsd,
+            winRate: liveTradeStats.winRate,
+          },
       audit: latestExecution
         ? {
             ...bot.audit,
@@ -164,6 +197,7 @@ export function createBotCardsWithExecutionContext(input: {
       executionOrders,
       executionTimeline,
       tradeTimeline,
+      liveTradeStats,
       executionBreakdowns: createExecutionBreakdowns(canonicalExecutionOrders),
       ownership: createOwnershipSummary(bot.decisionTimeline, executionTimeline),
       executionIntentSummary: createExecutionIntentSummary(bot.decisions),
@@ -303,10 +337,10 @@ export function createBotFleetSummary(input: {
   };
 }) {
   const activeBots = input.botCards.filter((bot) => bot.status === "active");
-  const totalTrades = input.botCards.reduce((sum, bot) => sum + bot.localMemory.outcomeCount, 0);
-  const totalProfit = input.botCards.reduce((sum, bot) => sum + bot.performance.realizedPnlUsd, 0);
+  const totalTrades = input.botCards.reduce((sum, bot) => sum + bot.liveTradeStats.tradeCount, 0);
+  const totalProfit = input.botCards.reduce((sum, bot) => sum + bot.liveTradeStats.realizedPnlUsd, 0);
   const averageWinRate = input.botCards.length
-    ? input.botCards.reduce((sum, bot) => sum + bot.performance.winRate, 0) / input.botCards.length
+    ? input.botCards.reduce((sum, bot) => sum + bot.liveTradeStats.winRate, 0) / input.botCards.length
     : 0;
   const unresolvedOwnershipCount = input.botCards.reduce(
     (sum, bot) => sum + (bot.ownership?.unresolvedDecisionCount || 0) + (bot.ownership?.unlinkedExecutionCount || 0),

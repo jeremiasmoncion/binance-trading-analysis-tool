@@ -239,6 +239,9 @@ test("workspace execution context only counts canonical trades as executed activ
   });
 
   assert.equal(botCardsWithExecution[0].tradeTimeline.length, 1);
+  assert.equal(botCardsWithExecution[0].liveTradeStats.tradeCount, 1);
+  assert.equal(botCardsWithExecution[0].liveTradeStats.closedTradeCount, 0);
+  assert.equal(botCardsWithExecution[0].liveTradeStats.realizedPnlUsd, 0);
   assert.equal(botCardsWithExecution[0].activity.executedCount, 1);
   assert.equal(botCardsWithExecution[0].executionBreakdowns.length, 1);
 });
@@ -313,6 +316,7 @@ test("workspace fleet summary aggregates status and attention from bot cards", (
         status: "active",
         localMemory: { outcomeCount: 2 },
         performance: { realizedPnlUsd: 15, winRate: 60 },
+        liveTradeStats: { tradeCount: 4, realizedPnlUsd: 9, winRate: 50, closedTradeCount: 2, winningTradeCount: 1, lastTradeAt: null },
         ownership: { unresolvedDecisionCount: 1, unlinkedExecutionCount: 0, ownedOutcomeCount: 2, healthLabel: "healthy" },
         adaptationSummary: { trainingConfidence: "high" },
         attention: { score: 55 },
@@ -322,6 +326,7 @@ test("workspace fleet summary aggregates status and attention from bot cards", (
         status: "draft",
         localMemory: { outcomeCount: 1 },
         performance: { realizedPnlUsd: -3, winRate: 20 },
+        liveTradeStats: { tradeCount: 2, realizedPnlUsd: -1, winRate: 0, closedTradeCount: 1, winningTradeCount: 0, lastTradeAt: null },
         ownership: { unresolvedDecisionCount: 0, unlinkedExecutionCount: 1, ownedOutcomeCount: 1, healthLabel: "watch" },
         adaptationSummary: { trainingConfidence: "low" },
         attention: { score: 0 },
@@ -340,7 +345,9 @@ test("workspace fleet summary aggregates status and attention from bot cards", (
   assert.equal(summary.botSummary.totalBots, 2);
   assert.equal(summary.botSummary.activeBots, 1);
   assert.equal(summary.botSummary.draftBots, 1);
-  assert.equal(summary.botSummary.totalTrades, 3);
+  assert.equal(summary.botSummary.totalTrades, 6);
+  assert.equal(summary.botSummary.totalProfit, 8);
+  assert.equal(summary.botSummary.averageWinRate, 25);
   assert.equal(summary.attentionBots.length, 1);
   assert.deepEqual(summary.attentionBots.map((bot) => bot.id), ["bot-1"]);
 });

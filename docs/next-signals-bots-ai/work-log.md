@@ -5801,3 +5801,42 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Automatic bot certification: `100% complete` for this phase
+
+## 2026-03-22 - Signal Bot activity surface split from trade history
+
+### What Changed
+
+- Added a new `Bot Activity` tab inside [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx).
+- Kept `Signal History` focused on real bot trades only, while `Bot Activity` now captures the non-trade operational flow:
+  - blocked signals
+  - needs-review states
+  - queued dispatch states
+  - preview flow states
+  - handoff states that did not resolve into a visible trade row
+- The new tab intentionally reads from `selectedBotActivityTimeline`, but excludes entries already represented by the canonical `tradeTimeline`, so we do not reintroduce the old mixed-semantics problem.
+- Added browser coverage by updating [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs) to open the new `Bot Activity` surface.
+- Added lightweight styling in [content.css](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/styles/content.css) for the new activity table and warning tone.
+
+### Why This Matters
+
+- This finally gives the user a visible place inside `Signal Bot` to understand why a signal did not become a trade, without polluting `Signal History`.
+- The module now has a clearer semantic split:
+  - `Active Signals` -> current opportunities
+  - `Signal History` -> real trades only
+  - `Bot Activity` -> operational explanations and non-trade handling
+  - `Bot Settings` -> persisted bot controls
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-82xd6ko0t.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/heavy-views.spec.mjs` -> pass (`3/3`)
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-82xd6ko0t.vercel.app' npm run test:e2e -- --project=chrome tests/e2e/auto-bot.spec.mjs` -> pass
+
+### Notes
+
+- The `auto-bot.spec.mjs` smoke mutates a real persisted bot toggle, so running it across multiple browsers at the same moment can create a race on the same bot state. For certification, run it per browser/project instead of in one parallel combined command.
+
+### Progress Estimate
+
+- Signal Bot history/activity semantic split: `100% complete` for this phase

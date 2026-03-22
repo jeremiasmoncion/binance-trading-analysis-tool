@@ -101,6 +101,8 @@ test.describe("heavy view ux and performance smoke", () => {
       readyAssertion: async () => {
         await expect(page.locator(".signalbot-title")).toBeVisible({ timeout: 20_000 });
         await expect(page.getByRole("button", { name: "Active Signals", exact: true })).toBeVisible({ timeout: 20_000 });
+        await page.getByRole("button", { name: "Bot Activity", exact: true }).click();
+        await expect(page.getByTestId("signalbot-activity-pane")).toBeVisible({ timeout: 20_000 });
       },
     });
 

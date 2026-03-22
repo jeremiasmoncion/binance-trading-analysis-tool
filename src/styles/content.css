@@ -4934,6 +4934,38 @@ body.dark-theme .market-score-track {
   background: rgba(120, 137, 173, 0.16);
 }
 
+.signalbot-history-type-pill.is-warning,
+.signalbot-history-status-pill.is-warning {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.signalbot-activity-table tbody tr.signalbot-activity-row {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.signalbot-activity-table tbody tr.signalbot-activity-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.signalbot-activity-table tbody tr.signalbot-activity-row.is-negative:hover {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.signalbot-activity-table tbody tr.signalbot-activity-row.is-warning:hover {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.signalbot-activity-table tbody tr.signalbot-activity-row.is-positive:hover {
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.signalbot-activity-reason {
+  max-width: 380px;
+  color: var(--crype-dark-text);
+  line-height: 1.45;
+}
+
 .signalbot-confidence-meta {
   display: flex;
   align-items: center;

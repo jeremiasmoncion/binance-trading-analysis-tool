@@ -3283,3 +3283,38 @@ Keep the work phased.
 ### Progress Estimate
 
 - Automatic bot certification: `100% complete` for this phase
+
+## 2026-03-22 - Signal Bot activity surface split from trade history
+
+### What Was Added / Changed
+
+- Added a dedicated `Bot Activity` tab inside [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx).
+- `Signal History` remains tied to canonical trades only.
+- `Bot Activity` now renders non-trade operational handling from `selectedBotActivityTimeline`, while excluding anything already represented in the canonical `tradeTimeline`.
+- Covered the new visible surface in [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs).
+- Styled the new table in [content.css](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/styles/content.css) with the same tone system used by the existing history pills.
+
+### Why This Matters
+
+- This closes a product gap left after cleaning `Signal History`: users now have an explicit place to understand non-executed signal handling without mixing those rows back into trade history.
+- The user-facing bot workspace is now semantically cleaner:
+  - `Active Signals` = opportunities
+  - `Signal History` = trades
+  - `Bot Activity` = operational explanations
+  - `Bot Settings` = control surface
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-82xd6ko0t.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/heavy-views.spec.mjs` -> pass (`3/3`)
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-82xd6ko0t.vercel.app' npm run test:e2e -- --project=chrome tests/e2e/auto-bot.spec.mjs` -> pass
+
+### Notes For The Next Agent
+
+- If the product later wants a deeper operational surface, build from `selectedBotActivityTimeline` or [ExecutionLogsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/ExecutionLogsView.tsx), but do not move blocked/reviewed rows back into `Signal History`.
+- `auto-bot.spec.mjs` mutates real persisted bot state. Keep it as a per-project/browser certification smoke, not a simultaneous multi-browser toggle run against the same bot.
+
+### Progress Estimate
+
+- Signal Bot history/activity semantic split: `100% complete` for this phase

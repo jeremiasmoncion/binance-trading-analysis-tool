@@ -10,11 +10,13 @@ import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 import type { BotCanonicalTrade, BotDecisionRecord, RankedPublishedSignal } from "../domain";
 import type { SignalSnapshot, ViewName } from "../types";
 
-type SignalBotTab = "active-signals" | "signal-history" | "performance" | "settings";
+type SignalBotTab = "active-signals" | "signal-history" | "bot-activity" | "performance" | "settings";
 type SignalFilter = "all" | "buy" | "sell";
 type SignalCardDirection = "BUY" | "SELL" | "NEUTRAL";
 type SignalHistoryDirectionFilter = "all" | "buy" | "sell";
 type SignalHistoryTradeStatus = "completed" | "loss" | "stopped" | "protected";
+type SignalBotActivityFilter = "all" | "blocked" | "review" | "queue" | "preview" | "handoff";
+type SignalBotActivityStatusKey = "blocked" | "review" | "queue" | "preview" | "handoff";
 
 interface SignalHistoryRow {
   id: string;
@@ -31,6 +33,20 @@ interface SignalHistoryRow {
   pnlUsd: number | null;
   startedAt: string;
   endedAt: string;
+  dateAt: string;
+  pairNote: string;
+}
+
+interface SignalBotActivityRow {
+  id: string;
+  pair: string;
+  timeframe: string;
+  actionLabel: string;
+  actionTone: string;
+  statusKey: SignalBotActivityStatusKey;
+  statusLabel: string;
+  statusTone: string;
+  reason: string;
   dateAt: string;
   pairNote: string;
 }
@@ -90,8 +106,10 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const [activeFilter, setActiveFilter] = useState<SignalFilter>("all");
   const [activeSignalsPage, setActiveSignalsPage] = useState(1);
   const [signalHistoryPage, setSignalHistoryPage] = useState(1);
+  const [signalActivityPage, setSignalActivityPage] = useState(1);
   const [signalHistoryPairFilter, setSignalHistoryPairFilter] = useState("all");
   const [signalHistoryDirectionFilter, setSignalHistoryDirectionFilter] = useState<SignalHistoryDirectionFilter>("all");
+  const [signalBotActivityFilter, setSignalBotActivityFilter] = useState<SignalBotActivityFilter>("all");
   const [observedSignalDetail, setObservedSignalDetail] = useState<{
     signal: RankedPublishedSignal;
     snapshot?: SignalSnapshot;
@@ -134,7 +152,6 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const readModel = useMemo(() => {
     const scopedSignalFeed = prioritizeSignalsForDisplay(selectedBotSignals);
     const openSignals = selectedBotDecisions.filter((decision) => decision.status === "pending" || decision.status === "approved");
-    const closedSignals = selectedBotActivityTimeline;
     const cards = scopedSignalFeed.map((signal: RankedPublishedSignal) => {
       const snapshot = findSnapshotForPublishedSignal(signal.id, signals)
         || findSnapshotForSignal(signal.context.symbol, signal.context.timeframe, signals);
@@ -157,7 +174,6 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
       botBlockedCount: selectedBotBlockedCount,
       botDecisions: selectedBotDecisions,
       openSignals,
-      closedSignals,
       cards,
       filteredCards: cards.filter((card) => matchesFilter(card.signal, card.direction, activeFilter)),
       closedHistory: feedReadModel.selectedBotTradeTimeline,
@@ -188,6 +204,18 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
   const pagedSignalHistory = useMemo(
     () => paginateRows(filteredSignalHistory, signalHistoryPage, 10),
     [filteredSignalHistory, signalHistoryPage],
+  );
+  const signalBotActivityRows = useMemo(
+    () => createSignalBotActivityRows(selectedBotActivityTimeline, feedReadModel.selectedBotTradeTimeline),
+    [feedReadModel.selectedBotTradeTimeline, selectedBotActivityTimeline],
+  );
+  const filteredSignalBotActivity = useMemo(
+    () => signalBotActivityRows.filter((row) => signalBotActivityFilter === "all" || row.statusKey === signalBotActivityFilter),
+    [signalBotActivityFilter, signalBotActivityRows],
+  );
+  const pagedSignalBotActivity = useMemo(
+    () => paginateRows(filteredSignalBotActivity, signalActivityPage, 10),
+    [filteredSignalBotActivity, signalActivityPage],
   );
   const signalHistoryPairOptions = useMemo(
     () => Array.from(new Set(
@@ -1130,6 +1158,7 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
             <div className="signalbot-tab-bar">
               <button type="button" className={`signalbot-tab-button ui-chip ${activeTab === "active-signals" ? "active" : ""}`} onClick={() => setActiveTab("active-signals")}>Active Signals</button>
               <button type="button" className={`signalbot-tab-button ui-chip ${activeTab === "signal-history" ? "active" : ""}`} onClick={() => setActiveTab("signal-history")}>Signal History</button>
+              <button type="button" className={`signalbot-tab-button ui-chip ${activeTab === "bot-activity" ? "active" : ""}`} onClick={() => setActiveTab("bot-activity")}>Bot Activity</button>
               <button type="button" className={`signalbot-tab-button ui-chip ${activeTab === "performance" ? "active" : ""}`} onClick={() => setActiveTab("performance")}>Performance</button>
               <button type="button" className={`signalbot-tab-button ui-chip ${activeTab === "settings" ? "active" : ""}`} onClick={() => setActiveTab("settings")}>Bot Settings</button>
             </div>
@@ -1390,6 +1419,109 @@ export function SignalBotView({ onNavigateView }: SignalBotViewProps) {
                 <div className="signalbot-empty">
                   <strong>No closed trades match this filter.</strong>
                   <span>Try All Trades or switch to another pair filter.</span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {activeTab === "bot-activity" ? (
+            <div className="ui-table-shell signalbot-table-shell" data-testid="signalbot-activity-pane">
+              <div className="signalbot-filter-row ui-chip-row">
+                <button
+                  type="button"
+                  className={`signalbot-filter-chip ui-chip ${signalBotActivityFilter === "all" ? "active" : ""}`}
+                  onClick={() => setSignalBotActivityFilter("all")}
+                >
+                  All Activity
+                </button>
+                <button
+                  type="button"
+                  className={`signalbot-filter-chip ui-chip ${signalBotActivityFilter === "blocked" ? "active" : ""}`}
+                  onClick={() => setSignalBotActivityFilter("blocked")}
+                >
+                  Blocked
+                </button>
+                <button
+                  type="button"
+                  className={`signalbot-filter-chip ui-chip ${signalBotActivityFilter === "review" ? "active" : ""}`}
+                  onClick={() => setSignalBotActivityFilter("review")}
+                >
+                  Needs Review
+                </button>
+                <button
+                  type="button"
+                  className={`signalbot-filter-chip ui-chip ${signalBotActivityFilter === "queue" ? "active" : ""}`}
+                  onClick={() => setSignalBotActivityFilter("queue")}
+                >
+                  Queue
+                </button>
+                <button
+                  type="button"
+                  className={`signalbot-filter-chip ui-chip ${signalBotActivityFilter === "preview" ? "active" : ""}`}
+                  onClick={() => setSignalBotActivityFilter("preview")}
+                >
+                  Preview Flow
+                </button>
+                <button
+                  type="button"
+                  className={`signalbot-filter-chip ui-chip ${signalBotActivityFilter === "handoff" ? "active" : ""}`}
+                  onClick={() => setSignalBotActivityFilter("handoff")}
+                >
+                  Handed Off
+                </button>
+              </div>
+
+              <table className="ui-table signalbot-history-table signalbot-activity-table" data-testid="signalbot-activity-table">
+                <thead>
+                  <tr>
+                    <th>Pair</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>Reason</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedSignalBotActivity.rows.map((row) => (
+                    <tr key={row.id} className={`signalbot-activity-row ${row.statusTone}`}>
+                      <td>
+                        <div className="signalbot-history-pair-cell">
+                          <SignalAssetBadge symbol={row.pair} />
+                          <div className="signalbot-history-pair-copy">
+                            <strong>{row.pair}</strong>
+                            <span>{row.pairNote}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td><span className={`signalbot-history-type-pill ${row.actionTone}`}>{row.actionLabel}</span></td>
+                      <td><span className={`signalbot-history-status-pill ${row.statusTone}`}>{row.statusLabel}</span></td>
+                      <td className="signalbot-activity-reason">{row.reason}</td>
+                      <td>{formatDate(row.dateAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <PaginationControls
+                currentPage={pagedSignalBotActivity.safePage}
+                totalPages={pagedSignalBotActivity.totalPages}
+                totalItems={filteredSignalBotActivity.length}
+                label="eventos"
+                pageSize={pagedSignalBotActivity.pageSize}
+                onPageChange={setSignalActivityPage}
+              />
+
+              {!signalBotActivityRows.length ? (
+                <div className="signalbot-empty">
+                  <strong>No operational activity exists for this bot yet.</strong>
+                  <span>Blocked, reviewed, queued or preview-only signals will appear here once this bot starts handling them.</span>
+                </div>
+              ) : null}
+
+              {signalBotActivityRows.length > 0 && !filteredSignalBotActivity.length ? (
+                <div className="signalbot-empty">
+                  <strong>No operational activity matches this filter.</strong>
+                  <span>Try All Activity or switch to another status filter.</span>
                 </div>
               ) : null}
             </div>
@@ -2388,6 +2520,163 @@ function createSignalHistoryRow(
 function buildSignalHistoryPairNote(timeframe: string, contextLabel: string) {
   const parts = [String(timeframe || "").trim(), String(contextLabel || "").trim()].filter(Boolean);
   return parts.join(" • ") || "Bot history";
+}
+
+type SignalBotActivityDecisionEntry = {
+  kind: "decision";
+  decision: BotDecisionRecord & {
+    executionIntentLaneStatus?: string | null;
+    executionIntentReason?: string | null;
+    executionIntentDispatchStatus?: string | null;
+    executionIntentDispatchMode?: string | null;
+  };
+  linkedOrder?: {
+    orderId?: number | null;
+    updatedAt?: string | null;
+  } | null;
+};
+
+function isSignalBotActivityDecisionEntry(value: unknown): value is SignalBotActivityDecisionEntry {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<SignalBotActivityDecisionEntry>;
+  return candidate.kind === "decision"
+    && Boolean(candidate.decision)
+    && typeof candidate.decision?.id === "string";
+}
+
+function createSignalBotActivityRows(
+  activityTimeline: unknown[],
+  tradeTimeline: BotCanonicalTrade[],
+): SignalBotActivityRow[] {
+  const tradeOrderIds = new Set(
+    tradeTimeline
+      .map((entry) => Number(entry.orderId || 0))
+      .filter((entry) => Number.isFinite(entry) && entry > 0),
+  );
+
+  return activityTimeline
+    .filter(isSignalBotActivityDecisionEntry)
+    .filter((entry) => {
+      const linkedOrderId = Number(entry.linkedOrder?.orderId || 0);
+      return !linkedOrderId || !tradeOrderIds.has(linkedOrderId);
+    })
+    .map((entry) => createSignalBotActivityRow(entry))
+    .filter((row): row is SignalBotActivityRow => Boolean(row));
+}
+
+function createSignalBotActivityRow(entry: SignalBotActivityDecisionEntry): SignalBotActivityRow | null {
+  const status = resolveSignalBotActivityStatus(entry.decision);
+  if (!status) return null;
+
+  const actionLabel = formatSignalBotActivityAction(entry.decision.action);
+  const actionTone = getSignalBotActivityActionTone(entry.decision.action);
+  const reason = resolveSignalBotActivityReason(entry.decision);
+  const sourceLabel = formatSignalBotActivitySource(entry.decision.source);
+  const timeframe = String(entry.decision.timeframe || "").trim();
+
+  return {
+    id: `activity:${entry.decision.id}`,
+    pair: entry.decision.symbol,
+    timeframe,
+    actionLabel,
+    actionTone,
+    statusKey: status.key,
+    statusLabel: status.label,
+    statusTone: status.tone,
+    reason,
+    dateAt: String(entry.linkedOrder?.updatedAt || entry.decision.updatedAt || entry.decision.createdAt || ""),
+    pairNote: buildSignalHistoryPairNote(timeframe, sourceLabel),
+  };
+}
+
+function resolveSignalBotActivityStatus(decision: SignalBotActivityDecisionEntry["decision"]) {
+  const laneStatus = String(decision.executionIntentLaneStatus || "").trim().toLowerCase();
+  const decisionStatus = String(decision.status || "").trim().toLowerCase();
+
+  if (laneStatus === "blocked" || decisionStatus === "blocked" || decisionStatus === "dismissed") {
+    return {
+      key: "blocked" as const,
+      label: decisionStatus === "dismissed" ? "Dismissed" : "Blocked",
+      tone: "is-negative",
+    };
+  }
+
+  if (laneStatus === "awaiting-approval" || (decisionStatus === "approved" && decision.action !== "block")) {
+    return {
+      key: "review" as const,
+      label: "Needs Review",
+      tone: "is-neutral",
+    };
+  }
+
+  if (laneStatus === "queued" || laneStatus === "dispatch-requested" || decisionStatus === "pending") {
+    return {
+      key: "queue" as const,
+      label: laneStatus === "dispatch-requested" ? "Dispatch Requested" : "In Queue",
+      tone: "is-neutral",
+    };
+  }
+
+  if (laneStatus === "previewed" || laneStatus === "preview-recorded" || laneStatus === "preview-expired" || laneStatus === "execution-submitted") {
+    return {
+      key: "preview" as const,
+      label: formatSignalBotActivityLaneStatus(laneStatus),
+      tone: laneStatus === "preview-expired" ? "is-warning" : "is-warning",
+    };
+  }
+
+  if (laneStatus === "linked" || decisionStatus === "executed" || decisionStatus === "closed") {
+    return {
+      key: "handoff" as const,
+      label: "Handed Off",
+      tone: "is-positive",
+    };
+  }
+
+  return null;
+}
+
+function formatSignalBotActivityAction(action: string) {
+  const normalized = String(action || "").trim().toLowerCase();
+  if (normalized === "execute") return "EXECUTE";
+  if (normalized === "assist") return "ASSIST";
+  if (normalized === "observe") return "OBSERVE";
+  if (normalized === "accept") return "ACCEPT";
+  if (normalized === "block") return "BLOCK";
+  if (normalized === "close") return "CLOSE";
+  return normalized ? normalized.toUpperCase() : "BOT";
+}
+
+function getSignalBotActivityActionTone(action: string) {
+  const normalized = String(action || "").trim().toLowerCase();
+  if (normalized === "execute" || normalized === "accept" || normalized === "close") return "is-positive";
+  if (normalized === "block") return "is-negative";
+  return "is-neutral";
+}
+
+function formatSignalBotActivitySource(source: string) {
+  const normalized = String(source || "").trim();
+  if (!normalized) return "Bot activity";
+  return normalized
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function resolveSignalBotActivityReason(decision: SignalBotActivityDecisionEntry["decision"]) {
+  const explicitReason = String(decision.executionIntentReason || "").trim();
+  if (explicitReason) return explicitReason;
+  const rationale = String(decision.rationale || "").trim();
+  if (rationale) return rationale;
+  return "This signal stayed inside the bot activity flow without producing a real trade entry.";
+}
+
+function formatSignalBotActivityLaneStatus(value: string) {
+  if (value === "previewed") return "Previewed";
+  if (value === "preview-recorded") return "Preview Saved";
+  if (value === "preview-expired") return "Preview Expired";
+  if (value === "execution-submitted") return "Submitted";
+  return "Preview Flow";
 }
 
 function resolveTradeHistoryStatus(status: string, pnlUsd: number | null | undefined, hasOutcome: boolean) {

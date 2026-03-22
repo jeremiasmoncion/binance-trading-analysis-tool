@@ -389,7 +389,6 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   const [hideSmallAssets, setHideSmallAssets] = useState(true);
   const [binanceForm, setBinanceForm] = useState<BinanceFormState>({ alias: "", apiKey: "", apiSecret: "" });
   const activeUsernameRef = useRef("");
-  const lastViewRef = useRef(currentView);
 
   useEffect(() => {
     activeUsernameRef.current = currentUser?.username || "";
@@ -532,6 +531,46 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       return { ok: false as const, payload: null, message };
     }
   }, [currentUser?.username]);
+
+  const hydrateConnectedView = useCallback(async (
+    view: ViewName = currentView,
+    options: {
+      previousView?: ViewName | null;
+      preferInitialPlan?: boolean;
+      forceFreshDashboard?: boolean;
+    } = {},
+  ) => {
+    const username = currentUser?.username || "";
+    if (!username) {
+      return { ok: false as const, connection: null, users: [] as UserSession[], message: "Sesion no disponible." };
+    }
+
+    const policy = getViewRefreshPolicy(view);
+    const loadPlan = options.preferInitialPlan || !options.previousView
+      ? buildInitialConnectedLoadPlan(view, policy.systemOverlayStreamEnabled, policy.portfolioMode)
+      : buildConnectedViewLoadPlan(view, options.previousView, policy.systemOverlayStreamEnabled, policy.portfolioMode);
+
+    const profileResult = await refreshProfileData();
+    if (!profileResult.ok || !profileResult.connection?.connected) {
+      return profileResult;
+    }
+
+    await Promise.all([
+      loadPlan.portfolioMode ? refreshPortfolio(portfolioPeriod, loadPlan.portfolioMode) : Promise.resolve(null),
+      loadPlan.refreshExecution ? refreshExecutionCenter() : Promise.resolve(null),
+      loadPlan.refreshDashboard ? refreshDashboardSummary(options.forceFreshDashboard ?? true).catch(() => null) : Promise.resolve(null),
+    ]);
+
+    return profileResult;
+  }, [
+    currentUser?.username,
+    currentView,
+    portfolioPeriod,
+    refreshDashboardSummary,
+    refreshExecutionCenter,
+    refreshPortfolio,
+    refreshProfileData,
+  ]);
 
   const updateExecutionProfile = useCallback(async (profile: ExecutionProfile) => {
     const username = currentUser?.username || "";
@@ -721,57 +760,9 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
       setBinanceForm({ alias: "", apiKey: "", apiSecret: "" });
       return;
     }
-
-    void (async () => {
-      const result = await refreshProfileData();
-      if (result.connection?.connected) {
-        const loadPlan = buildInitialConnectedLoadPlan(
-          currentView,
-          refreshPolicy.systemOverlayStreamEnabled,
-          refreshPolicy.portfolioMode,
-        );
-        await Promise.all([
-          loadPlan.portfolioMode ? refreshPortfolio(portfolioPeriod, loadPlan.portfolioMode) : Promise.resolve(null),
-          loadPlan.refreshExecution ? refreshExecutionCenter() : Promise.resolve(null),
-          loadPlan.refreshDashboard ? refreshDashboardSummary(true).catch(() => null) : Promise.resolve(null),
-        ]);
-      }
-    })();
   }, [
     currentUser,
-    currentView,
-    refreshDashboardSummary,
-    refreshExecutionCenter,
-    refreshPolicy.portfolioMode,
-    refreshPolicy.systemOverlayStreamEnabled,
-    refreshPortfolio,
-    refreshProfileData,
-    portfolioPeriod,
   ]);
-
-  useEffect(() => {
-    if (!currentUser || !binanceConnection?.connected) return;
-
-    const loadPlan = buildConnectedViewLoadPlan(
-      currentView,
-      lastViewRef.current,
-      refreshPolicy.systemOverlayStreamEnabled,
-      refreshPolicy.portfolioMode,
-    );
-
-    if (loadPlan.portfolioMode) {
-      void refreshPortfolio(portfolioPeriod, loadPlan.portfolioMode);
-    }
-
-    if (loadPlan.refreshExecution || loadPlan.refreshDashboard) {
-      void Promise.all([
-        loadPlan.refreshExecution ? refreshExecutionCenter() : Promise.resolve(null),
-        loadPlan.refreshDashboard ? refreshDashboardSummary(true) : Promise.resolve(null),
-      ]);
-    }
-
-    lastViewRef.current = currentView;
-  }, [binanceConnection?.connected, currentUser, currentView, portfolioPeriod, refreshDashboardSummary, refreshExecutionCenter, refreshPolicy.portfolioMode, refreshPolicy.systemOverlayStreamEnabled, refreshPortfolio]);
 
   useEffect(() => {
     if (!currentUser || !binanceConnection?.connected) return undefined;
@@ -828,6 +819,7 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     refreshPortfolioWithFeedback,
     refreshExecutionCenter,
     refreshDashboardSummary,
+    hydrateConnectedView,
     updateExecutionProfile,
     executeDemoSignal,
     attachExecutionProtection,

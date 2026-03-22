@@ -7,7 +7,6 @@ import { TopBar } from "./components/TopBar";
 import { SystemUiHost } from "./components/ui/SystemUiHost";
 import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
-import { useBotRuntimeHydration } from "./hooks/useBotRuntimeHydration";
 import { useCalculator } from "./hooks/useCalculator";
 import { useMarketData } from "./hooks/useMarketData";
 import { useMemoryRuntime } from "./hooks/useMemoryRuntime";
@@ -16,6 +15,7 @@ import { useTheme } from "./hooks/useTheme";
 import { useValidationLabRuntime } from "./hooks/useValidationLabRuntime";
 import { useViewState } from "./hooks/useViewState";
 import { useWatchlist } from "./hooks/useWatchlist";
+import { useWorkspaceEntryHydration } from "./hooks/useWorkspaceEntryHydration";
 import { showToast, startLoading, stopLoading } from "./lib/ui-events";
 import { getOperationPlan } from "./lib/trading";
 import { syncMarketDataPlane, syncMarketDataPlaneActions, syncRealtimeCoreActions, syncRealtimeCoreControl, syncSystemDataPlane, syncSystemDataPlaneActions, syncSystemMemoryActions, syncSystemSignalActions, syncSystemValidationLabActions, syncSystemWatchlistActions } from "./data-platform/syncAppDataPlanes";
@@ -84,10 +84,15 @@ export function App() {
     }
   }, [setCurrentView, sidebarCollapsed, toggleSidebar]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView });
-  useBotRuntimeHydration({ currentUser: auth.currentUser, currentView });
   const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser, currentView });
   const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });
+  const workspaceHydration = useWorkspaceEntryHydration({
+    currentUser: auth.currentUser,
+    currentView,
+    hydrateConnectedView: binance.hydrateConnectedView,
+    refreshSignals: signalMemory.refreshSignals,
+  });
   const {
     saveSignal,
     maybeAutoSaveSignal,
@@ -663,11 +668,13 @@ export function App() {
     );
   }
 
-  if (startupPending) {
+  if (startupPending || workspaceHydration.pending) {
     return (
       <StartupOverlay
-        title="Preparando CRYPE"
-        detail="Cargando capital, bot system, mercado y estado realtime inicial."
+        title={startupPending ? "Preparando CRYPE" : "Sincronizando vista"}
+        detail={startupPending
+          ? "Cargando capital, bot system, mercado y estado realtime inicial."
+          : workspaceHydration.detail}
       />
     );
   }

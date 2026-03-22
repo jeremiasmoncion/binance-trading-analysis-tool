@@ -3381,3 +3381,38 @@ Keep the work phased.
 ### Progress Estimate
 
 - Bot module stale-first-paint warm-up issue: `100% complete`
+
+## 2026-03-22 - App-wide first-paint freshness gate
+
+### What Was Added / Changed
+
+- Added [workspaceHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/workspaceHydration.ts) to define first-entry hydration rules per view.
+- Added [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) and mounted it in [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx).
+- Refactored [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) to expose `hydrateConnectedView()` instead of letting first-load logic live implicitly inside the hook.
+- Removed the older bot-only warm-up hook so the app now has one central workspace-entry hydration path.
+- Added regression in [workspace-hydration-plan.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/workspace-hydration-plan.test.mjs).
+
+### Why This Matters
+
+- The stale-first-paint issue was wider than the bot module.
+- The app shell could open while some views were still showing provisional bootstrap or cached state.
+- The shell now blocks first entry into key product surfaces until the relevant live domains finish their first authoritative hydrate.
+
+### Validation
+
+- `npm run test:backend` -> pass (`54/54`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- If stale-first-paint behavior returns, inspect:
+  - [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts)
+  - [workspaceHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/workspaceHydration.ts)
+  - [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts)
+- Do not patch this by adding view-local timers or emergency polling.
+
+### Progress Estimate
+
+- App-wide first-paint stale data issue: `100% complete`

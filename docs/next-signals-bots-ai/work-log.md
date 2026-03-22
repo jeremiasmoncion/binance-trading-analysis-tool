@@ -5908,3 +5908,48 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Bot module stale-first-paint warm-up issue: `100% complete`
+
+## 2026-03-22 - App-wide first-paint freshness gate
+
+### What Changed
+
+- Audited the issue as an app-wide startup contract problem, not a `Bot Settings`-only bug.
+- Found that the shell could open on top of provisional data:
+  - realtime bootstrap overlays
+  - cached bot runtime hydrates
+  - shared signal-memory cache
+- Added [workspaceHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/workspaceHydration.ts) to define which views must block until their first authoritative hydrate is done.
+- Added [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) and mounted it from [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx).
+- Refactored [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) to expose `hydrateConnectedView()` so the shell can await the correct live domains for the active view before dropping the startup overlay.
+- Removed the older bot-only warm-up hook because the new workspace gate supersedes it with one central entry contract.
+- Added regression in [workspace-hydration-plan.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/workspace-hydration-plan.test.mjs).
+
+### Why This Matters
+
+- The user-facing problem was not that polling was too slow.
+- The real gap was that CRYPE treated bootstrap/cached state as if it were already the final live state.
+- The shell now keeps the workspace in a loading state until the current view has completed its first authoritative hydrate.
+- This fixes the stale-first-paint pattern centrally for:
+  - `Dashboard`
+  - `My Wallet`
+  - `Bot Settings`
+  - `Signal Bot`
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`54/54`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes
+
+- This intentionally does **not** patch individual views.
+- Future stale-first-paint regressions should be addressed through:
+  - [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts)
+  - [workspaceHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/workspaceHydration.ts)
+  - [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts)
+
+### Progress Estimate
+
+- App-wide first-paint stale data issue: `100% complete`

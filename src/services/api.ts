@@ -484,7 +484,9 @@ export const authService = {
   },
   async getSession() {
     try {
-      const payload = await apiRequest<{ user: UserSession }>("/api/auth/session");
+      const payload = await apiRequest<{ user: UserSession }>("/api/auth/session", {
+        timeoutMs: 8_000,
+      });
       return payload.user;
     } catch {
       return null;

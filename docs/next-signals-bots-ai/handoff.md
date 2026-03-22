@@ -2690,3 +2690,35 @@ Keep the work phased.
 - `Canonical Trade Chain`: `95% complete`
 - `Read-Model Refactor`: `90% complete`
 - Structural remediation still remaining after this pass: `0% - 5%`
+
+## 2026-03-22 - Session bootstrap hotfix (startup overlay deadlock)
+
+### What Was Added / Changed
+
+- Hardened [src/hooks/useAuth.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useAuth.ts):
+  - valid session is set before the workspace bootstrap callback runs
+  - bootstrap failures are logged and no longer block authenticated access forever
+- Hardened [src/App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx):
+  - `sessionChecked` is always finalized in `finally`
+  - session restore can no longer deadlock on `Restaurando sesión`
+- Added timeout protection to `authService.getSession()` in [src/services/api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts).
+
+### Why This Matters
+
+- A valid cookie/session could still leave the app frozen on the startup overlay when the initial workspace bootstrap failed or stalled.
+- This hotfix makes startup resilient: workspace bootstrap can fail, but the user should still reach the authenticated shell instead of being trapped on the restore screen.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### What The Next Agent Should Do
+
+- Treat this as a regression hotfix, not as a replacement for the broader multi-browser parallel-session work.
+- If startup still feels slow after this fix, inspect realtime/bootstrap latency separately, but do not reintroduce a hard gate that can deadlock the session shell.
+
+### Progress Estimate
+
+- Hotfix status: `100% complete`
+- Remaining work for this specific regression: `0%`

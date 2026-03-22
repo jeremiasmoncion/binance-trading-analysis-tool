@@ -28,9 +28,14 @@ export function useAuth() {
     try {
       const session = await authService.getSession();
       if (!session) return null;
-      // Keep the authenticated shell gated until the initial workspace bootstrap finishes.
-      await onAuthenticated?.();
       setCurrentUser(session);
+      try {
+        // Keep the authenticated shell gated until the initial workspace bootstrap finishes,
+        // but never let a bootstrap failure erase a valid authenticated session.
+        await onAuthenticated?.();
+      } catch (error) {
+        console.error("Initial workspace bootstrap failed during session restore", error);
+      }
       return session;
     } finally {
       setAuthPending(false);
@@ -48,8 +53,12 @@ export function useAuth() {
       await authService.login(loginForm.username.trim(), loginForm.password);
       const session = await authService.getSession();
       if (!session) return;
-      await onAuthenticated?.();
       setCurrentUser(session);
+      try {
+        await onAuthenticated?.();
+      } catch (error) {
+        console.error("Initial workspace bootstrap failed after login", error);
+      }
       setLoginForm({ username: "", password: "" });
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "No se pudo iniciar sesión");
@@ -69,8 +78,12 @@ export function useAuth() {
       await authService.register(registerForm.displayName.trim(), registerForm.email.trim(), registerForm.password);
       const session = await authService.getSession();
       if (!session) return;
-      await onAuthenticated?.();
       setCurrentUser(session);
+      try {
+        await onAuthenticated?.();
+      } catch (error) {
+        console.error("Initial workspace bootstrap failed after register", error);
+      }
       setRegisterForm({ displayName: "", email: "", password: "" });
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "No se pudo crear la cuenta");

@@ -225,10 +225,15 @@ export function App() {
     bootstrappedRef.current = true;
 
     void (async () => {
-      await auth.bootstrapSession(async () => {
-        await runInitialWorkspaceLoad("BTC/USDT", "1h", binance.portfolioPeriod);
-      });
-      setSessionChecked(true);
+      try {
+        await auth.bootstrapSession(async () => {
+          await runInitialWorkspaceLoad("BTC/USDT", "1h", binance.portfolioPeriod);
+        });
+      } catch (error) {
+        console.error("Session bootstrap failed", error);
+      } finally {
+        setSessionChecked(true);
+      }
     })();
   }, [auth, binance.portfolioPeriod, market, runInitialWorkspaceLoad]);
 

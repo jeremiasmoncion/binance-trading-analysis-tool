@@ -5281,3 +5281,33 @@ Signal Bot feed/runtime closure pass
 - `Canonical Trade Chain`: `95% complete`
 - `Read-Model Refactor`: `90% complete`
 - Remaining structural remediation after this pass: `0% - 5%`
+
+## 2026-03-22 - Session bootstrap hotfix (startup overlay no longer deadlocks)
+
+### What Changed
+
+- Hardened the authenticated startup path in [src/hooks/useAuth.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useAuth.ts):
+  - a valid session is now committed to state before the initial workspace bootstrap runs
+  - bootstrap failures are logged but no longer erase or block a valid authenticated session
+- Hardened the first-boot effect in [src/App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx):
+  - `sessionChecked` is now always finalized in `finally`
+  - a failed workspace bootstrap can no longer leave the app frozen forever in `Restaurando sesión`
+- Added a timeout to [src/services/api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts) for `authService.getSession()` so `/api/auth/session` cannot hang indefinitely during restore.
+
+### Why This Matters
+
+- The deployed app could stay stuck on the startup overlay if:
+  - `/api/auth/session` stalled
+  - or the initial workspace bootstrap failed before `sessionChecked` flipped to `true`
+- This was a true product regression because the user could not get past the entry screen even with a valid session.
+- The startup shell is now fail-safe: bootstrap can degrade, but it should not deadlock the whole app.
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Progress Estimate
+
+- Hotfix status: `100% complete`
+- Remaining work for this specific regression: `0%`

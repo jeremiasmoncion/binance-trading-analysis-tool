@@ -124,12 +124,67 @@ const ACCOUNT_ITEMS: SidebarEntry[] = [
   { kind: "item", view: "help-center", label: "Help Center", icon: <HelpIcon /> },
 ];
 
-const SECTION_GROUPS: Array<{ title: string; items: SidebarEntry[] }> = [
+export const SIDEBAR_FUTURE_SECTION_GROUPS: Array<{ title: string; items: SidebarEntry[] }> = [
   { title: "Main", items: MAIN_ITEMS },
   { title: "Trading & Bots", items: TRADING_ITEMS },
   { title: "DeFi & Portfolio", items: DEFI_ITEMS },
   { title: "Marketplace", items: MARKETPLACE_ITEMS },
   { title: "Account", items: ACCOUNT_ITEMS },
+];
+
+const FOCUSED_SECTION_GROUPS: Array<{ title: string; items: SidebarEntry[] }> = [
+  {
+    title: "Main",
+    items: [
+      {
+        kind: "item",
+        view: "dashboard",
+        label: "Dashboard",
+        icon: (
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 2h6" />
+          </svg>
+        ),
+      },
+      {
+        kind: "item",
+        view: "balance",
+        label: "My Wallet",
+        icon: (
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7.5A2.5 2.5 0 0 1 6.5 5h10A2.5 2.5 0 0 1 19 7.5v9A2.5 2.5 0 0 1 16.5 19h-10A2.5 2.5 0 0 1 4 16.5v-9Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12h3m-1.2 0h.01" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    title: "Bots",
+    items: [
+      {
+        kind: "item",
+        view: "control-bot-settings",
+        label: "Bot Settings",
+        icon: (
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7h16M7 12h10M10 17h4" />
+          </svg>
+        ),
+      },
+      {
+        kind: "item",
+        view: "ai-signal-bot",
+        label: "Signal Bot",
+        icon: (
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7V5a3 3 0 0 1 6 0v2m-8 3h10a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 14h.01M15 14h.01M12 14v1.5" />
+          </svg>
+        ),
+      },
+    ],
+  },
 ];
 
 const SUBMENU_VIEWS: Record<SidebarSubmenuItem["id"], ViewName[]> = {
@@ -151,11 +206,11 @@ interface SidebarProps {
   currentView: ViewName;
   collapsed: boolean;
   onViewChange: (view: ViewName) => void;
-  onLogout: () => void;
 }
 
-export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }: SidebarProps) {
+export function Sidebar({ user, currentView, collapsed, onViewChange }: SidebarProps) {
   const [openState, setOpenState] = useState(() => buildInitialOpenState(currentView));
+  const visibleSectionGroups = FOCUSED_SECTION_GROUPS;
 
   useEffect(() => {
     setOpenState((current) => ({
@@ -183,7 +238,7 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
       </div>
 
       <nav className="sidebar-nav">
-        {SECTION_GROUPS.map((group) => (
+        {visibleSectionGroups.map((group) => (
           <div key={group.title} className="sidebar-group">
             <div className="sidebar-group-title">{group.title}</div>
             <div className="sidebar-group-items">
@@ -245,21 +300,13 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
         ))}
       </nav>
 
-      <div className="sidebar-user sidebar-user-template" data-testid="sidebar-user">
+      <div className="sidebar-user sidebar-user-template sidebar-user-template-summary-only" data-testid="sidebar-user">
         <div className="sidebar-user-summary">
           <div className="sidebar-user-avatar" data-testid="sidebar-user-avatar">{(user.displayName || user.username || "C").slice(0, 2).toUpperCase()}</div>
           <div className="sidebar-user-copy">
             <div className="sidebar-user-name" data-testid="sidebar-user-name">{user.displayName || user.username}</div>
             <div className="sidebar-user-email" data-testid="sidebar-user-email">{user.username}@crype.app</div>
           </div>
-        </div>
-        <div className="sidebar-user-actions">
-          <button type="button" className="sidebar-user-link" onClick={() => onViewChange("preferences")} data-testid="sidebar-account-settings">
-            Account Settings
-          </button>
-          <button type="button" className="sidebar-user-link sidebar-user-link-danger" onClick={onLogout} data-testid="sidebar-logout">
-            Logout
-          </button>
         </div>
       </div>
     </aside>

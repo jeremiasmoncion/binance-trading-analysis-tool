@@ -14,6 +14,17 @@ async function waitForAuthenticatedShell(page, username = USER.username) {
   await expect(page.locator(".sidebar-user-email")).toContainText(`${username}@crype.app`, { timeout: 20_000 });
 }
 
+async function logoutFromShell(page) {
+  const sidebarLogout = page.getByTestId("sidebar-logout");
+  if (await sidebarLogout.isVisible().catch(() => false)) {
+    await sidebarLogout.click();
+    return;
+  }
+
+  await page.getByTestId("topbar-user-menu-toggle").click();
+  await page.getByTestId("topbar-user-logout").click();
+}
+
 async function login(page, user = USER) {
   await page.goto("/");
   await page.waitForSelector('[data-testid="login-overlay"], [data-testid="startup-overlay"], .sidebar-user-email', {
@@ -27,7 +38,7 @@ async function login(page, user = USER) {
       return;
     }
 
-    await page.locator(".sidebar-user-link-danger").click();
+    await logoutFromShell(page);
   }
 
   await waitForLoginOverlay(page);

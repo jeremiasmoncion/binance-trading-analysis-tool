@@ -9,7 +9,7 @@ interface TopBarProps {
   sidebarCollapsed: boolean;
   onToggleTheme: () => void;
   onToggleSidebar: () => void;
-  onOpenAdmin: () => void;
+  onOpenProfile: () => void;
   onLogout: () => void;
 }
 
@@ -210,6 +210,7 @@ function TopBarComponent(props: TopBarProps) {
             type="button"
             aria-label="Abrir menú de usuario"
             onClick={() => setIsUserMenuOpen((current) => !current)}
+            data-testid="topbar-user-menu-toggle"
           >
             <span className="topbar-avatar">{(props.user.displayName || props.user.username || "CR").slice(0, 2).toUpperCase()}</span>
             <ChevronDownIcon className={`topbar-user-chevron${isUserMenuOpen ? " open" : ""}`} />
@@ -221,21 +222,21 @@ function TopBarComponent(props: TopBarProps) {
                 <div className="topbar-user-dropdown-name">{props.user.displayName || props.user.username}</div>
                 <div className="topbar-user-dropdown-role">{props.showAdmin ? "Administrador" : "Usuario"} · Main</div>
               </div>
-              {props.showAdmin ? (
-                <button
-                  className="topbar-user-dropdown-action"
-                  type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    props.onOpenAdmin();
-                  }}
-                >
-                  Admin
-                </button>
-              ) : null}
+              <button
+                className="topbar-user-dropdown-action"
+                type="button"
+                data-testid="topbar-user-open-profile"
+                onClick={() => {
+                  setIsUserMenuOpen(false);
+                  props.onOpenProfile();
+                }}
+              >
+                Account Settings
+              </button>
               <button
                 className="topbar-user-dropdown-action topbar-user-dropdown-action-danger"
                 type="button"
+                data-testid="topbar-user-logout"
                 onClick={() => {
                   setIsUserMenuOpen(false);
                   props.onLogout();
@@ -256,7 +257,7 @@ export const TopBar = memo(TopBarComponent, (prev, next) => (
   && prev.sidebarCollapsed === next.sidebarCollapsed
   && prev.onToggleTheme === next.onToggleTheme
   && prev.onToggleSidebar === next.onToggleSidebar
-  && prev.onOpenAdmin === next.onOpenAdmin
+  && prev.onOpenProfile === next.onOpenProfile
   && prev.onLogout === next.onLogout
   && prev.user.username === next.user.username
   && prev.user.displayName === next.user.displayName

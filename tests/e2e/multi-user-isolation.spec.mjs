@@ -28,6 +28,18 @@ async function waitForWorkspaceReady(page) {
   }
 }
 
+async function logout(page) {
+  const sidebarLogout = page.getByTestId("sidebar-logout");
+  if (await sidebarLogout.isVisible().catch(() => false)) {
+    await sidebarLogout.click();
+  } else {
+    await page.getByTestId("topbar-user-menu-toggle").click();
+    await page.getByTestId("topbar-user-logout").click();
+  }
+
+  await expect(page.getByTestId("login-overlay")).toBeVisible();
+}
+
 async function login(page, user) {
   await page.goto("/");
   await page.waitForSelector('[data-testid="login-overlay"], .sidebar-user-email', {
@@ -41,7 +53,7 @@ async function login(page, user) {
       return;
     }
 
-    await page.locator(".sidebar-user-link-danger").click();
+    await logout(page);
   }
 
   await expect(page.getByTestId("login-overlay")).toBeVisible();
@@ -51,11 +63,6 @@ async function login(page, user) {
   await expect(page.locator(".sidebar-user-name")).toBeVisible();
   await expect(page.locator(".sidebar-user-email")).toContainText(`${user.username}@crype.app`);
   await waitForWorkspaceReady(page);
-}
-
-async function logout(page) {
-  await page.locator(".sidebar-user-link-danger").click();
-  await expect(page.getByTestId("login-overlay")).toBeVisible();
 }
 
 async function openBotSettings(page) {

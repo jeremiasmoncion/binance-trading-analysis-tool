@@ -4280,6 +4280,10 @@ body.dark-theme .market-score-track {
   gap: 0.9rem;
 }
 
+.sidebar-user-template-summary-only {
+  gap: 0;
+}
+
 .sidebar-user-summary {
   display: flex;
   align-items: center;

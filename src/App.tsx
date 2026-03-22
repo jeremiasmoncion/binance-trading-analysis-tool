@@ -687,7 +687,6 @@ export function App() {
         currentView={currentView}
         collapsed={sidebarCollapsed}
         onViewChange={handleNavigateView}
-        onLogout={handleLogout}
       />
 
       <main className="main-content">
@@ -697,7 +696,7 @@ export function App() {
           sidebarCollapsed={sidebarCollapsed}
           onToggleTheme={toggleTheme}
           onToggleSidebar={toggleSidebar}
-          onOpenAdmin={openProfile}
+          onOpenProfile={openProfile}
           onLogout={handleLogout}
         />
 

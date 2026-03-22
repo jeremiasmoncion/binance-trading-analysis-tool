@@ -3163,3 +3163,38 @@ Keep the work phased.
 ### Progress Estimate
 
 - `performance/polish`: `100% complete`
+
+## 2026-03-22 - Focused sidebar navigation for current product phase
+
+### What Was Added / Changed
+
+- Simplified [src/components/Sidebar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/Sidebar.tsx) so the visible menu now shows only:
+  - `Dashboard`
+  - `My Wallet`
+  - `Bot Settings`
+  - `Signal Bot`
+- Preserved the broader future navigation structure in code as [SIDEBAR_FUTURE_SECTION_GROUPS](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/Sidebar.tsx) instead of deleting it.
+- Removed the lower sidebar action buttons from the visible UI.
+- Added top-right user-menu hooks in [src/components/TopBar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/TopBar.tsx) for:
+  - `Account Settings`
+  - `Cerrar sesión`
+- Updated affected E2E flows to use the new topbar path.
+
+### Why This Matters
+
+- Product navigation is now intentionally focused on the active module set instead of exposing half-finished or parked sections in the sidebar.
+- The hidden future sections are still preserved in code and can be restored later without recovering deleted view files.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes For The Next Agent
+
+- This is a UX/navigation cleanup, not a deletion of future app surfaces.
+- If the product later wants to re-expand the sidebar, start from `SIDEBAR_FUTURE_SECTION_GROUPS` instead of rebuilding the map from scratch.
+
+### Progress Estimate
+
+- Focused navigation cleanup: `100% complete`

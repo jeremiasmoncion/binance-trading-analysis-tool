@@ -40,7 +40,8 @@ async function login(page, user = USER) {
       return;
     }
 
-    await page.getByTestId("sidebar-logout").click();
+    await page.getByTestId("topbar-user-menu-toggle").click();
+    await page.getByTestId("topbar-user-logout").click();
   }
 
   await waitForLoginOverlay(page);
@@ -104,7 +105,8 @@ test.describe("heavy view ux and performance smoke", () => {
       },
     });
 
-    await page.getByTestId("sidebar-account-settings").click();
+    await page.getByTestId("topbar-user-menu-toggle").click();
+    await page.getByTestId("topbar-user-open-profile").click();
     await waitForWorkspaceReady(page);
     await expect(page.getByText("Profile Settings", { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Signal Memory", { exact: true })).toBeVisible({ timeout: 20_000 });

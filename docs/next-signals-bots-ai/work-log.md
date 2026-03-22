@@ -5699,3 +5699,33 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - `performance/polish`: `100% complete`
+
+## 2026-03-22 - Focused sidebar navigation for current product phase
+
+### What Changed
+
+- Simplified [src/components/Sidebar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/Sidebar.tsx) so the visible sidebar now focuses only on:
+  - `Dashboard`
+  - `My Wallet`
+  - `Bot Settings`
+  - `Signal Bot`
+- Kept the broader navigation map preserved in code as [SIDEBAR_FUTURE_SECTION_GROUPS](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/Sidebar.tsx), instead of deleting those future sections outright.
+- Removed the lower sidebar action buttons from the visible UI and left the user card as a compact session summary.
+- Moved account access responsibility to the top-right user menu in [src/components/TopBar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/TopBar.tsx), which now exposes:
+  - `Account Settings`
+  - `Cerrar sesión`
+- Updated browser smoke tests so auth/logout/profile navigation no longer depend on the old sidebar footer actions.
+
+### Why This Matters
+
+- This matches the current product phase more honestly without deleting future surfaces.
+- The app stays visually focused on the small set of pages you actually want active right now, while preserving the future menu structure in code for later recovery.
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Progress Estimate
+
+- Focused navigation cleanup: `100% complete`

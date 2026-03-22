@@ -3416,3 +3416,33 @@ Keep the work phased.
 ### Progress Estimate
 
 - App-wide first-paint stale data issue: `100% complete`
+
+## 2026-03-22 - Workspace hydration deadlock hotfix
+
+### What Was Added / Changed
+
+- Added explicit timeouts to the critical first-entry API calls in [api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts).
+- Updated [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) so the first-entry workspace gate is bounded by timeout and degrades cleanly instead of blocking forever.
+
+### Why This Matters
+
+- The freshness gate solved stale first paint, but production exposed a second-order issue: if an upstream request hung, the app could remain on `Sincronizando vista`.
+- The gate is now resilient:
+  - authoritative when healthy
+  - bounded when slow
+
+### Validation
+
+- `npm run test:backend` -> pass (`54/54`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes For The Next Agent
+
+- Keep the first-entry gate.
+- Do not “fix” this by removing the gate and going back to provisional stale paint.
+- If startup stalls again, inspect request timeouts and workspace-entry orchestration first.
+
+### Progress Estimate
+
+- Workspace hydration deadlock hotfix: `100% complete`

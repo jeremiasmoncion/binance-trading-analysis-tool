@@ -4,6 +4,8 @@ import { refreshBotDecisionsRuntime } from "./useBotDecisions";
 import { refreshBotRegistryRuntime } from "./useSelectedBot";
 import type { UserSession, ViewName } from "../types";
 
+const WORKSPACE_ENTRY_HYDRATION_TIMEOUT_MS = 9_000;
+
 interface UseWorkspaceEntryHydrationOptions {
   currentUser: UserSession | null;
   currentView: ViewName;
@@ -64,7 +66,7 @@ export function useWorkspaceEntryHydration({
 
     void (async () => {
       try {
-        await Promise.all([
+        const hydrateTask = Promise.all([
           plan.refreshConnectedData
             ? hydrateConnectedView(currentView, {
                 previousView,
@@ -76,9 +78,19 @@ export function useWorkspaceEntryHydration({
           plan.refreshBotRuntime
             ? Promise.all([
                 refreshBotRegistryRuntime(true),
-                refreshBotDecisionsRuntime(true),
-              ])
+              refreshBotDecisionsRuntime(true),
+            ])
             : Promise.resolve(null),
+        ]).catch((error) => {
+          console.error("Workspace entry hydration failed", error);
+          return null;
+        });
+
+        await Promise.race([
+          hydrateTask,
+          new Promise((resolve) => {
+            window.setTimeout(resolve, WORKSPACE_ENTRY_HYDRATION_TIMEOUT_MS);
+          }),
         ]);
       } finally {
         lastVisitedViewRef.current = currentView;

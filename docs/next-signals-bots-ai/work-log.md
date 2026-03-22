@@ -5953,3 +5953,38 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - App-wide first-paint stale data issue: `100% complete`
+
+## 2026-03-22 - Workspace hydration deadlock hotfix
+
+### What Changed
+
+- Added explicit request timeouts to critical entry-path calls in [api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts):
+  - `getConnection()`
+  - `getPortfolio()`
+  - `getExecutionCenter()`
+  - `getDashboardSummary()`
+  - `getUsers()`
+- Updated [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) so the first-entry gate is bounded by a global timeout and can degrade safely instead of trapping the app forever.
+
+### Why This Matters
+
+- The new first-paint freshness gate was architecturally correct, but it still trusted that every critical initial request would always resolve.
+- In production, a slow or hanging request could leave the app frozen on `Sincronizando vista`.
+- The workspace now preserves the stronger first-paint contract without allowing a deadlock.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`54/54`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes
+
+- This is a stability hardening pass on top of the first-paint freshness gate, not a rollback of that architecture.
+- The goal is:
+  - wait for live data when healthy
+  - degrade safely when an upstream call hangs
+
+### Progress Estimate
+
+- Workspace hydration deadlock hotfix: `100% complete`

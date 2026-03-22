@@ -55,6 +55,10 @@ const hotApiCache = new Map<string, { expiresAt: number; value: unknown }>();
 const hotApiInFlight = new Map<string, Promise<unknown>>();
 let hotApiSessionUsername: string | null = null;
 let hotApiSessionPromise: Promise<string | null> | null = null;
+const BINANCE_CONNECTION_TIMEOUT_MS = 6_000;
+const BINANCE_PORTFOLIO_TIMEOUT_MS = 8_000;
+const BINANCE_EXECUTION_TIMEOUT_MS = 8_000;
+const BINANCE_DASHBOARD_TIMEOUT_MS = 8_000;
 const realtimeCoreBaseUrl = String(import.meta.env.VITE_REALTIME_CORE_URL || "").trim().replace(/\/$/, "");
 let realtimeCoreBridgeTokenCache: { token: string; expiresAt: number } | null = null;
 let realtimeCoreBridgeTokenInFlight: Promise<string> | null = null;
@@ -493,17 +497,23 @@ export const authService = {
     }
   },
   async getUsers() {
-    const payload = await apiRequest<{ users: UserSession[] }>("/api/users");
+    const payload = await apiRequest<{ users: UserSession[] }>("/api/users", {
+      timeoutMs: 5_000,
+    });
     return payload.users;
   },
 };
 
 export const binanceService = {
   getConnection() {
-    return apiRequest<BinanceConnection>("/api/binance/connection");
+    return apiRequest<BinanceConnection>("/api/binance/connection", {
+      timeoutMs: BINANCE_CONNECTION_TIMEOUT_MS,
+    });
   },
   getPortfolio(period: string, mode: "full" | "live" = "full") {
-    return apiRequest<PortfolioPayload>(`/api/binance/portfolio?period=${encodeURIComponent(period)}&mode=${encodeURIComponent(mode)}`);
+    return apiRequest<PortfolioPayload>(`/api/binance/portfolio?period=${encodeURIComponent(period)}&mode=${encodeURIComponent(mode)}`, {
+      timeoutMs: BINANCE_PORTFOLIO_TIMEOUT_MS,
+    });
   },
   connect(apiKey: string, apiSecret: string, accountAlias: string) {
     return apiRequest("/api/binance/connection", {
@@ -515,13 +525,16 @@ export const binanceService = {
     return apiRequest("/api/binance/connection", { method: "DELETE" });
   },
   getExecutionCenter() {
-    return apiRequest<ExecutionCenterPayload>("/api/binance/execution");
+    return apiRequest<ExecutionCenterPayload>("/api/binance/execution", {
+      timeoutMs: BINANCE_EXECUTION_TIMEOUT_MS,
+    });
   },
   getDashboardSummary(forceFresh = false) {
     return cachedApiRequest<DashboardSummaryPayload>("/api/binance/dashboard-summary", {
       cacheKey: "binance:dashboard-summary",
       ttlMs: 8_000,
       forceFresh,
+      timeoutMs: BINANCE_DASHBOARD_TIMEOUT_MS,
     });
   },
   updateExecutionProfile(profile: Partial<ExecutionProfile>) {

@@ -3443,6 +3443,28 @@ Keep the work phased.
 - Do not “fix” this by removing the gate and going back to provisional stale paint.
 - If startup stalls again, inspect request timeouts and workspace-entry orchestration first.
 
+## 2026-03-22 - Workspace entry hydration root-cause fix
+
+### What Was Added / Changed
+
+- Refactored [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) to use `useEffectEvent` and stable user/view keyed orchestration.
+
+### Why This Matters
+
+- The deadlock was not only an upstream timeout issue.
+- The real root cause was that the first-entry hydration effect could be cleaned up by normal callback identity churn before it marked the view as hydrated.
+- The workspace gate now tracks actual view/user transitions instead of callback recreation noise.
+
+### Validation
+
+- `npm run test:backend` -> pass (`54/54`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes For The Next Agent
+
+- If `Sincronizando vista` ever gets stuck again, inspect effect cancellation and key orchestration before touching the UI.
+
 ### Progress Estimate
 
 - Workspace hydration deadlock hotfix: `100% complete`

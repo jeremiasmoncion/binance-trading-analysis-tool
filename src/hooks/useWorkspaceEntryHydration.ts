@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { buildWorkspaceEntryHydrationPlan } from "../data-platform/workspaceHydration";
 import { refreshBotDecisionsRuntime } from "./useBotDecisions";
 import { refreshBotRegistryRuntime } from "./useSelectedBot";
@@ -50,6 +50,50 @@ export function useWorkspaceEntryHydration({
   const plan = buildWorkspaceEntryHydrationPlan(currentView);
   const blockOnEntry = Boolean(hydrationKey && plan.blockOnFirstEntry && !hydratedKeysRef.current.has(hydrationKey));
 
+  const runWorkspaceHydration = useEffectEvent(async (
+    nextHydrationKey: string,
+    nextView: ViewName,
+    previousView: ViewName | null,
+    shouldBlock: boolean,
+    nextUsername: string,
+  ) => {
+    const nextPlan = buildWorkspaceEntryHydrationPlan(nextView);
+    const hydrateTask = Promise.all([
+      nextPlan.refreshConnectedData
+        ? hydrateConnectedView(nextView, {
+            previousView,
+            preferInitialPlan: shouldBlock,
+            forceFreshDashboard: true,
+          })
+        : Promise.resolve(null),
+      nextPlan.refreshSignals ? refreshSignals() : Promise.resolve(null),
+      nextPlan.refreshBotRuntime
+        ? Promise.all([
+            refreshBotRegistryRuntime(true),
+            refreshBotDecisionsRuntime(true),
+          ])
+        : Promise.resolve(null),
+    ]).catch((error) => {
+      console.error("Workspace entry hydration failed", error);
+      return null;
+    });
+
+    await Promise.race([
+      hydrateTask,
+      new Promise((resolve) => {
+        window.setTimeout(resolve, WORKSPACE_ENTRY_HYDRATION_TIMEOUT_MS);
+      }),
+    ]);
+
+    if (currentUsernameRef.current !== nextUsername) {
+      return;
+    }
+
+    lastVisitedViewRef.current = nextView;
+    hydratedKeysRef.current.add(nextHydrationKey);
+    setHydrationVersion((current) => current + 1);
+  });
+
   useEffect(() => {
     if (!currentUser || !hydrationKey) {
       return;
@@ -62,60 +106,14 @@ export function useWorkspaceEntryHydration({
     lastStartedKeyRef.current = hydrationKey;
     const previousView = lastVisitedViewRef.current;
     const shouldBlock = plan.blockOnFirstEntry && !hydratedKeysRef.current.has(hydrationKey);
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const hydrateTask = Promise.all([
-          plan.refreshConnectedData
-            ? hydrateConnectedView(currentView, {
-                previousView,
-                preferInitialPlan: shouldBlock,
-                forceFreshDashboard: true,
-              })
-            : Promise.resolve(null),
-          plan.refreshSignals ? refreshSignals() : Promise.resolve(null),
-          plan.refreshBotRuntime
-            ? Promise.all([
-                refreshBotRegistryRuntime(true),
-              refreshBotDecisionsRuntime(true),
-            ])
-            : Promise.resolve(null),
-        ]).catch((error) => {
-          console.error("Workspace entry hydration failed", error);
-          return null;
-        });
-
-        await Promise.race([
-          hydrateTask,
-          new Promise((resolve) => {
-            window.setTimeout(resolve, WORKSPACE_ENTRY_HYDRATION_TIMEOUT_MS);
-          }),
-        ]);
-      } finally {
-        lastVisitedViewRef.current = currentView;
-        if (cancelled) {
-          return;
-        }
-        hydratedKeysRef.current.add(hydrationKey);
-        setHydrationVersion((current) => current + 1);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    void runWorkspaceHydration(hydrationKey, currentView, previousView, shouldBlock, username);
   }, [
-    currentUser,
     currentView,
-    hydrateConnectedView,
     hydrationKey,
     hydrationVersion,
     plan.blockOnFirstEntry,
-    plan.refreshBotRuntime,
-    plan.refreshConnectedData,
-    plan.refreshSignals,
-    refreshSignals,
+    runWorkspaceHydration,
+    username,
   ]);
 
   return {

@@ -5985,6 +5985,36 @@ Signal Bot feed/runtime closure pass
   - wait for live data when healthy
   - degrade safely when an upstream call hangs
 
+## 2026-03-22 - Workspace entry hydration root-cause fix
+
+### What Changed
+
+- Found the real deadlock cause inside [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts):
+  - the first-entry hydrate could be invalidated by normal callback/state churn during first render
+  - the task then finished without ever marking the view as hydrated
+  - the overlay stayed forever on `Sincronizando vista`
+- Refactored the hook to use `useEffectEvent` and stable view/user keyed orchestration instead of depending on unstable callback identities.
+
+### Why This Matters
+
+- The root problem was not simply “slow backend hydration”.
+- It was an orchestration race in the shell:
+  - startup callbacks changed
+  - the hydration effect cleaned up
+  - the completion signal never promoted the view to ready
+- The workspace gate is now tied to real user/view transitions, not incidental callback recreation.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`54/54`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes
+
+- The timeout guard remains in place as a safety net.
+- The real fix here is the stable hydration orchestration, not the timeout by itself.
+
 ### Progress Estimate
 
 - Workspace hydration deadlock hotfix: `100% complete`

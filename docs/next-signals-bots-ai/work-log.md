@@ -5872,3 +5872,39 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Bot Settings live-refresh warm-up issue: `100% complete`
+
+## 2026-03-22 - Bot module warm-up audit and stale-first-paint fix
+
+### What Changed
+
+- Audited the full bot module warm-up path instead of only `Bot Settings`.
+- Found the real gap: bot operational views were only warming `execution center`, while `bot registry`, `bot decisions`, and `signal memory` could still enter from stale shared cache.
+- Added [botWorkspaceBootstrap.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/botWorkspaceBootstrap.ts) to centralize which screens should warm the bot workspace domains.
+- Added [useBotRuntimeHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotRuntimeHydration.ts), mounted from [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx), to force-refresh bot registry and bot decisions when entering bot operational surfaces.
+- Updated [useSignalMemory.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalMemory.ts) so `control-bot-settings` now participates in the same shared signal-memory bootstrap used by `Signal Bot`.
+- Exported runtime refresh helpers from:
+  - [useSelectedBot.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSelectedBot.ts)
+  - [useBotDecisions.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotDecisions.ts)
+- Added regression in [bot-workspace-bootstrap.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-workspace-bootstrap.test.mjs).
+
+### Why This Matters
+
+- The stale first paint in `Bot Settings` and `Signal Bot` was not a single fetch bug. It was a module-level warm-up bug:
+  - `execution center` could be fresh
+  - while `registry`, `decisions`, or `signal memory` were still stale
+- The module now warms as one coherent operational workspace instead of letting each surface partially catch up on its own.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`51/51`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes
+
+- This fix intentionally lives in shared orchestration, not inside `BotSettingsView.tsx` or `SignalBotView.tsx`.
+- The goal was to remove the stale-first-paint pattern across the bot module, not to patch one screen locally.
+
+### Progress Estimate
+
+- Bot module stale-first-paint warm-up issue: `100% complete`

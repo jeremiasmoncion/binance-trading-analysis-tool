@@ -3348,3 +3348,36 @@ Keep the work phased.
 ### Progress Estimate
 
 - Bot Settings live-refresh warm-up issue: `100% complete`
+
+## 2026-03-22 - Bot module warm-up audit and stale-first-paint fix
+
+### What Was Added / Changed
+
+- Introduced [botWorkspaceBootstrap.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/botWorkspaceBootstrap.ts) to define which views should warm the bot workspace domains.
+- Added [useBotRuntimeHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotRuntimeHydration.ts) and mounted it in [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx).
+- Bot operational views now force-refresh:
+  - bot registry
+  - bot decisions
+  - shared signal memory
+- Updated [useSignalMemory.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalMemory.ts) so `control-bot-settings` is no longer excluded from shared signal bootstrap.
+- Added coverage in [bot-workspace-bootstrap.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-workspace-bootstrap.test.mjs).
+
+### Why This Matters
+
+- The user-reported stale first paint affected more than one bot screen because the module did not warm all of its shared domains together.
+- The bot module now enters operational views as a coherent workspace rather than waiting for a later poll or unrelated request to repair the state.
+
+### Validation
+
+- `npm run test:backend` -> pass (`51/51`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+
+### Notes For The Next Agent
+
+- If a future bot surface looks stale on first paint, inspect [botWorkspaceBootstrap.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/botWorkspaceBootstrap.ts) and [useBotRuntimeHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBotRuntimeHydration.ts) before touching the view itself.
+- Keep bot warm-up orchestration centralized. Do not reintroduce view-local emergency polling.
+
+### Progress Estimate
+
+- Bot module stale-first-paint warm-up issue: `100% complete`

@@ -7,6 +7,7 @@ import { TopBar } from "./components/TopBar";
 import { SystemUiHost } from "./components/ui/SystemUiHost";
 import { useAuth } from "./hooks/useAuth";
 import { useBinanceData } from "./hooks/useBinanceData";
+import { useBotRuntimeHydration } from "./hooks/useBotRuntimeHydration";
 import { useCalculator } from "./hooks/useCalculator";
 import { useMarketData } from "./hooks/useMarketData";
 import { useMemoryRuntime } from "./hooks/useMemoryRuntime";
@@ -83,6 +84,7 @@ export function App() {
     }
   }, [setCurrentView, sidebarCollapsed, toggleSidebar]);
   const signalMemory = useSignalMemory({ currentUser: auth.currentUser, currentView });
+  useBotRuntimeHydration({ currentUser: auth.currentUser, currentView });
   const memoryRuntime = useMemoryRuntime({ currentUser: auth.currentUser, currentView });
   const validationLabRuntime = useValidationLabRuntime({ currentUser: auth.currentUser });
   const watchlist = useWatchlist({ currentUser: auth.currentUser });

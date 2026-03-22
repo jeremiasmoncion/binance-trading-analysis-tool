@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { viewNeedsSharedSignalMemoryBootstrap } from "../data-platform/botWorkspaceBootstrap";
 import { getViewRefreshPolicy } from "../data-platform/refreshPolicy";
 import { marketDataPlaneStore } from "../data-platform/marketDataPlane";
 import { systemDataPlaneStore } from "../data-platform/systemDataPlane";
@@ -8,16 +9,6 @@ import type { DashboardAnalysis, OperationPlan, Signal, SignalOutcomeStatus, Sig
 interface UseSignalMemoryOptions {
   currentUser: UserSession | null;
   currentView: ViewName;
-}
-
-function viewNeedsSignalMemoryBootstrap(view: ViewName) {
-  return view === "dashboard"
-    || view === "market"
-    || view === "memory"
-    || view === "signals"
-    || view === "ai-signal-bot"
-    || view === "trading"
-    || view === "control-overview";
 }
 
 function hasSignalMemoryChanged(current: SignalSnapshot[], next: SignalSnapshot[]) {
@@ -314,7 +305,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       return;
     }
 
-    if (!viewNeedsSignalMemoryBootstrap(currentView)) {
+    if (!viewNeedsSharedSignalMemoryBootstrap(currentView)) {
       return;
     }
 

@@ -232,6 +232,10 @@ async function hydrateBotRegistry(forceFresh = false) {
   return hydrationPromise;
 }
 
+export function refreshBotRegistryRuntime(forceFresh = true) {
+  return hydrateBotRegistry(forceFresh);
+}
+
 function patchBotInRegistry(botId: string, updater: (bot: Bot) => Bot) {
   const nextRegistry = {
     ...runtimeState.registry,
@@ -352,7 +356,7 @@ export function useSelectedBotState() {
 
   const createBot = useCallback((payload: Partial<Bot> & { name?: string }) => createBotProfile(payload), []);
   const updateBot = useCallback((botId: string, payload: Partial<Bot>) => updateBotProfile(botId, payload), []);
-  const refreshBots = useCallback((forceFresh = true) => hydrateBotRegistry(forceFresh), []);
+  const refreshBots = useCallback((forceFresh = true) => refreshBotRegistryRuntime(forceFresh), []);
 
   return {
     state: state.registry,

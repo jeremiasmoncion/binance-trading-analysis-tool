@@ -167,6 +167,10 @@ async function hydrate(forceFresh = false) {
   return hydrationPromise;
 }
 
+export function refreshBotDecisionsRuntime(forceFresh = true) {
+  return hydrate(forceFresh);
+}
+
 function upsertDecision(nextDecision: BotDecisionRecord) {
   const existingIndex = runtimeState.decisions.findIndex((decision) => decision.id === nextDecision.id);
   const nextDecisions = existingIndex >= 0
@@ -420,7 +424,7 @@ export function useBotDecisionsState() {
     return response.decision;
   }, []);
 
-  const refreshDecisions = useCallback((forceFresh = true) => hydrate(forceFresh), []);
+  const refreshDecisions = useCallback((forceFresh = true) => refreshBotDecisionsRuntime(forceFresh), []);
 
   return {
     decisions: state.decisions,

@@ -5645,3 +5645,27 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `95% complete`
 - Remaining work for this front: `5%`
+
+## 2026-03-22 - Repo automation: Telegram completion notification workflow
+
+### What Changed
+
+- Added [notify-telegram.yml](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/.github/workflows/notify-telegram.yml) to the repository.
+- The workflow now triggers on:
+  - pushes to `main`
+  - manual `workflow_dispatch`
+- It validates that `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` exist in GitHub Actions secrets before sending the notification.
+
+### Why This Matters
+
+- From now on, pushes to `main` can notify Telegram automatically when a task delivery lands in the repository.
+- This keeps task completion signaling inside the repo instead of depending on a local-only file that another agent left untracked.
+
+### Validation Snapshot
+
+- Workflow file reviewed locally
+- GitHub Actions secrets were already confirmed as created before this pass
+
+### Progress Estimate
+
+- Repo notification automation: `100% complete`

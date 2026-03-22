@@ -1,0 +1,50 @@
+name: Notify Telegram
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check Telegram secrets
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+            echo "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID GitHub Actions secrets."
+            exit 1
+          fi
+
+      - name: Send Telegram notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_URL: ${{ github.event.head_commit.url }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          SHORT_SHA="${SHA::7}"
+          RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TEXT=$'CRYPE: prueba manual de notificacion\n'"Repo: ${REPOSITORY}"$'\n'"Autor: ${ACTOR}"$'\n'"Workflow: ${RUN_URL}"
+          else
+            TEXT=$'CRYPE: tarea terminada en main\n'"Repo: ${REPOSITORY}"$'\n'"Autor: ${ACTOR}"$'\n'"Branch: ${REF_NAME}"$'\n'"Commit: ${SHORT_SHA}"$'\n'"Mensaje: ${COMMIT_MESSAGE}"$'\n'"Link: ${COMMIT_URL}"$'\n'"Workflow: ${RUN_URL}"
+          fi
+
+          curl --silent --show-error --fail \
+            --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${TEXT}"

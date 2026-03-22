@@ -5473,3 +5473,33 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `20% complete`
 - Remaining work for this front: `80%`
+
+## 2026-03-22 - Performance polish: refresh policy narrowing
+
+### What Changed
+
+- Tightened [src/data-platform/refreshPolicy.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/refreshPolicy.ts) so placeholder/account/static views no longer inherit the old default polling profile.
+- Added explicit view groups:
+  - bot-operational views
+  - profile/account views
+  - static placeholder views
+
+### Why This Matters
+
+- Before this pass, many screens that do not actually need portfolio, execution or signal-memory polling were still paying for background refresh work.
+- Now:
+  - profile/account views stop polling shared market/execution/signal domains
+  - template placeholder views stop polling entirely
+  - bot-operational views keep targeted signal/execution refresh without dragging portfolio polling along
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `performance/polish`: `35% complete`
+- Remaining work for this front: `65%`

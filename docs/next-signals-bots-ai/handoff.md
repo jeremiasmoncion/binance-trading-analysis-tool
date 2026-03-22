@@ -2897,3 +2897,38 @@ Keep the work phased.
 
 - `performance/polish`: `20% complete`
 - Remaining work for this front: `80%`
+
+## 2026-03-22 - Performance polish: refresh policy narrowing
+
+### What Was Added / Changed
+
+- Tightened [src/data-platform/refreshPolicy.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/refreshPolicy.ts) so profile/account and static placeholder views no longer inherit the generic polling profile.
+- Added explicit view-group branches for:
+  - bot-operational views
+  - profile/account views
+  - static placeholder views
+
+### Why This Matters
+
+- Before this pass, several screens that do not need portfolio, execution, or signal-memory refresh were still paying for background polling work.
+- Now:
+  - profile/account views stop background polling
+  - static placeholder/template views stop polling entirely
+  - bot-operational views keep only targeted signal/execution refresh without unnecessary portfolio polling
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- This is the second concrete `performance/polish` pass after certification.
+- The next best targets remain the heavy shared shell hooks (`useBinanceData`, `useSignalMemory`, `useMemoryRuntime`) and any additional view-level refresh that can be narrowed by active screen.
+
+### Progress Estimate
+
+- `performance/polish`: `35% complete`
+- Remaining work for this front: `65%`

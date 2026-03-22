@@ -5561,3 +5561,31 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `65% complete`
 - Remaining work for this front: `35%`
+
+## 2026-03-22 - Performance polish: on-demand validation lab runtime
+
+### What Changed
+
+- Tightened [src/hooks/useValidationLabRuntime.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useValidationLabRuntime.ts) so the validation-lab runtime no longer auto-hydrates at generic authenticated startup.
+- Validation lab is now:
+  - admin-only at the hook boundary
+  - explicitly refreshed on demand from `Profile -> Backtesting`
+
+### Why This Matters
+
+- Before this pass, the shell still paid for admin-only backtesting/validation hydration even when the user never opened the backtesting surface.
+- Now the authenticated shell stays lighter:
+  - non-admin users never hydrate that runtime
+  - admin users only hydrate it when they actually open or trigger the backtesting workflow
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `performance/polish`: `75% complete`
+- Remaining work for this front: `25%`

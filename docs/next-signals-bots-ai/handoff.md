@@ -3000,3 +3000,37 @@ Keep the work phased.
 
 - `performance/polish`: `65% complete`
 - Remaining work for this front: `35%`
+
+## 2026-03-22 - Performance polish: on-demand validation lab runtime
+
+### What Was Added / Changed
+
+- Tightened [src/hooks/useValidationLabRuntime.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useValidationLabRuntime.ts) so validation-lab data no longer auto-hydrates during generic authenticated startup.
+- Validation lab is now:
+  - admin-only at the hook boundary
+  - fetched on demand by the existing `Profile -> Backtesting` refresh flow
+
+### Why This Matters
+
+- The shell no longer pays for admin-only backtesting state unless that tooling surface is actually opened.
+- This removes more non-essential startup work for both regular users and admins navigating outside backtesting.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- This is the fifth concrete `performance/polish` pass after certification.
+- The remaining work should focus on:
+  - one final UX/perf verification pass
+  - optional E2E spot-checks on key heavy views
+  - then returning to bot automation with a lighter shell
+
+### Progress Estimate
+
+- `performance/polish`: `75% complete`
+- Remaining work for this front: `25%`

@@ -69,7 +69,7 @@ export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntime
 
   const refreshValidationLab = useCallback(async (options?: { forceFresh?: boolean; clearOnError?: boolean }) => {
     const username = currentUser?.username || "";
-    if (!username) {
+    if (!username || currentUser?.role !== "admin") {
       if (options?.clearOnError) {
         setValidationReport(null);
         setBacktestRuns([]);
@@ -96,7 +96,7 @@ export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntime
 
   const enqueueValidationBacktest = useCallback(async (payload?: { label?: string; triggerSource?: string }) => {
     const username = currentUser?.username || "";
-    if (!username) return null;
+    if (!username || currentUser?.role !== "admin") return null;
     try {
       const nextPayload = await strategyEngineService.runValidationBacktest(payload);
       if (activeUsernameRef.current !== username) {
@@ -110,7 +110,7 @@ export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntime
 
   const processValidationBacktestQueue = useCallback(async (payload?: { limit?: number; triggerSource?: string }) => {
     const username = currentUser?.username || "";
-    if (!username) return null;
+    if (!username || currentUser?.role !== "admin") return null;
     try {
       const nextPayload = await strategyEngineService.processValidationBacktestQueue(payload);
       if (activeUsernameRef.current !== username) {
@@ -124,7 +124,7 @@ export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntime
 
   const backfillValidationDataset = useCallback(async (payload?: { label?: string; triggerSource?: string; limit?: number }) => {
     const username = currentUser?.username || "";
-    if (!username) return null;
+    if (!username || currentUser?.role !== "admin") return null;
     try {
       const nextPayload = await strategyEngineService.backfillValidationDataset(payload);
       if (activeUsernameRef.current !== username) {
@@ -137,17 +137,17 @@ export function useValidationLabRuntime({ currentUser }: UseValidationLabRuntime
   }, [applyPayload, currentUser?.username]);
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || currentUser.role !== "admin") {
       setValidationReport(null);
       setBacktestRuns([]);
       setBacktestQueue(EMPTY_QUEUE);
       return;
     }
-
-    // Share one validation-lab snapshot across admin surfaces so the backtesting
-    // runtime follows the same plane-first architecture as scanner and memory.
-    void refreshValidationLab({ clearOnError: true });
-  }, [currentUser, refreshValidationLab]);
+    // Validation lab is admin-only and intentionally on-demand now. Profile's
+    // backtesting tab triggers explicit refreshes when the user actually opens
+    // that tooling surface, so the authenticated shell no longer pays its cost
+    // during generic startup or navigation.
+  }, [currentUser]);
 
   return {
     validationReport,

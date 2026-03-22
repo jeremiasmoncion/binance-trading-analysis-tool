@@ -3034,3 +3034,35 @@ Keep the work phased.
 
 - `performance/polish`: `75% complete`
 - Remaining work for this front: `25%`
+
+## 2026-03-22 - Performance polish: lightweight bot count on Profile
+
+### What Was Added / Changed
+
+- Removed the heavy bot read-model dependency from [src/views/ProfileView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/ProfileView.tsx).
+- Profile now gets bot count from [src/hooks/useSelectedBot.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSelectedBot.ts) instead of loading [src/hooks/useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts) just to render a storage metric.
+
+### Why This Matters
+
+- `Profile` is an account/admin surface, not a full bot analytics workspace.
+- This pass reduces accidental coupling between the profile chunk and the heavier bot read-model dependency chain.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- This is the sixth concrete `performance/polish` pass after certification.
+- The remaining work is now mostly:
+  - one final UX/perf verification pass on heavy screens
+  - optional browser spot-checks
+  - then returning to bot automation
+
+### Progress Estimate
+
+- `performance/polish`: `85% complete`
+- Remaining work for this front: `15%`

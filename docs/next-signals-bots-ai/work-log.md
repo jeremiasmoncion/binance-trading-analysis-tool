@@ -5589,3 +5589,27 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `75% complete`
 - Remaining work for this front: `25%`
+
+## 2026-03-22 - Performance polish: lightweight bot count on Profile
+
+### What Changed
+
+- Removed the heavy bot read-model dependency from [src/views/ProfileView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/ProfileView.tsx).
+- Profile now reads bot count from the lightweight registry hook ([src/hooks/useSelectedBot.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSelectedBot.ts)) instead of mounting [src/hooks/useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts) just to display a count.
+
+### Why This Matters
+
+- Before this pass, opening `Profile` could pull the full signal/bot read-model path even though the view only needed the number of configured bots.
+- Now `Profile` avoids loading that heavier dependency chain and stays focused on account/admin concerns.
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `performance/polish`: `85% complete`
+- Remaining work for this front: `15%`

@@ -3,7 +3,7 @@ import { PaginationControls, paginateRows } from "../components/ui/PaginationCon
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
 import { useProfileSystemSelector } from "../data-platform/selectors";
-import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import { useSelectedBotState } from "../hooks/useSelectedBot";
 import { showToast } from "../lib/ui-events";
 import type { UserSession, WatchlistScanExecution } from "../types";
 
@@ -28,7 +28,7 @@ const PROFILE_TABS: Array<{
 
 export function ProfileView(props: ProfileViewProps) {
   const systemData = useProfileSystemSelector();
-  const botReadModel = useSignalsBotsReadModel();
+  const { state: botRegistryState } = useSelectedBotState();
   const [activeTab, setActiveTab] = useState<"account" | "binance" | "notifications" | "security" | "users" | "backtesting" | "scanner">(
     props.initialTab === "binance" ? "security" : (props.initialTab || "account"),
   );
@@ -94,8 +94,8 @@ export function ProfileView(props: ProfileViewProps) {
     },
     {
       label: "Bot Configurations",
-      value: botReadModel.botCards.length,
-      note: `${botReadModel.botCards.length} bots`,
+      value: botRegistryState.bots.length,
+      note: `${botRegistryState.bots.length} bots`,
       tone: "profit" as const,
     },
     {

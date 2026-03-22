@@ -5669,3 +5669,33 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Repo notification automation: `100% complete`
+
+## 2026-03-22 - Performance polish: heavy-view browser certification closure
+
+### What Changed
+
+- Added [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs).
+- The new browser smoke covers the heaviest user-facing authenticated surfaces that are actually reachable from the current UI:
+  - `Dashboard`
+  - `Bot Settings`
+  - `Signal Bot`
+  - `Execution Logs`
+  - `Profile`
+  - `Profile -> Backtesting`
+
+### Why This Matters
+
+- This closes the last open gap in the current `performance/polish` phase:
+  - we are no longer relying only on build size, backend audit, or intuition
+  - we now have a browser-level regression that confirms the heaviest views open, hydrate, and render real content instead of stalling on shell/loading states
+
+### Validation Snapshot
+
+- `E2E_BASE_URL='https://binance-trading-analysis-tool.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/heavy-views.spec.mjs` -> pass
+  - `chrome`: pass
+  - `firefox`: pass
+  - `webkit`: pass
+
+### Progress Estimate
+
+- `performance/polish`: `100% complete`

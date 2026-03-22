@@ -3126,3 +3126,40 @@ Keep the work phased.
 ### Progress Estimate
 
 - Repo notification automation: `100% complete`
+
+## 2026-03-22 - Performance polish: heavy-view browser certification closure
+
+### What Was Added / Changed
+
+- Added [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs).
+- The suite covers the heaviest reachable authenticated views from the real UI:
+  - `Dashboard`
+  - `Bot Settings`
+  - `Signal Bot`
+  - `Execution Logs`
+  - `Profile`
+  - `Profile -> Backtesting`
+
+### Why This Matters
+
+- This is the final verification pass for the current `performance/polish` phase.
+- The project now has browser regression coverage that confirms the heaviest surfaces open and show real content in:
+  - Chrome
+  - Firefox
+  - WebKit
+
+### Validation
+
+- `E2E_BASE_URL='https://binance-trading-analysis-tool.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/heavy-views.spec.mjs` -> pass (`3/3`)
+
+### Notes For The Next Agent
+
+- `performance/polish` can now be treated as closed for this phase.
+- The next recommended focus is the automatic bot module, now that:
+  - backend/system audit is green
+  - multi-user startup/browser certification is green
+  - heavy-view browser certification is green
+
+### Progress Estimate
+
+- `performance/polish`: `100% complete`

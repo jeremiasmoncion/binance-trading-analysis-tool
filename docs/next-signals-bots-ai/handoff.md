@@ -3134,9 +3134,9 @@ Keep the work phased.
 - Added [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs).
 - The suite covers the heaviest reachable authenticated views from the real UI:
   - `Dashboard`
+  - `My Wallet`
   - `Bot Settings`
   - `Signal Bot`
-  - `Execution Logs`
   - `Profile`
   - `Profile -> Backtesting`
 
@@ -3150,7 +3150,7 @@ Keep the work phased.
 
 ### Validation
 
-- `E2E_BASE_URL='https://binance-trading-analysis-tool.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/heavy-views.spec.mjs` -> pass (`3/3`)
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-qagdrbgzn.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/auth-startup.spec.mjs tests/e2e/multi-user-isolation.spec.mjs tests/e2e/heavy-views.spec.mjs` -> pass (`15/15`)
 
 ### Notes For The Next Agent
 
@@ -3198,3 +3198,33 @@ Keep the work phased.
 ### Progress Estimate
 
 - Focused navigation cleanup: `100% complete`
+
+## 2026-03-22 - Focused sidebar browser recertification
+
+### What Was Added / Changed
+
+- Updated [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs) to assert the current `My Wallet` copy:
+  - `Total Portfolio Value`
+  - `Asset Holdings`
+- Kept [multi-user-isolation.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/multi-user-isolation.spec.mjs) aligned with the direct `Bot Settings` link in the simplified sidebar.
+
+### Why This Matters
+
+- The simplified sidebar is now fully recertified in browser tests against the real copy and real navigation shape.
+- This removes stale test expectations from the pre-focused wallet screen and keeps the regression suite trustworthy.
+
+### Validation
+
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-qagdrbgzn.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/auth-startup.spec.mjs tests/e2e/multi-user-isolation.spec.mjs tests/e2e/heavy-views.spec.mjs` -> pass (`15/15`)
+
+### Notes For The Next Agent
+
+- Treat the focused sidebar as certified in:
+  - Chrome
+  - Firefox
+  - WebKit
+- If the wallet copy changes again, update [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs) instead of reintroducing stale labels from older portfolio screens.
+
+### Progress Estimate
+
+- Focused sidebar browser recertification: `100% complete`

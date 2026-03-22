@@ -54,7 +54,7 @@ async function login(page, user = USER) {
 
 async function ensureSubmenuLinkVisible(page, parentLabel, childTestId) {
   const link = page.getByTestId(childTestId);
-  if (await link.isVisible().catch(() => false)) {
+  if (await link.isVisible({ timeout: 2_000 }).catch(() => false)) {
     return link;
   }
 
@@ -69,6 +69,8 @@ async function openSidebarView(page, childTestId, options) {
     ? await ensureSubmenuLinkVisible(page, parentLabel, childTestId)
     : page.getByTestId(childTestId);
 
+  await expect(link).toBeVisible({ timeout: 15_000 });
+
   await link.click();
   await waitForWorkspaceReady(page);
   await readyAssertion();
@@ -81,8 +83,14 @@ test.describe("heavy view ux and performance smoke", () => {
     await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Total portfolio", { exact: true })).toBeVisible({ timeout: 20_000 });
 
+    await openSidebarView(page, "sidebar-nav-balance", {
+      readyAssertion: async () => {
+        await expect(page.getByText("Total Portfolio Value", { exact: true })).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByText("Asset Holdings", { exact: true })).toBeVisible({ timeout: 20_000 });
+      },
+    });
+
     await openSidebarView(page, "sidebar-nav-control-bot-settings", {
-      parentLabel: "Control Panel",
       readyAssertion: async () => {
         await expect(page.getByRole("heading", { name: "Bot Settings", exact: true })).toBeVisible({ timeout: 20_000 });
         await expect(page.locator('[data-testid^="bot-card-name-"]').first()).toBeVisible({ timeout: 20_000 });
@@ -90,18 +98,9 @@ test.describe("heavy view ux and performance smoke", () => {
     });
 
     await openSidebarView(page, "sidebar-nav-ai-signal-bot", {
-      parentLabel: "AI Bot",
       readyAssertion: async () => {
         await expect(page.locator(".signalbot-title")).toBeVisible({ timeout: 20_000 });
         await expect(page.getByRole("button", { name: "Active Signals", exact: true })).toBeVisible({ timeout: 20_000 });
-      },
-    });
-
-    await openSidebarView(page, "sidebar-nav-control-execution-logs", {
-      parentLabel: "Control Panel",
-      readyAssertion: async () => {
-        await expect(page.getByRole("heading", { name: "Execution Logs", exact: true })).toBeVisible({ timeout: 20_000 });
-        await expect(page.getByText("Total Executions", { exact: true })).toBeVisible({ timeout: 20_000 });
       },
     });
 

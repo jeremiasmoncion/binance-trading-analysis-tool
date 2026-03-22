@@ -67,9 +67,12 @@ async function login(page, user) {
 
 async function openBotSettings(page) {
   const botSettingsLink = page.getByTestId("sidebar-nav-control-bot-settings");
-  if (!(await botSettingsLink.isVisible().catch(() => false))) {
-    await page.getByRole("button", { name: "Control Panel" }).click();
-    await expect(botSettingsLink).toBeVisible();
+  if (!(await botSettingsLink.isVisible({ timeout: 2_000 }).catch(() => false))) {
+    const controlPanelToggle = page.getByRole("button", { name: "Control Panel", exact: true });
+    if (await controlPanelToggle.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await controlPanelToggle.click();
+    }
+    await expect(botSettingsLink).toBeVisible({ timeout: 15_000 });
   }
   await botSettingsLink.click();
   await expect(page.getByText("Bot Settings", { exact: true })).toBeVisible();

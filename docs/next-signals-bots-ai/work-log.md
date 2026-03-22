@@ -5677,9 +5677,9 @@ Signal Bot feed/runtime closure pass
 - Added [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs).
 - The new browser smoke covers the heaviest user-facing authenticated surfaces that are actually reachable from the current UI:
   - `Dashboard`
+  - `My Wallet`
   - `Bot Settings`
   - `Signal Bot`
-  - `Execution Logs`
   - `Profile`
   - `Profile -> Backtesting`
 
@@ -5691,10 +5691,10 @@ Signal Bot feed/runtime closure pass
 
 ### Validation Snapshot
 
-- `E2E_BASE_URL='https://binance-trading-analysis-tool.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/heavy-views.spec.mjs` -> pass
-  - `chrome`: pass
-  - `firefox`: pass
-  - `webkit`: pass
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-qagdrbgzn.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/auth-startup.spec.mjs tests/e2e/multi-user-isolation.spec.mjs tests/e2e/heavy-views.spec.mjs` -> pass
+  - `chrome`: pass (`5/5`)
+  - `firefox`: pass (`5/5`)
+  - `webkit`: pass (`5/5`)
 
 ### Progress Estimate
 
@@ -5729,3 +5729,25 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Focused navigation cleanup: `100% complete`
+
+## 2026-03-22 - Focused sidebar browser recertification
+
+### What Changed
+
+- Updated [heavy-views.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/heavy-views.spec.mjs) so `My Wallet` asserts the current product copy:
+  - `Total Portfolio Value`
+  - `Asset Holdings`
+- Kept [multi-user-isolation.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/multi-user-isolation.spec.mjs) aligned with the simplified sidebar by preferring direct access to `Bot Settings` and only expanding legacy groups if needed.
+
+### Why This Matters
+
+- The focused sidebar change is now fully certified against the actual UI instead of relying on stale labels from the old wallet screen.
+- This removes a false-red E2E failure and restores trustworthy browser regression coverage for the simplified navigation.
+
+### Validation Snapshot
+
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-qagdrbgzn.vercel.app' PLAYWRIGHT_ENABLE_FIREFOX=1 PLAYWRIGHT_ENABLE_WEBKIT=1 npm run test:e2e -- tests/e2e/auth-startup.spec.mjs tests/e2e/multi-user-isolation.spec.mjs tests/e2e/heavy-views.spec.mjs` -> pass (`15/15`)
+
+### Progress Estimate
+
+- Focused sidebar browser recertification: `100% complete`

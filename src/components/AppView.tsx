@@ -1,4 +1,4 @@
-import { Suspense, lazy, type ReactNode, type RefObject } from "react";
+import { Suspense, lazy, memo, type ReactNode, type RefObject } from "react";
 import type { UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
 
@@ -41,7 +41,7 @@ interface AppViewProps {
   user: UserSession;
 }
 
-export function AppView(props: AppViewProps) {
+function AppViewComponent(props: AppViewProps) {
   let content: ReactNode = null;
 
   switch (props.currentView) {
@@ -194,3 +194,56 @@ export function AppView(props: AppViewProps) {
     </Suspense>
   );
 }
+
+function areCalculatorValuesEqual(left: AppViewProps["calculatorValues"], right: AppViewProps["calculatorValues"]) {
+  return left.capital === right.capital
+    && left.entry === right.entry
+    && left.percent === right.percent
+    && left.stopPct === right.stopPct;
+}
+
+function areCalculatorResultsEqual(left: AppViewProps["calculatorResult"], right: AppViewProps["calculatorResult"]) {
+  return left.exitPrice === right.exitPrice
+    && left.gross === right.gross
+    && left.commission === right.commission
+    && left.net === right.net
+    && left.netPct === right.netPct
+    && left.breakEven === right.breakEven
+    && left.stopPrice === right.stopPrice
+    && left.stopLoss === right.stopLoss;
+}
+
+function areAppViewPropsEqual(prev: AppViewProps, next: AppViewProps) {
+  if (prev.currentView !== next.currentView) return false;
+
+  switch (next.currentView) {
+    case "dashboard":
+      return prev.theme === next.theme
+        && prev.chartRef === next.chartRef
+        && prev.onSaveSignal === next.onSaveSignal
+        && prev.onNavigateView === next.onNavigateView;
+    case "control-overview":
+    case "control-bot-settings":
+    case "ai-signal-bot":
+    case "signals":
+    case "bots":
+      return prev.onNavigateView === next.onNavigateView;
+    case "calculator":
+      return areCalculatorValuesEqual(prev.calculatorValues, next.calculatorValues)
+        && areCalculatorResultsEqual(prev.calculatorResult, next.calculatorResult)
+        && prev.onCalculatorChange === next.onCalculatorChange
+        && prev.onSuggestPlan === next.onSuggestPlan
+        && prev.onUseCurrentPrice === next.onUseCurrentPrice;
+    case "profile":
+    case "preferences":
+    case "notifications":
+    case "security-api-keys":
+      return prev.user.username === next.user.username
+        && prev.user.displayName === next.user.displayName
+        && prev.user.role === next.user.role;
+    default:
+      return true;
+  }
+}
+
+export const AppView = memo(AppViewComponent, areAppViewPropsEqual);

@@ -3066,3 +3066,39 @@ Keep the work phased.
 
 - `performance/polish`: `85% complete`
 - Remaining work for this front: `15%`
+
+## 2026-03-22 - Performance polish: isolate shell rerenders from hot market ticks
+
+### What Was Added / Changed
+
+- Simplified [src/hooks/useTheme.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useTheme.ts) so theme persistence only follows theme changes and no longer reruns on candle updates.
+- Tightened [src/data-platform/selectors.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/selectors.ts) so the top bar stops subscribing to unused market fields.
+- Wrapped [src/components/TopBar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/TopBar.tsx) in `memo()` with a focused prop comparison.
+- Wrapped [src/components/AppView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/AppView.tsx) in `memo()` with route-aware comparisons so the active shell no longer repaints from unrelated hot ticks.
+
+### Why This Matters
+
+- This is the seventh concrete `performance/polish` pass after certification.
+- It reduces one of the last high-frequency costs left in the app shell:
+  - global theme side effects on live candles
+  - route-shell rerenders caused by hot market/runtime state that some views do not use
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- `performance/polish` is now in final verification territory.
+- The remaining work is mainly:
+  - one last UX/perf spot-check on the heaviest views
+  - optional browser verification on production
+  - then returning to the automatic bot module
+
+### Progress Estimate
+
+- `performance/polish`: `95% complete`
+- Remaining work for this front: `5%`

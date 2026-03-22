@@ -160,12 +160,10 @@ export function useCompareMarketSelector() {
 export function useTopBarMarketSelector() {
   return useDataPlaneStore(marketDataPlaneStore, (state) => ({
     currentCoin: state.currentCoin,
-    timeframe: state.timeframe,
     availableCoins: state.availableCoins,
     popularCoins: state.popularCoins,
     status: state.meta.status,
     selectCoin: state.actions.selectCoin,
-    selectTimeframe: state.actions.selectTimeframe,
   }), shallowEqualSelection);
 }
 

@@ -5613,3 +5613,35 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `85% complete`
 - Remaining work for this front: `15%`
+
+## 2026-03-22 - Performance polish: isolate shell rerenders from hot market ticks
+
+### What Changed
+
+- Simplified [src/hooks/useTheme.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useTheme.ts) so theme persistence no longer reruns on every candle update.
+- Tightened [src/data-platform/selectors.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/selectors.ts) so the top-bar market selector only subscribes to the fields the top bar actually consumes.
+- Wrapped [src/components/TopBar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/TopBar.tsx) in `memo()` with a focused prop comparison, letting it rerender from its own selectors instead of every unrelated shell update.
+- Wrapped [src/components/AppView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/AppView.tsx) in `memo()` with view-aware prop comparisons, so hot market/runtime ticks stop repainting route shells that are not using those props.
+
+### Why This Matters
+
+- Before this pass, authenticated shell updates still had too much blast radius:
+  - theme side effects reran with every candle movement
+  - `TopBar` could wake up from parent rerenders it did not care about
+  - `AppView` could repaint route shells on hot ticks even when the active view did not depend on those props
+- Now the shell is more intentional:
+  - theme side effects only follow theme changes
+  - `TopBar` listens primarily to shared plane selectors
+  - `AppView` rerenders only when the active route's relevant props actually changed
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `performance/polish`: `95% complete`
+- Remaining work for this front: `5%`

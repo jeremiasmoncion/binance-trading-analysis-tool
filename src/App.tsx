@@ -92,7 +92,7 @@ export function App() {
     evaluatePendingSignals,
   } = signalMemory;
   const isCurrentCoinWatched = watchlist.isWatched(market.currentCoin);
-  const { theme, toggleTheme } = useTheme(chartRef, market.candles);
+  const { theme, toggleTheme } = useTheme();
   const clientMarketAutomationEnabled = currentView === "dashboard" || currentView === "market";
   const plan = useMemo(() => {
     if (!market.indicators || !market.signal) return null;

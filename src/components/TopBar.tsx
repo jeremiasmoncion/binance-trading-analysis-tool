@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { BellIcon, BoltIcon, ChevronDownIcon, MoonIcon, PanelLeftIcon, SunIcon } from "./Icons";
 import { useRealtimeCoreStatusSelector, useTopBarMarketSelector } from "../data-platform/selectors";
 import type { UserSession } from "../types";
@@ -13,7 +13,7 @@ interface TopBarProps {
   onLogout: () => void;
 }
 
-export function TopBar(props: TopBarProps) {
+function TopBarComponent(props: TopBarProps) {
   const market = useTopBarMarketSelector();
   const { realtimeCore } = useRealtimeCoreStatusSelector();
   // TopBar reads market/runtime state straight from the shared planes so App
@@ -250,3 +250,15 @@ export function TopBar(props: TopBarProps) {
     </header>
   );
 }
+
+export const TopBar = memo(TopBarComponent, (prev, next) => (
+  prev.showAdmin === next.showAdmin
+  && prev.sidebarCollapsed === next.sidebarCollapsed
+  && prev.onToggleTheme === next.onToggleTheme
+  && prev.onToggleSidebar === next.onToggleSidebar
+  && prev.onOpenAdmin === next.onOpenAdmin
+  && prev.onLogout === next.onLogout
+  && prev.user.username === next.user.username
+  && prev.user.displayName === next.user.displayName
+  && prev.user.role === next.user.role
+));

@@ -1,7 +1,6 @@
-import { useEffect, useState, type RefObject } from "react";
-import type { Candle } from "../types";
+import { useCallback, useEffect, useState } from "react";
 
-export function useTheme(chartRef: RefObject<HTMLCanvasElement | null>, candles: Candle[]) {
+export function useTheme() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
   useEffect(() => {
@@ -15,12 +14,12 @@ export function useTheme(chartRef: RefObject<HTMLCanvasElement | null>, candles:
     document.body.classList.toggle("dark-theme", theme === "dark");
     document.body.classList.toggle("light-theme", theme === "light");
     localStorage.setItem("crype_theme", theme);
-  }, [theme, candles, chartRef]);
+  }, [theme]);
 
   return {
     theme,
-    toggleTheme() {
+    toggleTheme: useCallback(() => {
       setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-    },
+    }, []),
   };
 }

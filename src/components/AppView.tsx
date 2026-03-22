@@ -1,7 +1,6 @@
 import { Suspense, lazy, type ReactNode, type RefObject } from "react";
 import type { UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
-import { useBotOperationalLoop } from "../hooks/useBotOperationalLoop";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
 const MemoryView = lazy(() => import("../views/MemoryView").then((module) => ({ default: module.MemoryView })));
@@ -43,8 +42,6 @@ interface AppViewProps {
 }
 
 export function AppView(props: AppViewProps) {
-  useBotOperationalLoop();
-
   let content: ReactNode = null;
 
   switch (props.currentView) {

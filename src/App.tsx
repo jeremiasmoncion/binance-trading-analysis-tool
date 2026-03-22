@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppView } from "./components/AppView";
 import { LoginOverlay } from "./components/LoginOverlay";
 import { Sidebar } from "./components/Sidebar";
@@ -25,6 +25,7 @@ import { applyRealtimeCoreEvent } from "./realtime-core/events";
 import type { StrategyRecommendationRecord } from "./types";
 
 const INITIAL_WORKSPACE_BOOTSTRAP_TIMEOUT_MS = 4_000;
+const BotRuntimeHost = lazy(() => import("./components/BotRuntimeHost").then((module) => ({ default: module.BotRuntimeHost })));
 
 function isMobileViewport() {
   return typeof window !== "undefined" && window.innerWidth <= 1024;
@@ -672,6 +673,9 @@ export function App() {
   return (
     <div className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
       <SystemUiHost />
+      <Suspense fallback={null}>
+        <BotRuntimeHost />
+      </Suspense>
       <button
         type="button"
         className="app-mobile-backdrop"

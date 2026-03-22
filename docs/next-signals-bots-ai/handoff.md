@@ -2863,3 +2863,37 @@ Keep the work phased.
 
 - `Parallel Session Stability Hardening`: `100% complete`
 - Remaining work for this front: `0%`
+
+## 2026-03-22 - Performance polish: bot runtime code-splitting
+
+### What Was Added / Changed
+
+- Added [src/components/BotRuntimeHost.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/BotRuntimeHost.tsx) as a dedicated lazy runtime host for the bot operational loop.
+- Updated [src/App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx) so the authenticated shell lazy-loads the bot runtime instead of carrying it in the main application chunk.
+- Removed the direct runtime hook from [src/components/AppView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/AppView.tsx).
+
+### Why This Matters
+
+- The main bundle no longer pays for the full bot runtime path during first paint on non-bot views.
+- This keeps the hardened architecture intact while improving startup weight and shell responsiveness.
+
+### Measured Impact
+
+- Main JS chunk dropped from `441.75 kB` to `338.31 kB`
+- Gzip dropped from `125.81 kB` to `98.65 kB`
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+
+### Notes For The Next Agent
+
+- This is the first concrete `performance/polish` pass after certification.
+- The next best targets are the heavy shared shell hooks (`useBinanceData`, `useSignalMemory`, `useMemoryRuntime`) and any view-level polling that can be narrowed further by active screen.
+
+### Progress Estimate
+
+- `performance/polish`: `20% complete`
+- Remaining work for this front: `80%`

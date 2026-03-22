@@ -5440,3 +5440,36 @@ Signal Bot feed/runtime closure pass
 
 - `Parallel Session Stability Hardening`: `100% complete`
 - Remaining work for this front: `0%`
+
+## 2026-03-22 - Performance polish: bot runtime code-splitting
+
+### What Changed
+
+- Moved the always-on bot runtime out of the main shell bundle into a dedicated lazy host:
+  - [src/components/BotRuntimeHost.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/BotRuntimeHost.tsx)
+- Updated [src/App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx) to lazy-load that runtime host after the authenticated shell is ready
+- Removed the direct runtime hook from [src/components/AppView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/AppView.tsx)
+
+### Why This Matters
+
+- Before this change, the bot operational runtime was bundled into the main application chunk even for users opening non-bot screens.
+- Now the app can render the shell first and load the bot runtime as a separate authenticated runtime chunk.
+
+### Measured Impact
+
+- Main JS chunk before: `441.75 kB` (`125.81 kB gzip`)
+- Main JS chunk after: `338.31 kB` (`98.65 kB gzip`)
+- Reduction:
+  - `-103.44 kB` raw
+  - `-27.16 kB gzip`
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+
+### Progress Estimate
+
+- `performance/polish`: `20% complete`
+- Remaining work for this front: `80%`

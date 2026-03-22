@@ -3511,3 +3511,38 @@ Keep the work phased.
   - no blocking overlay between views
   - first-entry refreshes still happen
   - visible metrics stay tied to canonical trade/execution truth
+
+## 2026-03-22 - Multi-browser live hydration diagnostic
+
+### What Was Added / Changed
+
+- Added [live-hydration-diagnostic.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/live-hydration-diagnostic.spec.mjs) as a reusable long-session browser diagnostic.
+
+### What Was Observed
+
+- `Chrome`, `Firefox`, and `WebKit` all showed drift in:
+  - `Dashboard`
+  - `My Wallet`
+- The first visible change happened around `~5s` in all three engines.
+- `Bot Settings` stayed mostly flat; only `WebKit` showed a minor accepted-count change.
+- `Signal Bot` stayed flat across the observation window in all three engines.
+- The network trace during the session showed:
+  - `/api/binance/portfolio?mode=live`
+  - `/api/binance/dashboard-summary`
+  - `/api/binance/portfolio?mode=full`
+  - but no visible `execution` refresh during the bot-route observation window
+
+### Why This Matters
+
+- The browser evidence points to two different classes of problem:
+  - app-wide freshness drift on portfolio/dashboard surfaces
+  - a bot-specific execution refresh path that is not hydrating as expected on entry
+- The next architectural fix should focus on the bot execution entry path and the remaining app-wide stale bootstrap path, not another overlay or UI blocker.
+
+### Notes For The Next Agent
+
+- Re-run [live-hydration-diagnostic.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/live-hydration-diagnostic.spec.mjs) after the next fix to confirm whether drift disappears in:
+  - `dashboard`
+  - `my-wallet`
+  - `bot-settings`
+  - `signal-bot`

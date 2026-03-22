@@ -6058,3 +6058,49 @@ Signal Bot feed/runtime closure pass
   - [BotSettingsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/BotSettingsView.tsx)
   - [SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx)
   - [connectedLoadPlan.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/connectedLoadPlan.ts)
+
+## 2026-03-22 - Multi-browser live hydration diagnostic
+
+### What Changed
+
+- Added a reusable browser diagnostic in [live-hydration-diagnostic.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/live-hydration-diagnostic.spec.mjs).
+- The diagnostic logs visible state drift over a `1+ minute` authenticated browsing session across:
+  - `Dashboard`
+  - `My Wallet`
+  - `Bot Settings`
+  - `Signal Bot`
+- It also records the timing of `/api/binance/*` responses during the same session.
+
+### What We Observed
+
+- `Chrome`, `Firefox`, and `WebKit` all reproduced the same general pattern.
+- `Dashboard` drifted within ~`5s`:
+  - `Standby / 0 bots / $0.00` became `Running / 1 bot / -$5.42`
+- `My Wallet` drifted within ~`5s`:
+  - `Today's P&L`, `Open P&L`, and `All Time` entered as zeros and later corrected to live values
+- `Bot Settings`:
+  - `Chrome` and `Firefox` stayed flat over the observation window
+  - `WebKit` only showed a small accepted-count change, while the visible trade KPIs stayed at zero
+- `Signal Bot` stayed flat in all three engines over the observation window
+
+### Why This Matters
+
+- The problem is not a random browser quirk.
+- The app-wide stale-first-paint issue is still real for:
+  - `Dashboard`
+  - `My Wallet`
+- The bot module problem is more specific:
+  - visible bot surfaces are not receiving a fresh execution refresh during entry in the way we expected
+  - the recorded session showed portfolio/dashboard requests, but no visible `execution` refresh during the bot-route observation window
+- This strongly suggests the next root-cause fix should focus on the entry refresh path for bot execution data, not another generic shell overlay.
+
+### Validation Snapshot
+
+- Browser diagnostic passes technically and emits evidence in:
+  - `chrome`
+  - `firefox`
+  - `webkit`
+
+### Notes
+
+- This diagnostic is intentionally reusable so we can rerun it after each root-cause fix and verify whether the drift disappears or just moves.

@@ -21,7 +21,34 @@ function getMemoryRuntimeStrategyIntervalMs(currentView: ViewName) {
     return 60_000;
   }
 
-  return 180_000;
+  return 0;
+}
+
+function getMemoryRuntimeScannerIntervalMs(currentView: ViewName) {
+  if (currentView === "memory" || currentView === "profile") {
+    return 60_000;
+  }
+
+  if (
+    currentView === "ai-signal-bot"
+    || currentView === "signals"
+    || currentView === "bots"
+    || currentView === "trading"
+    || currentView === "control-overview"
+    || currentView === "control-bot-settings"
+  ) {
+    return 180_000;
+  }
+
+  return 0;
+}
+
+function viewNeedsStrategyRuntimeBootstrap(currentView: ViewName) {
+  return currentView === "memory" || currentView === "profile";
+}
+
+function viewNeedsScannerRuntimeBootstrap(currentView: ViewName) {
+  return getMemoryRuntimeScannerIntervalMs(currentView) > 0;
 }
 
 function hasRecordArrayChanged<T extends { id: number; updated_at?: string | null }>(current: T[], next: T[]) {
@@ -323,15 +350,24 @@ export function useMemoryRuntime({ currentUser, currentView }: UseMemoryRuntimeO
     }
 
     // Memory tooling now hydrates centrally so the view can consume a shared
-    // snapshot instead of owning its own fetch lifecycle.
-    void refreshStrategyEngine({ clearOnError: true });
-    void refreshScannerStatus({ clearOnError: true });
-  }, [currentUser, refreshScannerStatus, refreshStrategyEngine]);
+    // snapshot instead of owning its own fetch lifecycle. Only bootstrap the
+    // heavy domains when the active screen can actually consume them.
+    if (viewNeedsStrategyRuntimeBootstrap(currentView)) {
+      void refreshStrategyEngine({ clearOnError: true });
+    }
+    if (viewNeedsScannerRuntimeBootstrap(currentView)) {
+      void refreshScannerStatus({ clearOnError: true });
+    }
+  }, [currentUser, currentView, refreshScannerStatus, refreshStrategyEngine]);
 
   useEffect(() => {
     if (!currentUser) return undefined;
 
     const intervalMs = getMemoryRuntimeStrategyIntervalMs(currentView);
+    if (!intervalMs || intervalMs <= 0) {
+      return undefined;
+    }
+
     const intervalId = window.setInterval(() => {
       if (document.visibilityState === "hidden") return;
       // Strategy recommendations now refresh through the shared memory runtime
@@ -347,6 +383,24 @@ export function useMemoryRuntime({ currentUser, currentView }: UseMemoryRuntimeO
       window.clearInterval(intervalId);
     };
   }, [currentUser, currentView, refreshStrategyEngine]);
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+
+    const intervalMs = getMemoryRuntimeScannerIntervalMs(currentView);
+    if (!intervalMs || intervalMs <= 0) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") return;
+      void refreshScannerStatus();
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [currentUser, currentView, refreshScannerStatus]);
 
   return {
     strategyRegistry,

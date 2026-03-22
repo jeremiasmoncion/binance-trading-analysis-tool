@@ -10,6 +10,16 @@ interface UseSignalMemoryOptions {
   currentView: ViewName;
 }
 
+function viewNeedsSignalMemoryBootstrap(view: ViewName) {
+  return view === "dashboard"
+    || view === "market"
+    || view === "memory"
+    || view === "signals"
+    || view === "ai-signal-bot"
+    || view === "trading"
+    || view === "control-overview";
+}
+
 function hasSignalMemoryChanged(current: SignalSnapshot[], next: SignalSnapshot[]) {
   if (current === next) return false;
   if (current.length !== next.length) return true;
@@ -304,11 +314,15 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       return;
     }
 
+    if (!viewNeedsSignalMemoryBootstrap(currentView)) {
+      return;
+    }
+
     // Signal memory is a shared domain mounted at App level, so navigation
     // alone should not trigger a full refetch. Periodic policy-driven refresh
     // and explicit mutations already keep the snapshot current.
     void refreshSignals();
-  }, [currentUser, publishSignalsToPlane, refreshSignals]);
+  }, [currentUser, currentView, publishSignalsToPlane, refreshSignals]);
 
   useEffect(() => {
     if (!currentUser) return undefined;

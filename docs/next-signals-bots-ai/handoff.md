@@ -2966,3 +2966,37 @@ Keep the work phased.
 
 - `performance/polish`: `50% complete`
 - Remaining work for this front: `50%`
+
+## 2026-03-22 - Performance polish: selective signal-memory and memory-runtime bootstrap
+
+### What Was Added / Changed
+
+- Tightened [src/hooks/useSignalMemory.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalMemory.ts) so the signal-memory runtime only boots immediately on views that actually consume signal memory as active product state.
+- Tightened [src/hooks/useMemoryRuntime.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useMemoryRuntime.ts) so:
+  - strategy runtime bootstraps immediately only on `memory` / `profile`
+  - scanner runtime keeps its own slower cadence for bot-operational and control views
+
+### Why This Matters
+
+- The shell no longer pays for eager signal-memory and strategy-runtime hydration on every authenticated screen.
+- Bot/control surfaces keep scanner freshness, while account/static surfaces stop dragging those domains into the startup path.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Notes For The Next Agent
+
+- This is the fourth concrete `performance/polish` pass after certification.
+- The next best targets are now:
+  - `useValidationLabRuntime` gating/lazy mounting for admin-only surfaces
+  - more shell-level deferral around non-visible admin tools
+  - then a final UX/perf verification pass before returning to bot automation
+
+### Progress Estimate
+
+- `performance/polish`: `65% complete`
+- Remaining work for this front: `35%`

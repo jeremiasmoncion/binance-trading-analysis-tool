@@ -5532,3 +5532,32 @@ Signal Bot feed/runtime closure pass
 
 - `performance/polish`: `50% complete`
 - Remaining work for this front: `50%`
+
+## 2026-03-22 - Performance polish: selective signal-memory and memory-runtime bootstrap
+
+### What Changed
+
+- Tightened [src/hooks/useSignalMemory.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalMemory.ts) so the shared signal-memory runtime no longer forces an immediate refetch on every authenticated screen.
+- Tightened [src/hooks/useMemoryRuntime.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useMemoryRuntime.ts) so:
+  - heavy strategy-runtime hydration only boots immediately on views that really inspect memory/profile state
+  - scanner status keeps its own slower polling path for bot-operational surfaces
+
+### Why This Matters
+
+- Before this pass, the shell still booted signal-memory and memory-runtime work too eagerly, even on screens where that data was not being consumed immediately.
+- Now:
+  - `signalMemory` only boots immediately on signal/market/bot surfaces that need it
+  - strategy-runtime no longer hydrates globally on every authenticated entry
+  - scanner/runtime polling stays alive where bot and control surfaces still benefit from it
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `performance/polish`: `65% complete`
+- Remaining work for this front: `35%`

@@ -5412,3 +5412,31 @@ Signal Bot feed/runtime closure pass
 
 - `Parallel Session Stability Hardening`: `98% complete`
 - Remaining work for this front: `2%`
+
+## 2026-03-22 - WebKit certification closure
+
+### What Changed
+
+- Closed the last open browser-certification gap by validating the same auth-startup and multi-user isolation suites in WebKit against a fullstack Vercel preview.
+
+### Validation Snapshot
+
+- Preview used for final browser certification:
+  - [https://binance-trading-analysis-tool-7umguji6x.vercel.app](https://binance-trading-analysis-tool-7umguji6x.vercel.app)
+- WebKit preview E2E:
+  - `tests/e2e/auth-startup.spec.mjs` -> pass (`2/2`)
+  - `tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+- Combined browser certification now passes in:
+  - Chrome
+  - Firefox
+  - WebKit
+
+### Why This Matters
+
+- The final browser gap for startup/session isolation is now closed with the same fullstack validation path used for Chrome and Firefox.
+- At this point the remaining work is no longer certification of this layer, but the next phase (`performance/polish` or returning to bot automation).
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `100% complete`
+- Remaining work for this front: `0%`

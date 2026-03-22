@@ -2833,3 +2833,33 @@ Keep the work phased.
 
 - `Parallel Session Stability Hardening`: `98% complete`
 - Remaining work for this front: `2%`
+
+## 2026-03-22 - WebKit certification closure
+
+### What Was Added / Changed
+
+- Closed the last open browser-certification gap by running the same startup/auth and multi-user isolation suites in WebKit against the validated Vercel preview.
+
+### Validation
+
+- Preview used for final browser certification:
+  - [https://binance-trading-analysis-tool-7umguji6x.vercel.app](https://binance-trading-analysis-tool-7umguji6x.vercel.app)
+- WebKit preview suite:
+  - `auth-startup.spec.mjs` -> pass (`2/2`)
+  - `multi-user-isolation.spec.mjs` -> pass (`2/2`)
+- Browser-certification status for this front is now green in:
+  - Chrome
+  - Firefox
+  - WebKit
+
+### Notes For The Next Agent
+
+- The multi-browser certification phase for startup/session isolation is closed.
+- The next logical phase is no longer browser-certification work; it is either:
+  - `performance/polish`
+  - or returning to bot-auto logic on top of this hardened base
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `100% complete`
+- Remaining work for this front: `0%`

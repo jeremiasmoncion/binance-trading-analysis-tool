@@ -9,27 +9,17 @@ const WORKSPACE_ENTRY_HYDRATION_TIMEOUT_MS = 9_000;
 interface UseWorkspaceEntryHydrationOptions {
   currentUser: UserSession | null;
   currentView: ViewName;
-  hydrateConnectedView: (
-    view: ViewName,
-    options?: {
-      previousView?: ViewName | null;
-      preferInitialPlan?: boolean;
-      forceFreshDashboard?: boolean;
-    },
-  ) => Promise<unknown>;
   refreshSignals: () => Promise<unknown>;
 }
 
 export function useWorkspaceEntryHydration({
   currentUser,
   currentView,
-  hydrateConnectedView,
   refreshSignals,
 }: UseWorkspaceEntryHydrationOptions) {
   const hydratedKeysRef = useRef<Set<string>>(new Set());
   const currentUsernameRef = useRef<string | null>(null);
   const lastStartedKeyRef = useRef("");
-  const lastVisitedViewRef = useRef<ViewName | null>(null);
   const [hydrationVersion, setHydrationVersion] = useState(0);
 
   useEffect(() => {
@@ -41,7 +31,6 @@ export function useWorkspaceEntryHydration({
     currentUsernameRef.current = nextUsername;
     hydratedKeysRef.current = new Set();
     lastStartedKeyRef.current = "";
-    lastVisitedViewRef.current = null;
     setHydrationVersion((current) => current + 1);
   }, [currentUser?.username]);
 
@@ -53,19 +42,10 @@ export function useWorkspaceEntryHydration({
   const runWorkspaceHydration = useEffectEvent(async (
     nextHydrationKey: string,
     nextView: ViewName,
-    previousView: ViewName | null,
-    shouldBlock: boolean,
     nextUsername: string,
   ) => {
     const nextPlan = buildWorkspaceEntryHydrationPlan(nextView);
     const hydrateTask = Promise.all([
-      nextPlan.refreshConnectedData
-        ? hydrateConnectedView(nextView, {
-            previousView,
-            preferInitialPlan: shouldBlock,
-            forceFreshDashboard: true,
-          })
-        : Promise.resolve(null),
       nextPlan.refreshSignals ? refreshSignals() : Promise.resolve(null),
       nextPlan.refreshBotRuntime
         ? Promise.all([
@@ -89,7 +69,6 @@ export function useWorkspaceEntryHydration({
       return;
     }
 
-    lastVisitedViewRef.current = nextView;
     hydratedKeysRef.current.add(nextHydrationKey);
     setHydrationVersion((current) => current + 1);
   });
@@ -104,9 +83,7 @@ export function useWorkspaceEntryHydration({
     }
 
     lastStartedKeyRef.current = hydrationKey;
-    const previousView = lastVisitedViewRef.current;
-    const shouldBlock = plan.blockOnFirstEntry && !hydratedKeysRef.current.has(hydrationKey);
-    void runWorkspaceHydration(hydrationKey, currentView, previousView, shouldBlock, username);
+    void runWorkspaceHydration(hydrationKey, currentView, username);
   }, [
     currentView,
     hydrationKey,

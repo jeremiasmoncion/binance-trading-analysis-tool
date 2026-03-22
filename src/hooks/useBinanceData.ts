@@ -259,6 +259,8 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
   const [hideSmallAssets, setHideSmallAssets] = useState(true);
   const [binanceForm, setBinanceForm] = useState<BinanceFormState>({ alias: "", apiKey: "", apiSecret: "" });
   const activeUsernameRef = useRef("");
+  const lastRouteHydrationKeyRef = useRef("");
+  const previousRouteViewRef = useRef<ViewName | null>(null);
 
   useEffect(() => {
     activeUsernameRef.current = currentUser?.username || "";
@@ -441,6 +443,34 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     refreshPortfolio,
     refreshProfileData,
   ]);
+
+  useEffect(() => {
+    if (!currentUser?.username) {
+      lastRouteHydrationKeyRef.current = "";
+      previousRouteViewRef.current = null;
+      return;
+    }
+
+    const routeHydrationKey = `${currentUser.username}:${currentView}`;
+    if (lastRouteHydrationKeyRef.current === routeHydrationKey) {
+      return;
+    }
+
+    const previousView = previousRouteViewRef.current;
+    lastRouteHydrationKeyRef.current = routeHydrationKey;
+    previousRouteViewRef.current = currentView;
+
+    // Connected domains own their own route-entry hydration. This keeps
+    // dashboard, wallet and bot surfaces aligned with the same refresh owner
+    // instead of depending on a cross-cutting workspace wrapper.
+    void hydrateConnectedView(currentView, {
+      previousView,
+      preferInitialPlan: previousView == null,
+      forceFreshDashboard: true,
+    }).catch((error) => {
+      console.error("Route-entry connected hydration failed", error);
+    });
+  }, [currentUser?.username, currentView, hydrateConnectedView]);
 
   const updateExecutionProfile = useCallback(async (profile: ExecutionProfile) => {
     const username = currentUser?.username || "";

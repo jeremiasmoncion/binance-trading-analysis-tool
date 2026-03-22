@@ -3641,3 +3641,55 @@ Keep the work phased.
 - `npm run typecheck` OK
 - `npm run build` OK
 - `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` OK with `findings: []`
+
+## 2026-03-22 - Route-entry connected hydration moved to `useBinanceData`
+
+### What Was Proven
+
+- The remaining stale-first-paint behavior was still split in two:
+  - app-wide drift on `dashboard` and `my-wallet`
+  - bot-route stagnation on `bot-settings` and `signal-bot`
+- The browser diagnostic kept showing no visible execution refresh during the bot-route observation window.
+- That pointed to the wrong owner being responsible for route-entry connected hydration.
+
+### What Was Fixed
+
+- [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) now owns route-entry connected hydration directly, keyed by:
+  - current user
+  - current view
+  - previous view
+- [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) now focuses only on:
+  - signal-memory refresh
+  - bot runtime bootstrap
+- [workspaceHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/workspaceHydration.ts) was simplified so it no longer claims ownership of connected-domain refresh.
+- [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx) no longer routes connected hydration through the generic workspace wrapper.
+
+### Why This Matters
+
+- This is a cleaner ownership boundary:
+  - connected data refresh belongs to the connected data owner
+  - workspace bootstrap remains responsible only for shared non-connected domains
+- It should reduce the chance that route transitions skip or delay:
+  - dashboard summary refresh
+  - portfolio refresh
+  - execution center refresh
+
+### Validation Status
+
+- `npm run test:backend` OK `62/62`
+- `npm run typecheck` OK
+- `npm run build` OK
+- `npm run system-audit -- --env-file=/tmp/crype-db-check.env --users=jeremias,yeudy` OK with `findings: []`
+
+### Validation Limitation
+
+- I attempted to re-run the long browser hydration diagnostic on the new preview.
+- Local Playwright launchers for `chrome` and `firefox` crashed before the browser session started (`SIGABRT`), so there is no trustworthy new browser comparison from this machine for this specific round.
+
+### Recommended Next Step
+
+- Validate this new preview manually in-browser first.
+- If the stale-first-paint issue is reduced or gone:
+  - promote and keep iterating from there.
+- If bot surfaces still lag while dashboard/wallet improve:
+  - the next root-cause slice should be a bot-specific refresh chain beyond connected entry hydration.

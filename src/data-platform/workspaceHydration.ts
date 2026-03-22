@@ -1,9 +1,7 @@
 import type { ViewName } from "../types";
 import { viewNeedsBotRuntimeBootstrap, viewNeedsSharedSignalMemoryBootstrap } from "./botWorkspaceBootstrap.ts";
-import { isBotOperationalView } from "./refreshPolicy.ts";
 
 export interface WorkspaceEntryHydrationPlan {
-  refreshConnectedData: boolean;
   refreshSignals: boolean;
   refreshBotRuntime: boolean;
   blockOnFirstEntry: boolean;
@@ -11,7 +9,6 @@ export interface WorkspaceEntryHydrationPlan {
 }
 
 export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntryHydrationPlan {
-  const refreshConnectedData = view === "dashboard" || view === "balance" || isBotOperationalView(view);
   const refreshSignals = viewNeedsSharedSignalMemoryBootstrap(view);
   const refreshBotRuntime = viewNeedsBotRuntimeBootstrap(view);
   // Navigation between live surfaces should feel immediate. We still refresh
@@ -21,7 +18,6 @@ export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntry
 
   if (view === "dashboard") {
     return {
-      refreshConnectedData,
       refreshSignals,
       refreshBotRuntime,
       blockOnFirstEntry,
@@ -31,7 +27,6 @@ export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntry
 
   if (view === "balance") {
     return {
-      refreshConnectedData,
       refreshSignals,
       refreshBotRuntime,
       blockOnFirstEntry,
@@ -41,7 +36,6 @@ export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntry
 
   if (view === "control-bot-settings" || view === "bots") {
     return {
-      refreshConnectedData,
       refreshSignals,
       refreshBotRuntime,
       blockOnFirstEntry,
@@ -51,7 +45,6 @@ export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntry
 
   if (view === "ai-signal-bot" || view === "signals") {
     return {
-      refreshConnectedData,
       refreshSignals,
       refreshBotRuntime,
       blockOnFirstEntry,
@@ -60,7 +53,6 @@ export function buildWorkspaceEntryHydrationPlan(view: ViewName): WorkspaceEntry
   }
 
   return {
-    refreshConnectedData,
     refreshSignals,
     refreshBotRuntime,
     blockOnFirstEntry,

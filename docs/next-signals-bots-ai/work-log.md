@@ -6227,3 +6227,58 @@ Signal Bot feed/runtime closure pass
 - `npm run build` OK
 - `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` OK
 - `findings: []`
+
+## 2026-03-22 - Route-entry connected hydration moved to the connected data owner
+
+### What Was Confirmed
+
+- The browser diagnostic still showed:
+  - `dashboard` drifting after ~5s
+  - `my-wallet` drifting after ~5s
+  - `bot-settings` staying stale
+  - `signal-bot` staying stale
+- The key clue was that the long browser session still did not show visible `execution` refresh responses during bot-route observation.
+- That pointed to an ownership problem:
+  - connected route-entry hydration was still orchestrated from the generic workspace hook
+  - but the connected data domains are actually owned by [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts)
+
+### What Changed In Code
+
+- Moved connected route-entry hydration responsibility into [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts).
+- Added view-transition refs there so connected refresh now reacts to:
+  - authenticated user
+  - active view
+  - previous connected view
+- Kept [useWorkspaceEntryHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useWorkspaceEntryHydration.ts) focused on:
+  - shared signal-memory refresh
+  - bot runtime bootstrap
+- Simplified [workspaceHydration.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/workspaceHydration.ts) so it no longer pretends to own connected-domain refresh.
+- Updated [App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx) to stop passing connected hydration through the generic workspace hook.
+
+### Why This Matters
+
+- This is a root architectural correction, not another UI wait-state tweak.
+- `Dashboard`, `My Wallet`, `Bot Settings`, and `Signal Bot` should all now get their connected refresh from the same owner that already owns:
+  - connection
+  - portfolio
+  - execution center
+  - dashboard summary
+- That reduces the chance of route-entry drift caused by cross-cutting orchestration missing or skipping the correct refresh path.
+
+### Validation Snapshot
+
+- `npm run test:backend` OK `62/62`
+- `npm run typecheck` OK
+- `npm run build` OK
+- `npm run system-audit -- --env-file=/tmp/crype-db-check.env --users=jeremias,yeudy` OK
+- `findings: []`
+
+### Validation Limitation
+
+- I attempted to re-run the long browser diagnostic against the new preview.
+- The local Playwright launchers for `chrome` and `firefox` crashed before the browser session started (`SIGABRT` / launcher failure).
+- So this round is validated by:
+  - contract/tests
+  - build
+  - system audit
+- but not by a successful new long browser run from this local machine.

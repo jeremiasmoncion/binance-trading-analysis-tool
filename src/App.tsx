@@ -90,7 +90,6 @@ export function App() {
   useWorkspaceEntryHydration({
     currentUser: auth.currentUser,
     currentView,
-    hydrateConnectedView: binance.hydrateConnectedView,
     refreshSignals: signalMemory.refreshSignals,
   });
   const {

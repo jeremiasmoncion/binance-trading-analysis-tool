@@ -6,16 +6,17 @@ import {
   type Bot,
   type BotRegistryState,
 } from "../domain";
-import { botService } from "../services/api";
+import { authService, botService } from "../services/api";
 
 interface BotRegistryRuntimeState {
   registry: BotRegistryState;
   hydrated: boolean;
   loading: boolean;
   error: string | null;
+  sessionUsername: string | null;
 }
 
-const BOT_REGISTRY_STORAGE_KEY = "crype-bot-registry";
+const BOT_REGISTRY_STORAGE_KEY_PREFIX = "crype-bot-registry";
 const EMPTY_BOT_REGISTRY_STATE: BotRegistryState = {
   bots: [],
   selectedBotId: null,
@@ -34,6 +35,7 @@ let runtimeState: BotRegistryRuntimeState = {
   hydrated: false,
   loading: false,
   error: null,
+  sessionUsername: null,
 };
 let hydrationPromise: Promise<BotRegistryState> | null = null;
 const runtimeListeners = new Set<() => void>();
@@ -59,17 +61,22 @@ function isCacheBotShapeValid(bot: unknown) {
   );
 }
 
-function readCachedRegistry() {
+function buildRegistryStorageKey(username: string | null | undefined) {
+  const normalized = String(username || "").trim().toLowerCase();
+  return normalized ? `${BOT_REGISTRY_STORAGE_KEY_PREFIX}:${normalized}` : BOT_REGISTRY_STORAGE_KEY_PREFIX;
+}
+
+function readCachedRegistry(username: string | null | undefined) {
   if (typeof window === "undefined") return null;
 
   try {
-    const raw = window.localStorage.getItem(BOT_REGISTRY_STORAGE_KEY);
+    const raw = window.localStorage.getItem(buildRegistryStorageKey(username));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.bots)) return null;
     const nextRegistry = parsed as BotRegistryState;
     if (isTemplateRegistry(nextRegistry) || !nextRegistry.bots.every(isCacheBotShapeValid)) {
-      window.localStorage.removeItem(BOT_REGISTRY_STORAGE_KEY);
+      window.localStorage.removeItem(buildRegistryStorageKey(username));
       return null;
     }
     return nextRegistry;
@@ -78,9 +85,9 @@ function readCachedRegistry() {
   }
 }
 
-function writeCachedRegistry(nextRegistry: BotRegistryState) {
+function writeCachedRegistry(username: string | null | undefined, nextRegistry: BotRegistryState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(BOT_REGISTRY_STORAGE_KEY, JSON.stringify(nextRegistry));
+  window.localStorage.setItem(buildRegistryStorageKey(username), JSON.stringify(nextRegistry));
 }
 
 function emitRuntimeState() {
@@ -93,7 +100,7 @@ function setRegistry(nextRegistry: BotRegistryState) {
     registry: nextRegistry,
   };
   botRegistryStore.setState(nextRegistry);
-  writeCachedRegistry(nextRegistry);
+  writeCachedRegistry(runtimeState.sessionUsername, nextRegistry);
   emitRuntimeState();
 }
 
@@ -117,6 +124,27 @@ function normalizeRegistry(nextBots: Bot[], currentSelectedBotId: string | null,
   } satisfies BotRegistryState;
 }
 
+async function ensureRegistrySessionContext() {
+  const session = await authService.getSession().catch(() => null);
+  const nextUsername = String(session?.username || "").trim().toLowerCase() || null;
+
+  if (runtimeState.sessionUsername === nextUsername) {
+    return nextUsername;
+  }
+
+  hydrationPromise = null;
+  runtimeState = {
+    registry: EMPTY_BOT_REGISTRY_STATE,
+    hydrated: false,
+    loading: false,
+    error: null,
+    sessionUsername: nextUsername,
+  };
+  botRegistryStore.setState(EMPTY_BOT_REGISTRY_STATE);
+  emitRuntimeState();
+  return nextUsername;
+}
+
 function subscribe(listener: () => void) {
   runtimeListeners.add(listener);
   return () => {
@@ -125,6 +153,17 @@ function subscribe(listener: () => void) {
 }
 
 async function hydrateBotRegistry(forceFresh = false) {
+  const sessionUsername = await ensureRegistrySessionContext();
+  if (!sessionUsername) {
+    setRegistry(EMPTY_BOT_REGISTRY_STATE);
+    setRuntimePatch({
+      hydrated: true,
+      loading: false,
+      error: null,
+    });
+    return EMPTY_BOT_REGISTRY_STATE;
+  }
+
   if (!forceFresh && runtimeState.hydrated) {
     return runtimeState.registry;
   }
@@ -134,13 +173,13 @@ async function hydrateBotRegistry(forceFresh = false) {
   }
 
   if (!forceFresh) {
-    const cachedRegistry = readCachedRegistry();
+    const cachedRegistry = readCachedRegistry(sessionUsername);
     if (cachedRegistry) {
       try {
         setRegistry(cachedRegistry);
       } catch {
         if (typeof window !== "undefined") {
-          window.localStorage.removeItem(BOT_REGISTRY_STORAGE_KEY);
+          window.localStorage.removeItem(buildRegistryStorageKey(sessionUsername));
         }
       }
       setRuntimePatch({
@@ -178,7 +217,7 @@ async function hydrateBotRegistry(forceFresh = false) {
       return nextRegistry;
     })
     .catch((error) => {
-      const cachedRegistry = readCachedRegistry();
+      const cachedRegistry = readCachedRegistry(sessionUsername);
       const fallbackRegistry = cachedRegistry || (isTemplateRegistry(runtimeState.registry) ? EMPTY_BOT_REGISTRY_STATE : runtimeState.registry);
       setRegistry(fallbackRegistry);
       setRuntimePatch({
@@ -203,6 +242,7 @@ function patchBotInRegistry(botId: string, updater: (bot: Bot) => Bot) {
 }
 
 export async function createBotProfile(payload: Partial<Bot> & { name?: string }) {
+  await ensureRegistrySessionContext();
   const response = await botService.create(payload);
   const currentRegistry = runtimeState.registry;
   const nextRegistry = normalizeRegistry(
@@ -216,6 +256,7 @@ export async function createBotProfile(payload: Partial<Bot> & { name?: string }
 }
 
 export async function updateBotProfile(botId: string, payload: Partial<Bot>) {
+  await ensureRegistrySessionContext();
   const previousRegistry = runtimeState.registry;
   patchBotInRegistry(botId, (bot) => ({
     ...bot,

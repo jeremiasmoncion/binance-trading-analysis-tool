@@ -281,7 +281,7 @@ export function syncSystemDataPlane(
         portfolio: isAuthenticated
           ? (binance.portfolioData ?? current.snapshot.portfolio)
           : null,
-        signalMemory: current.snapshot.signalMemory,
+        signalMemory: isAuthenticated ? current.snapshot.signalMemory : [],
         watchlists: isAuthenticated ? watchlist.lists : [],
         activeWatchlistName: isAuthenticated ? watchlist.activeListName : "Principal",
         strategyRegistry: isAuthenticated ? memoryRuntime.strategyRegistry : [],

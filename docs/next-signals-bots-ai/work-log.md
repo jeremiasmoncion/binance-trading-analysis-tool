@@ -1,5 +1,39 @@
 # Work Log
 
+## 2026-03-21
+
+### Phase
+
+`Bot Core` full signal-history coverage round
+
+### Completed
+
+- Removed the selected-bot history truncation that was limiting `Signal History` to only the latest 12 entries.
+- `Signal Bot -> Signal History` now consumes the full bot-owned activity timeline instead of a pre-trimmed slice.
+- Added pagination to the history table so the workspace can show the full operation history without turning the tab into one long unbounded list.
+- Fixed selected-bot scope resolution for `watchlist` and `hybrid` universes so the shared read-model no longer collapses watchlist-driven bots back down to explicit pairs or only the primary pair.
+- `Signal Bot -> Active Trading Pairs` now reflects the active watchlist scope for watchlist-driven bots instead of pretending only the explicit `symbols` list is real.
+- Moved `Signal History` closer to the template with real pair filter chips plus clearer pair/type/status rendering, while keeping the data tied to the shared bot timeline instead of placeholder rows.
+- Normalized `Signal History` rows into a more trade-like shape so the table now renders from one shared history model instead of branching directly on several raw timeline entry variants inside the JSX.
+- Added real `All / Buy / Sell` filters on top of that normalized history model so the tab behaves more like the template while staying tied to real bot-owned history.
+- Validated the round with:
+  - `npm run typecheck`
+  - `npm run build`
+
+### Risk Avoided
+
+- This avoids making the selected bot look like it only has a partial operating history when the shared read-model already knows about more bot-owned decisions and executions.
+- It also avoids pushing operators toward `Execution Logs` just to see older operations that should already belong to the bot workspace itself.
+- It also avoids making watchlist-driven bots look like their pair universe reset just because the UI was reading only explicit `symbols` instead of the real shared watchlist scope.
+- It also avoids keeping `Signal History` visually tied to the template while still behaving like a raw mixed event log under the hood.
+
+### Recommended Next Step
+
+- Continue with the next `Bot Core` round:
+  - enrich `Signal History` row semantics so entry/exit/status read even closer to real trading outcomes
+  - decide whether confidence chips can be promoted into the history toolbar from real shared data instead of inferred UI labels
+  - verify whether any remaining history validation still lives only in UI instead of the shared bot/execution seam
+
 ## 2026-03-20
 
 ### Phase
@@ -4214,3 +4248,1036 @@ Signal Bot feed/runtime closure pass
 ### Progress Estimate
 
 - Estimated remaining work to leave this `Signal Bot` / bot-facing signal workflow at the current target state: `5% - 10%`.
+
+## 2026-03-21 - Bot UX Closure Hardening: execution clarity + operational compact state
+
+### What Changed
+
+- Clarified the active signal cards so `AI Confidence` no longer reads like execution permission:
+  - the card now shows `Signal Score` for ranking/composite priority
+  - a second compact line now exposes execution readiness and scorer confidence separately when available
+- Clarified the signal detail drawer with the same semantic split:
+  - `Signal Score` now explicitly refers to ranking priority
+  - `Execution Readiness` now reflects the scorer/adaptive execution layer instead of reusing the same confidence label
+- Reintroduced a compact operational state block inside `Signal Bot -> Bot Settings` without bringing back the heavier fleet dashboards:
+  - automation state
+  - dispatch queue state
+  - ownership health
+  - attention / queue-churn / guardrail pressure
+- Kept the bot UI simple while making hidden bot-core state visible enough to explain why auto mode may still not dispatch immediately.
+
+### Why This Matters
+
+- The bot workspace was still visually implying that `compositeScore` and execution confidence meant the same thing.
+- Auto mode could be enabled while the governed lane remained closed or while the bot itself was still validating, but the UI was not explaining that clearly.
+- The read-model already had the data for queue state, ownership health and attention pressure; this round gives that logic a compact surface again.
+
+### Files Updated
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Remaining Risk
+
+- The new operational cards summarize real bot-core state, but they are still summaries, not a full diagnostic surface.
+- Manual execution still benefits from the backend hardening already added, but the long-term ideal remains a fuller bot-aware execution bridge end-to-end.
+
+### Next Step
+
+- Finish the closure pass on the minimal bot UX:
+  - confirm create/edit bot flows are stable
+  - refine signal-history semantics where rows still look too much like mixed runtime events
+  - keep moving critical authority out of the client where needed
+
+### Progress Estimate
+
+- Estimated remaining work to leave this `Signal Bot` / bot-facing bot module at the current closure target: `20%`.
+
+## 2026-03-21 - Bot UX Closure Hardening: signal history normalization pass
+
+### What Changed
+
+- Normalized `Signal History` further so the table reads more like bot trading history and less like a raw runtime event stream.
+- Added pair sublabels in history rows to show timeframe plus context.
+- Filtered out low-signal runtime rows that were making the history feel noisy:
+  - observe-only entries without real execution linkage
+  - preview-only execution rows that still belonged more to operational runtime than trading history
+  - queued/dispatch-requested preview-like decision rows without a resolved trade/action outcome
+- Tightened status copy so rows now read more like user-facing bot history:
+  - `Completed`
+  - `Loss`
+  - `Stopped`
+  - `Protected`
+  - `Submitted`
+  - `Previewed`
+  - `Dismissed`
+  - `Blocked`
+
+### Why This Matters
+
+- The tab is supposed to answer "what has this bot done?" more than "which internal events happened?".
+- The old version still surfaced too many runtime transitions that were correct internally but noisy for the product surface.
+- This pass keeps the history connected to real bot/core data while making it much easier to scan visually.
+
+### Files Updated
+
+- `src/views/SignalBotView.tsx`
+- `src/styles/content.css`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Remaining Risk
+
+- Some rows still represent governed bot actions rather than only fully closed trades, which is intentional for now because the product also needs to show what the bot decided and blocked.
+- Exit values are still limited by the execution/order data currently available through the shared read-model.
+
+### Next Step
+
+- Finalize this closure pass by reviewing:
+  - create/edit bot stability
+  - any remaining signal-history rows that should move to a more operational log instead of trading history
+  - any last backend duplication needed for client-heavy controls
+
+### Progress Estimate
+
+- Estimated remaining work to leave the current bot-module closure phase complete: `14%`.
+
+## 2026-03-21 - Bot Authority Hardening: automation mode and execution-policy contract
+
+### What Changed
+
+- Hardened `api/_lib/bots.js` so the persisted bot contract now normalizes and synchronizes:
+  - `automationMode`
+  - `executionEnvironment`
+  - `executionPolicy`
+  - `workspaceSettings.primaryPair`
+  - `generalSettings.defaultTradingPair`
+  - timeframe preferences across universe filters and allowed bot timeframes
+- The backend now treats automation modes more explicitly:
+  - `auto` -> auto execution enabled, suggestions off, human approval off, can open positions
+  - `assist` -> auto execution off, suggestions off, human approval on, can open positions
+  - `observe` -> auto execution off, suggestions on, human approval on, cannot open positions
+- Tightened the `Signal Bot` auto toggle so the UI also sends a cleaner payload when switching back to manual/observe mode.
+
+### Why This Matters
+
+- The bot module still had room for ambiguous combinations coming from the client, especially around `automationMode` vs `executionPolicy`.
+- This change makes the persisted bot more authoritative: even if the UI sends mixed flags, the backend now resolves them into one coherent operational contract.
+- It also reduces the chance that the bot looks manual in UI while still behaving as auto-capable underneath, or vice versa.
+
+### Files Updated
+
+- `api/_lib/bots.js`
+- `src/views/SignalBotView.tsx`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Remaining Risk
+
+- The backend contract is now stronger for bot configuration, but the final long-term bridge between bot identity and execution submission can still be tightened further.
+- `assist` and `observe` are now more coherent structurally, though we should continue validating product behavior against real runtime usage.
+
+### Next Step
+
+- Finish this closure phase by reviewing:
+  - create/edit flow stability
+  - any remaining client-authoritative bot controls
+  - the final bridge from bot policy to execution submission ownership
+
+### Progress Estimate
+
+- Estimated remaining work to leave the current bot-module closure phase complete: `9%`.
+
+## 2026-03-21 - Bot ownership bridge hardening: bot-aware execution dispatch
+
+### What Changed
+
+- Extended the manual/auto execution bridge so bot-originated dispatches now carry explicit bot context deeper into the execution flow.
+- `Signal Bot` manual execute now sends:
+  - `botId`
+  - `botName`
+  - bot-aware origin metadata
+- `useBotOperationalLoop` auto dispatch now sends the same bot-aware execution context for bot-generated dispatches.
+- `api/_lib/executionEngine.js` now persists that context inside execution records and treats bot-manual execution as real manual execution for edge-safety rebuilding.
+- `Signal Bot` manual decisions and auto loop dispatch updates now capture `executionOrderId` when the execution engine returns a created record.
+- `useSignalsBotsReadModel.ts` now uses direct `botContext.botId` from execution records as a first-class ownership signal before falling back to heuristic matching.
+
+### Why This Matters
+
+- This closes one of the most important remaining synchronization gaps in the module:
+  - the bot that initiated execution is now more explicitly represented all the way down to the execution record
+  - ownership no longer depends as heavily on heuristics after the fact
+  - decisions can link to real execution orders faster and more directly
+- It makes manual execution from `Signal Bot` and governed auto dispatch feel much more like true bot-owned execution, not just generic signal execution happening nearby.
+
+### Files Updated
+
+- `src/data-platform/contracts.ts`
+- `src/services/api.ts`
+- `src/hooks/useBinanceData.ts`
+- `src/views/SignalBotView.tsx`
+- `src/hooks/useBotOperationalLoop.ts`
+- `src/hooks/useSignalsBotsReadModel.ts`
+- `api/_lib/executionEngine.js`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Remaining Risk
+
+- The bridge is now much healthier, but a final deeper pass could still move even more explicit bot policy into execution-time validation.
+- Historical records created before this change may still rely on heuristic ownership matching.
+
+### Next Step
+
+- Use the last closure pass to verify:
+  - existing bots behave cleanly after edit/create/update cycles
+  - old historical records still render acceptably
+  - no remaining client-authoritative control is quietly bypassing backend policy
+
+### Progress Estimate
+
+- Estimated remaining work to leave the current bot-module closure phase complete: `4%`.
+
+## 2026-03-21 - Bot create/edit stability pass: preserve active scope and in-use capital
+
+### What Changed
+
+- Tightened the quick create/edit flow in `BotSettingsView.tsx` so editing a bot no longer silently collapses its active universe down to a single pair.
+- The quick edit flow now preserves existing active symbols and makes the edited pair the primary pair without wiping the rest of the list.
+- Editing a bot through quick edit no longer resets `availableUsd` blindly to the new allocated amount:
+  - the flow now preserves the capital already in use
+  - only the truly free portion of available capital is recalculated
+- Normalized quick-edit pair values to uppercase before persisting them.
+
+### Why This Matters
+
+- This was a real stability issue in the bot lifecycle:
+  - editing one pair could unintentionally rewrite the bot's whole custom universe
+  - editing capital could misrepresent how much capital was actually still free
+- The user-facing UX stayed simple, but the saved bot contract is now much safer and closer to the runtime truth.
+
+### Files Updated
+
+- `src/views/BotSettingsView.tsx`
+- `docs/next-signals-bots-ai/work-log.md`
+- `docs/next-signals-bots-ai/handoff.md`
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Remaining Risk
+
+- The module is now functionally very close to the current closure target.
+- The main remaining work is final verification/QA over live behavior rather than another structural change.
+
+### Next Step
+
+- Final pass:
+  - verify create/edit flows in the live app
+  - sanity-check older history rows against the new ownership bridge
+  - close the phase if no regressions appear
+
+### Progress Estimate
+
+- Estimated remaining work to leave the current bot-module closure phase complete: `1%`.
+
+## 2026-03-21 - Bot module closure audit: implementation pass complete
+
+### What Changed
+
+- Ran a final regression-oriented implementation audit over the bot module after the hardening rounds.
+- Rechecked the main closure areas together:
+  - create/edit bot flows
+  - pair/timeframe scope
+  - signal visibility
+  - signal history semantics
+  - auto/manual behavior
+  - bot-aware execution ownership bridge
+- No additional structural code change was required after the last stabilization pass.
+
+### Why This Matters
+
+- At this point the remaining gap is no longer architectural implementation.
+- The module now looks materially aligned across:
+  - `market core`
+  - `signal core`
+  - `bot core`
+  - UI
+- The next step is live acceptance and regression observation, not another redesign pass.
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Final Read For This Phase
+
+- Bot implementation closure for this phase is effectively complete.
+- What remains is live QA / acceptance review in the running product.
+
+### Progress Estimate
+
+- Bot-module implementation for this phase: `100% complete`
+- Remaining live acceptance / verification follow-up: `1%`
+
+## 2026-03-21 - Backtesting verification run after bot-module closure
+
+### What Was Verified
+
+- Ran a real validation/backtesting cycle for user `jeremias` through the existing strategy-engine backtesting flow:
+  - enqueued run
+  - processed queue
+  - captured resulting report
+
+### Result
+
+- Run id: `8`
+- Status: `completed`
+- Active scorer: `adaptive-v1`
+- Maturity score: `77/100`
+- Closed signals audited: `139`
+- Feature snapshots: `320`
+- Passed invariants: `3`
+- Warned invariants: `2`
+- Failed invariants: `0`
+
+### Interpretation
+
+- The bot-module closure work does not appear to have introduced a validation failure in the existing backtesting/reporting flow.
+- The system still carries warning-level items in the broader signal/backtesting layer, but there was no hard invariant failure triggered by this verification pass.
+- This supports the current read that the remaining work after the bot-module closure is acceptance/monitoring, not another structural bot rewrite.
+
+### Verification Command Path
+
+- sourced `/tmp/crype-bot-audit.env`
+- executed `runStrategyBacktestForUser("jeremias")`
+- executed `processQueuedStrategyBacktestsForUser("jeremias", { limit: 1 })`
+
+### Progress Estimate
+
+- Bot-module implementation for this phase: `100% complete`
+- Remaining live acceptance / verification follow-up after successful backtesting: `0% - 1%`
+
+## 2026-03-21 - Future AI directive: translate user UX intent into the best technical implementation
+
+### What Changed
+
+- Added an explicit working rule for future AI contributors in `README.md` and `handoff.md`.
+- Documented that human visual or UX requests should be treated as intended product behavior, not as a mandatory literal internal implementation recipe.
+
+### Why This Matters
+
+- This protects the project from rigid "prompt-to-code" interpretations that would otherwise push weak logic into the UI or duplicate architecture unnecessarily.
+- It keeps product intent controlled by the human owner while letting future contributors choose the safest and most maintainable technical path underneath.
+
+### Decision
+
+- Future contributors should prioritize:
+  - requested end-user experience
+  - internal correctness
+  - clean/scalable/consistent code
+  - architectural preservation unless a justified improvement is needed
+- Future contributors should not copy the human's described logic literally when a better internal implementation exists.
+
+### Progress Estimate
+
+- Bot-module implementation for this phase remains: `100% complete`
+- Remaining live acceptance / verification follow-up: `0% - 1%`
+
+## 2026-03-21 - Signal History narrowed to real closed trades
+
+### What Changed
+
+- Reframed `Signal Bot -> Signal History` as closed trade history instead of a broad bot activity log.
+- Removed blocked/runtime-only entries from that user-facing history surface.
+- Kept the table focused on real `BUY / SELL` outcomes with user-readable statuses:
+  - `Completed`
+  - `Loss`
+  - `Stopped`
+  - `Protected`
+- Updated the empty/filter states so the tab now speaks in trade-history language instead of runtime-log language.
+
+### Why This Matters
+
+- The user-facing history was still exposing internal bot/runtime events that belong in operational surfaces, not in the main trade-history view.
+- This makes the tab closer to the template and much closer to what an end user actually expects to review: trades taken, side, and result.
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Progress Estimate
+
+- Bot-module implementation for this phase remains: `100% complete`
+- Remaining live acceptance / verification follow-up: `0% - 1%`
+
+## 2026-03-21 - Bot registry session-scoping fix
+
+### What Changed
+
+- Fixed `useSelectedBot` so bot-registry hydration and local cache now bind themselves to the real authenticated session user before reading or writing the bot registry.
+- Stopped reusing one global bot-registry cache across all users in the same browser.
+- Namespaced the cached bot registry by username and reset in-memory registry state when the authenticated session changes.
+
+### Why This Matters
+
+- A real QA failure showed that a bot created from a UI that appeared to belong to one user could end up persisted under a different session user.
+- The root issue was that bot-registry runtime/cache state was global instead of session-scoped, which could hide cross-user session drift and make the visible bot list misleading.
+- This hardening makes bot creation, updates, and disabled-state review much safer in multi-user testing flows.
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### Progress Estimate
+
+- Bot-module implementation for this phase remains: `100% complete`
+- Remaining live acceptance / verification follow-up: `0% - 1%`
+
+## 2026-03-21 - Multi-user isolation hardening for bots, decisions and watchlists
+
+### What Changed
+
+- Hardened `useBotDecisions` so decision hydration, warm cache and in-memory runtime are now session-scoped by authenticated username instead of being shared globally in the browser.
+- Added session drift protection to the bot-decision runtime so a user switch resets the local decision state before new hydration begins.
+- Switched `useWatchlist` warm cache from one global localStorage bucket to a per-user cache key while still supporting legacy seed data during migration.
+- Hardened `cachedApiRequest` hot-cache handling in `src/services/api.ts` so hot API results are namespaced by session user and flushed automatically when the authenticated user changes.
+
+### Why This Matters
+
+- The earlier fix in `useSelectedBot` closed only one part of the cross-user bleed.
+- Multi-user QA showed that if `jeremias` and `yeudy` used the same browser/app runtime, cached bot decisions, watchlist state or hot API responses could still make one user see stale state from the other.
+- This round makes the frontend much safer for real shared-device or back-to-back account testing.
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### What Should Be Reviewed
+
+- Log in as `jeremias`, confirm bot names/pairs/timeframes are correct, then log out.
+- Log in as `yeudy`, confirm the bot list, disabled list, watchlist and signal history do not inherit `jeremias` state.
+- Switch back again and verify neither account reuses stale bot decisions or dashboard/watchlist cache from the other.
+
+### Progress Estimate
+
+- Multi-user isolation hardening for this bot-module acceptance pass: `97% complete`
+- Remaining live verification across both real users: `3%`
+
+## 2026-03-21 - Platform-wide multi-user isolation follow-up
+
+### What Changed
+
+- Hardened `useSignalMemory` with username guards so late responses and follow-up mutations cannot repopulate one user's signal memory after the session switches to another user.
+- Fixed `syncSystemDataPlane` logout behavior so `signalMemory` is cleared from the shared system plane when there is no authenticated user.
+- Hardened `ProfileView` local preferences so account settings and notification settings are now stored per username instead of one global browser key shared by every account.
+- Added profile-state rehydration on username change so switching accounts refreshes local profile preferences instead of reusing the previous user's local state.
+
+### Why This Matters
+
+- After the earlier bot/user isolation fixes, there were still cross-user leakage paths outside the bot registry itself:
+  - signal-memory responses could arrive late after a session change
+  - the shared system plane could keep stale signal-memory data alive after logout
+  - profile preferences were still global browser state
+- Those issues made it impossible to honestly certify the platform as isolated per user, even if bot persistence had improved.
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### What Should Be Reviewed
+
+- Login as `jeremias`, open signals/profile, then logout and login as `yeudy`.
+- Confirm `Signal Memory`, profile display/local preferences and user-specific surfaces do not retain `jeremias` state.
+- Switch back to `jeremias` and confirm his signal memory/profile preferences rehydrate cleanly.
+
+### Progress Estimate
+
+- Platform-wide multi-user isolation hardening: `99% complete`
+- Remaining live cross-account QA to certify behavior in the browser: `1%`
+
+## 2026-03-21 - Signal history should only show real bot trades
+
+### What Changed
+
+- Tightened `SignalBotView` history normalization so `Signal History` now accepts only execution-backed bot activity:
+  - activity timeline orders
+  - decision entries that are already linked to a real execution order
+- Removed the fallback branches that were still converting raw decisions, review/assist actions and generic signal snapshots into visible history rows.
+- Tightened trade-status mapping so non-executed manual reviews no longer get promoted into fake completed/history rows just because they had non-negative PnL defaults.
+
+### Why This Matters
+
+- The product intent for `Signal History` is user-facing trading history, not a mixed operational log.
+- Manual `assist` / `reviewed` actions were still leaking into this screen, which made the tab feel wrong even when execution toasts had worked.
+- This keeps the tab aligned with the template direction: only real `BUY` / `SELL` operations should appear here.
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### What Should Be Reviewed
+
+- Manually accept/execute a signal from `Active Signals`.
+- Confirm `Signal History` no longer shows `Reviewed` / assist-only rows.
+- Confirm only execution-backed `BUY` / `SELL` rows appear, with statuses such as `Protected`, `Completed`, `Loss`, or `Stopped`.
+
+### Progress Estimate
+
+- Signal History trade-only normalization: `92% complete`
+- Remaining work: `8%` visual acceptance and final UX polish against the template
+
+## 2026-03-21 - Prevent disabling bots with live operations
+
+### What Changed
+
+- Hardened the `Bot Settings` disable flow so a bot cannot be moved to `disabled` while it still has live executions open/protected in its execution timeline.
+- The disable confirmation dialog now checks the bot's real execution-backed state before allowing the action.
+- If active operations exist, the dialog switches to a safety warning and removes the destructive confirm action instead of pretending the disable can proceed safely.
+
+### Why This Matters
+
+- Users were able to disable a bot that was still running with live operations, which is unsafe and confusing from a product standpoint.
+- We intentionally chose the safer path for this phase:
+  - do not allow disabling while live operations remain
+  - do not promise auto-closing positions unless the close flow is truly protected end-to-end in core/backend
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### What Should Be Reviewed
+
+- Open a bot that still has live/protected operations and try to disable it from quick edit.
+- Confirm the modal explains that the bot cannot be disabled until those operations are closed.
+- Confirm bots with no live operations can still be disabled normally.
+
+### Progress Estimate
+
+- Bot disable safety guardrail: `94% complete`
+- Remaining work: `6%` live browser validation and optional future close-all flow if product wants that behavior later
+
+## 2026-03-21 - Signal History now follows execution timeline only
+
+### What Changed
+
+- Moved `Signal History` in `SignalBotView` off the mixed bot activity timeline and onto `selectedBotExecutionTimeline`.
+- Added explicit `side` extraction into execution ownership entries so real execution rows can render as `BUY` / `SELL` instead of generic bot actions.
+- This means the history tab now follows one rule:
+  - if a signal did not create a real execution order for the bot, it should not appear in `Signal History`
+
+### Why This Matters
+
+- The previous mixed source still allowed decision-layer artifacts to leak into the history UX.
+- The user-facing product rule is stricter:
+  - only real bot operations belong here
+  - failed / reviewed / non-executed attempts belong in another surface later
+
+### Verification
+
+- `npm run typecheck`
+- `npm run build`
+
+### What Should Be Reviewed
+
+- Manually execute a signal from `Active Signals`.
+- Confirm the resulting history row shows as `BUY` or `SELL`.
+- Confirm a signal that does not create a real execution order produces no row in `Signal History`.
+- Confirm rows like `ASSIST`, `EXECUTE`, or `Reviewed` no longer appear in this tab.
+
+### Progress Estimate
+
+- Signal History execution-only behavior: `96% complete`
+- Remaining work: `4%` live browser validation and final micro-polish
+
+## 2026-03-21 - Added system audit runner for whole-app consistency
+
+### What Changed
+
+- Added [scripts/system-audit.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/scripts/system-audit.mjs) and the new package command:
+  - `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy --process-queue=true`
+- The runner combines:
+  - strategy-engine validation lab per user
+  - backtest queue processing
+  - bot/decision/watchlist table reads
+  - signal-to-order consistency metrics
+  - cross-user overlap checks
+
+### Why This Matters
+
+- The project had been relying too much on piecemeal debugging and manual QA.
+- This creates a reusable system-level audit path so we can test the current product as one platform, not only as isolated fixes.
+
+### Validation Snapshot
+
+- `npm run typecheck`
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy --process-queue=true`
+
+### Key Findings From The Audit
+
+- `jeremias` signal-to-order linkage is weak: `5/500` signals linked to execution orders (`1%`).
+- `yeudy` signal-to-order linkage is weak: `2/500` signals linked to execution orders (`0.4%`).
+- `jeremias` validation lab summary reports warnings but returned no invariant detail rows in the last stored report payload.
+- `yeudy` still has `12.63%` of execution orders without explicit `BUY` / `SELL` side metadata.
+- No bot ID overlap was detected between `jeremias` and `yeudy`.
+
+### Progress Estimate
+
+- Whole-app audit tooling for this phase: `100% complete`
+- Structural remediation that the audit surfaced: `70% remaining`
+
+## 2026-03-21 - Added multi-user browser smoke suite and verified sequential isolation
+
+### What Changed
+
+- Added browser smoke infrastructure:
+  - [playwright.config.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/playwright.config.mjs)
+  - [tests/e2e/multi-user-isolation.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/multi-user-isolation.spec.mjs)
+- Added package commands:
+  - `npm run test:e2e`
+  - `npm run test:e2e:headed`
+- Added stable E2E hooks in:
+  - [src/components/LoginOverlay.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/LoginOverlay.tsx)
+  - [src/components/Sidebar.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/Sidebar.tsx)
+  - [src/views/BotSettingsView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/BotSettingsView.tsx)
+
+### Why This Matters
+
+- The system audit proved backend/data isolation trends, but we still needed a real browser suite to validate:
+  - login/logout by user
+  - session reuse in the same browser context
+  - visible bot registry vs authenticated API payload
+  - parallel-user stress
+
+### Preview Used
+
+- [https://binance-trading-analysis-tool-ewps4z7lw.vercel.app](https://binance-trading-analysis-tool-ewps4z7lw.vercel.app)
+
+### Validation Snapshot
+
+- `npm run typecheck`
+- `npm run build`
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-ewps4z7lw.vercel.app' npm run test:e2e -- --project=chrome tests/e2e/multi-user-isolation.spec.mjs`
+- `PLAYWRIGHT_ENABLE_WEBKIT=1 E2E_BASE_URL='https://binance-trading-analysis-tool-ewps4z7lw.vercel.app' npm run test:e2e -- tests/e2e/multi-user-isolation.spec.mjs`
+
+### What Passed
+
+- Chrome:
+  - sequential login/logout in the same browser context passed
+  - parallel dual-user contexts passed when run as the only browser project
+- WebKit:
+  - sequential login/logout in the same browser context passed
+
+### What Failed
+
+- Under the heavier cross-browser parallel run (`chrome + webkit` together), the sequential tests still passed but the parallel dual-user test failed in both engines.
+- Failure shape:
+  - one worker stayed in `Preparando acceso`
+  - another reached `Bot Settings`
+  - this points to startup/bootstrap concurrency instability rather than clear data bleed
+
+### Progress Estimate
+
+- Browser smoke foundation: `100% complete`
+- Definitive multi-browser parallel isolation stability: `35% remaining`
+
+## 2026-03-21 - Bot contract hardening and validation-lab payload consistency
+
+### What Changed
+
+- Hardened the bot CRUD contract in [api/_lib/bots.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/bots.js):
+  - introduced a strict client-mutable allowlist
+  - rejected runtime-owned fields from client updates (`performance`, `localMemory`, `familyMemory`, `globalMemory`, `audit`, `activity`, etc.)
+  - sanitized nested bot sections before `createBot` and `updateBot`
+  - fixed merge semantics for explicit empty arrays in:
+    - `universePolicy.watchlistIds`
+    - `universePolicy.symbols`
+    - `universePolicy.filters.preferredTimeframes`
+    - `timeframePolicy.allowedTimeframes`
+    - `timeframePolicy.preferredTimeframes`
+  - stopped tag normalization from rehydrating default tags when the client clears them intentionally
+- Hardened validation-lab report consistency in [api/_lib/strategyEngine.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/strategyEngine.js):
+  - stored backtest payloads now normalize to a consistent report shape even when detail arrays are missing
+  - added regeneration heuristics when summary counts exist but detailed invariant artifacts are absent
+  - `getStrategyValidationLabForUser` now prefers stored detail, falls back to regeneration only when the stored report is incomplete
+- Added backend regression coverage:
+  - [tests/backend/bots-contract.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bots-contract.test.mjs)
+  - [tests/backend/strategy-validation.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/strategy-validation.test.mjs)
+- Added package command:
+  - `npm run test:backend`
+
+### Why This Matters
+
+- This is the first structural cleanup pass that moves the project away from permissive CRUD and partial truth.
+- Bot updates are now more authoritative from backend instead of trusting UI/client payloads.
+- Validation lab now returns a more stable contract for UI/governance consumers.
+- We now have backend contract tests protecting this phase from regression.
+
+### Validation Snapshot
+
+- `npm run test:backend`
+- `npm run typecheck`
+- `npm run build`
+
+### Progress Estimate
+
+- `Bot Contract Hardening`: `100% complete`
+- `Validation Lab payload consistency`: `100% complete`
+- Remaining structural remediation after this pass: `55% remaining`
+
+## 2026-03-21 - Canonical trade chain first slice for bot execution history
+
+### What Changed
+
+- Added a dedicated canonical trade-chain module:
+  - [src/domain/bots/tradeChain.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/tradeChain.ts)
+- Exported it through:
+  - [src/domain/index.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/index.ts)
+- Wired the read-model to build bot trade timelines from:
+  - decisions
+  - execution orders
+  - signal snapshots
+  in [src/hooks/useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts)
+- Updated [src/views/SignalBotView.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/views/SignalBotView.tsx) so `Signal History` reads from canonical trades instead of mixed execution/activity timelines.
+
+### Why This Matters
+
+- This starts fixing the structural gap between:
+  - signal
+  - bot decision
+  - execution order
+  - visible trade history
+- `Signal History` now depends on real executed trades with canonical linkage instead of technical runtime events.
+- Performance and execution breakdowns also stop reading noisy raw execution orders when canonical trades exist.
+
+### Validation Snapshot
+
+- `npm run typecheck`
+- `npm run build`
+- `npm run test:backend`
+
+### Progress Estimate
+
+- `Canonical Trade Chain` first slice: `45% complete`
+- Remaining structural remediation after this pass: `45% remaining`
+
+## 2026-03-21 - Canonical trade chain hardening plus regression coverage
+
+### What Changed
+
+- Hardened [src/domain/bots/tradeChain.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/tradeChain.ts):
+  - when a signal does not expose `execution_order_id`, the chain now prefers the most recent real execution for that signal instead of whichever order happened to be seen first
+  - the chain still rejects preview-only / blocked pseudo-trades
+- Added regression coverage in:
+  - [tests/backend/trade-chain.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/trade-chain.test.mjs)
+
+### What The New Tests Cover
+
+- direct signal -> execution order linkage renders a canonical trade
+- preview / blocked records are ignored
+- decision -> execution order fallback works when the signal link is missing
+- repeated orders for the same signal prefer the latest real execution
+
+### Validation Snapshot
+
+- `npm run test:backend`
+- `npm run typecheck`
+- `npm run build`
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy`
+
+### Audit Readout After This Pass
+
+- Cross-user bot overlap still reads clean.
+- The system still confirms the main remaining bottleneck is weak `signal -> execution order` persistence:
+  - `jeremias`: `5/500` linked (`1%`)
+  - `yeudy`: `3/500` linked (`0.6%`)
+- `yeudy` still has missing side metadata in a subset of execution orders (`12.56%`).
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `60% complete`
+- Remaining structural remediation after this pass: `40% remaining`
+
+## 2026-03-21 - Execution reconciliation hardening and audit truthfulness
+
+### What Changed
+
+- Added exact signal lookup by ids in [api/_lib/signals.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/signals.js):
+  - `listSignalSnapshotsByIdsForUser(username, ids, options)`
+  - chunked fetches
+  - stable ordering by requested ids
+- Hardened [api/_lib/executionEngine.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/executionEngine.js):
+  - `syncExecutionOrdersForUser` now loads signals missing from the in-memory window before reconciling orders
+  - side metadata now tries to normalize from:
+    - persisted order side
+    - exchange order payload
+    - candidate payload
+    - learning snapshot
+    - linked signal direction
+  - `executeSignalTradeForUser` now fetches the exact source signal by id instead of scanning a recent 200-signal window
+  - `attachProtectionToExecutionOrderForUser` now reloads the exact linked signal by id instead of scanning a recent 400-signal window
+  - added `reconcileExecutionRecordsForUser(username, options)` for structural backfill / audit use
+- Expanded backend regression coverage in:
+  - [tests/backend/execution-reconciliation.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/execution-reconciliation.test.mjs)
+- Upgraded [scripts/system-audit.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/scripts/system-audit.mjs):
+  - audit now triggers execution reconciliation first
+  - audit now measures exact linkage across execution-referenced signals, not just the recent signal window
+
+### Why This Matters
+
+- The previous audit was still mixing two different truths:
+  - recent signals window
+  - historical execution orders
+- After this pass, the audit can finally answer the right question:
+  - "Do the orders that reference signals keep an exact canonical link?"
+- Result:
+  - `jeremias`: `392/392` exact referenced links (`100%`)
+  - `yeudy`: `187/187` exact referenced links (`100%`)
+- This means the canonical chain is now much healthier than the earlier audit suggested.
+
+### What Still Remains
+
+- The "latest 500 signals" window still has very low direct `execution_order_id` coverage:
+  - `jeremias`: `1%`
+  - `yeudy`: `0.6%`
+- That is now understood as a different issue:
+  - not broken canonical linkage on referenced executions
+  - but weak broad signal-window coverage for `execution_order_id`
+- `yeudy` still has execution orders with missing `BUY/SELL` metadata (`12.56%`).
+- Validation lab still warns that closed signals do not yet persist `executionLearning`.
+
+### Validation Snapshot
+
+- `npm run test:backend`
+- `npm run build`
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy`
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `75% complete`
+- Remaining structural remediation after this pass: `30% remaining`
+
+## 2026-03-21 - Validation semantics cleanup and read-model extraction slice two
+
+### What Changed
+
+- Tightened validation semantics in [api/_lib/strategyEngine.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/strategyEngine.js):
+  - execution-learning coverage now measures only closed signals that actually belong to the execution path
+  - tiny execution-linked samples (`1/1`, `2/2`) no longer warn by threshold inflation
+- Tightened audit semantics in [scripts/system-audit.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/scripts/system-audit.mjs):
+  - `missingSidePct` now applies only to trade-relevant execution orders
+  - blocked runtime records no longer count as if they were missing trade direction
+  - exported pure helpers to let backend tests lock this behavior
+- Added backend regression coverage:
+  - [tests/backend/strategy-validation.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/strategy-validation.test.mjs)
+  - [tests/backend/system-audit.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/system-audit.test.mjs)
+- Continued splitting the read-model monolith:
+  - moved adaptation / readiness / governed-lane summary helpers out of [useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts)
+  - into [src/domain/bots/readModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/readModel.ts)
+
+### Why This Matters
+
+- The audit is now measuring operational truth instead of runtime noise.
+- The validation lab no longer warns just because a neutral/blocked flow or a tiny sample distorted the denominator.
+- The main read-model seam is smaller and less dangerous to change because adaptation and operational readiness logic now lives in a pure domain module instead of inside the giant hook.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`22/22`)
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy`
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy --run-backtest=true --process-queue=true --label=codex-structural-remediation --trigger-source=codex-structural-remediation`
+
+### Audit / Backtesting Readout After This Pass
+
+- `findings`: none
+- multi-user overlap: none
+- exact referenced signal-to-order linkage remains healthy:
+  - `jeremias`: `392/392` exact referenced links (`100%`)
+  - `yeudy`: `187/187` exact referenced links (`100%`)
+- directional execution orders missing `BUY/SELL`:
+  - `jeremias`: `0%`
+  - `yeudy`: `0%`
+- new backtesting runs:
+  - `jeremias`: `run 10`, `maturityScore 86`, `passed 4`, `warned 1`, `failed 0`
+  - `yeudy`: `run 11`, `maturityScore 86`, `passed 4`, `warned 1`, `failed 0`
+- the only warning still left in both users is:
+  - no active persisted model in `ai_model_configs`
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `90% complete`
+- `Read-Model Refactor`: `35% complete`
+- Remaining structural remediation after this pass: `20% remaining`
+
+## 2026-03-21 - Read-model extraction slice three (ownership and memory)
+
+### What Changed
+
+- Continued shrinking [useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts):
+  - moved ownership scoring/reconciliation helpers out of the hook
+  - moved execution breakdown helpers out of the hook
+  - moved activity timeline helpers out of the hook
+  - moved owned memory summary helpers out of the hook
+  - moved disabled memory layer helper out of the hook
+- Added these pure helpers to [src/domain/bots/readModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/readModel.ts):
+  - `createDisabledMemoryLayerSummary`
+  - `scoreExecutionOrderForBot`
+  - `resolveExecutionOwnership`
+  - `createExecutionBreakdowns`
+  - `createBotActivityTimeline`
+  - `formatOwnedOutcomePnl`
+  - `createOwnedMemorySummary`
+  - `createOwnershipSummary`
+- Added regression coverage in [tests/backend/bot-read-model.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-read-model.test.mjs):
+  - ownership summary still ignores unresolved `blocked` / `dismissed` decisions
+
+### Why This Matters
+
+- The read-model hook is becoming a composition seam instead of a giant bucket of unrelated business logic.
+- Ownership, memory and activity rules are now domain-pure and testable without rendering the app.
+- This lowers rerender risk and makes future fixes much less likely to create side effects across bot workspace, execution logs and signal history.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`23/23`)
+- `npm run build` -> pass
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `90% complete`
+- `Read-Model Refactor`: `55% complete`
+- Remaining structural remediation after this pass: `15% remaining`
+
+## 2026-03-21 - Read-model extraction slice four (feed and mapping helpers)
+
+### What Changed
+
+- Removed the last local utility helpers from [useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts):
+  - ranked feed dedupe
+  - ranked scope dedupe
+  - published signal id normalization
+  - decision published signal key resolution
+- Added those helpers to [src/domain/bots/readModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/readModel.ts):
+  - `dedupeRankedSignals`
+  - `dedupeRankedSignalsByScope`
+  - `getPublishedSignalIdFromBotConsumableId`
+  - `getDecisionPublishedSignalKey`
+- Expanded regression coverage in [tests/backend/bot-read-model.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-read-model.test.mjs):
+  - published signal id suffix stripping
+  - scope dedupe by `symbol + timeframe`
+
+### Why This Matters
+
+- The main bot read-model hook no longer owns its own utility layer.
+- Signal feed shaping rules now live beside the rest of the bot read-model domain rules, which makes the hook more predictable and reduces accidental behavior drift.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`25/25`)
+- `npm run build` -> pass
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `90% complete`
+- `Read-Model Refactor`: `70% complete`
+- Remaining structural remediation after this pass: `10% remaining`
+
+## 2026-03-21 - Read-model extraction slice five (workspace and fleet assembly)
+
+### What Changed
+
+- Added a new domain assembly module in [src/domain/bots/workspace.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/domain/bots/workspace.ts).
+- Moved the remaining large bot-card enrichment blocks out of [useSignalsBotsReadModel.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useSignalsBotsReadModel.ts):
+  - execution-context assembly
+  - shared-memory and operational-context assembly
+  - fleet summary aggregation
+- Wired the hook to consume those new builders instead of rebuilding that logic inline.
+- Expanded [tests/backend/bot-read-model.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/bot-read-model.test.mjs) with coverage for:
+  - canonical trade-only executed activity
+  - disabled shared-memory policy handling
+  - fleet summary aggregation
+
+### Why This Matters
+
+- The hook is now much closer to a pure composition seam instead of acting like an operational runtime in disguise.
+- Bot workspace enrichment, operational readiness and fleet aggregation now live in reusable domain code with regression coverage.
+- This lowers change blast radius for future work in `Signal Bot`, `Bot Settings`, execution summaries and ownership-heavy UI.
+
+### Validation Snapshot
+
+- `npm run test:backend` -> pass (`28/28`)
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `90% complete`
+- `Read-Model Refactor`: `85% complete`
+- Remaining structural remediation after this pass: `5% remaining`
+
+## 2026-03-22 - Active model config closure (`ai_model_configs`)
+
+### What Changed
+
+- Closed the last structural warning in [api/_lib/strategyEngine.js](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/api/_lib/strategyEngine.js) around persisted active model configs.
+- Fixed `persistModelConfigRegistry()` so it no longer aborts when there are no training runs; the bootstrap seed can now still persist an active scorer config.
+- Added `ensureActiveModelConfigForUser()` so the validation/recommendation flow explicitly verifies that one active config exists after persistence and seeds it if still missing.
+- Fixed the real write path bug by changing `ai_model_configs` writes to use an actual conflict target:
+  - `?on_conflict=username,label`
+- Kept `setActiveModelConfigForUser()` aligned with the same real upsert contract.
+- Expanded [tests/backend/strategy-validation.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/strategy-validation.test.mjs) with regression coverage for:
+  - seeding an active scorer config without training runs
+  - adding a missing active scorer config alongside existing inactive configs
+
+### Why This Matters
+
+- The last warning was not “just validation noise”; it was a real persistence gap.
+- `ai_model_configs` already had historical `model-v2/v3/v4` rows for users, and the POST path was not using a real conflict target, so re-persisting the registry could fail before the active `adaptive-v1` seed landed.
+- Validation lab, strategy recommendations and backtesting now converge on the same persisted active model truth instead of carrying a partial in-memory fallback.
+
+### Data Validation Snapshot
+
+- Direct Supabase verification confirmed persisted active configs for both users:
+  - `jeremias -> adaptive-v1 active=true`
+  - `yeudy -> adaptive-v1 active=true`
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy --run-backtest=true --process-queue=true --label=codex-ai-model-config-on-conflict --trigger-source=codex-ai-model-config-on-conflict` -> pass (`findings: []`)
+
+### Progress Estimate
+
+- `Canonical Trade Chain`: `95% complete`
+- `Read-Model Refactor`: `90% complete`
+- Remaining structural remediation after this pass: `0% - 5%`

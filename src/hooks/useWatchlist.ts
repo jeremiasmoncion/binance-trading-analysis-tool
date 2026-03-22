@@ -7,7 +7,7 @@ interface UseWatchlistOptions {
   currentUser: UserSession | null;
 }
 
-const GLOBAL_WATCHLIST_STATE_KEY = "crype-watchlists";
+const WATCHLIST_STATE_KEY_PREFIX = "crype-watchlists";
 
 function normalizeCoin(value: unknown) {
   const raw = String(value || "").trim().toUpperCase().replace(/\s+/g, "");
@@ -25,6 +25,11 @@ function normalizeListName(value: unknown) {
 
 function getLegacyStorageKey(username: string) {
   return `crype-watchlist:${username}`;
+}
+
+function getWatchlistStorageKey(username: string | null | undefined) {
+  const normalized = String(username || "").trim().toLowerCase();
+  return normalized ? `${WATCHLIST_STATE_KEY_PREFIX}:${normalized}` : WATCHLIST_STATE_KEY_PREFIX;
 }
 
 function normalizeWatchlist(value: unknown) {
@@ -127,10 +132,14 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
 
     async function hydrate() {
       try {
-        const globalRaw = window.localStorage.getItem(GLOBAL_WATCHLIST_STATE_KEY);
+        const storageKey = getWatchlistStorageKey(currentUser?.username);
+        const globalRaw = window.localStorage.getItem(storageKey);
+        const legacyScopedRaw = currentUser
+          ? window.localStorage.getItem(getLegacyStorageKey(currentUser.username))
+          : null;
         const legacyGlobalRaw = window.localStorage.getItem("crype-watchlist");
         const parsedLegacy = currentUser
-          ? normalizeWatchlist(JSON.parse(window.localStorage.getItem(getLegacyStorageKey(currentUser.username)) || "[]"))
+          ? normalizeWatchlist(JSON.parse(legacyScopedRaw || "[]"))
           : [];
 
         const seedState = globalRaw
@@ -168,7 +177,7 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
               const nextLists = remoteLists.map((item) => ({ ...item, isActive: item.name === remoteActive }));
               setLists((current) => (hasWatchlistGroupsChanged(current, nextLists) ? nextLists : current));
               setActiveListName((current) => (current !== remoteActive ? remoteActive : current));
-              window.localStorage.setItem(GLOBAL_WATCHLIST_STATE_KEY, serializeState(remoteLists, remoteActive));
+              window.localStorage.setItem(storageKey, serializeState(remoteLists, remoteActive));
             }
           } else {
             const seedActiveList = seedState.activeListName || "Principal";
@@ -203,8 +212,8 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(GLOBAL_WATCHLIST_STATE_KEY, serializeState(lists, activeListName));
-  }, [activeListName, hydrated, lists]);
+    window.localStorage.setItem(getWatchlistStorageKey(currentUser?.username), serializeState(lists, activeListName));
+  }, [activeListName, currentUser?.username, hydrated, lists]);
 
   const activeList = useMemo(
     () => lists.find((item) => item.name === activeListName) || lists[0] || { name: "Principal", coins: [], isActive: true },
@@ -238,7 +247,7 @@ export function useWatchlist({ currentUser }: UseWatchlistOptions) {
       // rerender on every successful mutation or hydration round-trip.
       setLists((current) => (hasWatchlistGroupsChanged(current, syncedLists) ? syncedLists : current));
       setActiveListName((current) => (current !== activeName ? activeName : current));
-      window.localStorage.setItem(GLOBAL_WATCHLIST_STATE_KEY, serializeState(normalized, activeName));
+      window.localStorage.setItem(getWatchlistStorageKey(currentUser?.username), serializeState(normalized, activeName));
     } catch {
       // keep optimistic local state if remote sync fails
     }

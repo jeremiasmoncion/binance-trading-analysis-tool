@@ -43,8 +43,8 @@ export function ProfileView(props: ProfileViewProps) {
   const [lastBackfillSummary, setLastBackfillSummary] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
-  const [accountSettings, setAccountSettings] = useState(() => loadAccountSettings());
-  const [notificationSettings, setNotificationSettings] = useState(() => loadNotificationSettings());
+  const [accountSettings, setAccountSettings] = useState(() => loadAccountSettings(props.user.username));
+  const [notificationSettings, setNotificationSettings] = useState(() => loadNotificationSettings(props.user.username));
   const [storageUsageBytes, setStorageUsageBytes] = useState(0);
   // Profile keeps the authenticated user as an explicit prop, but all mutable
   // operational/admin state now comes from the shared system plane.
@@ -116,14 +116,19 @@ export function ProfileView(props: ProfileViewProps) {
   }, [props.initialTab]);
 
   useEffect(() => {
-    persistAccountSettings(accountSettings);
+    persistAccountSettings(props.user.username, accountSettings);
     setStorageUsageBytes(computeLocalStorageBytes());
-  }, [accountSettings]);
+  }, [accountSettings, props.user.username]);
 
   useEffect(() => {
-    persistNotificationSettings(notificationSettings);
+    persistNotificationSettings(props.user.username, notificationSettings);
     setStorageUsageBytes(computeLocalStorageBytes());
-  }, [notificationSettings]);
+  }, [notificationSettings, props.user.username]);
+
+  useEffect(() => {
+    setAccountSettings(loadAccountSettings(props.user.username));
+    setNotificationSettings(loadNotificationSettings(props.user.username));
+  }, [props.user.username]);
 
   useEffect(() => {
     setStorageUsageBytes(computeLocalStorageBytes());
@@ -399,9 +404,9 @@ export function ProfileView(props: ProfileViewProps) {
                       type="button"
                       className="premium-action-button is-secondary"
                       onClick={() => {
-                        clearProfileStorage();
-                        const nextAccountSettings = loadAccountSettings();
-                        const nextNotificationSettings = loadNotificationSettings();
+                        clearProfileStorage(props.user.username);
+                        const nextAccountSettings = loadAccountSettings(props.user.username);
+                        const nextNotificationSettings = loadNotificationSettings(props.user.username);
                         setAccountSettings(nextAccountSettings);
                         setNotificationSettings(nextNotificationSettings);
                         setStorageUsageBytes(computeLocalStorageBytes());
@@ -1175,16 +1180,26 @@ interface NotificationSettings {
   };
 }
 
-const PROFILE_ACCOUNT_SETTINGS_KEY = "crype-profile-account-settings";
-const PROFILE_NOTIFICATION_SETTINGS_KEY = "crype-profile-notification-settings";
+const PROFILE_ACCOUNT_SETTINGS_KEY_PREFIX = "crype-profile-account-settings";
+const PROFILE_NOTIFICATION_SETTINGS_KEY_PREFIX = "crype-profile-notification-settings";
 
-function loadAccountSettings(): AccountSettings {
+function buildProfileAccountSettingsKey(username: string | null | undefined) {
+  const normalized = String(username || "").trim().toLowerCase();
+  return normalized ? `${PROFILE_ACCOUNT_SETTINGS_KEY_PREFIX}:${normalized}` : PROFILE_ACCOUNT_SETTINGS_KEY_PREFIX;
+}
+
+function buildProfileNotificationSettingsKey(username: string | null | undefined) {
+  const normalized = String(username || "").trim().toLowerCase();
+  return normalized ? `${PROFILE_NOTIFICATION_SETTINGS_KEY_PREFIX}:${normalized}` : PROFILE_NOTIFICATION_SETTINGS_KEY_PREFIX;
+}
+
+function loadAccountSettings(username?: string | null): AccountSettings {
   if (typeof window === "undefined") {
     return defaultAccountSettings();
   }
 
   try {
-    const raw = window.localStorage.getItem(PROFILE_ACCOUNT_SETTINGS_KEY);
+    const raw = window.localStorage.getItem(buildProfileAccountSettingsKey(username));
     if (!raw) return defaultAccountSettings();
     return { ...defaultAccountSettings(), ...JSON.parse(raw) };
   } catch {
@@ -1192,13 +1207,13 @@ function loadAccountSettings(): AccountSettings {
   }
 }
 
-function loadNotificationSettings(): NotificationSettings {
+function loadNotificationSettings(username?: string | null): NotificationSettings {
   if (typeof window === "undefined") {
     return defaultNotificationSettings();
   }
 
   try {
-    const raw = window.localStorage.getItem(PROFILE_NOTIFICATION_SETTINGS_KEY);
+    const raw = window.localStorage.getItem(buildProfileNotificationSettingsKey(username));
     if (!raw) return defaultNotificationSettings();
     const parsed = JSON.parse(raw);
     return {
@@ -1210,14 +1225,14 @@ function loadNotificationSettings(): NotificationSettings {
   }
 }
 
-function persistAccountSettings(settings: AccountSettings) {
+function persistAccountSettings(username: string | null | undefined, settings: AccountSettings) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(PROFILE_ACCOUNT_SETTINGS_KEY, JSON.stringify(settings));
+  window.localStorage.setItem(buildProfileAccountSettingsKey(username), JSON.stringify(settings));
 }
 
-function persistNotificationSettings(settings: NotificationSettings) {
+function persistNotificationSettings(username: string | null | undefined, settings: NotificationSettings) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(PROFILE_NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+  window.localStorage.setItem(buildProfileNotificationSettingsKey(username), JSON.stringify(settings));
 }
 
 function computeLocalStorageBytes() {
@@ -1229,10 +1244,10 @@ function computeLocalStorageBytes() {
   }
 }
 
-function clearProfileStorage() {
+function clearProfileStorage(username: string | null | undefined) {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(PROFILE_ACCOUNT_SETTINGS_KEY);
-  window.localStorage.removeItem(PROFILE_NOTIFICATION_SETTINGS_KEY);
+  window.localStorage.removeItem(buildProfileAccountSettingsKey(username));
+  window.localStorage.removeItem(buildProfileNotificationSettingsKey(username));
 }
 
 function defaultAccountSettings(): AccountSettings {

@@ -53,6 +53,8 @@ interface CachedApiRequestOptions extends ApiRequestOptions {
 
 const hotApiCache = new Map<string, { expiresAt: number; value: unknown }>();
 const hotApiInFlight = new Map<string, Promise<unknown>>();
+let hotApiSessionUsername: string | null = null;
+let hotApiSessionPromise: Promise<string | null> | null = null;
 const realtimeCoreBaseUrl = String(import.meta.env.VITE_REALTIME_CORE_URL || "").trim().replace(/\/$/, "");
 let realtimeCoreBridgeTokenCache: { token: string; expiresAt: number } | null = null;
 let realtimeCoreBridgeTokenInFlight: Promise<string> | null = null;
@@ -99,15 +101,17 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
 
 async function cachedApiRequest<T>(path: string, options: CachedApiRequestOptions): Promise<T> {
   const { cacheKey, ttlMs, forceFresh = false, ...requestOptions } = options;
+  const sessionUsername = await ensureHotApiCacheSessionContext();
+  const scopedCacheKey = buildSessionScopedCacheKey(cacheKey, sessionUsername);
   const now = Date.now();
 
   if (!forceFresh) {
-    const cached = hotApiCache.get(cacheKey);
+    const cached = hotApiCache.get(scopedCacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.value as T;
     }
 
-    const inFlight = hotApiInFlight.get(cacheKey);
+    const inFlight = hotApiInFlight.get(scopedCacheKey);
     if (inFlight) {
       return inFlight as Promise<T>;
     }
@@ -115,24 +119,75 @@ async function cachedApiRequest<T>(path: string, options: CachedApiRequestOption
 
   const request = apiRequest<T>(path, requestOptions)
     .then((value) => {
-      hotApiCache.set(cacheKey, { expiresAt: Date.now() + ttlMs, value });
-      hotApiInFlight.delete(cacheKey);
+      hotApiCache.set(scopedCacheKey, { expiresAt: Date.now() + ttlMs, value });
+      hotApiInFlight.delete(scopedCacheKey);
       return value;
     })
     .catch((error) => {
-      hotApiInFlight.delete(cacheKey);
+      hotApiInFlight.delete(scopedCacheKey);
       throw error;
     });
 
-  hotApiInFlight.set(cacheKey, request);
+  hotApiInFlight.set(scopedCacheKey, request);
   return request;
 }
 
 function invalidateHotApiCache(...keys: string[]) {
+  if (!keys.length) {
+    hotApiCache.clear();
+    hotApiInFlight.clear();
+    return;
+  }
+
   keys.forEach((key) => {
-    hotApiCache.delete(key);
-    hotApiInFlight.delete(key);
+    const prefix = `${key}:`;
+    Array.from(hotApiCache.keys())
+      .filter((entry) => entry === key || entry.startsWith(prefix))
+      .forEach((entry) => {
+        hotApiCache.delete(entry);
+      });
+    Array.from(hotApiInFlight.keys())
+      .filter((entry) => entry === key || entry.startsWith(prefix))
+      .forEach((entry) => {
+        hotApiInFlight.delete(entry);
+      });
   });
+}
+
+function normalizeSessionUsername(value: unknown) {
+  return String(value || "").trim().toLowerCase() || null;
+}
+
+function buildSessionScopedCacheKey(cacheKey: string, username: string | null) {
+  return `${cacheKey}:${username || "guest"}`;
+}
+
+async function resolveHotApiSessionUsername() {
+  if (hotApiSessionPromise) {
+    return hotApiSessionPromise;
+  }
+
+  hotApiSessionPromise = apiRequest<{ user: UserSession }>("/api/auth/session", {
+    timeoutMs: 5_000,
+  })
+    .then((payload) => normalizeSessionUsername(payload.user?.username))
+    .catch(() => null)
+    .finally(() => {
+      hotApiSessionPromise = null;
+    });
+
+  return hotApiSessionPromise;
+}
+
+async function ensureHotApiCacheSessionContext() {
+  const nextUsername = await resolveHotApiSessionUsername();
+  if (hotApiSessionUsername === nextUsername) {
+    return nextUsername;
+  }
+
+  hotApiSessionUsername = nextUsername;
+  invalidateHotApiCache();
+  return nextUsername;
 }
 
 async function getRealtimeCoreBridgeToken() {
@@ -473,10 +528,24 @@ export const binanceService = {
       body: JSON.stringify(profile),
     });
   },
-  executeSignal(signalId: number, mode: "preview" | "execute") {
+  executeSignal(
+    signalId: number,
+    mode: "preview" | "execute",
+    options: {
+      botId?: string | null;
+      botName?: string | null;
+      origin?: string | null;
+    } = {},
+  ) {
     return apiRequest("/api/binance/execution", {
       method: "POST",
-      body: JSON.stringify({ signalId, mode }),
+      body: JSON.stringify({
+        signalId,
+        mode,
+        botId: options.botId || null,
+        botName: options.botName || null,
+        origin: options.origin || null,
+      }),
     });
   },
   attachProtection(executionOrderId: number) {

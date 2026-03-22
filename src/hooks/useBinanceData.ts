@@ -591,14 +591,22 @@ export function useBinanceData({ currentUser, currentView }: UseBinanceDataOptio
     }
   }, [currentUser?.username, refreshExecutionCenter]);
 
-  const executeDemoSignal = useCallback(async (signalId: number, mode: "preview" | "execute") => {
+  const executeDemoSignal = useCallback(async (
+    signalId: number,
+    mode: "preview" | "execute",
+    options: {
+      botId?: string | null;
+      botName?: string | null;
+      origin?: string | null;
+    } = {},
+  ) => {
     const username = currentUser?.username || "";
     if (!username) {
       return null;
     }
 
     try {
-      const payload = await binanceService.executeSignal(signalId, mode);
+      const payload = await binanceService.executeSignal(signalId, mode, options);
       if (activeUsernameRef.current !== username) {
         return null;
       }

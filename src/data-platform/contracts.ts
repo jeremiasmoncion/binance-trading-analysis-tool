@@ -123,7 +123,15 @@ export interface SystemDataPlane {
     refreshExecutionCenter: () => Promise<unknown>;
     refreshDashboardSummary: (forceFresh?: boolean) => Promise<unknown>;
     updateExecutionProfile: (profile: ExecutionProfile) => Promise<unknown>;
-    executeDemoSignal: (signalId: number, mode: "preview" | "execute") => Promise<unknown>;
+    executeDemoSignal: (
+      signalId: number,
+      mode: "preview" | "execute",
+      options?: {
+        botId?: string | null;
+        botName?: string | null;
+        origin?: string | null;
+      },
+    ) => Promise<unknown>;
     attachExecutionProtection: (executionOrderId: number) => Promise<unknown>;
     refreshProfileDataWithFeedback: () => Promise<unknown>;
     refreshStrategyEngine: (options?: { forceFresh?: boolean; clearOnError?: boolean }) => Promise<unknown>;

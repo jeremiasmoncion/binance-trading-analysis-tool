@@ -123,6 +123,24 @@ Task close-out rule for future contributors:
 - the canonical public review URL is:
   - `https://binance-trading-analysis-tool.vercel.app`
 
+## User Intent Translation Rule
+
+Future AI contributors should preserve this working rule when the human operator describes a desired UI behavior or user experience:
+
+- treat the human description as the intended end-user result, not as a mandatory literal implementation plan
+- prioritize making the application look and behave as requested from the user point of view
+- choose the internal logic, structure, and data flow that best achieves that result without damaging the existing architecture
+- do not mirror the human's described logic literally if a cleaner, safer, or more maintainable implementation exists
+- preserve shared seams and core authority whenever possible instead of pushing more truth into the UI layer
+- if a visual request would require a risky structural change, translate it into the smallest sound technical change that still preserves the requested experience
+
+Priority order for future implementations:
+
+1. the requested visual or functional end-user experience
+2. internal correctness
+3. clean, scalable, and consistent code
+4. architectural preservation unless a justified improvement is needed
+
 Mandatory documentation source of truth before further `Bot Core` work:
 
 - this folder `docs/next-signals-bots-ai/`

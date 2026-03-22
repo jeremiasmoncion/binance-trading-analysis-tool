@@ -14,6 +14,7 @@ const EXECUTION_SCOPE_OVERRIDES_TABLE = process.env.SUPABASE_EXECUTION_SCOPE_OVE
 const ADAPTIVE_ACTIONS_LOG_TABLE = process.env.SUPABASE_ADAPTIVE_ACTIONS_LOG_TABLE || "adaptive_actions_log";
 const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 const AI_MODEL_CONFIGS_TABLE = process.env.SUPABASE_AI_MODEL_CONFIGS_TABLE || "ai_model_configs";
+const AI_MODEL_CONFIGS_UPSERT_PATH = `${AI_MODEL_CONFIGS_TABLE}?on_conflict=username,label`;
 const BACKTEST_RUNS_TABLE = process.env.SUPABASE_BACKTEST_RUNS_TABLE || "backtest_runs";
 const BACKTEST_RUN_WINDOWS_TABLE = process.env.SUPABASE_BACKTEST_RUN_WINDOWS_TABLE || "backtest_run_windows";
 const ACTIVE_VERSION_STATUSES = new Set(["active", "promoted", "running"]);
@@ -718,9 +719,7 @@ function normalizeBacktestRuns(rows, windowsByRunId = new Map()) {
 function buildValidationReportFromStoredRun(run) {
   if (!run) return null;
   const payload = run.report_payload && typeof run.report_payload === "object" ? run.report_payload : {};
-  const report = payload && typeof payload === "object" && Array.isArray(payload.invariants)
-    ? payload
-    : null;
+  const report = payload && typeof payload === "object" ? payload : null;
   if (!report) return null;
   return {
     generatedAt: String(report.generatedAt || run.created_at || new Date().toISOString()),
@@ -740,6 +739,26 @@ function buildValidationReportFromStoredRun(run) {
     modelWindowGovernance: report.modelWindowGovernance || null,
     modelWindowGovernanceHistory: Array.isArray(report.modelWindowGovernanceHistory) ? report.modelWindowGovernanceHistory : [],
   };
+}
+
+function hasDetailedValidationArtifacts(report) {
+  if (!report || typeof report !== "object") return false;
+  return [
+    report.invariants,
+    report.scorerTable,
+    report.replayWindows,
+    report.scenarios,
+    report.modelWindowGovernanceHistory,
+  ].some((value) => Array.isArray(value) && value.length > 0);
+}
+
+function shouldRegenerateValidationReport(report) {
+  if (!report || typeof report !== "object") return true;
+  const summary = report.summary || {};
+  const summaryHasInvariantCounts = Number(summary.passedInvariants || 0) > 0
+    || Number(summary.warnedInvariants || 0) > 0
+    || Number(summary.failedInvariants || 0) > 0;
+  return summaryHasInvariantCounts && !hasDetailedValidationArtifacts(report);
 }
 
 function buildValidationReportFromRunSummary(run) {
@@ -796,6 +815,134 @@ function normalizeModelConfigRegistry(rows) {
   }).filter((item) => item.label);
 }
 
+function normalizeActiveScorerLabel(value, fallback = "adaptive-v1") {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized || fallback;
+}
+
+function buildActiveModelConfigSeed(activeScorer, scorerPolicy = null, modelRuns = [], existingConfigs = []) {
+  const normalizedActiveScorer = normalizeActiveScorerLabel(activeScorer);
+  const existingByLabel = new Map((existingConfigs || []).map((item) => [String(item.label || "").toLowerCase(), item]));
+  const runByLabel = new Map((modelRuns || []).map((item) => [String(item.label || "").toLowerCase(), item]));
+  const existing = existingByLabel.get(normalizedActiveScorer) || null;
+  const run = runByLabel.get(normalizedActiveScorer) || null;
+
+  return {
+    label: existing?.label || run?.label || normalizedActiveScorer,
+    activeScorer: existing?.activeScorer || run?.label || normalizedActiveScorer,
+    mode: existing?.mode
+      || run?.mode
+      || (normalizedActiveScorer.startsWith("model-")
+        ? normalizedActiveScorer === "model-v1" ? "static" : "learned"
+        : "adaptive"),
+    windowType: existing?.windowType || run?.windowType || "global",
+    active: true,
+    ready: existing?.ready !== false && (run?.ready !== false),
+    sampleSize: Number(existing?.sampleSize || run?.sampleSize || 0),
+    confidence: scorerPolicy?.confidence == null
+      ? Number(existing?.confidence || run?.confidence || 0)
+      : Number(scorerPolicy.confidence),
+    avgPnl: Number(existing?.avgPnl || run?.avgPnl || 0),
+    winRate: Number(existing?.winRate || run?.winRate || 0),
+    rrWeight: existing?.rrWeight ?? run?.rrWeight ?? null,
+    adaptiveScoreWeight: existing?.adaptiveScoreWeight ?? run?.adaptiveScoreWeight ?? null,
+    durationPenaltyWeight: existing?.durationPenaltyWeight ?? run?.durationPenaltyWeight ?? null,
+    source: scorerPolicy?.source ? String(scorerPolicy.source) : existing?.source || "validation-bootstrap",
+    status: "active",
+    summary: existing?.reading
+      || run?.reading
+      || `Configuracion activa persistida para ${normalizedActiveScorer}.`,
+    metadata: {
+      scorerPolicy,
+      windowType: existing?.windowType || run?.windowType || "global",
+      bootstrapped: !existing && !run,
+    },
+  };
+}
+
+function buildModelConfigUpsertRows(modelRuns, activeScorer, scorerPolicy = null, existingConfigs = []) {
+  const normalizedActiveScorer = normalizeActiveScorerLabel(activeScorer);
+  const combined = new Map();
+
+  for (const item of existingConfigs || []) {
+    const label = normalizeActiveScorerLabel(item.label, "");
+    if (!label) continue;
+    combined.set(label, {
+      label: String(item.label || label),
+      activeScorer: String(item.activeScorer || item.label || label),
+      mode: String(item.mode || "learned"),
+      windowType: String(item.windowType || "global"),
+      active: item.active === true,
+      ready: item.ready !== false,
+      sampleSize: Number(item.sampleSize || 0),
+      confidence: Number(item.confidence || 0),
+      avgPnl: Number(item.avgPnl || 0),
+      winRate: Number(item.winRate || 0),
+      rrWeight: item.rrWeight == null ? null : Number(item.rrWeight),
+      adaptiveScoreWeight: item.adaptiveScoreWeight == null ? null : Number(item.adaptiveScoreWeight),
+      durationPenaltyWeight: item.durationPenaltyWeight == null ? null : Number(item.durationPenaltyWeight),
+      source: item.source ? String(item.source) : "training-run",
+      status: item.status ? String(item.status) : item.ready !== false ? "ready" : "observe",
+      summary: String(item.reading || ""),
+      metadata: {
+        windowType: item.windowType || "global",
+      },
+    });
+  }
+
+  for (const run of modelRuns || []) {
+    const label = normalizeActiveScorerLabel(run.label, "");
+    if (!label) continue;
+    const current = combined.get(label) || {};
+    combined.set(label, {
+      ...current,
+      label: String(run.label || label),
+      activeScorer: String(run.label || label),
+      mode: String(run.mode || current.mode || "learned"),
+      windowType: String(run.windowType || current.windowType || "global"),
+      active: label === normalizedActiveScorer,
+      ready: run.ready !== false,
+      sampleSize: Number(run.sampleSize || 0),
+      confidence: Number(run.confidence || 0),
+      avgPnl: Number(run.avgPnl || 0),
+      winRate: Number(run.winRate || 0),
+      rrWeight: run.rrWeight == null ? null : Number(run.rrWeight),
+      adaptiveScoreWeight: run.adaptiveScoreWeight == null ? null : Number(run.adaptiveScoreWeight),
+      durationPenaltyWeight: run.durationPenaltyWeight == null ? null : Number(run.durationPenaltyWeight),
+      source: "training-run",
+      status: label === normalizedActiveScorer ? "active" : (run.ready ? "ready" : "observe"),
+      summary: String(run.reading || current.summary || ""),
+      metadata: {
+        ...(current.metadata && typeof current.metadata === "object" ? current.metadata : {}),
+        windowType: run.windowType || current.windowType || "global",
+        sampleSize: run.sampleSize,
+        confidence: run.confidence,
+      },
+    });
+  }
+
+  if (!combined.has(normalizedActiveScorer)) {
+    combined.set(
+      normalizedActiveScorer,
+      buildActiveModelConfigSeed(normalizedActiveScorer, scorerPolicy, modelRuns, existingConfigs),
+    );
+  }
+
+  return Array.from(combined.values()).map((item) => {
+    const isActive = normalizeActiveScorerLabel(item.label, "") === normalizedActiveScorer;
+    return {
+      ...item,
+      active: isActive,
+      status: isActive ? "active" : (item.ready !== false ? "ready" : "observe"),
+      source: isActive && scorerPolicy?.source ? String(scorerPolicy.source) : String(item.source || "training-run"),
+      metadata: {
+        ...(item.metadata && typeof item.metadata === "object" ? item.metadata : {}),
+        scorerPolicy,
+      },
+    };
+  });
+}
+
 async function fetchModelConfigsForUser(username) {
   try {
     return await supabaseRequest(
@@ -807,21 +954,21 @@ async function fetchModelConfigsForUser(username) {
   }
 }
 
-async function upsertModelConfigsForUser(username, modelRuns, activeScorer) {
-  const rows = Array.isArray(modelRuns) ? modelRuns : [];
-  if (!rows.length) return [];
+async function upsertModelConfigsForUser(username, modelRuns, activeScorer, scorerPolicy = null, existingConfigs = []) {
+  const body = buildModelConfigUpsertRows(modelRuns, activeScorer, scorerPolicy, existingConfigs);
+  if (!body.length) return [];
   try {
-    return await supabaseRequest(AI_MODEL_CONFIGS_TABLE, {
+    return await supabaseRequest(AI_MODEL_CONFIGS_UPSERT_PATH, {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: rows.map((run) => ({
+      body: body.map((run) => ({
         username,
         label: String(run.label || ""),
-        active_scorer: String(run.label || ""),
+        active_scorer: String(run.activeScorer || run.label || ""),
         mode: String(run.mode || "learned"),
         window_type: String(run.windowType || "global"),
-        active: String(activeScorer || "").toLowerCase() === String(run.label || "").toLowerCase(),
-        ready: Boolean(run.ready),
+        active: run.active === true,
+        ready: run.ready !== false,
         sample_size: Number(run.sampleSize || 0),
         confidence: Number(run.confidence || 0),
         avg_pnl: Number(run.avgPnl || 0),
@@ -829,14 +976,10 @@ async function upsertModelConfigsForUser(username, modelRuns, activeScorer) {
         rr_weight: run.rrWeight == null ? null : Number(run.rrWeight),
         adaptive_score_weight: run.adaptiveScoreWeight == null ? null : Number(run.adaptiveScoreWeight),
         duration_penalty_weight: run.durationPenaltyWeight == null ? null : Number(run.durationPenaltyWeight),
-        source: "training-run",
-        status: run.ready ? "ready" : "observe",
-        summary: String(run.reading || ""),
-        metadata: {
-          windowType: run.windowType,
-          sampleSize: run.sampleSize,
-          confidence: run.confidence,
-        },
+        source: String(run.source || "training-run"),
+        status: String(run.status || (run.ready ? "ready" : "observe")),
+        summary: String(run.summary || run.reading || ""),
+        metadata: run.metadata && typeof run.metadata === "object" ? run.metadata : {},
       })),
     });
   } catch (error) {
@@ -1222,40 +1365,32 @@ async function setActiveModelConfigForUser(username, candidateScorer, scorerPoli
   const configs = Array.isArray(modelRegistry) && modelRegistry.length
     ? modelRegistry
     : await fetchModelConfigsForUser(username).catch(() => []);
-  const rows = (configs || []).filter((item) => item && (item.label || item.active_scorer));
+  const rows = buildModelConfigUpsertRows([], candidateScorer, scorerPolicy || null, normalizeModelConfigRegistry(configs || []));
   if (!rows.length) return [];
   try {
-    return await supabaseRequest(AI_MODEL_CONFIGS_TABLE, {
+    return await supabaseRequest(AI_MODEL_CONFIGS_UPSERT_PATH, {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: rows.map((row) => {
-        const label = String(row.label || row.active_scorer || "");
-        return {
-          username,
-          label,
-          active_scorer: label,
-          mode: String(row.mode || "learned"),
-          window_type: String(row.windowType || row.window_type || "global"),
-          active: label.toLowerCase() === String(candidateScorer || "").toLowerCase(),
-          ready: row.ready !== false,
-          sample_size: Number(row.sampleSize || row.sample_size || 0),
-          confidence: Number(row.confidence || 0),
-          avg_pnl: Number(row.avgPnl || row.avg_pnl || 0),
-          win_rate: Number(row.winRate || row.win_rate || 0),
-          rr_weight: row.rrWeight == null && row.rr_weight == null ? null : Number(row.rrWeight ?? row.rr_weight),
-          adaptive_score_weight: row.adaptiveScoreWeight == null && row.adaptive_score_weight == null ? null : Number(row.adaptiveScoreWeight ?? row.adaptive_score_weight),
-          duration_penalty_weight: row.durationPenaltyWeight == null && row.duration_penalty_weight == null ? null : Number(row.durationPenaltyWeight ?? row.duration_penalty_weight),
-          source: scorerPolicy?.source ? String(scorerPolicy.source) : "governance",
-          status: label.toLowerCase() === String(candidateScorer || "").toLowerCase() ? "active" : (row.ready !== false ? "ready" : "observe"),
-          summary: label.toLowerCase() === String(candidateScorer || "").toLowerCase()
-            ? `Configuración activa del modelo ahora apunta a ${label}`
-            : String(row.reading || row.summary || ""),
-          metadata: {
-            scorerPolicy,
-            windowType: row.windowType || row.window_type || "global",
-          },
-        };
-      }),
+      body: rows.map((row) => ({
+        username,
+        label: String(row.label || ""),
+        active_scorer: String(row.activeScorer || row.label || ""),
+        mode: String(row.mode || "learned"),
+        window_type: String(row.windowType || "global"),
+        active: row.active === true,
+        ready: row.ready !== false,
+        sample_size: Number(row.sampleSize || 0),
+        confidence: Number(row.confidence || 0),
+        avg_pnl: Number(row.avgPnl || 0),
+        win_rate: Number(row.winRate || 0),
+        rr_weight: row.rrWeight == null ? null : Number(row.rrWeight),
+        adaptive_score_weight: row.adaptiveScoreWeight == null ? null : Number(row.adaptiveScoreWeight),
+        duration_penalty_weight: row.durationPenaltyWeight == null ? null : Number(row.durationPenaltyWeight),
+        source: String(row.source || "governance"),
+        status: String(row.status || "observe"),
+        summary: String(row.summary || ""),
+        metadata: row.metadata && typeof row.metadata === "object" ? row.metadata : {},
+      })),
     });
   } catch (error) {
     if (isMissingRelationError(error)) return [];
@@ -1367,9 +1502,41 @@ async function recordModelTrainingRunHistory(username, modelTrainingRuns) {
 }
 
 async function persistModelConfigRegistry(username, modelTrainingRuns, scorerPolicy) {
-  const rows = Array.isArray(modelTrainingRuns) ? modelTrainingRuns : [];
-  if (!rows.length) return [];
-  return upsertModelConfigsForUser(username, rows, scorerPolicy?.activeScorer || "");
+  const existingConfigs = await fetchModelConfigsForUser(username).catch(() => []);
+  return upsertModelConfigsForUser(
+    username,
+    Array.isArray(modelTrainingRuns) ? modelTrainingRuns : [],
+    scorerPolicy?.activeScorer || "adaptive-v1",
+    scorerPolicy || null,
+    normalizeModelConfigRegistry(existingConfigs || []),
+  );
+}
+
+async function ensureActiveModelConfigForUser(username, activeScorer, scorerPolicy = null, existingConfigs = []) {
+  const normalizedExisting = normalizeModelConfigRegistry(existingConfigs || []);
+  const normalizedActiveScorer = normalizeActiveScorerLabel(activeScorer);
+  const activeConfigs = normalizedExisting.filter((item) => item.active);
+  const matchingActiveConfig = normalizedExisting.find(
+    (item) => item.active && normalizeActiveScorerLabel(item.label, "") === normalizedActiveScorer,
+  );
+  if (activeConfigs.length === 1 && matchingActiveConfig) return normalizedExisting;
+
+  await upsertModelConfigsForUser(
+    username,
+    [],
+    normalizedActiveScorer,
+    scorerPolicy || {
+      activeScorer: normalizedActiveScorer,
+      source: "validation-bootstrap",
+    },
+    normalizedExisting,
+  ).catch((error) => {
+    if (isMissingRelationError(error)) return [];
+    throw error;
+  });
+
+  const refreshedModelConfigs = await fetchModelConfigsForUser(username).catch(() => existingConfigs || []);
+  return normalizeModelConfigRegistry(refreshedModelConfigs || []);
 }
 
 function normalizeScorerEvaluationHistory(rows) {
@@ -3542,6 +3709,28 @@ function buildRecommendationRows(signals, versions, executionProfile) {
   return recommendations;
 }
 
+function hasTrackedExecutionContext(signal) {
+  const executionOrderId = Number(signal?.execution_order_id || 0);
+  if (Number.isFinite(executionOrderId) && executionOrderId > 0) return true;
+
+  const executionStatus = String(signal?.execution_status || "").trim().toLowerCase();
+  if ([
+    "placed",
+    "filled",
+    "filled_unprotected",
+    "protected",
+    "open",
+    "closed_win",
+    "closed_loss",
+    "closed_invalidated",
+    "closed_breakeven",
+  ].includes(executionStatus)) {
+    return true;
+  }
+
+  return Boolean(signal?.signal_payload?.executionLearning);
+}
+
 function getPreferredTimeframeScope(versions, strategyId, version) {
   const profile = getVersionProfile(versions, strategyId, version);
   return profile.preferredTimeframes.length ? profile.preferredTimeframes.join(",") : "all";
@@ -3559,13 +3748,17 @@ function buildValidationInvariants({
   featureSnapshots,
 }) {
   const closedSignals = (signals || []).filter((item) => item.outcome_status && item.outcome_status !== "pending");
+  const trackedExecutionSignals = closedSignals.filter((item) => hasTrackedExecutionContext(item));
   const signalsWithScorer = closedSignals.filter((item) => item.signal_payload?.decision?.scorer?.label);
-  const signalsWithExecutionLearning = closedSignals.filter((item) => item.signal_payload?.executionLearning);
+  const signalsWithExecutionLearning = trackedExecutionSignals.filter((item) => item.signal_payload?.executionLearning);
   const modelConfigRegistry = Array.isArray(decisionState?.modelConfigRegistry) ? decisionState.modelConfigRegistry : [];
   const activeConfigs = modelConfigRegistry.filter((item) => item.active);
   const activeScorer = String(executionProfile?.scorerPolicy?.activeScorer || "");
   const matchingActiveConfig = activeConfigs.find((item) => String(item.label || "").toLowerCase() === activeScorer.toLowerCase());
   const featureCoverage = closedSignals.length ? (featureSnapshots.length / closedSignals.length) * 100 : 0;
+  const trackedExecutionThreshold = trackedExecutionSignals.length <= 2
+    ? trackedExecutionSignals.length
+    : Math.max(3, Math.floor(trackedExecutionSignals.length * 0.8));
   return [
     {
       key: "scorer-coverage",
@@ -3577,9 +3770,11 @@ function buildValidationInvariants({
     {
       key: "execution-learning-coverage",
       label: "Cobertura de aprendizaje de ejecución",
-      status: signalsWithExecutionLearning.length >= Math.max(6, Math.floor(closedSignals.length * 0.45)) ? "pass" : "warn",
-      detail: `${signalsWithExecutionLearning.length}/${closedSignals.length || 0} señales cerradas ya traen executionLearning persistido.`,
-      severity: signalsWithExecutionLearning.length >= Math.max(6, Math.floor(closedSignals.length * 0.45)) ? "low" : "medium",
+      status: !trackedExecutionSignals.length || signalsWithExecutionLearning.length >= trackedExecutionThreshold ? "pass" : "warn",
+      detail: trackedExecutionSignals.length
+        ? `${signalsWithExecutionLearning.length}/${trackedExecutionSignals.length} señales cerradas con ejecución enlazada ya traen executionLearning persistido.`
+        : "Todavía no hay señales cerradas con ejecución enlazada dentro de la muestra auditada.",
+      severity: !trackedExecutionSignals.length || signalsWithExecutionLearning.length >= trackedExecutionThreshold ? "low" : "medium",
     },
     {
       key: "single-active-model-config",
@@ -3729,7 +3924,8 @@ export async function getStrategyValidationReportForUser(username) {
     fetchModelConfigsForUser(normalizedUsername).catch(() => []),
   ]);
 
-  const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
+  const activeScorer = executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1";
+  const initialModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
   const normalizedTrainingRunHistory = normalizeModelTrainingRunHistory(modelTrainingRunHistory || []);
   const latestTrainingRuns = [];
   const seenTrainingKeys = new Set();
@@ -3738,6 +3934,30 @@ export async function getStrategyValidationReportForUser(username) {
     if (seenTrainingKeys.has(key)) continue;
     seenTrainingKeys.add(key);
     latestTrainingRuns.push(row);
+  }
+  const generatedTrainingRuns = buildModelTrainingRuns(featureSnapshots || [], executionProfile);
+  const activeConfigCount = initialModelConfigRegistry.filter((item) => item.active).length;
+  const matchingActiveConfig = initialModelConfigRegistry.find((item) => String(item.label || "").toLowerCase() === String(activeScorer || "").toLowerCase() && item.active);
+  let normalizedModelConfigRegistry = initialModelConfigRegistry;
+  if (activeConfigCount !== 1 || !matchingActiveConfig) {
+    await persistModelConfigRegistry(normalizedUsername, generatedTrainingRuns, executionProfile?.scorerPolicy || {
+      activeScorer,
+      source: "validation-bootstrap",
+      confidence: undefined,
+      promotedAt: undefined,
+    }).catch(() => null);
+    const refreshedModelConfigs = await fetchModelConfigsForUser(normalizedUsername).catch(() => modelConfigRegistry || []);
+    normalizedModelConfigRegistry = await ensureActiveModelConfigForUser(
+      normalizedUsername,
+      activeScorer,
+      executionProfile?.scorerPolicy || {
+        activeScorer,
+        source: "validation-bootstrap",
+        confidence: undefined,
+        promotedAt: undefined,
+      },
+      refreshedModelConfigs || [],
+    ).catch(() => normalizeModelConfigRegistry(refreshedModelConfigs || []));
   }
   const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, latestTrainingRuns, normalizedModelConfigRegistry);
   const modelWindowGovernance = buildModelWindowGovernance(latestTrainingRuns, modelRegistry, executionProfile);
@@ -3797,7 +4017,11 @@ export async function getStrategyValidationReportForUser(username) {
 export async function getStrategyValidationLabForUser(username) {
   const runs = await fetchBacktestRunsForUser(username, 12).catch(() => []);
   const latestRun = Array.isArray(runs) && runs.find((item) => item.status !== "queued" && item.status !== "running") ? runs.find((item) => item.status !== "queued" && item.status !== "running") : (Array.isArray(runs) && runs.length ? runs[0] : null);
-  const report = buildValidationReportFromRunSummary(latestRun) || await getStrategyValidationReportForUser(username);
+  const latestRunRow = await fetchLatestBacktestRunRowForUser(username).catch(() => null);
+  const storedReport = buildValidationReportFromStoredRun(latestRunRow);
+  const report = shouldRegenerateValidationReport(storedReport)
+    ? await getStrategyValidationReportForUser(username)
+    : storedReport || buildValidationReportFromRunSummary(latestRun) || await getStrategyValidationReportForUser(username);
   return {
     report,
     runs,
@@ -3990,7 +4214,16 @@ export async function generateAdaptiveRecommendationsForUser(username) {
   const modelTrainingRuns = buildModelTrainingRuns(featureSnapshots || [], executionProfile);
   await recordModelTrainingRunHistory(normalizedUsername, modelTrainingRuns).catch(() => null);
   await persistModelConfigRegistry(normalizedUsername, modelTrainingRuns, executionProfile?.scorerPolicy || null).catch(() => null);
-  const normalizedModelConfigRegistry = normalizeModelConfigRegistry(modelConfigRegistry || []);
+  const refreshedModelConfigRegistry = await fetchModelConfigsForUser(normalizedUsername).catch(() => modelConfigRegistry || []);
+  const normalizedModelConfigRegistry = await ensureActiveModelConfigForUser(
+    normalizedUsername,
+    executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1",
+    executionProfile?.scorerPolicy || {
+      activeScorer: executionProfile?.scorerPolicy?.activeScorer || "adaptive-v1",
+      source: "recommendation-bootstrap",
+    },
+    refreshedModelConfigRegistry || [],
+  ).catch(() => normalizeModelConfigRegistry(refreshedModelConfigRegistry || []));
   const modelRegistry = buildModelRegistry(featureSnapshots || [], executionProfile, modelTrainingRuns, normalizedModelConfigRegistry);
   const modelWindowGovernance = buildModelWindowGovernance(modelTrainingRuns, modelRegistry, executionProfile);
   await recordModelWindowGovernanceHistory(normalizedUsername, modelWindowGovernance).catch(() => null);
@@ -4683,3 +4916,13 @@ export async function updateStrategyExperiment(req) {
 }
 
 export { sendJson };
+
+export const __strategyValidationInternals = {
+  buildModelConfigUpsertRows,
+  buildValidationReportFromStoredRun,
+  buildValidationReportFromRunSummary,
+  buildValidationInvariants,
+  hasTrackedExecutionContext,
+  hasDetailedValidationArtifacts,
+  shouldRegenerateValidationReport,
+};

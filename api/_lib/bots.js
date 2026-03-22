@@ -4,6 +4,407 @@ const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const BOTS_TABLE = process.env.SUPABASE_BOTS_TABLE || "bot_profiles";
 const SUPPORTED_BOT_TYPES = new Set(["signal-bot"]);
+const VALID_AUTOMATION_MODES = new Set(["observe", "assist", "auto"]);
+const VALID_EXECUTION_ENVIRONMENTS = new Set(["paper", "demo", "real"]);
+const VALID_UNIVERSE_KINDS = new Set(["watchlist", "custom-list", "hybrid", "market-filter"]);
+const VALID_TIMEFRAMES = new Set(["1m", "3m", "5m", "10m", "15m", "30m", "45m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M"]);
+const CLIENT_MUTABLE_BOT_FIELDS = new Set([
+  "name",
+  "botType",
+  "executionAccount",
+  "description",
+  "identity",
+  "status",
+  "executionEnvironment",
+  "automationMode",
+  "capital",
+  "workspaceSettings",
+  "generalSettings",
+  "notificationSettings",
+  "universePolicy",
+  "stylePolicy",
+  "timeframePolicy",
+  "strategyPolicy",
+  "riskPolicy",
+  "executionPolicy",
+  "aiPolicy",
+  "overlapPolicy",
+  "memoryPolicy",
+  "tags",
+  "priority",
+]);
+const CLIENT_MUTABLE_IDENTITY_FIELDS = new Set(["family", "operatingProfile", "ownerScope", "isIsolated"]);
+const CLIENT_MUTABLE_EXECUTION_ACCOUNT_FIELDS = new Set(["id", "label", "provider", "environment"]);
+const CLIENT_MUTABLE_CAPITAL_FIELDS = new Set(["allocatedUsd", "availableUsd", "accountingScope"]);
+const CLIENT_MUTABLE_WORKSPACE_FIELDS = new Set([
+  "primaryPair",
+  "rangeLower",
+  "rangeUpper",
+  "gridCount",
+  "stopLossPct",
+  "takeProfitPct",
+  "autoCompoundProfits",
+]);
+const CLIENT_MUTABLE_GENERAL_SETTINGS_FIELDS = new Set([
+  "defaultTradingPair",
+  "defaultExchange",
+  "baseCurrency",
+  "orderSizeType",
+  "autoRestartOnError",
+  "autoCompoundProfits",
+  "paperTradingMode",
+  "smartOrderRouting",
+  "antiSlippageProtection",
+  "executionSpeed",
+  "apiRateLimit",
+  "maxConcurrentBots",
+  "tradingScheduleEnabled",
+  "startTime",
+  "endTime",
+  "activeDays",
+  "timezone",
+]);
+const CLIENT_MUTABLE_NOTIFICATION_FIELDS = new Set([
+  "emailEnabled",
+  "emailAddress",
+  "telegramEnabled",
+  "telegramHandle",
+  "discordConnected",
+  "discordLabel",
+  "pushEnabled",
+  "pushLabel",
+  "tradeExecuted",
+  "takeProfitHit",
+  "stopLossTriggered",
+  "botStatusChange",
+  "dailySummary",
+  "errorAlerts",
+]);
+const CLIENT_MUTABLE_UNIVERSE_FIELDS = new Set(["kind", "watchlistIds", "symbols", "filters"]);
+const CLIENT_MUTABLE_UNIVERSE_FILTER_FIELDS = new Set(["preferredTimeframes"]);
+const CLIENT_MUTABLE_STYLE_FIELDS = new Set(["dominantStyle", "allowedStyles", "multiStyleEnabled"]);
+const CLIENT_MUTABLE_TIMEFRAME_FIELDS = new Set(["preferredTimeframes", "allowedTimeframes"]);
+const CLIENT_MUTABLE_STRATEGY_FIELDS = new Set(["allowedStrategyIds", "preferredStrategyIds", "adaptiveAdjustmentsEnabled"]);
+const CLIENT_MUTABLE_RISK_FIELDS = new Set([
+  "maxPositionUsd",
+  "maxOpenPositions",
+  "maxDailyLossPct",
+  "maxDrawdownPct",
+  "cooldownAfterLosses",
+  "maxSymbolExposurePct",
+  "realExecutionRequiresApproval",
+]);
+const CLIENT_MUTABLE_EXECUTION_POLICY_FIELDS = new Set([
+  "canOpenPositions",
+  "suggestionsOnly",
+  "requiresHumanApproval",
+  "autoExecutionEnabled",
+  "realExecutionEnabled",
+]);
+const CLIENT_MUTABLE_AI_FIELDS = new Set([
+  "analystEnabled",
+  "adjusterEnabled",
+  "supervisorEnabled",
+  "unrestrictedModeEnabled",
+  "requiresConfirmationFor",
+  "isolationScope",
+]);
+const CLIENT_MUTABLE_OVERLAP_FIELDS = new Set([
+  "observationOverlap",
+  "signalOverlap",
+  "executionOverlap",
+  "arbitrationMode",
+  "priority",
+  "exclusiveUniverse",
+]);
+const CLIENT_MUTABLE_MEMORY_FIELDS = new Set([
+  "familySharingEnabled",
+  "globalLearningEnabled",
+  "allowPromotionToShared",
+  "requiresApprovalForSharedLearning",
+  "familyScope",
+]);
+
+function hasOwn(value, key) {
+  return Object.prototype.hasOwnProperty.call(value || {}, key);
+}
+
+function pickAllowedObject(source, allowedKeys) {
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+  const next = {};
+  for (const key of allowedKeys) {
+    if (hasOwn(source, key)) {
+      next[key] = source[key];
+    }
+  }
+  return next;
+}
+
+function mergeNestedSection(existingSection, patchSection) {
+  if (!patchSection || typeof patchSection !== "object" || Array.isArray(patchSection)) {
+    return existingSection;
+  }
+  return {
+    ...(existingSection || {}),
+    ...patchSection,
+  };
+}
+
+function mergeUniversePolicy(existingPolicy, patchPolicy) {
+  if (!patchPolicy || typeof patchPolicy !== "object" || Array.isArray(patchPolicy)) {
+    return existingPolicy;
+  }
+
+  const nextPolicy = {
+    ...(existingPolicy || {}),
+    ...patchPolicy,
+  };
+
+  nextPolicy.watchlistIds = hasOwn(patchPolicy, "watchlistIds")
+    ? patchPolicy.watchlistIds
+    : existingPolicy?.watchlistIds;
+  nextPolicy.symbols = hasOwn(patchPolicy, "symbols")
+    ? patchPolicy.symbols
+    : existingPolicy?.symbols;
+  nextPolicy.filters = hasOwn(patchPolicy, "filters")
+    ? mergeNestedSection(existingPolicy?.filters || {}, patchPolicy.filters || {})
+    : existingPolicy?.filters;
+
+  return nextPolicy;
+}
+
+function mergeTimeframePolicy(existingPolicy, patchPolicy) {
+  if (!patchPolicy || typeof patchPolicy !== "object" || Array.isArray(patchPolicy)) {
+    return existingPolicy;
+  }
+
+  const nextPolicy = {
+    ...(existingPolicy || {}),
+    ...patchPolicy,
+  };
+
+  nextPolicy.preferredTimeframes = hasOwn(patchPolicy, "preferredTimeframes")
+    ? patchPolicy.preferredTimeframes
+    : existingPolicy?.preferredTimeframes;
+  nextPolicy.allowedTimeframes = hasOwn(patchPolicy, "allowedTimeframes")
+    ? patchPolicy.allowedTimeframes
+    : existingPolicy?.allowedTimeframes;
+
+  return nextPolicy;
+}
+
+function normalizeTagList(values) {
+  if (!Array.isArray(values)) return [];
+  return values.map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function assertMutableBotPayload(body, mode = "update") {
+  const normalizedBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  const invalidKeys = Object.keys(normalizedBody).filter((key) => !CLIENT_MUTABLE_BOT_FIELDS.has(key));
+  if (!invalidKeys.length) return;
+  const label = mode === "create" ? "crear" : "actualizar";
+  throw new Error(`El payload para ${label} el bot contiene campos no editables desde cliente: ${invalidKeys.join(", ")}.`);
+}
+
+function sanitizeMutableBotPayload(body, mode = "update") {
+  assertMutableBotPayload(body, mode);
+  const normalizedBody = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  const nextPayload = {};
+
+  if (hasOwn(normalizedBody, "name")) nextPayload.name = String(normalizedBody.name || "");
+  if (hasOwn(normalizedBody, "botType")) nextPayload.botType = normalizedBody.botType;
+  if (hasOwn(normalizedBody, "executionAccount")) {
+    nextPayload.executionAccount = normalizedBody.executionAccount == null
+      ? null
+      : pickAllowedObject(normalizedBody.executionAccount, CLIENT_MUTABLE_EXECUTION_ACCOUNT_FIELDS);
+  }
+  if (hasOwn(normalizedBody, "description")) nextPayload.description = String(normalizedBody.description || "");
+  if (hasOwn(normalizedBody, "identity")) nextPayload.identity = pickAllowedObject(normalizedBody.identity, CLIENT_MUTABLE_IDENTITY_FIELDS) || {};
+  if (hasOwn(normalizedBody, "status")) nextPayload.status = normalizedBody.status;
+  if (hasOwn(normalizedBody, "executionEnvironment")) nextPayload.executionEnvironment = normalizedBody.executionEnvironment;
+  if (hasOwn(normalizedBody, "automationMode")) nextPayload.automationMode = normalizedBody.automationMode;
+  if (hasOwn(normalizedBody, "capital")) nextPayload.capital = pickAllowedObject(normalizedBody.capital, CLIENT_MUTABLE_CAPITAL_FIELDS) || {};
+  if (hasOwn(normalizedBody, "workspaceSettings")) nextPayload.workspaceSettings = pickAllowedObject(normalizedBody.workspaceSettings, CLIENT_MUTABLE_WORKSPACE_FIELDS) || {};
+  if (hasOwn(normalizedBody, "generalSettings")) nextPayload.generalSettings = pickAllowedObject(normalizedBody.generalSettings, CLIENT_MUTABLE_GENERAL_SETTINGS_FIELDS) || {};
+  if (hasOwn(normalizedBody, "notificationSettings")) nextPayload.notificationSettings = pickAllowedObject(normalizedBody.notificationSettings, CLIENT_MUTABLE_NOTIFICATION_FIELDS) || {};
+  if (hasOwn(normalizedBody, "universePolicy")) {
+    const universePolicy = pickAllowedObject(normalizedBody.universePolicy, CLIENT_MUTABLE_UNIVERSE_FIELDS) || {};
+    if (hasOwn(universePolicy, "filters")) {
+      universePolicy.filters = pickAllowedObject(universePolicy.filters, CLIENT_MUTABLE_UNIVERSE_FILTER_FIELDS) || {};
+    }
+    nextPayload.universePolicy = universePolicy;
+  }
+  if (hasOwn(normalizedBody, "stylePolicy")) nextPayload.stylePolicy = pickAllowedObject(normalizedBody.stylePolicy, CLIENT_MUTABLE_STYLE_FIELDS) || {};
+  if (hasOwn(normalizedBody, "timeframePolicy")) nextPayload.timeframePolicy = pickAllowedObject(normalizedBody.timeframePolicy, CLIENT_MUTABLE_TIMEFRAME_FIELDS) || {};
+  if (hasOwn(normalizedBody, "strategyPolicy")) nextPayload.strategyPolicy = pickAllowedObject(normalizedBody.strategyPolicy, CLIENT_MUTABLE_STRATEGY_FIELDS) || {};
+  if (hasOwn(normalizedBody, "riskPolicy")) nextPayload.riskPolicy = pickAllowedObject(normalizedBody.riskPolicy, CLIENT_MUTABLE_RISK_FIELDS) || {};
+  if (hasOwn(normalizedBody, "executionPolicy")) nextPayload.executionPolicy = pickAllowedObject(normalizedBody.executionPolicy, CLIENT_MUTABLE_EXECUTION_POLICY_FIELDS) || {};
+  if (hasOwn(normalizedBody, "aiPolicy")) nextPayload.aiPolicy = pickAllowedObject(normalizedBody.aiPolicy, CLIENT_MUTABLE_AI_FIELDS) || {};
+  if (hasOwn(normalizedBody, "overlapPolicy")) nextPayload.overlapPolicy = pickAllowedObject(normalizedBody.overlapPolicy, CLIENT_MUTABLE_OVERLAP_FIELDS) || {};
+  if (hasOwn(normalizedBody, "memoryPolicy")) nextPayload.memoryPolicy = pickAllowedObject(normalizedBody.memoryPolicy, CLIENT_MUTABLE_MEMORY_FIELDS) || {};
+  if (hasOwn(normalizedBody, "tags")) nextPayload.tags = normalizeTagList(normalizedBody.tags);
+  if (hasOwn(normalizedBody, "priority")) nextPayload.priority = normalizedBody.priority;
+
+  return nextPayload;
+}
+
+function normalizePair(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizeTimeframe(value) {
+  const normalized = String(value || "").trim();
+  return VALID_TIMEFRAMES.has(normalized) ? normalized : "";
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const nextValue = Number(value);
+  return Number.isFinite(nextValue) ? nextValue : fallback;
+}
+
+function uniquePairs(values) {
+  return [...new Set((Array.isArray(values) ? values : []).map(normalizePair).filter(Boolean))];
+}
+
+function uniqueTimeframes(values) {
+  return [...new Set((Array.isArray(values) ? values : []).map(normalizeTimeframe).filter(Boolean))];
+}
+
+function normalizeAutomationMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_AUTOMATION_MODES.has(normalized) ? normalized : "observe";
+}
+
+function normalizeExecutionEnvironment(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return VALID_EXECUTION_ENVIRONMENTS.has(normalized) ? normalized : "paper";
+}
+
+function syncExecutionPolicyForMode(bot) {
+  const mode = normalizeAutomationMode(bot.automationMode);
+  const environment = normalizeExecutionEnvironment(bot.executionEnvironment);
+  const nextExecutionPolicy = {
+    ...(bot.executionPolicy || {}),
+  };
+
+  if (mode === "auto") {
+    nextExecutionPolicy.autoExecutionEnabled = true;
+    nextExecutionPolicy.suggestionsOnly = false;
+    nextExecutionPolicy.requiresHumanApproval = false;
+    nextExecutionPolicy.canOpenPositions = true;
+  } else if (mode === "assist") {
+    nextExecutionPolicy.autoExecutionEnabled = false;
+    nextExecutionPolicy.suggestionsOnly = false;
+    nextExecutionPolicy.requiresHumanApproval = true;
+    nextExecutionPolicy.canOpenPositions = true;
+  } else {
+    nextExecutionPolicy.autoExecutionEnabled = false;
+    nextExecutionPolicy.suggestionsOnly = true;
+    nextExecutionPolicy.requiresHumanApproval = true;
+    nextExecutionPolicy.canOpenPositions = false;
+  }
+
+  if (environment !== "real") {
+    nextExecutionPolicy.realExecutionEnabled = false;
+  }
+
+  return {
+    automationMode: mode,
+    executionEnvironment: environment,
+    executionPolicy: nextExecutionPolicy,
+  };
+}
+
+function applyBotGuardrails(bot) {
+  const nextBot = {
+    ...bot,
+    automationMode: normalizeAutomationMode(bot.automationMode),
+    executionEnvironment: normalizeExecutionEnvironment(bot.executionEnvironment),
+    capital: {
+      ...bot.capital,
+      allocatedUsd: Math.max(0, toFiniteNumber(bot.capital?.allocatedUsd, 0)),
+      availableUsd: Math.max(0, toFiniteNumber(bot.capital?.availableUsd, 0)),
+    },
+    riskPolicy: {
+      ...bot.riskPolicy,
+      maxPositionUsd: Math.max(0, toFiniteNumber(bot.riskPolicy?.maxPositionUsd, 0)),
+      maxOpenPositions: Math.max(1, Math.floor(toFiniteNumber(bot.riskPolicy?.maxOpenPositions, 1))),
+      maxDailyLossPct: Math.max(0, toFiniteNumber(bot.riskPolicy?.maxDailyLossPct, 0)),
+      maxDrawdownPct: Math.max(0, toFiniteNumber(bot.riskPolicy?.maxDrawdownPct, 0)),
+      cooldownAfterLosses: Math.max(0, Math.floor(toFiniteNumber(bot.riskPolicy?.cooldownAfterLosses, 0))),
+      maxSymbolExposurePct: Math.max(0, Math.min(100, toFiniteNumber(bot.riskPolicy?.maxSymbolExposurePct, 0))),
+    },
+    universePolicy: {
+      ...bot.universePolicy,
+      kind: VALID_UNIVERSE_KINDS.has(String(bot.universePolicy?.kind || "").trim()) ? String(bot.universePolicy.kind).trim() : "watchlist",
+      symbols: uniquePairs(bot.universePolicy?.symbols || []),
+      watchlistIds: Array.isArray(bot.universePolicy?.watchlistIds)
+        ? bot.universePolicy.watchlistIds.map((value) => String(value || "").trim()).filter(Boolean)
+        : [],
+      filters: {
+        ...(bot.universePolicy?.filters || {}),
+        preferredTimeframes: uniqueTimeframes(bot.universePolicy?.filters?.preferredTimeframes || []),
+      },
+    },
+    timeframePolicy: {
+      ...bot.timeframePolicy,
+      preferredTimeframes: uniqueTimeframes(bot.timeframePolicy?.preferredTimeframes || []),
+      allowedTimeframes: uniqueTimeframes(bot.timeframePolicy?.allowedTimeframes || []),
+    },
+  };
+
+  if (!nextBot.timeframePolicy.allowedTimeframes.length) {
+    nextBot.timeframePolicy.allowedTimeframes = ["1h"];
+  }
+
+  if (!nextBot.timeframePolicy.preferredTimeframes.length) {
+    nextBot.timeframePolicy.preferredTimeframes = [nextBot.timeframePolicy.allowedTimeframes[0]];
+  }
+
+  if (nextBot.timeframePolicy.preferredTimeframes.some((timeframe) => !nextBot.timeframePolicy.allowedTimeframes.includes(timeframe))) {
+    nextBot.timeframePolicy.preferredTimeframes = nextBot.timeframePolicy.preferredTimeframes.filter((timeframe) => nextBot.timeframePolicy.allowedTimeframes.includes(timeframe));
+    if (!nextBot.timeframePolicy.preferredTimeframes.length) {
+      nextBot.timeframePolicy.preferredTimeframes = [nextBot.timeframePolicy.allowedTimeframes[0]];
+    }
+  }
+
+  if (!nextBot.universePolicy.filters.preferredTimeframes.length) {
+    nextBot.universePolicy.filters.preferredTimeframes = [...nextBot.timeframePolicy.preferredTimeframes];
+  } else {
+    nextBot.universePolicy.filters.preferredTimeframes = nextBot.universePolicy.filters.preferredTimeframes
+      .filter((timeframe) => nextBot.timeframePolicy.allowedTimeframes.includes(timeframe));
+    if (!nextBot.universePolicy.filters.preferredTimeframes.length) {
+      nextBot.universePolicy.filters.preferredTimeframes = [...nextBot.timeframePolicy.preferredTimeframes];
+    }
+  }
+
+  if (nextBot.universePolicy.kind === "custom-list" && !nextBot.universePolicy.symbols.length) {
+    throw new Error("El bot necesita al menos un par activo cuando trabaja con lista propia.");
+  }
+
+  const primaryPair = normalizePair(nextBot.workspaceSettings?.primaryPair || nextBot.universePolicy.symbols?.[0] || "");
+  if (nextBot.universePolicy.kind === "custom-list" && primaryPair && !nextBot.universePolicy.symbols.includes(primaryPair)) {
+    throw new Error("El par principal del bot debe existir dentro de su lista activa de monedas.");
+  }
+
+  nextBot.workspaceSettings = {
+    ...nextBot.workspaceSettings,
+    primaryPair: primaryPair || nextBot.universePolicy.symbols[0] || "BTC/USDT",
+  };
+  nextBot.generalSettings = {
+    ...nextBot.generalSettings,
+    defaultTradingPair: nextBot.workspaceSettings.primaryPair,
+  };
+
+  if (nextBot.riskPolicy.maxPositionUsd > nextBot.capital.allocatedUsd) {
+    throw new Error("Max Position Size no puede superar el capital asignado al bot.");
+  }
+
+  nextBot.capital.availableUsd = Math.min(nextBot.capital.availableUsd, nextBot.capital.allocatedUsd);
+  Object.assign(nextBot, syncExecutionPolicyForMode(nextBot));
+
+  return nextBot;
+}
 
 async function supabaseRequest(path, options = {}) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -257,7 +658,7 @@ function createDefaultBotPayload(overrides = {}) {
       recentDecisionIds: [],
       recentSymbols: [],
     },
-    tags: Array.isArray(overrides.tags) && overrides.tags.length ? overrides.tags : ["system", "signals"],
+    tags: Array.isArray(overrides.tags) ? normalizeTagList(overrides.tags) : ["system", "signals"],
     priority: Number(overrides.priority || 50),
     createdAt,
     updatedAt: overrides.updatedAt || createdAt,
@@ -368,30 +769,32 @@ async function listBots(req) {
 async function createBot(req) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
-  const rawName = String(body?.name || "").trim();
+  const clientPayload = sanitizeMutableBotPayload(body, "create");
+  const rawName = String(clientPayload?.name || "").trim();
   if (!rawName) {
     throw new Error("El nombre del bot es obligatorio.");
   }
   const sourceName = rawName;
-  const baseSlug = slugify(body?.slug || sourceName || "signal-bot");
+  const baseSlug = slugify(sourceName || "signal-bot");
   const uniqueId = `${baseSlug}-${Date.now()}`;
-  const bot = normalizeBotPayload({
-    ...body,
+  const createdAt = nowIso();
+  const bot = applyBotGuardrails(normalizeBotPayload({
+    ...clientPayload,
     id: uniqueId,
     slug: baseSlug,
     name: sourceName,
-    botType: normalizeBotType(body?.botType),
-    status: body?.status || "draft",
-    executionEnvironment: body?.executionEnvironment || body?.executionAccount?.environment || "paper",
-    automationMode: body?.automationMode || "observe",
-    primaryPair: body?.workspaceSettings?.primaryPair || body?.primaryPair || body?.universePolicy?.symbols?.[0] || "BTC/USDT",
-    allocatedUsd: body?.capital?.allocatedUsd || body?.allocatedUsd || 0,
-    availableUsd: body?.capital?.availableUsd ?? body?.availableUsd ?? body?.capital?.allocatedUsd ?? body?.allocatedUsd ?? 0,
-    description: body?.description,
-    tags: Array.isArray(body?.tags) ? body.tags : undefined,
-    createdAt: nowIso(),
-    updatedAt: nowIso(),
-  });
+    botType: normalizeBotType(clientPayload?.botType),
+    status: clientPayload?.status || "draft",
+    executionEnvironment: clientPayload?.executionEnvironment || clientPayload?.executionAccount?.environment || "paper",
+    automationMode: clientPayload?.automationMode || "observe",
+    primaryPair: clientPayload?.workspaceSettings?.primaryPair || clientPayload?.generalSettings?.defaultTradingPair || clientPayload?.universePolicy?.symbols?.[0] || "BTC/USDT",
+    allocatedUsd: clientPayload?.capital?.allocatedUsd ?? 0,
+    availableUsd: clientPayload?.capital?.availableUsd ?? clientPayload?.capital?.allocatedUsd ?? 0,
+    description: clientPayload?.description,
+    tags: hasOwn(clientPayload, "tags") ? clientPayload.tags : undefined,
+    createdAt,
+    updatedAt: createdAt,
+  }));
 
   const rows = await supabaseRequest(BOTS_TABLE, {
     method: "POST",
@@ -407,7 +810,8 @@ async function createBot(req) {
 async function updateBot(req, botId) {
   const session = requireSession(req);
   const body = parseJsonBody(req);
-  if (Object.prototype.hasOwnProperty.call(body || {}, "name") && !String(body?.name || "").trim()) {
+  const clientPatch = sanitizeMutableBotPayload(body, "update");
+  if (hasOwn(clientPatch, "name") && !String(clientPatch?.name || "").trim()) {
     throw new Error("El nombre del bot es obligatorio.");
   }
   const params = new URLSearchParams({
@@ -423,61 +827,41 @@ async function updateBot(req, botId) {
   }
 
   const existingBot = rowToBot(existingRow);
-  const nextBot = normalizeBotPayload({
+  const nextBot = applyBotGuardrails(normalizeBotPayload({
     ...existingBot,
-    ...body,
-    botType: Object.prototype.hasOwnProperty.call(body || {}, "botType")
-      ? normalizeBotType(body?.botType)
+    ...clientPatch,
+    botType: hasOwn(clientPatch, "botType")
+      ? normalizeBotType(clientPatch?.botType)
       : existingBot.botType,
-    identity: body?.identity ? { ...existingBot.identity, ...body.identity } : existingBot.identity,
-    capital: body?.capital ? { ...existingBot.capital, ...body.capital } : existingBot.capital,
-    workspaceSettings: body?.workspaceSettings
-      ? { ...existingBot.workspaceSettings, ...body.workspaceSettings }
+    identity: hasOwn(clientPatch, "identity") ? mergeNestedSection(existingBot.identity, clientPatch.identity) : existingBot.identity,
+    capital: hasOwn(clientPatch, "capital") ? mergeNestedSection(existingBot.capital, clientPatch.capital) : existingBot.capital,
+    workspaceSettings: hasOwn(clientPatch, "workspaceSettings")
+      ? mergeNestedSection(existingBot.workspaceSettings, clientPatch.workspaceSettings)
       : existingBot.workspaceSettings,
-    generalSettings: body?.generalSettings
-      ? { ...existingBot.generalSettings, ...body.generalSettings }
+    generalSettings: hasOwn(clientPatch, "generalSettings")
+      ? mergeNestedSection(existingBot.generalSettings, clientPatch.generalSettings)
       : existingBot.generalSettings,
-    notificationSettings: body?.notificationSettings
-      ? { ...existingBot.notificationSettings, ...body.notificationSettings }
+    notificationSettings: hasOwn(clientPatch, "notificationSettings")
+      ? mergeNestedSection(existingBot.notificationSettings, clientPatch.notificationSettings)
       : existingBot.notificationSettings,
-    universePolicy: body?.universePolicy
-      ? {
-          ...existingBot.universePolicy,
-          ...body.universePolicy,
-          watchlistIds: body.universePolicy.watchlistIds || existingBot.universePolicy.watchlistIds,
-          symbols: body.universePolicy.symbols || existingBot.universePolicy.symbols,
-          filters: body.universePolicy.filters
-            ? { ...(existingBot.universePolicy.filters || {}), ...body.universePolicy.filters }
-            : existingBot.universePolicy.filters,
-        }
+    universePolicy: hasOwn(clientPatch, "universePolicy")
+      ? mergeUniversePolicy(existingBot.universePolicy, clientPatch.universePolicy)
       : existingBot.universePolicy,
-    stylePolicy: body?.stylePolicy ? { ...existingBot.stylePolicy, ...body.stylePolicy } : existingBot.stylePolicy,
-    timeframePolicy: body?.timeframePolicy
-      ? { ...existingBot.timeframePolicy, ...body.timeframePolicy }
+    stylePolicy: hasOwn(clientPatch, "stylePolicy") ? mergeNestedSection(existingBot.stylePolicy, clientPatch.stylePolicy) : existingBot.stylePolicy,
+    timeframePolicy: hasOwn(clientPatch, "timeframePolicy")
+      ? mergeTimeframePolicy(existingBot.timeframePolicy, clientPatch.timeframePolicy)
       : existingBot.timeframePolicy,
-    riskPolicy: body?.riskPolicy ? { ...existingBot.riskPolicy, ...body.riskPolicy } : existingBot.riskPolicy,
-    strategyPolicy: body?.strategyPolicy ? { ...existingBot.strategyPolicy, ...body.strategyPolicy } : existingBot.strategyPolicy,
-    executionPolicy: body?.executionPolicy
-      ? { ...existingBot.executionPolicy, ...body.executionPolicy }
+    riskPolicy: hasOwn(clientPatch, "riskPolicy") ? mergeNestedSection(existingBot.riskPolicy, clientPatch.riskPolicy) : existingBot.riskPolicy,
+    strategyPolicy: hasOwn(clientPatch, "strategyPolicy") ? mergeNestedSection(existingBot.strategyPolicy, clientPatch.strategyPolicy) : existingBot.strategyPolicy,
+    executionPolicy: hasOwn(clientPatch, "executionPolicy")
+      ? mergeNestedSection(existingBot.executionPolicy, clientPatch.executionPolicy)
       : existingBot.executionPolicy,
-    aiPolicy: body?.aiPolicy ? { ...existingBot.aiPolicy, ...body.aiPolicy } : existingBot.aiPolicy,
-    overlapPolicy: body?.overlapPolicy ? { ...existingBot.overlapPolicy, ...body.overlapPolicy } : existingBot.overlapPolicy,
-    memoryPolicy: body?.memoryPolicy ? { ...existingBot.memoryPolicy, ...body.memoryPolicy } : existingBot.memoryPolicy,
-    performance: body?.performance ? { ...existingBot.performance, ...body.performance } : existingBot.performance,
-    localMemory: body?.localMemory ? { ...existingBot.localMemory, ...body.localMemory } : existingBot.localMemory,
-    familyMemory: body?.familyMemory ? { ...existingBot.familyMemory, ...body.familyMemory } : existingBot.familyMemory,
-    globalMemory: body?.globalMemory ? { ...existingBot.globalMemory, ...body.globalMemory } : existingBot.globalMemory,
-    audit: body?.audit ? { ...existingBot.audit, ...body.audit } : existingBot.audit,
-    activity: body?.activity
-      ? {
-          ...existingBot.activity,
-          ...body.activity,
-          recentDecisionIds: body.activity.recentDecisionIds || existingBot.activity.recentDecisionIds,
-          recentSymbols: body.activity.recentSymbols || existingBot.activity.recentSymbols,
-        }
-      : existingBot.activity,
+    aiPolicy: hasOwn(clientPatch, "aiPolicy") ? mergeNestedSection(existingBot.aiPolicy, clientPatch.aiPolicy) : existingBot.aiPolicy,
+    overlapPolicy: hasOwn(clientPatch, "overlapPolicy") ? mergeNestedSection(existingBot.overlapPolicy, clientPatch.overlapPolicy) : existingBot.overlapPolicy,
+    memoryPolicy: hasOwn(clientPatch, "memoryPolicy") ? mergeNestedSection(existingBot.memoryPolicy, clientPatch.memoryPolicy) : existingBot.memoryPolicy,
+    tags: hasOwn(clientPatch, "tags") ? clientPatch.tags : existingBot.tags,
     updatedAt: nowIso(),
-  });
+  }));
 
   const updateParams = new URLSearchParams({
     username: `eq.${String(session.username)}`,
@@ -500,4 +884,13 @@ export {
   listBots,
   sendJson,
   updateBot,
+};
+
+export const __botInternals = {
+  assertMutableBotPayload,
+  sanitizeMutableBotPayload,
+  mergeUniversePolicy,
+  mergeTimeframePolicy,
+  applyBotGuardrails,
+  normalizeBotPayload,
 };

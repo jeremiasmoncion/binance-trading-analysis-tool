@@ -208,6 +208,10 @@ function slugifyBotName(value: string) {
     .replace(/(^-|-$)/g, "") || "signal-bot";
 }
 
+function normalizeTradingPair(value: string) {
+  return String(value || "").trim().toUpperCase();
+}
+
 function formatBotTypeLabel(value?: string | null) {
   return String(value || "").trim() === "signal-bot" ? "Signal Bot" : "Signal Bot";
 }
@@ -221,34 +225,6 @@ function createTradingAccountOptions(accountAlias?: string | null): TradingAccou
       environment: "demo",
     },
   ];
-}
-
-function formatSafeLaneStability(value?: string | null) {
-  const normalized = String(value || "").trim();
-  if (normalized === "stable") return "Stable";
-  if (normalized === "watch") return "Watch";
-  if (normalized === "fragile") return "Fragile";
-  return "Forming";
-}
-
-function formatOperationalVerdict(value?: string | null) {
-  const normalized = String(value || "").trim();
-  if (normalized === "close") return "Close";
-  if (normalized === "validating") return "Validating";
-  if (normalized === "not-ready") return "Not Ready";
-  return "Forming";
-}
-
-function formatGovernedDemoGate(value?: string | null) {
-  return String(value || "").trim() === "open" ? "Open" : "Closed";
-}
-
-function formatPaperDemoOperationalState(value?: string | null) {
-  return String(value || "").trim() === "operational" ? "Operational" : "Not Operational";
-}
-
-function formatBotsOperationalNow(value?: string | null) {
-  return String(value || "").trim() === "yes" ? "Yes" : "No";
 }
 
 function titleCaseToken(value?: string | null) {
@@ -306,7 +282,11 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
   const [riskSettings, setRiskSettings] = useState(INITIAL_RISK_SETTINGS);
   const [notificationSettings, setNotificationSettings] = useState(INITIAL_NOTIFICATION_SETTINGS);
   const [quickEditDraft, setQuickEditDraft] = useState<QuickEditDraft | null>(null);
-  const [disableConfirmBot, setDisableConfirmBot] = useState<{ botId: string; botName: string } | null>(null);
+  const [disableConfirmBot, setDisableConfirmBot] = useState<{
+    botId: string;
+    botName: string;
+    liveExecutionCount: number;
+  } | null>(null);
   const [tradingAccountOptions, setTradingAccountOptions] = useState<TradingAccountOption[]>([]);
   const feedReadModel = useSignalsBotsReadModel();
   const { createBot, selectBot, updateBot, loading: botsLoading, error: botsError, hydrated: botsHydrated } = useSelectedBotState();
@@ -390,16 +370,6 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
       attentionBots: (feedReadModel.attentionBots || [])
         .map((attentionBot) => cards.find((bot) => bot.id === attentionBot.id) || null)
         .filter((bot): bot is (typeof cards)[number] => Boolean(bot)),
-      readiness: {
-        readyBots: cards.filter((bot) => bot.operationalReadiness === "ready").slice(0, 4),
-        recoveryBots: cards.filter((bot) => bot.operationalReadiness === "recovery").slice(0, 4),
-        finalReviewBots: cards.filter((bot) => bot.operationalReadiness === "final-review").slice(0, 4),
-      },
-      queueChurnBots: cards
-        .filter((bot) => (bot.readyContentionAutoPromotionCount || 0) > 0)
-        .sort((left, right) => (right.readyContentionAutoPromotionCount || 0) - (left.readyContentionAutoPromotionCount || 0))
-        .slice(0, 4),
-      readyContention: feedReadModel.readyContention || { entries: [], contendedReadySymbols: 0, contendedReadyBots: 0 },
       summary: feedReadModel.botSummary,
       tabs: {
         general: [
@@ -685,6 +655,15 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
 
   const handleConfirmDisableBot = async () => {
     if (!disableConfirmBot?.botId) return;
+    if (disableConfirmBot.liveExecutionCount > 0) {
+      showToast({
+        tone: "warning",
+        title: "Operaciones activas detectadas",
+        message: `${disableConfirmBot.botName} todavía tiene ${disableConfirmBot.liveExecutionCount} operación(es) activa(s). Cierra esas posiciones antes de deshabilitar el bot.`,
+      });
+      setDisableConfirmBot(null);
+      return;
+    }
     const loaderId = startLoading({ label: "Deshabilitando bot", detail: disableConfirmBot.botName });
     try {
       await updateBot(disableConfirmBot.botId, {
@@ -738,9 +717,22 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
     }
     const loaderId = startLoading({ label: "Guardando bot", detail: quickEditDraft.botName });
     try {
-      const normalizedPair = quickEditDraft.pair.trim() || "BTC/USDT";
+      const normalizedPair = normalizeTradingPair(quickEditDraft.pair) || "BTC/USDT";
+      const normalizedInvestmentAmount = Math.max(Number(quickEditDraft.investmentAmount || 0), 0);
       const selectedAccount = tradingAccountOptions.find((account) => account.value === quickEditDraft.executionAccountId) || null;
       const existingBot = quickEditDraft.botId ? readModel.cards.find((bot) => bot.id === quickEditDraft.botId) || null : null;
+      const existingSymbols = Array.isArray(existingBot?.universePolicy?.symbols)
+        ? existingBot.universePolicy.symbols.map(normalizeTradingPair).filter(Boolean)
+        : [];
+      const nextUniverseSymbols = existingBot
+        ? Array.from(new Set([normalizedPair, ...existingSymbols].filter(Boolean)))
+        : [normalizedPair];
+      const currentAllocatedUsd = Number(existingBot?.capital?.allocatedUsd || 0);
+      const currentAvailableUsd = Number(existingBot?.capital?.availableUsd || 0);
+      const capitalInUseUsd = Math.max(currentAllocatedUsd - currentAvailableUsd, 0);
+      const nextAvailableUsd = existingBot
+        ? Math.max(normalizedInvestmentAmount - capitalInUseUsd, 0)
+        : normalizedInvestmentAmount;
       const nextExecutionPolicy = existingBot
         ? {
             ...existingBot.executionPolicy,
@@ -767,8 +759,8 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             }
           : null,
         capital: {
-          allocatedUsd: Number(quickEditDraft.investmentAmount || 0),
-          availableUsd: Number(quickEditDraft.investmentAmount || 0),
+          allocatedUsd: normalizedInvestmentAmount,
+          availableUsd: nextAvailableUsd,
           accountingScope: quickEditDraft.botId || slugifyBotName(normalizedName),
         },
         workspaceSettings: {
@@ -783,7 +775,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
         universePolicy: {
           kind: "custom-list" as const,
           watchlistIds: existingBot?.universePolicy?.watchlistIds || [],
-          symbols: [normalizedPair],
+          symbols: nextUniverseSymbols,
           filters: existingBot?.universePolicy?.filters || { preferredTimeframes: ["1h"] },
         },
       };
@@ -1050,7 +1042,9 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               <DownloadIcon />
               Export
             </button>
-            <button type="button" className="ui-button ui-button-primary" onClick={() => void handleCreateBot()}>Create New Bot</button>
+            <button type="button" className="ui-button ui-button-primary" onClick={() => void handleCreateBot()} data-testid="create-new-bot">
+              Create New Bot
+            </button>
           </div>
         </div>
 
@@ -1086,92 +1080,6 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
             progress={readModel.summary.averageWinRate}
           />
         </div>
-
-        {activeTab === "all-bots" && (readModel.readiness.readyBots.length || readModel.readiness.recoveryBots.length || readModel.readiness.finalReviewBots.length) ? (
-          <section className="botsettings-panel card" style={{ marginBottom: "1.25rem" }}>
-            <div className="botsettings-general-head" style={{ marginBottom: "1rem" }}>
-              <div className="botsettings-general-title">
-                <div className="botsettings-general-icon is-success">
-                  <AutomationBoltIcon />
-                </div>
-                <h3>Operational Readiness</h3>
-              </div>
-            </div>
-            <div className="signalbot-insight-stack">
-              {readModel.readiness.readyBots.length ? (
-                <article className="signalbot-insight-card">
-                  <strong>Ready</strong>
-                  <p>{readModel.readiness.readyBots.map((bot) => `${bot.name} (${bot.pair})`).join(", ")}</p>
-                  <p>These bots still have governed dispatch capacity inside the safe lane.</p>
-                </article>
-              ) : null}
-              {readModel.readiness.recoveryBots.length ? (
-                <article className="signalbot-insight-card">
-                  <strong>Recovery</strong>
-                  <p>{readModel.readiness.recoveryBots.map((bot) => `${bot.name} (${bot.pair})`).join(", ")}</p>
-                  <p>These bots are still moving through preview recovery governance before returning to a cleaner ready state.</p>
-                </article>
-              ) : null}
-              {readModel.readiness.finalReviewBots.length ? (
-                <article className="signalbot-insight-card">
-                  <strong>Final Review</strong>
-                  <p>{readModel.readiness.finalReviewBots.map((bot) => `${bot.name} (${bot.pair})`).join(", ")}</p>
-                  <p>These bots exhausted the governed paper recovery path and now stay in final manual review.</p>
-                </article>
-              ) : null}
-              {readModel.readyContention.entries.length ? (
-                <article className="signalbot-insight-card">
-                  <strong>Ready Contention</strong>
-                  <p>
-                    {readModel.readyContention.entries
-                      .slice(0, 4)
-                      .map((entry) => `${entry.pair} (${entry.count})`)
-                      .join(", ")}
-                  </p>
-                  <p>
-                    {readModel.readyContention.contendedReadyBots} ready bots are currently overlapping on
-                    {" "}
-                    {readModel.readyContention.contendedReadySymbols}
-                    {" "}
-                    shared market lanes.
-                  </p>
-                </article>
-              ) : null}
-              {readModel.queueChurnBots.length ? (
-                <article className="signalbot-insight-card">
-                  <strong>Queue Churn</strong>
-                  <p>{readModel.queueChurnBots.map((bot) => `${bot.name} (${bot.readyContentionAutoPromotionCount || 0})`).join(", ")}</p>
-                  <p>These bots are relying on repeated queue auto-promotions and should be watched for unstable concurrent sequencing.</p>
-                </article>
-              ) : null}
-              <article className="signalbot-insight-card">
-                <strong>Safe-Lane Stability</strong>
-                <p>{Math.round(readModel.summary.safeLaneStabilityPct || 0)}% · {formatSafeLaneStability(readModel.summary.safeLaneStabilityState)}</p>
-                <p>{readModel.summary.stableReadyBots || 0} bots currently look stably ready after accounting for contention and queue churn.</p>
-              </article>
-              <article className="signalbot-insight-card">
-                <strong>Operational Verdict</strong>
-                <p>{formatOperationalVerdict(readModel.summary.operationalVerdictState)}</p>
-                <p>{readModel.summary.operationalVerdictNote || "The safe lane is still being validated."}</p>
-              </article>
-              <article className="signalbot-insight-card">
-                <strong>Governed Demo Gate</strong>
-                <p>{formatGovernedDemoGate(readModel.summary.governedDemoGateState)}</p>
-                <p>{readModel.summary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}</p>
-              </article>
-              <article className="signalbot-insight-card">
-                <strong>Paper/Demo Operational Status</strong>
-                <p>{formatPaperDemoOperationalState(readModel.summary.paperDemoOperationalState)}</p>
-                <p>{readModel.summary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}</p>
-              </article>
-              <article className="signalbot-insight-card">
-                <strong>Bots Operational Now</strong>
-                <p>{formatBotsOperationalNow(readModel.summary.botsOperationalNowState)}</p>
-                <p>{readModel.summary.botsOperationalNowNote || "Bots are not operational in the governed paper/demo lane yet."}</p>
-              </article>
-            </div>
-          </section>
-        ) : null}
 
         <section className="botsettings-panel card">
           <div className="botsettings-tab-bar">
@@ -1214,6 +1122,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                       type="button"
                       className={`botsettings-status-chip ui-chip ${statusFilter === filter.key ? "active" : ""}`}
                       onClick={() => setStatusFilter(filter.key)}
+                      data-testid={`bot-status-filter-${filter.key}`}
                     >
                       {filter.label}
                     </button>
@@ -1243,21 +1152,21 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               {layoutMode === "grid" ? (
                 <div className="botsettings-card-grid">
                   {readModel.filteredCards.length ? readModel.filteredCards.map((bot) => (
-                    <article key={bot.id} className={`botsettings-card ${getBotCardTone(bot.status)}`}>
+                    <article key={bot.id} className={`botsettings-card ${getBotCardTone(bot.status)}`} data-testid={`bot-card-${bot.id}`} data-bot-status={bot.status}>
                       <div className="botsettings-card-head">
                         <div className="botsettings-card-identity">
                           <BotAssetBadge pair={bot.pair} />
                           <div className="botsettings-card-copy">
-                            <button type="button" className="botsettings-card-link" onClick={() => openBotWorkspace(bot)}>
-                              <h3>{bot.name}</h3>
+                            <button type="button" className="botsettings-card-link" onClick={() => openBotWorkspace(bot)} data-testid={`bot-card-open-link-${bot.id}`}>
+                              <h3 data-testid={`bot-card-name-${bot.id}`}>{bot.name}</h3>
                             </button>
-                            <p>{bot.pair}</p>
+                            <p data-testid={`bot-card-pair-${bot.id}`}>{bot.pair}</p>
                           </div>
                         </div>
 
                         <div className="botsettings-card-head-actions">
                           <span className="botsettings-status-pill is-account">{formatExecutionAccountTag(bot.executionAccountDisplay)}</span>
-                          <span className={`botsettings-status-pill ${getBotStatusClass(bot.status)}`}>{getBotStatusLabel(bot.status)}</span>
+                          <span className={`botsettings-status-pill ${getBotStatusClass(bot.status)}`} data-testid={`bot-card-status-${bot.id}`}>{getBotStatusLabel(bot.status)}</span>
                           <button type="button" className="botsettings-menu-button" aria-label={`Open ${bot.name} options`}>
                             <KebabIcon />
                           </button>
@@ -1287,6 +1196,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                           className={`botsettings-primary-action ${bot.status === "active" ? "is-pause" : "is-start"}`}
                           disabled={bot.status === "disabled"}
                           onClick={() => void handleToggleBotStatus(bot)}
+                          data-testid={`bot-card-primary-action-${bot.id}`}
                         >
                           {bot.status === "active" ? <PauseMiniIcon /> : <PlayMiniIcon />}
                           {bot.status === "disabled" ? "Disabled" : bot.status === "active" ? "Pause" : "Start"}
@@ -1297,6 +1207,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                           disabled={bot.status === "disabled"}
                           onClick={() => openBotWorkspace(bot)}
                           aria-label={`Open full workspace for ${bot.name}`}
+                          data-testid={`bot-card-open-workspace-${bot.id}`}
                         >
                           Open Bot
                         </button>
@@ -1305,6 +1216,7 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                           className="botsettings-gear-button"
                           aria-label={`Open settings for ${bot.name}`}
                           onClick={() => openQuickEdit(bot)}
+                          data-testid={`bot-card-settings-${bot.id}`}
                         >
                           <GearMiniIcon />
                         </button>
@@ -2199,7 +2111,12 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
                   disabled={quickEditDraft.mode === "create" || quickEditDraft.botId == null}
                   onClick={() => {
                     if (!quickEditDraft.botId) return;
-                    setDisableConfirmBot({ botId: quickEditDraft.botId, botName: quickEditDraft.botName });
+                    const sourceBot = readModel.cards.find((bot) => bot.id === quickEditDraft.botId) || null;
+                    setDisableConfirmBot({
+                      botId: quickEditDraft.botId,
+                      botName: quickEditDraft.botName,
+                      liveExecutionCount: countLiveBotExecutions(sourceBot),
+                    });
                     setQuickEditDraft(null);
                   }}
                 >
@@ -2226,18 +2143,28 @@ export function BotSettingsView({ onNavigateView }: BotSettingsViewProps) {
               </div>
               <div className="botsettings-confirm-copy">
                 <h3>Disable bot?</h3>
-                <p>
-                  {disableConfirmBot.botName} no se borrará. Pasará a estado <strong>disabled</strong>, quedará fuera de uso
-                  operativo y solo permanecerá visible en la lista de bots deshabilitados para auditoría. ¿Seguro que quieres continuar?
-                </p>
+                {disableConfirmBot.liveExecutionCount > 0 ? (
+                  <p>
+                    {disableConfirmBot.botName} todavía tiene <strong>{disableConfirmBot.liveExecutionCount}</strong> operación(es) activa(s).
+                    Por seguridad, no se puede deshabilitar mientras tenga posiciones abiertas o protegidas. Primero cierra esas
+                    operaciones y luego vuelve a intentarlo.
+                  </p>
+                ) : (
+                  <p>
+                    {disableConfirmBot.botName} no se borrará. Pasará a estado <strong>disabled</strong>, quedará fuera de uso
+                    operativo y solo permanecerá visible en la lista de bots deshabilitados para auditoría. ¿Seguro que quieres continuar?
+                  </p>
+                )}
               </div>
               <div className="botsettings-confirm-actions">
                 <button type="button" className="botsettings-reset-button ui-button" onClick={() => setDisableConfirmBot(null)}>
-                  No
+                  {disableConfirmBot.liveExecutionCount > 0 ? "Entendido" : "No"}
                 </button>
-                <button type="button" className="botsettings-confirm-danger ui-button" onClick={() => void handleConfirmDisableBot()}>
-                  Yes
-                </button>
+                {disableConfirmBot.liveExecutionCount > 0 ? null : (
+                  <button type="button" className="botsettings-confirm-danger ui-button" onClick={() => void handleConfirmDisableBot()}>
+                    Yes
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -2434,6 +2361,40 @@ function getBotCardTone(status: string) {
   if (status === "paused") return "is-paused";
   if (status === "disabled") return "is-disabled";
   return "is-draft";
+}
+
+function isLiveBotExecutionStatus(status: unknown) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized === "preview" || normalized === "blocked") return false;
+  if (normalized.startsWith("closed")) return false;
+  return [
+    "created",
+    "placed",
+    "filled",
+    "filled_unprotected",
+    "protected",
+    "open",
+  ].includes(normalized);
+}
+
+function countLiveBotExecutions(
+  bot:
+    | ({
+        executionTimeline?: Array<{
+          hasOutcome?: boolean;
+          lifecycleStatus?: string | null;
+          status?: string | null;
+        }>;
+      } & Record<string, unknown>)
+    | null
+    | undefined,
+) {
+  if (!bot || !Array.isArray(bot.executionTimeline)) return 0;
+  return bot.executionTimeline.filter((entry) => {
+    if (entry?.hasOutcome) return false;
+    return isLiveBotExecutionStatus(entry.lifecycleStatus || entry.status);
+  }).length;
 }
 
 function inferBotPair(slug: string, name: string) {

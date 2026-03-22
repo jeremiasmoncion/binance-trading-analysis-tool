@@ -605,6 +605,26 @@ export function useBotOperationalLoop() {
       .filter((entry): entry is { decision: BotDecisionRecord; contention: ReturnType<typeof getBotReadyContentionSummary> } => Boolean(entry));
   }, [botsHydrated, decisions, decisionsHydrated, registryState.bots]);
 
+  const queuedIntentAutoPromotions = useMemo(() => {
+    if (!botsHydrated || !decisionsHydrated) return [];
+
+    const botById = new Map(registryState.bots.map((bot) => [bot.id, bot]));
+    const activeBots = registryState.bots.filter((bot) => bot.status === "active");
+    return decisions
+      .map((decision) => {
+        const bot = botById.get(decision.botId);
+        if (!bot || bot.status !== "active") return null;
+        if (!decision.metadata?.generatedByOperationalLoop) return null;
+        if (decision.metadata?.executionOrderId) return null;
+        if (getDecisionIntentStatus(decision) !== "ready") return null;
+        if (getDecisionIntentLaneStatus(decision) !== "queued") return null;
+        const contention = getBotReadyContentionSummary(bot, decisions, activeBots);
+        if (getIntentLaneForBot(bot) === "paper" && contention.severe) return null;
+        return { bot, decision, contention };
+      })
+      .filter((entry): entry is { bot: Bot; decision: BotDecisionRecord; contention: ReturnType<typeof getBotReadyContentionSummary> } => Boolean(entry));
+  }, [botsHydrated, decisions, decisionsHydrated, registryState.bots]);
+
   useEffect(() => {
     if (!readyContentionAutoPromotions.length) return;
 
@@ -634,6 +654,38 @@ export function useBotOperationalLoop() {
       cancelled = true;
     };
   }, [readyContentionAutoPromotions, updateDecision]);
+
+  useEffect(() => {
+    if (!queuedIntentAutoPromotions.length) return;
+
+    let cancelled = false;
+    void (async () => {
+      for (const { bot, decision, contention } of queuedIntentAutoPromotions) {
+        if (cancelled) return;
+        const lane = getIntentLaneForBot(bot);
+        await updateDecision(decision.id, {
+          status: decision.status === "blocked" ? "approved" : decision.status,
+          metadata: {
+            ...decision.metadata,
+            executionIntentLaneStatus: "dispatch-requested",
+            executionIntentLastUpdatedAt: new Date().toISOString(),
+            executionIntentDispatchRequestedAt: new Date().toISOString(),
+            executionIntentReadyAutoPromotionCount: Number(decision.metadata?.executionIntentReadyAutoPromotionCount || 0) + 1,
+            executionIntentReadyAutoPromotedAt: new Date().toISOString(),
+            executionIntentReason: lane === "paper"
+              ? contention.isLeader
+                ? `Ready intent promoted automatically because this bot leads the ${contention.pair || decision.symbol} paper queue.`
+                : `Ready intent promoted automatically because no peer bot is currently ahead on ${contention.pair || decision.symbol}.`
+              : `Ready intent promoted automatically for governed ${lane} dispatch.`,
+          },
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queuedIntentAutoPromotions, updateDecision]);
 
   const pendingDispatches = useMemo(() => {
     if (!botsHydrated || !decisionsHydrated) return [];
@@ -777,8 +829,13 @@ export function useBotOperationalLoop() {
             continue;
           }
 
-          const payload = await systemDataPlaneStore.getState().actions.executeDemoSignal(signalId, dispatchMode) as {
+          const payload = await systemDataPlaneStore.getState().actions.executeDemoSignal(signalId, dispatchMode, {
+            botId: bot.id,
+            botName: bot.name,
+            origin: "bot-auto",
+          }) as {
             candidate?: { status?: string; reasons?: string[] };
+            record?: { id?: number | null };
             protection?: { protectionAttached?: boolean; protectionNote?: string };
           } | null;
 
@@ -819,6 +876,7 @@ export function useBotOperationalLoop() {
               executionIntentDispatchStatus: candidateStatus || "submitted",
               executionIntentDispatchMode: dispatchMode,
               executionIntentDispatchSignalId: signalId,
+              executionOrderId: Number(payload?.record?.id || 0) || decision.metadata?.executionOrderId || null,
               executionIntentDispatchProtectionAttached: Boolean(payload?.protection?.protectionAttached),
               executionIntentReason: dispatchMode === "execute"
                 ? "Dispatched through the shared demo execution adapter."

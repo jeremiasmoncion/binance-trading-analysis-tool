@@ -4854,6 +4854,93 @@ body.dark-theme .market-score-track {
   padding-top: 10px;
 }
 
+.signalbot-history-table tbody tr.signalbot-history-row {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.signalbot-history-table tbody tr.signalbot-history-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.signalbot-history-table tbody tr.signalbot-history-row.is-positive:hover {
+  background: rgba(34, 197, 94, 0.06);
+}
+
+.signalbot-history-table tbody tr.signalbot-history-row.is-negative:hover {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.signalbot-history-pair-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.signalbot-history-pair-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.signalbot-history-pair-copy strong {
+  color: var(--crype-dark-text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.signalbot-history-pair-copy span {
+  color: var(--crype-dark-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.signalbot-history-pair-cell .signalbot-asset-logo,
+.signalbot-history-pair-cell .signalbot-asset-fallback {
+  width: 30px;
+  height: 30px;
+}
+
+.signalbot-history-type-pill,
+.signalbot-history-status-pill {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.signalbot-history-type-pill.is-positive,
+.signalbot-history-status-pill.is-positive {
+  color: #4ce39c;
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.signalbot-history-type-pill.is-negative,
+.signalbot-history-status-pill.is-negative {
+  color: #ff6f7d;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.signalbot-history-type-pill.is-neutral,
+.signalbot-history-status-pill.is-neutral {
+  color: #d8def3;
+  background: rgba(120, 137, 173, 0.16);
+}
+
+.signalbot-confidence-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--crype-dark-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .signalbot-performance-grid,
 .signalbot-settings-grid {
   display: grid;
@@ -4959,6 +5046,58 @@ body.dark-theme .market-score-track {
   color: var(--crype-dark-muted);
   font-size: 14px;
   line-height: 1.4;
+}
+
+.signalbot-runtime-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.signalbot-runtime-card {
+  display: grid;
+  gap: 10px;
+  min-height: 160px;
+  padding: 22px 20px;
+  border-radius: 22px;
+  border: 1px solid var(--crype-dark-border);
+  background: rgba(10, 17, 30, 0.88);
+}
+
+.signalbot-runtime-card.is-positive {
+  border-color: rgba(34, 197, 94, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.08);
+}
+
+.signalbot-runtime-card.is-negative {
+  border-color: rgba(239, 68, 68, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.08);
+}
+
+.signalbot-runtime-card.is-neutral {
+  border-color: rgba(71, 85, 105, 0.44);
+}
+
+.signalbot-runtime-label {
+  color: var(--crype-dark-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signalbot-runtime-value {
+  color: var(--crype-dark-text);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.signalbot-runtime-card p {
+  margin: 0;
+  color: var(--crype-dark-muted);
+  font-size: 14px;
+  line-height: 1.55;
 }
 
 .signalbot-settings-panel {
@@ -5099,6 +5238,10 @@ body.dark-theme .market-score-track {
   letter-spacing: -0.02em;
 }
 
+.signalbot-pair-chip.is-static {
+  cursor: default;
+}
+
 .signalbot-pair-chip svg {
   width: 14px;
   height: 14px;
@@ -5156,6 +5299,43 @@ body.dark-theme .market-score-track {
 .signalbot-detail-drawer {
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
+}
+
+.signalbot-detail-scorer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(30, 41, 59, 0.85);
+}
+
+.signalbot-detail-scorer-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.signalbot-detail-scorer-copy strong {
+  color: var(--crype-dark-text);
+}
+
+.signalbot-detail-scorer-copy span {
+  color: var(--crype-dark-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.signalbot-detail-scorer-metrics {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.signalbot-detail-scorer-metrics strong {
+  color: var(--crype-dark-text);
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .signalbot-detail-head-copy {

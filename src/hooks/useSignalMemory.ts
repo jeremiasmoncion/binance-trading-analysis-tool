@@ -37,6 +37,11 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   const pendingSaveKeysRef = useRef<Set<string>>(new Set());
   const evaluationInFlightRef = useRef(false);
   const lastEvaluationAtRef = useRef(0);
+  const activeUsernameRef = useRef("");
+
+  useEffect(() => {
+    activeUsernameRef.current = currentUser?.username || "";
+  }, [currentUser?.username]);
 
   const publishSignalsToPlane = useCallback((nextSignals: SignalSnapshot[]) => {
     systemDataPlaneStore.setState((current) => ({
@@ -77,9 +82,13 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   }, []);
 
   const refreshSignals = useCallback(async () => {
-    if (!currentUser) return;
+    const username = currentUser?.username || "";
+    if (!username) return;
     try {
       const payload = await signalService.list();
+      if (activeUsernameRef.current !== username) {
+        return;
+      }
       const nextSignals = payload.signals || [];
       setSignals((currentSignals) => {
         // Signal memory refresh can happen from more than one shared surface.
@@ -114,7 +123,8 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     strategyCandidates?: StrategyCandidate[];
     note?: string;
   }) => {
-    if (!currentUser || !payload.signal) return;
+    const username = currentUser?.username || "";
+    if (!username || !payload.signal) return;
     await signalService.create({
       coin: payload.coin,
       timeframe: payload.timeframe,
@@ -126,6 +136,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
       strategyCandidates: payload.strategyCandidates || [],
       note: payload.note,
     });
+    if (activeUsernameRef.current !== username) return;
     await refreshSignals();
   }, [currentUser, refreshSignals]);
 
@@ -139,7 +150,8 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
     strategy?: StrategyDescriptor | null;
     strategyCandidates?: StrategyCandidate[];
   }) => {
-    if (!currentUser || !payload.signal || !payload.analysis || !payload.plan) return;
+    const username = currentUser?.username || "";
+    if (!username || !payload.signal || !payload.analysis || !payload.plan) return;
     const shouldAutoSave =
       payload.signal.label !== "Esperar"
       || (payload.analysis.setupQuality === "Alta" && payload.analysis.alignmentCount >= 4);
@@ -187,6 +199,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
         strategyCandidates: payload.strategyCandidates || [],
         note: "Auto-guardada por CRYPE",
       });
+      if (activeUsernameRef.current !== username) return;
       await refreshSignals();
     } finally {
       pendingSaveKeysRef.current.delete(key);
@@ -194,14 +207,18 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
   }, [currentUser, refreshSignals, signals]);
 
   const updateSignal = useCallback(async (id: number, outcomeStatus: SignalOutcomeStatus, outcomePnl: number, note: string) => {
+    const username = currentUser?.username || "";
+    if (!username) return;
     // Manual signal closure/editing still belongs to the shared signal-memory
     // domain so every surface sees the same canonical mutation path.
     await signalService.update(id, { outcomeStatus, outcomePnl, note });
+    if (activeUsernameRef.current !== username) return;
     await refreshSignals();
-  }, [refreshSignals]);
+  }, [currentUser?.username, refreshSignals]);
 
   const evaluatePendingSignals = useCallback(async (context?: { currentCoin?: string; currentPrice?: number | null }) => {
-    if (!currentUser || evaluationInFlightRef.current) return;
+    const username = currentUser?.username || "";
+    if (!username || evaluationInFlightRef.current) return;
     if (Date.now() - lastEvaluationAtRef.current < 15000) return;
 
     const pendingSignals = signals.filter((item) => item.outcome_status === "pending");
@@ -272,6 +289,7 @@ export function useSignalMemory({ currentUser, currentView }: UseSignalMemoryOpt
 
       if (updates.length) {
         await Promise.all(updates);
+        if (activeUsernameRef.current !== username) return;
         await refreshSignals();
       }
     } finally {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { summarizeBotDecisionRuntime, type BotDecisionRecord } from "../domain";
 import { systemDataPlaneStore } from "../data-platform/systemDataPlane";
-import { botDecisionService } from "../services/api";
+import { authService, botDecisionService } from "../services/api";
 import type { ExecutionOrderRecord } from "../types";
 import { updateBotProfile } from "./useSelectedBot";
 
@@ -11,19 +11,26 @@ interface BotDecisionRuntimeState {
   hydrated: boolean;
   loading: boolean;
   error: string | null;
+  sessionUsername: string | null;
 }
 
-const BOT_DECISIONS_STORAGE_KEY = "crype-bot-decisions";
+const BOT_DECISIONS_STORAGE_KEY_PREFIX = "crype-bot-decisions";
 let runtimeState: BotDecisionRuntimeState = {
   decisions: [],
   lastHydratedAt: null,
   hydrated: false,
   loading: false,
   error: null,
+  sessionUsername: null,
 };
 let hydrationPromise: Promise<BotDecisionRecord[]> | null = null;
 let decisionOutcomeSyncPromise: Promise<void> | null = null;
 const listeners = new Set<() => void>();
+
+function buildDecisionStorageKey(username: string | null | undefined) {
+  const normalized = String(username || "").trim().toLowerCase();
+  return normalized ? `${BOT_DECISIONS_STORAGE_KEY_PREFIX}:${normalized}` : BOT_DECISIONS_STORAGE_KEY_PREFIX;
+}
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -36,10 +43,10 @@ function emit() {
   listeners.forEach((listener) => listener());
 }
 
-function readCache() {
+function readCache(username: string | null | undefined) {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(BOT_DECISIONS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(buildDecisionStorageKey(username));
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.decisions)) return null;
@@ -49,9 +56,9 @@ function readCache() {
   }
 }
 
-function writeCache(decisions: BotDecisionRecord[], lastHydratedAt: string | null) {
+function writeCache(username: string | null | undefined, decisions: BotDecisionRecord[], lastHydratedAt: string | null) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(BOT_DECISIONS_STORAGE_KEY, JSON.stringify({
+  window.localStorage.setItem(buildDecisionStorageKey(username), JSON.stringify({
     decisions,
     lastHydratedAt,
   }));
@@ -63,12 +70,46 @@ function setState(patch: Partial<BotDecisionRuntimeState>) {
     ...patch,
   };
   if (patch.decisions) {
-    writeCache(runtimeState.decisions, runtimeState.lastHydratedAt);
+    writeCache(runtimeState.sessionUsername, runtimeState.decisions, runtimeState.lastHydratedAt);
   }
   emit();
 }
 
+async function ensureDecisionSessionContext() {
+  const session = await authService.getSession().catch(() => null);
+  const nextUsername = String(session?.username || "").trim().toLowerCase() || null;
+
+  if (runtimeState.sessionUsername === nextUsername) {
+    return nextUsername;
+  }
+
+  hydrationPromise = null;
+  decisionOutcomeSyncPromise = null;
+  runtimeState = {
+    decisions: [],
+    lastHydratedAt: null,
+    hydrated: false,
+    loading: false,
+    error: null,
+    sessionUsername: nextUsername,
+  };
+  emit();
+  return nextUsername;
+}
+
 async function hydrate(forceFresh = false) {
+  const sessionUsername = await ensureDecisionSessionContext();
+  if (!sessionUsername) {
+    setState({
+      decisions: [],
+      lastHydratedAt: null,
+      hydrated: true,
+      loading: false,
+      error: null,
+    });
+    return runtimeState.decisions;
+  }
+
   if (!forceFresh && runtimeState.hydrated) {
     return runtimeState.decisions;
   }
@@ -77,7 +118,7 @@ async function hydrate(forceFresh = false) {
   }
 
   if (!forceFresh) {
-    const cached = readCache();
+    const cached = readCache(sessionUsername);
     if (cached) {
       setState({
         decisions: cached.decisions,
@@ -95,6 +136,10 @@ async function hydrate(forceFresh = false) {
 
   hydrationPromise = botDecisionService.list()
     .then((payload) => {
+      if (runtimeState.sessionUsername !== sessionUsername) {
+        hydrationPromise = null;
+        return runtimeState.decisions;
+      }
       setState({
         decisions: payload.decisions || [],
         lastHydratedAt: payload.lastHydratedAt || new Date().toISOString(),
@@ -107,7 +152,7 @@ async function hydrate(forceFresh = false) {
       return runtimeState.decisions;
     })
     .catch((error) => {
-      const cached = readCache();
+      const cached = readCache(sessionUsername);
       setState({
         decisions: cached?.decisions || runtimeState.decisions,
         lastHydratedAt: cached?.lastHydratedAt || runtimeState.lastHydratedAt,
@@ -300,19 +345,24 @@ async function syncDecisionOutcomesFromExecution() {
   if (decisionOutcomeSyncPromise) return decisionOutcomeSyncPromise;
 
   decisionOutcomeSyncPromise = (async () => {
+    const sessionUsername = runtimeState.sessionUsername;
+    if (!sessionUsername) return;
     const executionOrders = getExecutionOrdersSnapshot();
     if (!executionOrders.length || !runtimeState.decisions.length) return;
 
     const changedBotIds = new Set<string>();
     for (const decision of runtimeState.decisions) {
+      if (runtimeState.sessionUsername !== sessionUsername) return;
       const patch = buildDecisionOutcomePatch(decision, executionOrders);
       if (!patch) continue;
       const response = await botDecisionService.update(decision.id, patch);
+      if (runtimeState.sessionUsername !== sessionUsername) return;
       upsertDecision(response.decision);
       changedBotIds.add(response.decision.botId);
     }
 
     for (const botId of changedBotIds) {
+      if (runtimeState.sessionUsername !== sessionUsername) return;
       await syncBotRuntime(botId);
     }
   })().finally(() => {
@@ -353,6 +403,7 @@ export function useBotDecisionsState() {
   }, []);
 
   const createDecision = useCallback(async (payload: BotDecisionRecord) => {
+    await ensureDecisionSessionContext();
     const response = await botDecisionService.create(payload);
     upsertDecision(response.decision);
     await syncDecisionOutcomesFromExecution();
@@ -361,6 +412,7 @@ export function useBotDecisionsState() {
   }, []);
 
   const updateDecision = useCallback(async (id: string, payload: Partial<BotDecisionRecord>) => {
+    await ensureDecisionSessionContext();
     const response = await botDecisionService.update(id, payload);
     upsertDecision(response.decision);
     await syncDecisionOutcomesFromExecution();

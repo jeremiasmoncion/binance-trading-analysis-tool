@@ -7,7 +7,14 @@ import {
   getPortfolioSnapshotForUsername,
   sendJson,
 } from "./binance.js";
-import { listSignalSnapshotsForUser, updateSignalExecutionLink, updateSignalSnapshotForUser, upsertSignalFeatureSnapshotForUser } from "./signals.js";
+import {
+  listSignalSnapshotsByIdsForUser,
+  listSignalSnapshotsForUser,
+  updateSignalExecutionLink,
+  updateSignalExecutionStateForUser,
+  updateSignalSnapshotForUser,
+  upsertSignalFeatureSnapshotForUser,
+} from "./signals.js";
 import { generateAdaptiveRecommendationsForUser } from "./strategyEngine.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
@@ -236,10 +243,11 @@ function normalizeSignalEdgeContext(signal) {
 }
 
 function evaluateSignalEdgeSafety(signal, profile, options = {}) {
-  const mode = options.autoExecution ? "auto" : "demo";
+  const mode = options.autoExecution ? "auto" : options.manualExecution ? "manual" : "demo";
   const thresholds = getEffectiveProfileForSignal(profile, signal);
   const edge = normalizeSignalEdgeContext(signal);
   const reasons = [];
+  const applyAdaptiveExecutionGuards = mode !== "manual";
   const minScoreMargin = mode === "auto" ? 8 : 3;
   const minRrMargin = mode === "auto" ? 0.35 : 0.1;
   const scorerConfidence = Number(edge.scorer.confidence || 0);
@@ -256,35 +264,35 @@ function evaluateSignalEdgeSafety(signal, profile, options = {}) {
   const mixedRegime = edge.marketRegime.toLowerCase() === "mixto";
   const rrRatio = Number(signal?.rr_ratio || 0);
 
-  if (edge.decision && edge.decision.executionEligible === false) {
+  if (applyAdaptiveExecutionGuards && edge.decision && edge.decision.executionEligible === false) {
     reasons.push(String(edge.decision.executionReason || "La IA dejó esta señal fuera del flujo operativo actual."));
   }
 
-  if (scopeAction === "cut") {
+  if (applyAdaptiveExecutionGuards && scopeAction === "cut") {
     reasons.push("El scope quedó cortado por el motor adaptativo.");
   }
 
-  if (scorerConfidence > 0 && scorerConfidence < (mode === "auto" ? 68 : 54)) {
+  if (applyAdaptiveExecutionGuards && scorerConfidence > 0 && scorerConfidence < (mode === "auto" ? 68 : 54)) {
     reasons.push(`La confianza del scorer (${scorerConfidence.toFixed(0)}%) todavía es baja para ${mode === "auto" ? "autoejecutar" : "pasar a demo"}.`);
   }
 
-  if (edge.effectiveScore < Number(thresholds.minSignalScore || 0) + minScoreMargin) {
+  if (applyAdaptiveExecutionGuards && edge.effectiveScore < Number(thresholds.minSignalScore || 0) + minScoreMargin) {
     reasons.push(`La convicción efectiva (${edge.effectiveScore.toFixed(1)}) no supera con margen el mínimo ${Number(thresholds.minSignalScore || 0).toFixed(1)}.`);
   }
 
-  if (rrRatio > 0 && rrRatio < Number(thresholds.minRrRatio || 0) + minRrMargin) {
+  if (applyAdaptiveExecutionGuards && rrRatio > 0 && rrRatio < Number(thresholds.minRrRatio || 0) + minRrMargin) {
     reasons.push(`El RR (${rrRatio.toFixed(2)}) todavía está muy justo frente al mínimo ${Number(thresholds.minRrRatio || 0).toFixed(2)}.`);
   }
 
-  if (scopeAction === "tighten" && edge.effectiveScore < Number(thresholds.minSignalScore || 0) + (mode === "auto" ? 12 : 6)) {
+  if (applyAdaptiveExecutionGuards && scopeAction === "tighten" && edge.effectiveScore < Number(thresholds.minSignalScore || 0) + (mode === "auto" ? 12 : 6)) {
     reasons.push("Este scope está endurecido y la señal no trae suficiente colchón para justificar la entrada.");
   }
 
-  if (featureSample >= 8 && featureAvgPnl < 0) {
+  if (applyAdaptiveExecutionGuards && featureSample >= 8 && featureAvgPnl < 0) {
     reasons.push(`El scope histórico viene perdiendo (${featureAvgPnl >= 0 ? "+" : ""}${featureAvgPnl.toFixed(2)} avg pnl en ${featureSample} cierres).`);
   }
 
-  if (featureSample >= 10 && featureWinRate > 0 && featureWinRate < 46) {
+  if (applyAdaptiveExecutionGuards && featureSample >= 10 && featureWinRate > 0 && featureWinRate < 46) {
     reasons.push(`El scope histórico sigue con acierto flojo (${featureWinRate.toFixed(0)}% en ${featureSample} cierres).`);
   }
 
@@ -316,7 +324,7 @@ function evaluateSignalEdgeSafety(signal, profile, options = {}) {
     if (edge.scorer.candidateReady && Number(edge.scorer.candidateDelta || 0) >= 6) {
       reasons.push("La autoejecución evita scopes donde el scorer activo todavía está siendo retado por un challenger listo.");
     }
-  } else {
+  } else if (mode === "demo") {
     if (mixedRegime && weakVolume) {
       reasons.push("La señal llega con mercado mixto y volumen débil: combinación demasiado frágil para demo.");
     }
@@ -325,7 +333,7 @@ function evaluateSignalEdgeSafety(signal, profile, options = {}) {
     }
   }
 
-  if (contextSample >= 5 && (contextAvgPnl < 0 || contextWinRate < 45)) {
+  if (applyAdaptiveExecutionGuards && contextSample >= 5 && (contextAvgPnl < 0 || contextWinRate < 45)) {
     reasons.push(`El contexto equivalente viene flojo (${contextWinRate.toFixed(0)}% win rate, ${contextAvgPnl >= 0 ? "+" : ""}${contextAvgPnl.toFixed(2)} avg pnl).`);
   }
 
@@ -450,6 +458,89 @@ function getExecutionOriginLabel(record) {
   if (record.origin === "watcher") return "Auto por vigilante";
   if (record.signal_id) return "Desde señales";
   return "Manual usuario";
+}
+
+function normalizeExecutionSideValue(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized === "BUY" || normalized === "SELL" ? normalized : "";
+}
+
+function getSignalExecutionSide(signal) {
+  const payload = signal?.signal_payload && typeof signal.signal_payload === "object" ? signal.signal_payload : {};
+  const context = payload.context && typeof payload.context === "object" ? payload.context : {};
+  const executionLearning = payload.executionLearning && typeof payload.executionLearning === "object"
+    ? payload.executionLearning
+    : {};
+  return (
+    normalizeExecutionSideValue(executionLearning.orderSide)
+    || normalizeExecutionSideValue(context.direction)
+    || (String(signal?.signal_label || "") === "Comprar"
+      ? "BUY"
+      : String(signal?.signal_label || "") === "Vender"
+        ? "SELL"
+        : "")
+  );
+}
+
+function deriveExecutionSide(record, signal) {
+  const responsePayload = record?.response_payload && typeof record.response_payload === "object"
+    ? record.response_payload
+    : {};
+  const learningSnapshot = responsePayload.learning_snapshot && typeof responsePayload.learning_snapshot === "object"
+    ? responsePayload.learning_snapshot
+    : {};
+  const orderPayload = responsePayload.order && typeof responsePayload.order === "object"
+    ? responsePayload.order
+    : {};
+  const candidatePayload = responsePayload.candidate && typeof responsePayload.candidate === "object"
+    ? responsePayload.candidate
+    : {};
+
+  return (
+    normalizeExecutionSideValue(record?.side)
+    || normalizeExecutionSideValue(orderPayload.side)
+    || normalizeExecutionSideValue(candidatePayload.side)
+    || normalizeExecutionSideValue(learningSnapshot.orderSide)
+    || getSignalExecutionSide(signal)
+  );
+}
+
+function collectMissingSignalIds(signalMap, executionOrders) {
+  if (!(signalMap instanceof Map) || !Array.isArray(executionOrders) || !executionOrders.length) return [];
+  return [...new Set(
+    executionOrders
+      .map((record) => Number(record?.signal_id || 0))
+      .filter((signalId) => Number.isFinite(signalId) && signalId > 0 && !signalMap.has(signalId)),
+  )];
+}
+
+function getPersistedExecutionLearning(signal) {
+  const payload = signal?.signal_payload && typeof signal.signal_payload === "object" ? signal.signal_payload : {};
+  const executionLearning = payload.executionLearning && typeof payload.executionLearning === "object"
+    ? payload.executionLearning
+    : null;
+  return executionLearning;
+}
+
+function shouldPersistSignalExecutionLearning(signal, learningSnapshot, options = {}) {
+  if (!signal || !learningSnapshot || typeof learningSnapshot !== "object") return false;
+  const persisted = getPersistedExecutionLearning(signal);
+  if (!persisted) return true;
+
+  const expectedOrderId = Number(options.executionOrderId || 0) || null;
+  const expectedExecutionStatus = String(options.executionStatus || "").trim();
+  const expectedExecutionMode = String(options.executionMode || "").trim();
+
+  return (
+    String(persisted.lifecycleStatus || "") !== String(learningSnapshot.lifecycleStatus || "")
+    || String(persisted.protectionStatus || "") !== String(learningSnapshot.protectionStatus || "")
+    || String(persisted.orderSide || "") !== String(learningSnapshot.orderSide || "")
+    || String(persisted.mode || "") !== String(learningSnapshot.mode || "")
+    || Number(persisted.realizedPnl || 0) !== Number(learningSnapshot.realizedPnl || 0)
+    || Number(signal.execution_order_id || 0) !== Number(expectedOrderId || 0)
+    || String(signal.execution_status || "") !== expectedExecutionStatus
+    || String(signal.execution_mode || "") !== expectedExecutionMode
+  );
 }
 
 function getPrimaryOrderId(record) {
@@ -776,12 +867,12 @@ async function saveExecutionProfileForUser(username, payload) {
   return normalized;
 }
 
-async function listExecutionOrdersForUser(username) {
+async function listExecutionOrdersForUser(username, options = {}) {
   const params = new URLSearchParams({
     select: "*",
     username: `eq.${String(username)}`,
-    order: "created_at.desc",
-    limit: "60",
+    order: options.order || "created_at.desc",
+    limit: String(options.limit || 60),
   });
   return supabaseRequest(`${EXECUTION_ORDERS_TABLE}?${params.toString()}`);
 }
@@ -920,7 +1011,10 @@ async function buildSignalCandidate(signal, portfolio, profile, riskContext = {}
   const currentPrice = Number(priceTicker?.price || signal.entry_price || 0);
   const rules = await getSymbolRules(symbol);
   const reasons = [];
-  const edgeSafety = evaluateSignalEdgeSafety(signal, profile, { autoExecution: false });
+  const edgeSafety = evaluateSignalEdgeSafety(signal, profile, {
+    autoExecution: false,
+    manualExecution: Boolean(riskContext.manualExecution),
+  });
   const effectiveProfile = edgeSafety.effectiveProfile;
   let side = signal.signal_label === "Comprar" ? "BUY" : signal.signal_label === "Vender" ? "SELL" : "";
   let qty = 0;
@@ -1058,6 +1152,16 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
   if (!Array.isArray(executionOrders) || !executionOrders.length) return executionOrders || [];
 
   const signalMap = new Map((signals || []).map((item) => [Number(item.id), item]));
+  const missingSignalIds = collectMissingSignalIds(signalMap, executionOrders);
+  if (missingSignalIds.length) {
+    const missingSignals = await listSignalSnapshotsByIdsForUser(username, missingSignalIds, {
+      limit: missingSignalIds.length,
+    }).catch(() => []);
+    for (const signal of missingSignals) {
+      const signalId = Number(signal?.id || 0);
+      if (signalId > 0) signalMap.set(signalId, signal);
+    }
+  }
   const openOrderIds = new Set((portfolioPayload?.openOrders || []).map((item) => Number(item.orderId || 0)).filter(Boolean));
   const nextOrders = [];
   let cachedCredentials = null;
@@ -1075,6 +1179,7 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
     let signalOutcomeStatus = record.signal_outcome_status || null;
     let realizedPnl = Number(record.realized_pnl || 0);
     let closedAt = record.closed_at || null;
+    const resolvedSide = deriveExecutionSide(record, signal);
     const exchangeClosure = deriveClosedExecutionFromExchange(record, portfolioPayload);
 
     if (record.status === "preview") {
@@ -1110,23 +1215,26 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
       }
     }
 
+    const learningSnapshot = buildExecutionLearningSnapshot({
+      signal,
+      record,
+      lifecycleStatus,
+      protectionStatus,
+      realizedPnl,
+      closedAt,
+    });
+
     const updates = {
       lifecycle_status: lifecycleStatus,
       protection_status: protectionStatus,
       signal_outcome_status: signalOutcomeStatus,
       realized_pnl: realizedPnl,
+      side: resolvedSide || record.side || null,
       last_synced_at: new Date().toISOString(),
       closed_at: closedAt,
       response_payload: {
         ...(record.response_payload && typeof record.response_payload === "object" ? record.response_payload : {}),
-        learning_snapshot: buildExecutionLearningSnapshot({
-          signal,
-          record,
-          lifecycleStatus,
-          protectionStatus,
-          realizedPnl,
-          closedAt,
-        }),
+        learning_snapshot: learningSnapshot,
       },
     };
 
@@ -1134,6 +1242,7 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
       || protectionStatus !== record.protection_status
       || signalOutcomeStatus !== record.signal_outcome_status
       || realizedPnl !== Number(record.realized_pnl || 0)
+      || String((resolvedSide || record.side || "").toUpperCase()) !== String(record.side || "").toUpperCase()
       || String(closedAt || "") !== String(record.closed_at || "");
 
     let nextRecord = { ...record, ...updates };
@@ -1144,15 +1253,25 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
     if (signal?.id) {
       const nextExecutionStatus = lifecycleStatus;
       const nextExecutionMode = String(record.mode || "");
+      const shouldPersistExecutionLearning = shouldPersistSignalExecutionLearning(signal, learningSnapshot, {
+        executionOrderId: record.id,
+        executionStatus: nextExecutionStatus,
+        executionMode: nextExecutionMode,
+      });
       const shouldUpdateSignal = signal.execution_order_id !== record.id
         || signal.execution_status !== nextExecutionStatus
         || signal.execution_mode !== nextExecutionMode;
-      if (shouldUpdateSignal) {
-        const patchedSignal = await updateSignalExecutionLink(username, signal.id, {
+      if (shouldUpdateSignal || shouldPersistExecutionLearning) {
+        const patchedSignal = await updateSignalExecutionStateForUser(username, signal, {
           executionOrderId: record.id,
           executionStatus: nextExecutionStatus,
           executionMode: nextExecutionMode,
           executionUpdatedAt: new Date().toISOString(),
+          ...(shouldPersistExecutionLearning ? {
+            signalPayloadMerge: {
+              executionLearning: learningSnapshot,
+            },
+          } : {}),
         }).catch(() => null);
         if (patchedSignal) signalMap.set(Number(signal.id), patchedSignal);
       }
@@ -1163,14 +1282,6 @@ async function syncExecutionOrdersForUser(username, portfolioPayload, signals, e
       if (shouldCloseSignalFromExecution) {
         const originLabel = getExecutionOriginLabel(record);
         const closeNote = `${signal.note ? `${signal.note} · ` : ""}Cierre real de Binance Demo detectado por ${originLabel.toLowerCase()} el ${new Date(closedAt || Date.now()).toLocaleString("es-DO")}.`;
-        const learningSnapshot = buildExecutionLearningSnapshot({
-          signal,
-          record: nextRecord,
-          lifecycleStatus,
-          protectionStatus,
-          realizedPnl,
-          closedAt,
-        });
         const patchedSignal = await updateSignalSnapshotForUser(username, signal.id, {
           outcomeStatus: signalOutcomeStatus,
           outcomePnl: realizedPnl,
@@ -1336,7 +1447,9 @@ async function executeSignalTrade(req) {
   return executeSignalTradeForUser(session.username, signalId, mode, {
     apiKey,
     apiSecret,
-    origin: "manual",
+    origin: body.origin || "manual",
+    botId: body.botId || null,
+    botName: body.botName || null,
   });
 }
 
@@ -1344,14 +1457,17 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
   if (!signalId) throw new Error("Debes indicar la señal que quieres operar.");
   const normalizedMode = mode === "execute" ? "execute" : "preview";
   const origin = options.origin || "manual";
+  const botId = options.botId ? String(options.botId) : null;
+  const botName = options.botName ? String(options.botName) : null;
   const credentials = options.apiKey && options.apiSecret
     ? { apiKey: options.apiKey, apiSecret: options.apiSecret }
     : await getCredentialsForUsername(username);
   const center = await getExecutionCenterForUser(username);
-  const sourceSignals = await listSignalSnapshotsForUser(username, { limit: 200 }).catch(() => []);
-  const sourceSignal = (sourceSignals || []).find((item) => Number(item.id) === Number(signalId)) || null;
+  const sourceSignals = await listSignalSnapshotsByIdsForUser(username, [signalId], { limit: 1 }).catch(() => []);
+  const sourceSignal = (sourceSignals || [])[0] || null;
+  const manualExecution = normalizedMode === "execute" && (origin === "manual" || origin === "bot-manual");
   let candidate = center.candidates.find((item) => item.signalId === signalId);
-  if (!candidate && sourceSignal && String(sourceSignal.outcome_status || "") === "pending") {
+  if ((!candidate || (manualExecution && candidate.status !== "eligible")) && sourceSignal && String(sourceSignal.outcome_status || "") === "pending") {
     candidate = await buildSignalCandidate(sourceSignal, center.account.connected
       ? {
         connected: center.account.connected,
@@ -1378,6 +1494,7 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
       dailyLossPct: center.account.dailyLossPct,
       dailyAutoExecutions: center.account.dailyAutoExecutions,
       recentLossStreak: center.account.recentLossStreak,
+      manualExecution,
     }).catch(() => null);
   }
   if (!candidate) throw new Error("No encontramos esa señal abierta dentro de los candidatos actuales.");
@@ -1394,6 +1511,7 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
     notional_usd: candidate.notionalUsd,
     current_price: candidate.currentPrice,
     mode: normalizedMode,
+    origin: origin === "watcher" || origin === "bot-auto" ? "runtime" : "manual-user",
   };
 
   if (candidate.status !== "eligible" || normalizedMode === "preview") {
@@ -1402,8 +1520,12 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
       status: normalizedMode === "preview" ? "preview" : "blocked",
       lifecycle_status: normalizedMode === "preview" ? "preview" : "blocked",
       protection_status: "none",
-      notes: candidate.reasons.join(" | ") || `Candidata lista para revisión ${origin === "watcher" ? "automática" : "manual"}`,
-      response_payload: { candidate, origin },
+      notes: candidate.reasons.join(" | ") || `Candidata lista para revisión ${origin === "watcher" || origin === "bot-auto" ? "automática" : "manual"}`,
+      response_payload: {
+        candidate,
+        origin,
+        botContext: botId ? { botId, botName } : null,
+      },
     });
     if (record?.id) {
       await updateSignalExecutionLink(username, candidate.signalId, {
@@ -1456,6 +1578,33 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
     };
   }
 
+  const initialLearningSnapshot = buildExecutionLearningSnapshot({
+    signal: sourceSignal,
+    record: {
+      ...recordBase,
+      origin,
+      response_payload: {
+        order: result,
+        protection: protectionResult,
+        botContext: botId ? { botId, botName } : null,
+      },
+    },
+    lifecycleStatus: protectionResult.protectionAttached
+      ? "protected"
+      : protectionResult.protectionMode === "not-applicable"
+        ? "filled"
+        : "filled_unprotected",
+    protectionStatus: protectionResult.protectionAttached
+      ? "active"
+      : protectionResult.protectionMode === "not-applicable"
+        ? "not-applicable"
+        : protectionResult.protectionMode === "failed"
+          ? "failed"
+          : "none",
+    realizedPnl: 0,
+    closedAt: null,
+  });
+
   const record = await insertExecutionRecord({
     ...recordBase,
     status: "placed",
@@ -1478,41 +1627,24 @@ async function executeSignalTradeForUser(username, signalId, mode = "execute", o
       ...extractLinkedOrderIdsFromProtection(protectionResult.protectionOrder),
     },
     last_synced_at: new Date().toISOString(),
-    notes: `${origin === "watcher" ? "Orden automática del vigilante. " : "Orden Demo enviada desde Señales. "}${protectionResult.protectionNote}`,
+    notes: `${origin === "watcher" || origin === "bot-auto" ? "Orden automática del vigilante. " : botName ? `Orden Demo enviada desde ${botName}. ` : "Orden Demo enviada desde Señales. "}${protectionResult.protectionNote}`,
     response_payload: {
       origin,
+      botContext: botId ? { botId, botName } : null,
       order: result,
       protection: protectionResult,
-      learning_snapshot: buildExecutionLearningSnapshot({
-        signal: sourceSignal,
-        record: {
-          ...recordBase,
-          origin,
-          response_payload: { order: result, protection: protectionResult },
-        },
-        lifecycleStatus: protectionResult.protectionAttached
-          ? "protected"
-          : protectionResult.protectionMode === "not-applicable"
-            ? "filled"
-            : "filled_unprotected",
-        protectionStatus: protectionResult.protectionAttached
-          ? "active"
-          : protectionResult.protectionMode === "not-applicable"
-            ? "not-applicable"
-            : protectionResult.protectionMode === "failed"
-              ? "failed"
-              : "none",
-        realizedPnl: 0,
-        closedAt: null,
-      }),
+      learning_snapshot: initialLearningSnapshot,
     },
   });
 
   if (record?.id) {
-    await updateSignalExecutionLink(username, candidate.signalId, {
+    await updateSignalExecutionStateForUser(username, sourceSignal || candidate.signalId, {
       executionOrderId: record.id,
       executionStatus: record.lifecycle_status || "placed",
       executionMode: normalizedMode,
+      signalPayloadMerge: {
+        executionLearning: initialLearningSnapshot,
+      },
     }).catch(() => null);
     await upsertSignalFeatureSnapshotForUser(username, sourceSignal).catch(() => null);
   }
@@ -1542,8 +1674,8 @@ async function attachProtectionToExecutionOrderForUser(username, executionOrderI
     ? { apiKey: options.apiKey, apiSecret: options.apiSecret }
     : await getCredentialsForUsername(username);
   const portfolio = await getPortfolioSnapshotForUsername(username, "1d");
-  const allSignals = await listSignalSnapshotsForUser(username, { limit: 400 }).catch(() => []);
-  const signal = allSignals.find((item) => Number(item.id) === Number(record.signal_id || 0)) || null;
+  const sourceSignals = await listSignalSnapshotsByIdsForUser(username, [record.signal_id], { limit: 1 }).catch(() => []);
+  const signal = sourceSignals[0] || null;
   if (!signal) {
     throw new Error("No encontramos la señal asociada para reconstruir el plan de protección.");
   }
@@ -1594,11 +1726,27 @@ async function attachProtectionToExecutionOrderForUser(username, executionOrderI
   });
 
   if (signal?.id) {
-    await updateSignalExecutionLink(username, signal.id, {
+    const nextLearningSnapshot = buildExecutionLearningSnapshot({
+      signal,
+      record: nextRecord || {
+        ...record,
+        lifecycle_status: "protected",
+        protection_status: "active",
+        response_payload: nextPayload,
+      },
+      lifecycleStatus: "protected",
+      protectionStatus: "active",
+      realizedPnl: Number(record.realized_pnl || 0),
+      closedAt: record.closed_at || null,
+    });
+    await updateSignalExecutionStateForUser(username, signal, {
       executionOrderId: record.id,
       executionStatus: "protected",
       executionMode: String(record.mode || "execute"),
       executionUpdatedAt: new Date().toISOString(),
+      signalPayloadMerge: {
+        executionLearning: nextLearningSnapshot,
+      },
     }).catch(() => null);
   }
 
@@ -1614,7 +1762,47 @@ async function attachProtectionToExecutionOrderForUser(username, executionOrderI
   };
 }
 
+async function reconcileExecutionRecordsForUser(username, options = {}) {
+  const signalsLimit = Number(options.signalsLimit || 500);
+  const ordersLimit = Number(options.ordersLimit || 500);
+  const portfolioPayload = options.portfolioPayload || {
+    openOrders: [],
+    recentOrders: [],
+    recentTrades: [],
+    assets: [],
+    portfolio: {
+      cashValue: 0,
+      totalValue: 0,
+    },
+  };
+  const [signals, executionOrdersRaw] = await Promise.all([
+    listSignalSnapshotsForUser(username, { limit: signalsLimit }),
+    listExecutionOrdersForUser(username, { limit: ordersLimit }),
+  ]);
+
+  const signalMap = new Map((signals || []).map((item) => [Number(item.id), item]));
+  const missingSignalIds = collectMissingSignalIds(signalMap, executionOrdersRaw || []);
+  const reconciledOrders = await syncExecutionOrdersForUser(username, portfolioPayload, signals, executionOrdersRaw || []);
+
+  return {
+    username,
+    signalsLoaded: Array.isArray(signals) ? signals.length : 0,
+    executionOrdersLoaded: Array.isArray(executionOrdersRaw) ? executionOrdersRaw.length : 0,
+    missingSignalIdsResolved: missingSignalIds.length,
+    reconciledOrders: Array.isArray(reconciledOrders) ? reconciledOrders.length : 0,
+  };
+}
+
+const __executionEngineInternals = {
+  collectMissingSignalIds,
+  deriveExecutionSide,
+  getSignalExecutionSide,
+  normalizeExecutionSideValue,
+  shouldPersistSignalExecutionLearning,
+};
+
 export {
+  __executionEngineInternals,
   attachProtectionToExecutionOrderForUser,
   buildExecutionCenterFromDependencies,
   buildExecutionDashboardSummaryFromDependencies,
@@ -1627,6 +1815,7 @@ export {
   getExecutionCenterForUser,
   getExecutionProfileForUser,
   listExecutionOrdersForUser,
+  reconcileExecutionRecordsForUser,
   saveExecutionProfileForUser,
   sendJson,
   updateExecutionProfile,

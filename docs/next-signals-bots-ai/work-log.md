@@ -6174,3 +6174,56 @@ Signal Bot feed/runtime closure pass
 - `npm run build` OK
 - `npm run system-audit -- --env-file=/tmp/crype-db-check.env --users=jeremias,yeudy` OK
 - `findings: []`
+
+## 2026-03-22 - Execution diff semantics and no-store GET freshness hardening
+
+### What Was Confirmed
+
+- The stale-first-paint problem was not only caused by delayed refresh.
+- Frontend state reconciliation could ignore meaningful execution changes even when the backend had already repaired bot attribution.
+- The previous execution-center comparator was too shallow:
+  - it compared status-oriented order fields
+  - but it did not treat bot attribution changes as semantic changes
+- This meant repaired `response_payload.botContext` values could arrive from the API and still be discarded as “no change.”
+- We also confirmed a second app-wide risk:
+  - generic GET requests were still allowed to use browser fetch caching semantics
+  - that made stale first reads more likely on initial route entry
+
+### What Changed In Code
+
+- Added [executionDiff.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/executionDiff.ts) as the shared semantic diff layer for execution payloads.
+- Moved [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) to use that shared semantic diff instead of the older inline comparator.
+- The execution diff now treats these fields as first-class semantic changes:
+  - `signal_id`
+  - `coin`
+  - `timeframe`
+  - `side`
+  - `status`
+  - `lifecycle_status`
+  - `protection_status`
+  - `signal_outcome_status`
+  - `realized_pnl`
+  - `order_id`
+  - `client_order_id`
+  - `response_payload.botContext.botId`
+  - `last_synced_at`
+  - `closed_at`
+- Hardened [api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts) so GET/HEAD requests now default to `cache: "no-store"` unless a caller explicitly opts into another cache mode.
+- Added [execution-diff.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/execution-diff.test.mjs) to cover:
+  - bot attribution changes
+  - identical semantic orders
+  - execution-center updates after repaired bot attribution
+
+### Why This Matters
+
+- This closes a real root-cause path where bot execution truth could be repaired in backend/DB but remain visually stale because the frontend refused to accept the update.
+- It also reduces the chance that the first route entry opens over a cached GET response and only later corrects itself on a subsequent refresh cycle.
+- This is intentionally a shared architectural fix, not a screen-local workaround inside `Dashboard`, `My Wallet`, `Bot Settings`, or `Signal Bot`.
+
+### Validation Snapshot
+
+- `npm run test:backend` OK `62/62`
+- `npm run typecheck` OK
+- `npm run build` OK
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` OK
+- `findings: []`

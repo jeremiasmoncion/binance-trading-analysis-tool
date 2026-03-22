@@ -444,7 +444,7 @@ export function App() {
       return;
     }
 
-    recentOrders.forEach((item) => {
+    recentOrders.forEach((item: typeof recentOrders[number]) => {
       const eventKey = buildEventKey(item);
       if (seenExecutionEventsRef.current.has(eventKey)) return;
       seenExecutionEventsRef.current.add(eventKey);

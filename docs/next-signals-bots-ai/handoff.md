@@ -3594,3 +3594,50 @@ Keep the work phased.
 - `npm run typecheck` OK
 - `npm run build` OK
 - `npm run system-audit -- --env-file=/tmp/crype-db-check.env --users=jeremias,yeudy` OK with `findings: []`
+
+## 2026-03-22 - Execution diff semantics and no-store GET freshness hardening
+
+### What Was Proven
+
+- The remaining stale-first-paint behavior was not only “missing refresh.”
+- The frontend execution-center comparator could ignore meaningful backend repairs because it did not consider bot attribution or enough semantic execution fields.
+- Generic GET requests were also still exposed to browser cache semantics on initial route entry.
+
+### What Was Fixed
+
+- Added [executionDiff.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/data-platform/executionDiff.ts) as the shared semantic execution diff layer.
+- [useBinanceData.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useBinanceData.ts) now uses that shared diff instead of the previous inline comparator.
+- The new semantic diff now detects changes in:
+  - `signal_id`
+  - `coin`
+  - `timeframe`
+  - `side`
+  - order state fields
+  - `realized_pnl`
+  - exchange ids
+  - `response_payload.botContext.botId`
+  - sync / close timestamps
+- Hardened [api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts) so GET/HEAD requests default to `cache: "no-store"` unless explicitly overridden.
+- Added [execution-diff.test.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/backend/execution-diff.test.mjs) to keep this semantic contract under regression coverage.
+
+### Why This Matters
+
+- Backend/DB can now repair bot execution attribution without the frontend silently discarding the update as “no change.”
+- This should reduce the stale-first-paint drift on bot surfaces and reduce app-wide stale GET reads on initial entry.
+- The fix is shared and architectural, not another screen-local patch.
+
+### Recommended Next Step
+
+- Re-run the long browser hydration diagnostic after deploy to verify whether:
+  - `dashboard`
+  - `my-wallet`
+  - `bot-settings`
+  - `signal-bot`
+  still drift after first paint or now settle correctly from the first live read.
+
+### Current Validation Gate
+
+- `npm run test:backend` OK `62/62`
+- `npm run typecheck` OK
+- `npm run build` OK
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` OK with `findings: []`

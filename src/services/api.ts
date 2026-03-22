@@ -68,6 +68,7 @@ let realtimeCoreModeInFlight: Promise<RealtimeCoreRuntimeMode> | null = null;
 async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { timeoutMs, ...requestOptions } = options;
   const headers = new Headers(requestOptions.headers || {});
+  const method = String(requestOptions.method || "GET").trim().toUpperCase();
   if (requestOptions.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
@@ -81,6 +82,7 @@ async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Pro
     const response = await fetch(path, {
       credentials: "same-origin",
       ...requestOptions,
+      cache: requestOptions.cache ?? (method === "GET" || method === "HEAD" ? "no-store" : undefined),
       headers,
       signal: controller?.signal || requestOptions.signal,
     });

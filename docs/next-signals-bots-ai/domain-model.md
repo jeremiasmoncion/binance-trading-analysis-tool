@@ -42,6 +42,13 @@ Suggested attributes:
 - `createdAt`
 - `updatedAt`
 
+The implementation should also support:
+
+- quick-edit workspace settings
+- full bot workspace state
+- local / family / global memory separation
+- future decision and conversation audit trails
+
 ### Bot Universe Policy
 
 Must support:
@@ -126,6 +133,13 @@ Suggested taxonomy:
 - `bot-consumable signal`
 - `execution candidate`
 
+Additional product labels should remain possible for the user-facing module:
+
+- informational
+- observational
+- operable
+- AI-prioritized
+
 ### Signal Feed
 
 Suggested feed kinds:
@@ -175,6 +189,57 @@ Should support summaries for:
 - context
 - origin
 
+### Bot Decision Record
+
+The next structural entity after the persisted bot registry should be a dedicated bot decision record.
+
+Minimum attributes:
+
+- `id`
+- `botId`
+- `signalSnapshotId`
+- `symbol`
+- `timeframe`
+- `signalLayer`
+- `action`
+- `status`
+- `source`
+- `rationale`
+- `executionEnvironment`
+- `automationMode`
+- `marketContextSignature`
+- `contextTags`
+- `metadata`
+- `createdAt`
+- `updatedAt`
+
+This is the entity that should later power:
+
+- bot history
+- execution logs
+- bot-specific performance
+- learning snapshots
+- conversational audit trails
+
+The current operational progression inside `BotDecisionRecord.metadata` also now supports a governed execution-intent lane for non-real dispatch:
+
+- `executionIntentStatus`
+- `executionIntentLane`
+- `executionIntentLaneStatus`
+
+Current lane-state progression in the implementation:
+
+- `awaiting-approval`
+- `queued`
+- `dispatch-requested`
+- `previewed`
+- `preview-recorded`
+- `execution-submitted`
+- `blocked`
+- `linked`
+
+This allows the bot to move from signal consumption to paper/demo dispatch without pretending that a real order was already emitted.
+
 ## Future Conversational Entities
 
 The architecture should leave room for:
@@ -186,3 +251,13 @@ The architecture should leave room for:
 - approval record
 - execution receipt
 - audit event
+
+The preferred future flow is:
+
+1. the user expresses an intention
+2. AI interprets it
+3. the system turns it into a structured action
+4. governance validates permissions
+5. confirmation is requested when needed
+6. the system executes the formal action
+7. the result is stored in audit history

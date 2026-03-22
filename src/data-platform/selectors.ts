@@ -6,6 +6,9 @@ import { systemDataPlaneStore } from "./systemDataPlane";
 const EMPTY_SIGNAL_MEMORY: SystemDataPlane["snapshot"]["signalMemory"] = [];
 const EMPTY_WATCHLIST_COINS: string[] = [];
 const EMPTY_EXECUTION_ORDERS: NonNullable<SystemDataPlane["overlay"]["execution"]>["recentOrders"] = [];
+const EMPTY_EXECUTION_CANDIDATES: NonNullable<SystemDataPlane["overlay"]["execution"]>["candidates"] = [];
+const EMPTY_TIMEFRAME_SIGNALS: ReturnType<typeof useDashboardMarketSelector>["multiTimeframes"] = [];
+const EMPTY_STRATEGY_CANDIDATES: ReturnType<typeof useDashboardMarketSelector>["strategyCandidates"] = [];
 
 export function useDashboardMarketSelector() {
   return useDataPlaneStore(marketDataPlaneStore, (state) => ({
@@ -66,6 +69,37 @@ export function useSignalsBotsFeedSelector() {
   }), (left, right) => (
     left.signalMemory === right.signalMemory
     && left.activeWatchlistName === right.activeWatchlistName
+    && left.activeWatchlistCoins.length === right.activeWatchlistCoins.length
+    && left.activeWatchlistCoins.every((coin, index) => coin === right.activeWatchlistCoins[index])
+  ));
+}
+
+export function useMarketCoreSelector() {
+  return useDataPlaneStore(marketDataPlaneStore, (state) => ({
+    currentCoin: state.currentCoin,
+    timeframe: state.timeframe,
+    currentPrice: state.currentPrice,
+    signal: state.signal,
+    analysis: state.analysis,
+    strategy: state.strategy,
+    strategyCandidates: state.strategyCandidates || EMPTY_STRATEGY_CANDIDATES,
+    multiTimeframes: state.multiTimeframes || EMPTY_TIMEFRAME_SIGNALS,
+    market24h: state.market24h,
+  }), shallowEqualSelection);
+}
+
+export function useSignalCoreSelector() {
+  return useDataPlaneStore(systemDataPlaneStore, (state) => ({
+    signalMemory: state.snapshot.signalMemory || EMPTY_SIGNAL_MEMORY,
+    activeWatchlistName: state.snapshot.activeWatchlistName,
+    activeWatchlistCoins: state.snapshot.watchlists.find((item) => item.name === state.snapshot.activeWatchlistName)?.coins || EMPTY_WATCHLIST_COINS,
+    scannerStatus: state.snapshot.scannerStatus,
+    executionCandidates: state.overlay.execution?.candidates || EMPTY_EXECUTION_CANDIDATES,
+  }), (left, right) => (
+    left.signalMemory === right.signalMemory
+    && left.activeWatchlistName === right.activeWatchlistName
+    && left.scannerStatus === right.scannerStatus
+    && left.executionCandidates === right.executionCandidates
     && left.activeWatchlistCoins.length === right.activeWatchlistCoins.length
     && left.activeWatchlistCoins.every((coin, index) => coin === right.activeWatchlistCoins[index])
   ));
@@ -153,6 +187,8 @@ export function useWatchlistSelector() {
 export function useProfileSystemSelector() {
   return useDataPlaneStore(systemDataPlaneStore, (state) => ({
     connection: state.snapshot.connection,
+    signalMemoryCount: state.snapshot.signalMemory?.length || 0,
+    watchlistsCount: state.snapshot.watchlists?.length || 0,
     scannerStatus: state.snapshot.scannerStatus,
     validationReport: state.snapshot.validationReport,
     backtestRuns: state.snapshot.backtestRuns,

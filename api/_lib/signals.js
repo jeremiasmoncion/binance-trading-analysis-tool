@@ -1,20 +1,26 @@
 import { getSession, parseJsonBody, sendJson } from "./auth.js";
 
-const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "") || "";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const SIGNALS_TABLE = process.env.SUPABASE_SIGNALS_TABLE || "signal_snapshots";
 const SIGNAL_FEATURE_SNAPSHOTS_TABLE = process.env.SUPABASE_SIGNAL_FEATURE_SNAPSHOTS_TABLE || "signal_feature_snapshots";
 
+function getSupabaseConfig() {
+  return {
+    supabaseUrl: process.env.SUPABASE_URL?.replace(/\/$/, "") || "",
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  };
+}
+
 async function supabaseRequest(path, options = {}) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  const { supabaseUrl, serviceRoleKey } = getSupabaseConfig();
+  if (!supabaseUrl || !serviceRoleKey) {
     throw new Error("Supabase no está configurado para la memoria de señales");
   }
 
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
     method: options.method || "GET",
     headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
@@ -46,6 +52,23 @@ function buildSession(username) {
   return { username: String(username || "").trim() };
 }
 
+function normalizeSignalIds(ids) {
+  return [...new Set(
+    (Array.isArray(ids) ? ids : [ids])
+      .map((value) => Number(value || 0))
+      .filter((value) => Number.isFinite(value) && value > 0),
+  )];
+}
+
+function chunkArray(items, size) {
+  const normalizedSize = Number(size || 0) > 0 ? Number(size) : 100;
+  const chunks = [];
+  for (let index = 0; index < items.length; index += normalizedSize) {
+    chunks.push(items.slice(index, index + normalizedSize));
+  }
+  return chunks;
+}
+
 async function listSignalSnapshots(req) {
   const session = requireSession(req);
   const params = new URLSearchParams({
@@ -68,6 +91,34 @@ async function listSignalSnapshotsForUser(username, options = {}) {
     params.set("outcome_status", `eq.${String(options.outcomeStatus)}`);
   }
   return supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`);
+}
+
+async function listSignalSnapshotsByIdsForUser(username, ids, options = {}) {
+  const normalizedIds = normalizeSignalIds(ids);
+  if (!normalizedIds.length) return [];
+
+  const rows = [];
+  for (const chunk of chunkArray(normalizedIds, options.chunkSize || 100)) {
+    const params = new URLSearchParams({
+      select: String(options.select || "*"),
+      username: `eq.${String(username)}`,
+      id: `in.(${chunk.join(",")})`,
+      order: options.order || "created_at.desc",
+      limit: String(options.limit || chunk.length),
+    });
+    if (options.outcomeStatus) {
+      params.set("outcome_status", `eq.${String(options.outcomeStatus)}`);
+    }
+    const chunkRows = await supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`);
+    rows.push(...(Array.isArray(chunkRows) ? chunkRows : []));
+  }
+
+  const requestedIndex = new Map(normalizedIds.map((value, index) => [value, index]));
+  return rows.sort((left, right) => {
+    const leftIndex = requestedIndex.get(Number(left?.id || 0)) ?? Number.MAX_SAFE_INTEGER;
+    const rightIndex = requestedIndex.get(Number(right?.id || 0)) ?? Number.MAX_SAFE_INTEGER;
+    return leftIndex - rightIndex;
+  });
 }
 
 async function findRecentDuplicateSignal(session, body) {
@@ -247,10 +298,28 @@ async function updateSignalSnapshotForUser(username, id, body) {
 }
 
 async function updateSignalExecutionLink(username, id, body) {
+  return updateSignalExecutionStateForUser(username, id, body);
+}
+
+async function updateSignalExecutionStateForUser(username, signalOrId, body = {}) {
+  const signal = signalOrId && typeof signalOrId === "object" ? signalOrId : null;
+  const signalId = signal ? Number(signal.id || 0) : Number(signalOrId || 0);
+  if (!signalId) return null;
   const params = new URLSearchParams({
-    id: `eq.${id}`,
+    id: `eq.${signalId}`,
     username: `eq.${String(username)}`,
   });
+
+  let nextPayload;
+  if (body.signalPayloadMerge && typeof body.signalPayloadMerge === "object") {
+    const basePayload = signal?.signal_payload && typeof signal.signal_payload === "object"
+      ? signal.signal_payload
+      : {};
+    nextPayload = {
+      ...basePayload,
+      ...body.signalPayloadMerge,
+    };
+  }
 
   const rows = await supabaseRequest(`${SIGNALS_TABLE}?${params.toString()}`, {
     method: "PATCH",
@@ -260,6 +329,7 @@ async function updateSignalExecutionLink(username, id, body) {
       execution_status: body.executionStatus || null,
       execution_mode: body.executionMode || null,
       execution_updated_at: body.executionUpdatedAt || new Date().toISOString(),
+      ...(nextPayload ? { signal_payload: nextPayload } : {}),
     },
   });
   return rows?.[0] || null;
@@ -473,10 +543,12 @@ export {
   createSignalSnapshotForUser,
   evaluatePendingSignalsForUser,
   listSignalSnapshots,
+  listSignalSnapshotsByIdsForUser,
   listSignalSnapshotsForUser,
   sendJson,
   upsertSignalFeatureSnapshotForUser,
   updateSignalExecutionLink,
+  updateSignalExecutionStateForUser,
   updateSignalSnapshot,
   updateSignalSnapshotForUser,
 };

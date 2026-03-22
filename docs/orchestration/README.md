@@ -77,6 +77,61 @@ That means:
 
 The AI threads do not send direct phone notifications. GitHub is the human-visible completion signal.
 
+## Branch And Deploy Rule
+
+Future AI threads should assume this delivery workflow unless the human owner says otherwise:
+
+- `main` is the active development branch
+- when a scoped task is complete and validated, save that work in `main`
+- do not treat `codex` as the default development branch
+- `codex` is reserved for explicit human-requested checkpoints only
+- do not deploy to Vercel automatically after every task
+- for logic/runtime/architecture tasks, deploy to Vercel only when the human explicitly asks to see/review the changes
+- for primarily visual UI changes, it is acceptable to provide the review link once the task is validated, because browser review is part of the work itself
+- when the human asks to review changes in the browser, the default review link should be the public production alias:
+  - `https://binance-trading-analysis-tool.vercel.app`
+- deployment-specific Vercel URLs can be shared as supporting detail, but the public alias is the canonical review URL unless the human asks for something else
+
+Practical consequence:
+
+- default close-out is:
+  - implement
+  - validate
+  - if the task changed the application, confirm:
+    - code/type validation is healthy
+    - build is healthy
+    - the app still runs correctly
+  - commit/save to `main`
+  - push the validated milestone when it is ready for GitHub-visible completion
+  - explain clearly to the human what changed
+  - explain any meaningful verification, limitation, or risk
+  - state the next recommended step explicitly
+- only add:
+  - Vercel deploy
+  - production link delivery through `https://binance-trading-analysis-tool.vercel.app`
+  when:
+  - the human asks for review
+  - or the task is explicitly visual and browser review is the natural completion step
+
+Close-out communication rule:
+
+- every meaningful task close-out should include a clear human-facing explanation of what was done
+- every meaningful task close-out should end with the next recommended step from the AI's point of view
+- do not force the human to infer progress only from low-level file lists or git context
+- keep the close-out concise instead of overly abundant
+- prefer two short summaries:
+  - a simple end-user/product-flow summary
+  - a short technical summary
+- both summaries should stay compact and easy to scan
+
+## Supabase Help Rule
+
+When future AI threads reach a point where Supabase needs a manual schema or data operation that cannot be executed directly from the current environment:
+
+- provide the exact SQL query to the human
+- state briefly why the query is needed
+- prefer ready-to-run SQL instead of vague setup instructions
+
 ## User-Facing Review Rule
 
 Meaningful UI progress must be reviewable from a real end-user perspective, not only from an internal developer/lab perspective.
@@ -112,3 +167,22 @@ The technical/orchestration summary should explain:
 - what the next big milestone is
 
 Do not deliver only low-level technical notes when the operator is trying to understand actual product progress.
+
+## Visual Primitive Rule
+
+For visual work, future AI threads should treat the existing template visual primitives as the first implementation option, not as inspiration only.
+
+That means:
+
+- first reuse the shared visual primitives already established in the app
+- first match the tab, chip, card, form, and panel patterns already proven in template-aligned surfaces
+- only create page-local visual variants when the primitive layer truly cannot express the needed behavior
+- if a page-local variant is necessary, it should still extend the same visual family instead of creating a parallel design language
+
+Practical consequence:
+
+- `My Wallet`
+- `Dashboard`
+- `Bot Settings`
+
+should be treated as the primary visual architecture references before inventing a new page-specific solution.

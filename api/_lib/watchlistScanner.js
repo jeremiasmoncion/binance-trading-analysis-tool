@@ -1,6 +1,6 @@
 import { getSession, sendJson } from "./auth.js";
 import { evaluateSignalEdgeSafety, executeSignalTradeForUser, getExecutionProfileForUser } from "./executionEngine.js";
-import { buildMarketSnapshot, fetchTickerPrice, getTimeframeScanInterval } from "./marketRuntime.js";
+import { buildMarketSnapshot, fetchTickerPrice, getScannableTimeframes, getTimeframeScanInterval } from "./marketRuntime.js";
 import { createSignalSnapshotForUser, evaluatePendingSignalsForUser, listSignalSnapshotsForUser } from "./signals.js";
 import { applySystemStrategyDecision, getSystemStrategyDecisionState } from "./strategyEngine.js";
 import { listWatchlistScanTargets } from "./watchlist.js";

@@ -73,7 +73,6 @@ Examples:
   - `General Settings`
   - `Risk Management`
   - `Notifications`
-  - `API Connections`
 - signal surfaces should preserve template-like user-facing naming for filters, statuses, and card metadata where the concept is the same
 
 ## Graphic Line Rule
@@ -121,6 +120,87 @@ The implementation reference pages for this rule are:
 These pages are the model for how to achieve template-level visuals with cleaner project-level CSS architecture.
 
 Future UI work should treat them as the implementation reference, not just as visual inspiration.
+
+More specific rule for template migration:
+
+- when implementing `Signal Bot`, `Bot Settings`, `Execution Logs`, or other new template pages, prefer the actual CRYPE implementation language already proven in `My Wallet`
+- that includes:
+  - display typography rhythm
+  - quick-stat card density
+  - chip/button treatment
+  - panel padding
+  - dark-surface contrast
+  - card radius and border treatment
+- in practice, `My Wallet` is the first implementation baseline and the template is the visual target to match through that baseline
+- for settings tabs specifically:
+  - reuse one shared form language across `General Settings`, `Risk Management`, and `Notifications`
+  - shared select/input/toggle primitives should be the default
+  - repeated channel rows and settings actions should also stay shared when they recur across tabs
+  - exchange cards, security cards, and status/action treatments should stay inside the same account/security visual family when rendered under `Security & API Keys`
+  - do not solve theme parity with per-tab overrides when the fix belongs in the shared primitive
+- for any tabbed page:
+  - the selected tab must stay visibly highlighted after selection
+  - that selected-state behavior should come from the shared tab/chip primitive, not a page-local exception
+- for global loading surfaces:
+  - preserve CRYPE visual language in the loader itself
+  - when the startup slot is a compact mark container, prefer a real loading animation instead of a static `C`
+  - verify whether the active loader belongs to `StartupOverlay` or `SystemUiHost` before changing it
+- for `All Bots` quick configuration:
+  - the bot gear action should open an in-context right drawer
+  - do not force a page transition for lightweight bot edits
+  - do not introduce a disconnected modal style when the drawer pattern already fits the template behavior better
+- for `Bot Settings` navigation depth:
+  - `All Bots` is the fleet hub
+  - the gear stays reserved for quick settings
+  - opening the full bot should navigate into the full bot workspace screen
+  - the current full bot workspace is `Signal Bot`, reused as the detailed bot screen until more bot-specific detail pages exist
+  - selected bot context should travel through a shared seam, not ad hoc component state
+  - `API Connections` does not belong inside `Bot Settings`
+  - exchange credentials and API security belong to the account/admin area under `Security & API Keys`
+ - for the account/settings module:
+   - `Cuenta`, `Notifications`, `Binance`, and `Security & API Keys` belong to the user/admin profile area, not the bot area
+   - that area should follow the same template language used for profile/settings surfaces:
+     - profile summary
+     - language and region
+     - session preferences
+     - storage/data view
+     - notification channels and alert types
+   - `Security & API Keys` must read the real exchange connection currently owned by the user
+   - do not render fake exchange cards when the system already has a real Binance Demo connection available
+ - exchange connect / refresh / disconnect actions should reuse the existing shared profile/binance actions, not a second API path
+  - destructive or high-impact actions must use a confirmation notification/modal standard before execution
+  - that confirmation standard should:
+    - explain the consequence in direct product language
+    - offer explicit `Yes / No` actions
+    - only execute the mutation after the user confirms
+    - keep the resulting success/error feedback in the shared notification layer
+ - examples for this standard include:
+    - disable bot
+    - disconnect exchange account
+    - remove persistent user-owned configuration
+ - for `Signal Bot -> Active Signals`:
+   - the active-signal grid must be driven by the selected bot's real scope, not by a generic market feed
+   - visible signal cards must respect the bot's configured:
+     - trading pairs
+     - timeframes
+     - execution/account context
+   - repeated snapshots of the same `symbol + timeframe` should collapse into one representative active card for the user-facing workspace
+   - when more than six active cards exist, paginate the grid in groups of six
+   - signal cards must expose three direct user actions:
+     - observe
+     - execute
+     - dismiss
+   - `observe` should open an in-context right drawer with the full signal detail
+   - `execute` should dispatch the signal into the governed execution path, not just log a local UI action
+   - `dismiss` should remove that signal from the bot's active feed through the shared bot decision seam
+   - signal detail drawers should keep their primary actions visible at the bottom of the panel
+   - signal card metadata should expose at least:
+     - symbol
+     - venue/exchange context
+     - timeframe
+     - direction
+     - entry / target / stop loss
+     - AI confidence
 
 ## Core UX Rule
 
@@ -515,3 +595,62 @@ Replace the legacy user flow around `Signal Bot` with a full template-matching p
 - bot management lives under the correct Control Panel structure
 - the live app keeps the cleaner CRYPE graphic line already established in Dashboard and My Wallet
 - technical complexity stays behind the user-facing experience instead of leaking into it
+
+## Bot Settings Guidance
+
+- `Bot Settings` is the management hub, not a detail page for one bot
+- it should let the user:
+  - see all bots
+  - understand status and performance quickly
+  - change platform-wide settings that affect the whole bot fleet
+  - jump into a specific bot when needed
+
+### Visual Baseline
+
+- `Bot Settings` must follow the same implementation discipline as `My Wallet`
+- reuse:
+  - display typography
+  - quick stat cards
+  - chip rhythm
+  - dark panel treatment
+  - hover treatment on cards
+  - spacing density and control sizing
+
+### Shared Primitive First Rule
+
+- visual implementation should start from the shared primitives already present in the template-aligned CRYPE architecture
+- do not create a new page-specific tab system, chip system, card shell, or input treatment if the same pattern already exists in shared surfaces
+- first reuse or extend the primitives already proven in:
+  - `My Wallet`
+  - `Dashboard`
+  - `Bot Settings`
+- only after that should page-local visual variants be introduced
+
+This rule exists to protect:
+
+- visual consistency
+- implementation speed
+- maintainability
+- theme parity
+- lower visual churn across future template pages
+
+### Form Controls Rule
+
+- selects/comboboxes should not be solved ad hoc per page
+- when a page needs a styled select, extend the shared input primitive first
+- dark/light parity for form controls must be handled in the shared theme layer, not only in page CSS
+
+### Page Flow
+
+- top summary cards
+- bot/platform tabs
+- search + status filters + layout toggle
+- bot grid as the primary default surface
+- settings/risk/notifications/API sections as platform-level tabs
+
+### Bot Card Role
+
+- each card is a summary object first
+- each card must expose a direct settings entry
+- that action should route to the most specific bot page that already exists in the app
+- if a dedicated page does not exist yet, do not invent a second control surface just for that gap

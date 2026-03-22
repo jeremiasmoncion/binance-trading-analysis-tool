@@ -9,6 +9,7 @@ export type SignalLayer =
   | "execution-candidate";
 
 export type SignalFeedKind = "watchlist" | "market-wide" | "bot-specific" | "high-confidence" | "style-specific";
+export type ProductSignalLayer = "informational" | "observational" | "operable" | "ai-prioritized";
 
 export type SignalRankTier = "high-confidence" | "priority" | "standard" | "low-visibility";
 export type SignalRankLane = "watchlist-first" | "market-discovery";
@@ -41,6 +42,14 @@ export interface PublishedSignal {
   audience: "watchlist" | "market";
   visibilityScore: number;
   feedKinds: SignalFeedKind[];
+  intelligence?: {
+    executionEligible: boolean;
+    decisionSource?: string;
+    adaptiveScore?: number | null;
+    scorerLabel?: string;
+    scorerConfidence?: number | null;
+    contextSignature?: string;
+  };
 }
 
 export interface RankedPublishedSignal extends PublishedSignal {
@@ -90,8 +99,56 @@ export interface SignalExecutionCandidate {
   reasons: string[];
 }
 
+export interface OperationalSignalCandidate {
+  id: string;
+  layer: "execution-candidate";
+  signalId: number;
+  symbol: string;
+  timeframe: string;
+  strategyId: string;
+  strategyVersion?: string;
+  side: "BUY" | "SELL" | "";
+  score: number;
+  rrRatio: number;
+  status: "eligible" | "blocked";
+  reasons: string[];
+}
+
 export interface SignalFeed<TSignal extends PublishedSignal | RankedPublishedSignal | BotConsumableSignal = PublishedSignal | RankedPublishedSignal | BotConsumableSignal> {
   kind: SignalFeedKind;
   generatedAt: string;
   items: TSignal[];
+}
+
+export interface MarketWideSignalContext {
+  discoveryFeedSource: "execution-overlay" | "ranked-memory";
+  latestScanSource: string | null;
+  latestSchedulerRunAt: string | null;
+  latestSchedulerSignalsCreated: number;
+  latestSchedulerSignalsClosed: number;
+  latestDiscoveryCount: number;
+  activeCooldownUntil: string | null;
+  cooldownActive: boolean;
+}
+
+export interface OperationalSignalContext {
+  feedSource: "execution-overlay" | "ranked-memory";
+  eligibleCount: number;
+  blockedCount: number;
+  eligibleAvgScore: number;
+  blockedAvgScore: number;
+  eligibleAvgRr: number;
+  blockedAvgRr: number;
+  latestRunAutoOrdersPlaced: number;
+  latestRunAutoOrdersBlocked: number;
+  latestRunAutoOrdersSkipped: number;
+  latestRunStatus: string | null;
+}
+
+export interface SignalTaxonomy {
+  informational: RankedPublishedSignal[];
+  observational: RankedPublishedSignal[];
+  operable: RankedPublishedSignal[];
+  aiPrioritized: RankedPublishedSignal[];
+  counts: Record<ProductSignalLayer, number>;
 }

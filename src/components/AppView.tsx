@@ -1,6 +1,7 @@
 import { Suspense, lazy, type ReactNode, type RefObject } from "react";
 import type { UserSession, ViewName } from "../types";
 import { EmptyState } from "./ui/EmptyState";
+import { useBotOperationalLoop } from "../hooks/useBotOperationalLoop";
 
 const DashboardView = lazy(() => import("../views/DashboardView").then((module) => ({ default: module.DashboardView })));
 const MemoryView = lazy(() => import("../views/MemoryView").then((module) => ({ default: module.MemoryView })));
@@ -42,6 +43,8 @@ interface AppViewProps {
 }
 
 export function AppView(props: AppViewProps) {
+  useBotOperationalLoop();
+
   let content: ReactNode = null;
 
   switch (props.currentView) {
@@ -68,7 +71,7 @@ export function AppView(props: AppViewProps) {
       content = <ControlOverviewView onNavigateView={props.onNavigateView} />;
       break;
     case "control-bot-settings":
-      content = <BotSettingsView />;
+      content = <BotSettingsView onNavigateView={props.onNavigateView} />;
       break;
     case "control-execution-logs":
       content = <ExecutionLogsView />;
@@ -113,13 +116,28 @@ export function AppView(props: AppViewProps) {
       content = <TemplatePlaceholderView title="Bot Templates" subtitle="Section reserved for the template library flow defined in the marketplace." />;
       break;
     case "preferences":
-      content = <TemplatePlaceholderView title="Preferences" subtitle="Account settings surface aligned to the template account section." />;
+      content = (
+        <ProfileView
+          user={props.user}
+          initialTab="account"
+        />
+      );
       break;
     case "notifications":
-      content = <TemplatePlaceholderView title="Notifications" subtitle="Account notifications surface aligned to the template account section." />;
+      content = (
+        <ProfileView
+          user={props.user}
+          initialTab="notifications"
+        />
+      );
       break;
     case "security-api-keys":
-      content = <TemplatePlaceholderView title="Security & API Keys" subtitle="Account security surface aligned to the template account section." />;
+      content = (
+        <ProfileView
+          user={props.user}
+          initialTab="security"
+        />
+      );
       break;
     case "invite-friends":
       content = <TemplatePlaceholderView title="Invite Friends" subtitle="Referral surface aligned to the template account section." />;
@@ -134,7 +152,7 @@ export function AppView(props: AppViewProps) {
       content = <SignalBotView onNavigateView={props.onNavigateView} />;
       break;
     case "bots":
-      content = <BotSettingsView />;
+      content = <BotSettingsView onNavigateView={props.onNavigateView} />;
       break;
     case "market":
       content = <MarketView />;
@@ -165,6 +183,7 @@ export function AppView(props: AppViewProps) {
       content = (
         <ProfileView
           user={props.user}
+          initialTab="account"
         />
       );
       break;

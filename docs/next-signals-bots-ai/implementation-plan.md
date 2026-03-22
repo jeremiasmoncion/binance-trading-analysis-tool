@@ -88,6 +88,148 @@ Suggested deliverables:
 - page flow aligned with template `Control Panel -> Bot Settings`
 - search, chips, card grid, and edit-drawer behavior aligned with template
 
+Current validated state:
+
+- first persisted bot registry seam exists
+- first real bot create/update path exists
+- selected bot travels through a shared seam into the full bot workspace
+- quick edit now writes into the same persisted bot registry seam
+- `General Settings` and `Risk Management` now persist against the selected bot profile
+- bot general/risk state is no longer only view-local UI state
+
+## Phase 3.5 - Bot Decision And Activity Layer
+
+Goals:
+
+- stop treating bot performance as only pair-scoped inference
+- introduce dedicated bot decision/activity records
+- prepare execution logs and training on top of real bot-owned history
+
+Suggested deliverables:
+
+- bot decision contract
+- bot activity persistence seam
+- bot history read-model
+- first real bridge between consumed signals and bot-owned outcomes
+- phase-safe metrics path for:
+  - history
+  - performance
+  - training
+
+Current progress:
+
+- done:
+  - bot decision contract
+  - bot decision API seam
+  - shared frontend bot decision runtime
+  - first Signal Bot actions writing manual decisions
+  - first Execution Logs integration for decision records
+  - bot runtime summaries now sync back into the persisted bot profile from the decision layer:
+    - local memory
+    - performance
+    - audit
+    - activity
+  - `Bot Settings -> Notifications` now persists through the same shared bot seam
+  - shared bot read-model now links execution orders back to bot ownership:
+    - per-bot execution timeline
+    - cross-bot execution timeline
+    - execution-first performance fallback when linked outcomes exist
+  - `Signal Bot` and `Execution Logs` now consume that shared execution ownership layer
+  - shared bot activity now exposes a unified owned timeline that folds linked decisions and linked executions into one history shape
+  - decision timeline entries now carry explicit execution linkage metadata directly from the shared seam
+  - `Execution Logs` now prefers that owned activity timeline instead of concatenating linked decisions and linked orders as separate stories
+  - `Execution Logs` toolbar now filters that shared owned activity stream directly:
+    - search by id / pair / bot / source
+    - linked vs decision-only vs unlinked ownership filters
+  - bot memory layers now derive from owned activity timelines instead of decision-only aggregation:
+    - local owned memory
+    - family owned memory
+    - global owned memory
+  - execution ownership is now hardened with stronger bridge signals:
+    - persisted `executionOrderId`
+    - market-context signature
+    - controlled time-window proximity
+  - bot hub surfaces now expose ownership health directly from the shared seam:
+    - per-bot owned outcomes
+    - unresolved ownership count
+    - reconciliation percentage
+  - selected-bot workspace now also exposes ownership health directly in `Signal Bot`
+  - selected-bot ownership health now includes ratios and qualitative state labels
+  - selected-bot workspace now also exposes a first adaptation summary derived from owned outcomes
+  - selected-bot workspace now conditionally explains unresolved ownership backlog when health degrades
+  - fleet-level bot hub now also exposes adaptation readiness from the same shared seam
+  - fleet-level bot hub now also highlights the weakest bots needing attention
+  - bot-attention scoring now lives in the shared seam instead of per-surface local ranking
+  - `Execution Logs` now supports an `Attention Bots` scope on top of the shared activity stream
+  - the fleet hub now reuses the same shared ranked attention list for its compact weakest-bots panel
+  - `Execution Logs` now also exposes compact per-bot summaries on top of the prioritized/shared activity stream
+  - prioritized execution summaries now also surface unresolved-symbol pockets and best/weak pocket cues per bot
+  - prioritized execution summaries now rank recurring backlog symbols per bot inside the active log scope
+  - fleet-level weakest-bots cards now also surface backlog and pocket diagnostics from the same shared seam
+  - recurring backlog symbol ranking now also lives in the shared ownership seam for fleet-level reuse
+  - the first shared operational bot loop now exists:
+    - accepted signals can auto-create bot-owned decisions
+    - automation mode and execution policy now govern whether the bot observes, assists, or prepares an execution-intent decision
+  - the operational loop now also enforces first runtime guardrails before escalation:
+    - available capital
+    - max open positions
+    - symbol exposure
+    - execution overlap
+  - the shared bot read-model now also exposes explicit execution-intent summaries from bot-owned decisions:
+    - ready
+    - approval-needed
+    - assist-only
+    - observe-only
+    - guardrail-blocked
+  - `Signal Bot` now exposes that execution-intent layer directly in the selected bot workspace
+  - the operational loop now also normalizes those intents into an explicit paper/demo execution-intent lane inside bot decisions:
+    - lane
+    - lane status
+    - queued timestamp
+    - paper/demo readiness
+    - approval requirement
+  - linked execution outcomes now close that same intent lane into `linked`
+  - the shared decision timeline now also carries that lane metadata into `Execution Logs`
+  - `Execution Logs` now supports explicit paper/demo intent review filters:
+    - queued
+    - awaiting approval
+    - blocked
+    - linked
+  - `Execution Logs` now also exposes compact per-bot intent backlog summaries above the table
+  - `Execution Logs` now also supports explicit approve/reject review actions for `awaiting-approval` intents inside the same bot-decision seam
+  - queued paper/demo intents can now also move into an explicit `dispatch-requested` lane from the same review surface
+  - blocked intent rows now also surface the shared intent reason more directly
+  - intent summaries now also count and prioritize dispatch backlog explicitly
+  - the operational loop now also consumes `dispatch-requested` paper/demo intents through the existing shared execution adapter instead of opening a second execution path
+  - successful adapter calls now split into clearer paper/demo terminal semantics:
+    - `paper -> previewed`
+    - `demo -> execution-submitted`
+  - when the shared execution plane later confirms a preview record, the paper path now closes into:
+    - `preview-recorded`
+  - execution linkage still closes the demo path later into `linked`
+  - dispatch failures now fall back into the same governed bot-decision seam as blocked intents with explicit reason metadata
+  - `Signal Bot` and `Execution Logs` now expose those paper/demo terminal states directly instead of collapsing both under one generic `dispatched` label
+  - the shared decision timeline now also exposes dispatch-mode/status diagnostics so those terminal states can be audited without inspecting raw metadata
+  - the preview path now has its own closure semantics instead of reusing demo-style `linked`
+- pending:
+  - Supabase `bot_decisions` table
+  - richer persisted execution outcomes and performance aggregation for unresolved or partially linked orders
+  - richer per-bot outcome summaries on top of the now-prioritized execution activity stream
+  - recurring unresolved-symbol and outcome-pocket surfacing inside those execution summaries
+  - decide whether recurring pocket rankings now deserve persistence or fleet-level promotion
+  - evaluate whether recurring symbol rankings should feed stronger ownership diagnostics
+  - decide whether the fleet hub should also surface ranked recurring symbols
+  - evaluate whether weakest-bot cards should deep-link into filtered execution-log context
+  - decide whether dispatch backlog should surface more clearly in fleet-level summaries
+  - keep direct bot-driven order emission out of scope until that intent lane is governed end-to-end
+  - decide whether the next step should expose more explicit dispatch outcome diagnostics per adapter call
+  - deeper policy editing across identity/universe/style/timeframe/execution tabs
+
+Suggested first implementation rule:
+
+- reuse persisted `signalMemory` where useful
+- but do not collapse bot history back into raw signal snapshots once bot decisions become available
+
 ## Phase 4 - Signal Core Separation
 
 Goals:
@@ -105,6 +247,45 @@ Suggested deliverables:
 - watchlist vs market-discovery UX split
 - page flow aligned with template `AI Bot -> Signal Bot`
 - active-signals-first surface with lower supporting insight blocks
+
+Current progress:
+
+- done:
+  - shared `market + signal core` seam
+  - explicit feed subsets exposed from one hook:
+    - watchlist
+    - market-wide
+    - operable
+    - bot-consumable
+  - `SignalsView` now reads those feeds from the shared seam
+  - `signals + bots` read-model now consumes that seam instead of rebuilding the feed pipeline alone
+  - `operable` now prefers real eligible `execution candidates` from the shared execution overlay
+  - `bot-consumable` can now hydrate from that stronger operable cohort before falling back to ranked memory feeds
+  - scanner discovery context is now exposed from the same seam for watchlist-driven product surfaces
+  - explicit operational cohorts now exist in the signal seam:
+    - eligible
+    - blocked
+    - observational
+  - explicit informational and AI-prioritized subsets now exist in the signal seam
+  - AI-prioritized no longer depends only on ranking boosts:
+    - it now reuses real `adaptiveScore`, scorer label/confidence, and execution metadata already stored in `signalMemory`
+  - market-wide and operable now also carry explicit scanner/runtime context:
+    - feed source
+    - latest scan source
+    - scheduler evidence
+    - auto-order / cooldown context
+    - average score / RR for the eligible cohort
+  - `Signal Core` now exposes an explicit product taxonomy contract:
+    - informational
+    - observational
+    - operable
+    - AI-prioritized
+  - the shared `signals + bots` read-model now starts consuming the explicit signal taxonomy
+    instead of mounting bots directly on the wide ranked feed
+- pending:
+  - connect market-wide feeds more directly to backend scanner flows beyond active execution candidates
+  - route more surfaces through `Signal Core` instead of direct signal-memory derivation
+  - return to `Bot Core` with the cleaner signal taxonomy as the shared input layer
 
 ## Phase 4.5 - UX Flow Migration
 

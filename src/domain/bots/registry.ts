@@ -14,7 +14,14 @@ export interface BotRegistrySnapshot {
 function cloneBot(bot: Bot): Bot {
   return {
     ...bot,
+    identity: { ...bot.identity },
     capital: { ...bot.capital },
+    workspaceSettings: { ...bot.workspaceSettings },
+    generalSettings: {
+      ...bot.generalSettings,
+      activeDays: [...bot.generalSettings.activeDays],
+    },
+    notificationSettings: { ...bot.notificationSettings },
     universePolicy: {
       ...bot.universePolicy,
       watchlistIds: [...bot.universePolicy.watchlistIds],
@@ -50,6 +57,7 @@ function cloneBot(bot: Bot): Bot {
       requiresConfirmationFor: [...bot.aiPolicy.requiresConfirmationFor],
     },
     overlapPolicy: { ...bot.overlapPolicy },
+    memoryPolicy: { ...bot.memoryPolicy },
     localMemory: {
       ...bot.localMemory,
       notes: [...bot.localMemory.notes],
@@ -64,6 +72,11 @@ function cloneBot(bot: Bot): Bot {
     },
     performance: { ...bot.performance },
     audit: { ...bot.audit },
+    activity: {
+      ...bot.activity,
+      recentDecisionIds: [...bot.activity.recentDecisionIds],
+      recentSymbols: [...bot.activity.recentSymbols],
+    },
     tags: [...bot.tags],
   };
 }

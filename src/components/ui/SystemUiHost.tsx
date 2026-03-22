@@ -14,7 +14,6 @@ import {
   CheckCircleIcon,
   HelpCircleIcon,
   InfoCircleIcon,
-  SpinnerIcon,
   WarningTriangleIcon,
   XCircleIcon,
 } from "../Icons";
@@ -78,7 +77,10 @@ export function SystemUiHost() {
       {primaryLoader ? (
         <div className="system-loading-dock" role="status" aria-live="polite">
           <div className="system-loading-icon">
-            <SpinnerIcon />
+            <div className="system-loading-spinner" aria-hidden="true">
+              <span className="system-loading-spinner-ring system-loading-spinner-ring-primary" />
+              <span className="system-loading-spinner-ring system-loading-spinner-ring-secondary" />
+            </div>
           </div>
           <div className="system-loading-copy">
             <strong>{primaryLoader.label}</strong>

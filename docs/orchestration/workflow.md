@@ -45,10 +45,90 @@ Then the loop repeats.
 A task is not done until:
 
 - scoped code work is complete
+- local validation passes for the scoped task
+- if the task changed the application, validate that:
+  - the code compiles cleanly
+  - the build passes
+  - the application still runs and behaves correctly
+- the validated work is saved in `main`
+- if validation passes, create a commit for the completed work
+- if the milestone is ready, push it so GitHub becomes the human-visible completion signal
 - task file status is updated
 - handoff notes are written
 - any phase-impacting decision is documented
 - meaningful progress is committed for GitHub visibility
+- the human operator receives a clear close-out summary explaining:
+  - what changed
+  - what was verified
+  - any important limitation or risk
+- the close-out also states the next recommended step explicitly, even when the task itself is complete
+- the close-out should stay concise and should preferably use:
+  - one short end-user summary
+  - one short technical summary
+
+## Branch Handling Rule
+
+By default:
+
+- work in `main`
+- save validated work in `main`
+- do not update `codex` unless the human explicitly asks for a checkpoint branch update
+
+If a future AI finds itself on another local branch by accident, it should realign the validated work back into `main` instead of leaving the canonical state somewhere else.
+
+## Deployment Rule
+
+By default:
+
+- do not deploy to Vercel automatically at the end of a task
+- do not send production/deployment links for logic/runtime/architecture work unless the human asked to review changes in the browser
+- for primarily visual work, a review link may be provided after validation because visual confirmation is part of the acceptance flow
+- if the human explicitly asks for the link, provide it even if the task was mainly logical
+
+When a deployment/review link is appropriate:
+
+- deploy the validated state
+- provide the public production review URL:
+  - `https://binance-trading-analysis-tool.vercel.app`
+- optionally include the deployment-specific Vercel URL as supporting detail when useful
+
+This applies when:
+
+- the human explicitly asks to see the changes
+- or the task is mainly visual and the AI is closing the loop for browser review
+
+Close-out rule for links:
+
+- for logic/runtime/architecture work, default close-out should explain the change without sending the production link unless the human asked for browser review
+- for primarily visual work, default close-out may include the production review link because visual inspection is part of acceptance
+- the canonical link to share is always:
+  - `https://binance-trading-analysis-tool.vercel.app`
+
+## Shared Visual Primitive Rule
+
+For UI work:
+
+- start from the shared primitives already used by template-aligned pages
+- do not build a new tab bar, chip family, card shell, or control styling if an equivalent shared primitive already exists
+- prefer extending the shared primitive layer over solving the same pattern inside one page
+- page-local CSS should be the second step, not the first
+
+In practice, future AI threads should look first at:
+
+- `My Wallet`
+- `Dashboard`
+- `Bot Settings`
+
+before introducing a new visual treatment.
+
+## Supabase Support Rule
+
+If a task needs a Supabase schema or data change that the AI cannot execute directly:
+
+- do not leave the requirement implicit
+- provide the exact SQL query for the human to run manually
+- explain briefly what that SQL is for
+- prefer a ready-to-run query over abstract instructions
 
 ## GitHub Notification Practice
 

@@ -8,6 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test:backend": "node --test tests/backend/**/*.test.mjs",
+    "test:e2e": "playwright test -c playwright.config.mjs",
+    "test:e2e:headed": "playwright test -c playwright.config.mjs --headed",
+    "system-audit": "node scripts/system-audit.mjs",
     "realtime-core": "node realtime-core-service/server.mjs",
     "realtime-core:preflight": "node realtime-core-service/preflight.mjs",
     "realtime-core:smoke": "node realtime-core-service/smoke.mjs",
@@ -20,6 +24,7 @@
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/vite": "4.1.17",
     "@types/node": "^22.0.0",
     "@types/react": "19.2.7",

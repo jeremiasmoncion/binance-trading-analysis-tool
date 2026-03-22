@@ -58,6 +58,7 @@ body.light-theme .ui-chip,
 body.light-theme .ui-pill,
 body.light-theme .card-help-button,
 body.light-theme .ui-input-shell input,
+body.light-theme .ui-input-shell select,
 body.light-theme .btn-secondary-soft,
 body.light-theme .coin-clear-btn,
 body:not(.dark-theme) .search-coin input,
@@ -74,6 +75,7 @@ body:not(.dark-theme) .ui-chip,
 body:not(.dark-theme) .ui-pill,
 body:not(.dark-theme) .card-help-button,
 body:not(.dark-theme) .ui-input-shell input,
+body:not(.dark-theme) .ui-input-shell select,
 body:not(.dark-theme) .btn-secondary-soft,
 body:not(.dark-theme) .coin-clear-btn {
   background: rgba(255, 255, 255, 0.9);
@@ -92,6 +94,14 @@ body:not(.dark-theme) .topbar-icon-shell,
 body:not(.dark-theme) .topbar-user-shell,
 body:not(.dark-theme) .coin-clear-btn {
   box-shadow: 0 10px 20px rgba(148, 163, 184, 0.12);
+}
+
+body.light-theme .ui-chip.active,
+body:not(.dark-theme) .ui-chip.active {
+  background: linear-gradient(135deg, #6a68f8 0%, #5b5eea 100%);
+  border-color: transparent;
+  color: #f8fafc;
+  box-shadow: 0 12px 24px rgba(91, 94, 234, 0.2);
 }
 
 body.light-theme .topbar-sidebar-toggle:hover,
@@ -478,6 +488,7 @@ body.dark-theme .btn-secondary-soft,
 body.dark-theme .ui-chip,
 body.dark-theme .ui-pill,
 body.dark-theme .ui-input-shell input,
+body.dark-theme .ui-input-shell select,
 body.dark-theme .ui-metric-box,
 body.dark-theme .ui-row-action,
 body.dark-theme .ui-pagination-pill,
@@ -493,6 +504,15 @@ body.dark-theme .ui-button-primary {
   border-color: rgba(129, 140, 248, 0.42);
   color: #eff6ff;
   box-shadow: 0 16px 30px rgba(91, 94, 234, 0.24);
+}
+
+body.dark-theme .ui-chip.active {
+  background: linear-gradient(135deg, #6d6cff 0%, #5f63f2 100%);
+  border-color: rgba(129, 140, 248, 0.42);
+  color: #eff6ff;
+  box-shadow:
+    0 16px 30px rgba(91, 94, 234, 0.24),
+    0 0 0 1px rgba(129, 140, 248, 0.14);
 }
 
 body.dark-theme .ui-button:hover,
@@ -626,6 +646,23 @@ body.dark-theme .binance-status-card,
 body.dark-theme .portfolio-highlight-card { background:#111827; border-color:#23314d; }
 body.dark-theme .binance-status-title { color: #e2e8f0; }
 body.dark-theme .ui-table-shell { border-top-color: #1e293b; }
+body.dark-theme .ui-table thead th { color: #94a3b8; }
+body.dark-theme .ui-table tbody td {
+  background: rgba(15, 23, 42, 0.54);
+  color: #e2e8f0;
+  border-top-color: rgba(59, 130, 246, 0.14);
+  border-bottom-color: rgba(59, 130, 246, 0.14);
+}
+body.dark-theme .ui-table tbody td:first-child {
+  border-left-color: rgba(59, 130, 246, 0.14);
+}
+body.dark-theme .ui-table tbody td:last-child {
+  border-right-color: rgba(59, 130, 246, 0.14);
+}
+body.dark-theme .ui-table tbody tr:hover td {
+  background: rgba(20, 31, 54, 0.8);
+  border-color: rgba(96, 165, 250, 0.2);
+}
 body.dark-theme .dashboard-trades-table-shell { border-top-color: rgba(59, 130, 246, 0.14); }
 body.dark-theme .dashboard-trades-table thead th { color: #94a3b8; }
 body.dark-theme .dashboard-trades-search {

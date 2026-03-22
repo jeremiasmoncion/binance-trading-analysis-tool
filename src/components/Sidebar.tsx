@@ -196,6 +196,7 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
                       className={`nav-item ${currentView === item.view ? "active" : ""}`}
                       onClick={() => onViewChange(item.view)}
                       title={collapsed ? item.label : undefined}
+                      data-testid={`sidebar-nav-${item.view}`}
                     >
                       {item.icon}
                       <span className="nav-text">{item.label}</span>
@@ -229,6 +230,7 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
                           type="button"
                           className={`submenu-item ${currentView === child.view ? "active" : ""}`}
                           onClick={() => onViewChange(child.view)}
+                          data-testid={`sidebar-nav-${child.view}`}
                         >
                           <span className="submenu-dot" />
                           <span>{child.label}</span>
@@ -243,19 +245,19 @@ export function Sidebar({ user, currentView, collapsed, onViewChange, onLogout }
         ))}
       </nav>
 
-      <div className="sidebar-user sidebar-user-template">
+      <div className="sidebar-user sidebar-user-template" data-testid="sidebar-user">
         <div className="sidebar-user-summary">
-          <div className="sidebar-user-avatar">{(user.displayName || user.username || "C").slice(0, 2).toUpperCase()}</div>
+          <div className="sidebar-user-avatar" data-testid="sidebar-user-avatar">{(user.displayName || user.username || "C").slice(0, 2).toUpperCase()}</div>
           <div className="sidebar-user-copy">
-            <div className="sidebar-user-name">{user.displayName || user.username}</div>
-            <div className="sidebar-user-email">{user.username}@crype.app</div>
+            <div className="sidebar-user-name" data-testid="sidebar-user-name">{user.displayName || user.username}</div>
+            <div className="sidebar-user-email" data-testid="sidebar-user-email">{user.username}@crype.app</div>
           </div>
         </div>
         <div className="sidebar-user-actions">
-          <button type="button" className="sidebar-user-link" onClick={() => onViewChange("preferences")}>
+          <button type="button" className="sidebar-user-link" onClick={() => onViewChange("preferences")} data-testid="sidebar-account-settings">
             Account Settings
           </button>
-          <button type="button" className="sidebar-user-link sidebar-user-link-danger" onClick={onLogout}>
+          <button type="button" className="sidebar-user-link sidebar-user-link-danger" onClick={onLogout} data-testid="sidebar-logout">
             Logout
           </button>
         </div>

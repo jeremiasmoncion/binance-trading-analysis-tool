@@ -2,26 +2,479 @@ import { useMemo, useState } from "react";
 import { ModuleTabs } from "../components/ModuleTabs";
 import { SectionCard } from "../components/ui/SectionCard";
 import { StatCard } from "../components/ui/StatCard";
-import { useExecutionLogsSelector } from "../data-platform/selectors";
-import type { ExecutionOrderRecord } from "../types";
+import { useBotDecisionsState } from "../hooks/useBotDecisions";
+import { useSignalsBotsReadModel } from "../hooks/useSignalsBotsReadModel";
+import { showToast, startLoading, stopLoading } from "../lib/ui-events";
 
 type ExecutionLogsTab = "all" | "trades" | "signals" | "errors" | "system";
+type ExecutionLogOrderEntry = {
+  id: string;
+  orderId: number;
+  botId: string | null;
+  botName: string | null;
+  symbol: string;
+  timeframe: string;
+  source: string;
+  mode: string;
+  status: string;
+  pnlUsd: number;
+  notionalUsd: number;
+  quantity: number;
+  entryPrice: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+type DecisionLogEntry = {
+  id: string;
+  botId: string;
+  botName?: string;
+  symbol: string;
+  timeframe: string;
+  action: string;
+  status: string;
+  source: string;
+  pnlUsd?: number;
+  entryPrice?: number | null;
+  executionOrderId?: number | null;
+  executionIntentStatus?: string | null;
+  executionIntentLane?: string | null;
+  executionIntentLaneStatus?: string | null;
+  executionIntentReason?: string | null;
+  executionIntentDispatchStatus?: string | null;
+  executionIntentDispatchMode?: string | null;
+  executionIntentDispatchAttemptedAt?: string | null;
+  executionIntentDispatchedAt?: string | null;
+  executionIntentPreviewRefreshCount?: number | null;
+  executionIntentPreviewChurnPardonCount?: number | null;
+  executionIntentPreviewChurnManualClearCount?: number | null;
+  executionIntentPreviewChurnHardResetCount?: number | null;
+  executionOutcomeStatus?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+type ActivityLogEntry =
+  | { kind: "order"; order: ExecutionLogOrderEntry }
+  | { kind: "decision"; decision: DecisionLogEntry; linkedOrder?: ExecutionLogOrderEntry | null };
+type ActivityOwnershipFilter = "all" | "linked" | "decision-only" | "unlinked";
+type ActivityBotScope = "all" | "attention";
+type ActivityIntentFilter = "all" | "queued" | "dispatch-requested" | "dispatched" | "awaiting-approval" | "blocked" | "recovery" | "contention" | "auto-promoted" | "linked";
+const MAX_PREVIEW_CHURN_PARDONS = 2;
+const MAX_PREVIEW_CHURN_MANUAL_CLEARS = 1;
+const MAX_PREVIEW_CHURN_HARD_RESETS = 1;
 
 export function ExecutionLogsView() {
   const [activeTab, setActiveTab] = useState<ExecutionLogsTab>("all");
-  const executionData = useExecutionLogsSelector();
+  const [ownershipFilter, setOwnershipFilter] = useState<ActivityOwnershipFilter>("all");
+  const [botScope, setBotScope] = useState<ActivityBotScope>("all");
+  const [intentFilter, setIntentFilter] = useState<ActivityIntentFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { decisions, updateDecision } = useBotDecisionsState();
+  const botsReadModel = useSignalsBotsReadModel();
+
+  const handleIntentReview = async (decision: DecisionLogEntry, outcome: "approve" | "reject") => {
+    const loaderId = startLoading({
+      label: outcome === "approve" ? "Approving intent" : "Rejecting intent",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: outcome === "approve" ? "approved" : "blocked",
+        metadata: {
+          executionIntentStatus: outcome === "approve" ? "ready" : decision.executionIntentStatus || "approval-needed",
+          executionIntentLaneStatus: outcome === "approve" ? "queued" : "blocked",
+          executionIntentLastUpdatedAt: now,
+          executionIntentApprovedAt: outcome === "approve" ? now : null,
+          executionIntentRejectedAt: outcome === "reject" ? now : null,
+          executionIntentReviewOutcome: outcome,
+          executionIntentReason: outcome === "approve"
+            ? "Approved during execution review."
+            : "Rejected during execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: outcome === "approve" ? "Intent approved" : "Intent rejected",
+        message: `${decision.symbol} was ${outcome === "approve" ? "queued for paper/demo review" : "blocked in execution review"}.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Intent review failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleIntentDispatch = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Dispatching intent",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        metadata: {
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentDispatchRequestedAt: now,
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchReason: "Requested from execution review for paper/demo dispatch.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Dispatch requested",
+        message: `${decision.symbol} moved into paper/demo dispatch request.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Dispatch failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleRefreshPreview = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Refreshing preview",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentPreviewRefreshCount: Number(decision.executionIntentPreviewRefreshCount || 0) + 1,
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentReason: "Expired paper preview refreshed from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Preview refreshed",
+        message: `${decision.symbol} moved back into paper preview dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Preview refresh failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handlePardonPreviewChurn = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Granting preview pardon",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentPreviewChurnPardonCount: Number(decision.executionIntentPreviewChurnPardonCount || 0) + 1,
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentPreviewChurnPardonGrantedAt: now,
+          executionIntentReason: "Paper preview churn pardon granted from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Preview pardon granted",
+        message: `${decision.symbol} can attempt one recovery preview dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Preview pardon failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleManualClearPreviewChurn = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Granting manual clear",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentPreviewChurnManualClearCount: Number(decision.executionIntentPreviewChurnManualClearCount || 0) + 1,
+          executionIntentPreviewChurnManualClearGrantedAt: now,
+          executionIntentReason: "Paper preview churn manually cleared from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Manual clear granted",
+        message: `${decision.symbol} can attempt one stronger paper recovery dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Manual clear failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleHardResetPreviewChurn = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Granting hard reset",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentPreviewChurnHardResetCount: Number(decision.executionIntentPreviewChurnHardResetCount || 0) + 1,
+          executionIntentPreviewChurnHardResetGrantedAt: now,
+          executionIntentReason: "Paper preview churn hard reset granted from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Hard reset granted",
+        message: `${decision.symbol} can attempt one final hard-reset paper recovery dispatch.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Hard reset failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
+
+  const handleRetryReadyContention = async (decision: DecisionLogEntry) => {
+    const loaderId = startLoading({
+      label: "Retrying dispatch",
+      detail: `${decision.botName || decision.botId} • ${decision.symbol}`,
+    });
+
+    try {
+      const now = new Date().toISOString();
+      await updateDecision(decision.id, {
+        status: "approved",
+        metadata: {
+          executionIntentStatus: "ready",
+          executionIntentLaneStatus: "dispatch-requested",
+          executionIntentLastUpdatedAt: now,
+          executionIntentDispatchRequestedAt: now,
+          executionIntentReason: "Ready contention retry requested from execution review.",
+        },
+      });
+      showToast({
+        tone: "success",
+        title: "Dispatch retried",
+        message: `${decision.symbol} moved back into dispatch request after contention review.`,
+      });
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "Retry failed",
+        message: error instanceof Error ? error.message : "Try again.",
+      });
+    } finally {
+      stopLoading(loaderId);
+    }
+  };
 
   const readModel = useMemo(() => {
-    const orders = executionData.recentOrders;
+    const orders = botsReadModel.allBotExecutionTimeline;
+    const botNameById = new Map(botsReadModel.botCards.map((bot) => [bot.id, bot.name]));
+    const logs = (botsReadModel.allBotActivityTimeline || []) as ActivityLogEntry[];
+    const failedDecisions = logs.filter((entry) => entry.kind === "decision" && isFailedDecision(entry.decision)).length;
+    const failedOrders = logs.filter((entry) => entry.kind === "order" && isFailedOrder(entry.order)).length;
+    const attentionBotIds = new Set(botsReadModel.attentionBotIds || []);
     return {
+      logs,
       orders,
-      successRate: calculateSuccessRate(orders),
-      failed: orders.filter((order) => isFailedOrder(order)).length,
-      totalVolume: orders.reduce((sum, order) => sum + Number(order.notional_usd || 0), 0),
+      botNameById,
+      botSummary: botsReadModel.botSummary,
+      attentionBotIds,
+      contendedBotIds: new Set((botsReadModel.readyContention?.entries || []).flatMap((entry) => entry.botIds)),
+      readyContention: botsReadModel.readyContention || { entries: [], contendedReadySymbols: 0, contendedReadyBots: 0 },
+      attentionBots: botsReadModel.attentionBots || [],
+      botCards: botsReadModel.botCards || [],
+      successRate: calculateSuccessRate(logs, decisions.length),
+      failed: failedOrders + failedDecisions,
+      totalVolume: orders.reduce((sum, order) => sum + Number(order.notionalUsd || 0), 0),
     };
-  }, [executionData.recentOrders]);
+  }, [botsReadModel.allBotActivityTimeline, botsReadModel.allBotExecutionTimeline, botsReadModel.attentionBotIds, botsReadModel.attentionBots, botsReadModel.botCards, botsReadModel.botSummary, botsReadModel.readyContention, decisions.length]);
 
-  const visibleLogs = readModel.orders.filter((order) => matchesTab(order, activeTab)).slice(0, 12);
+  const filteredLogs = readModel.logs
+    .filter((entry) => matchesTab(entry, activeTab))
+    .filter((entry) => matchesOwnership(entry, ownershipFilter))
+    .filter((entry) => matchesBotScope(entry, botScope, readModel.attentionBotIds))
+    .filter((entry) => matchesIntent(entry, intentFilter, readModel.contendedBotIds))
+    .filter((entry) => matchesSearch(entry, searchQuery, readModel.botNameById));
+  const visibleLogs = filteredLogs.slice(0, 12);
+  const intentSummaries = useMemo(() => {
+    const scopedBots = botScope === "attention" ? readModel.attentionBots : readModel.botCards;
+    return scopedBots
+      .filter((bot) => (
+        (bot.executionIntentSummary?.queuedCount || 0)
+        || (bot.executionIntentSummary?.dispatchRequestedCount || 0)
+        || (bot.executionIntentSummary?.dispatchedCount || 0)
+        || (bot.executionIntentSummary?.awaitingApprovalCount || 0)
+        || (bot.executionIntentSummary?.blockedLaneCount || 0)
+      ))
+      .sort((left, right) => (
+        ((right.executionIntentSummary?.queuedCount || 0) + (right.executionIntentSummary?.dispatchRequestedCount || 0) + (right.executionIntentSummary?.dispatchedCount || 0) + (right.executionIntentSummary?.awaitingApprovalCount || 0) + (right.executionIntentSummary?.blockedLaneCount || 0))
+        - ((left.executionIntentSummary?.queuedCount || 0) + (left.executionIntentSummary?.dispatchRequestedCount || 0) + (left.executionIntentSummary?.dispatchedCount || 0) + (left.executionIntentSummary?.awaitingApprovalCount || 0) + (left.executionIntentSummary?.blockedLaneCount || 0))
+      ))
+      .slice(0, 4)
+      .map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+        pair: bot.workspaceSettings.primaryPair || latestSymbolFromBot(bot) || "-",
+        queuedCount: bot.executionIntentSummary?.queuedCount || 0,
+        dispatchRequestedCount: bot.executionIntentSummary?.dispatchRequestedCount || 0,
+        dispatchedCount: bot.executionIntentSummary?.dispatchedCount || 0,
+        previewedCount: bot.executionIntentSummary?.previewedCount || 0,
+        previewRecordedCount: bot.executionIntentSummary?.previewRecordedCount || 0,
+        previewExpiredCount: bot.executionIntentSummary?.previewExpiredCount || 0,
+        previewFreshCount: bot.executionIntentSummary?.previewFreshCount || 0,
+        previewStaleCount: bot.executionIntentSummary?.previewStaleCount || 0,
+        previewPardonCount: bot.executionIntentSummary?.previewPardonCount || 0,
+        previewManualClearCount: bot.executionIntentSummary?.previewManualClearCount || 0,
+        previewHardResetCount: bot.executionIntentSummary?.previewHardResetCount || 0,
+        autoPromotedContentionIntentCount: bot.executionIntentSummary?.autoPromotedContentionIntentCount || 0,
+        readyContentionAutoPromotionCount: bot.executionIntentSummary?.readyContentionAutoPromotionCount || 0,
+        executionSubmittedCount: bot.executionIntentSummary?.executionSubmittedCount || 0,
+        awaitingApprovalCount: bot.executionIntentSummary?.awaitingApprovalCount || 0,
+        blockedLaneCount: bot.executionIntentSummary?.blockedLaneCount || 0,
+        linkedCount: bot.executionIntentSummary?.linkedCount || 0,
+        latestIntentStatus: bot.executionIntentSummary?.latestIntentStatus || null,
+        latestLaneStatus: bot.executionIntentSummary?.latestLaneStatus || null,
+        latestIntentSymbol: bot.executionIntentSummary?.latestIntentSymbol || null,
+        latestGuardrailReason: bot.executionIntentSummary?.latestGuardrailReason || null,
+        latestDispatchMode: findLatestDispatchValue(botLogsFromBot(bot.id, filteredLogs), "mode"),
+        latestDispatchStatus: findLatestDispatchValue(botLogsFromBot(bot.id, filteredLogs), "status"),
+        topReadySymbols: bot.executionIntentSummary?.topReadySymbols || [],
+        topBlockedSymbols: bot.executionIntentSummary?.topBlockedSymbols || [],
+        contentionActive: bot.readyContention?.isContended || false,
+        contentionPair: bot.readyContention?.pair || bot.workspaceSettings.primaryPair || null,
+        contentionPeerCount: bot.readyContention?.peerCount || 0,
+        contentionPeers: bot.readyContention?.peerNames || [],
+        contentionIsLeader: bot.readyContention?.isLeader || false,
+        contentionLeaderBotName: bot.readyContention?.leaderBotName || null,
+        contentionQueuePosition: bot.readyContention?.queuePosition || 0,
+      }));
+  }, [botScope, readModel.attentionBots, readModel.botCards]);
+  const botSummaries = useMemo(() => {
+    const logsByBotId = new Map<string, ActivityLogEntry[]>();
+    filteredLogs.forEach((entry) => {
+      const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
+      if (!botId) return;
+      const currentEntries = logsByBotId.get(botId) || [];
+      currentEntries.push(entry);
+      logsByBotId.set(botId, currentEntries);
+    });
+
+    const scopedBots = botScope === "attention"
+      ? readModel.attentionBots
+      : readModel.botCards
+          .filter((bot) => logsByBotId.has(bot.id))
+          .sort((left, right) => (logsByBotId.get(right.id)?.length || 0) - (logsByBotId.get(left.id)?.length || 0))
+          .slice(0, 3);
+
+    return scopedBots.map((bot) => {
+      const botLogs = logsByBotId.get(bot.id) || [];
+      const linkedCount = botLogs.filter((entry) => entry.kind === "decision" && Boolean(entry.linkedOrder)).length;
+      const decisionOnlyCount = botLogs.filter((entry) => entry.kind === "decision" && !entry.linkedOrder).length;
+      const unlinkedOrderCount = botLogs.filter((entry) => entry.kind === "order").length;
+      const latestEntry = botLogs[0] || null;
+      const latestDispatchEntry = botLogs.find((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => (
+        entry.kind === "decision" && Boolean(entry.decision.executionIntentDispatchMode || entry.decision.executionIntentDispatchStatus)
+      )) || null;
+      const unresolvedDecisionRanking = rankSymbols(
+        botLogs
+          .filter((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => entry.kind === "decision" && !entry.linkedOrder)
+          .map((entry) => entry.decision.symbol),
+      );
+      const unlinkedExecutionRanking = rankSymbols(
+        botLogs
+          .filter((entry): entry is Extract<ActivityLogEntry, { kind: "order" }> => entry.kind === "order")
+          .map((entry) => entry.order.symbol),
+      );
+      return {
+        id: bot.id,
+        name: bot.name,
+        pair: bot.workspaceSettings.primaryPair || latestSymbolFromBot(bot) || "-",
+        activityCount: botLogs.length,
+        linkedCount,
+        decisionOnlyCount,
+        unlinkedOrderCount,
+        ownedOutcomeCount: bot.ownership.ownedOutcomeCount,
+        unresolvedOwnershipCount: bot.ownership.unresolvedOwnershipCount,
+        reconciliationPct: bot.ownership.reconciliationPct,
+        healthLabel: bot.ownership.healthLabel,
+        adaptationConfidence: bot.adaptationSummary?.trainingConfidence || "low",
+        attentionNote: bot.attention?.note || bot.adaptationSummary?.adaptationBias || "Waiting for stronger owned outcomes.",
+        unresolvedDecisionSymbols: bot.ownership.unresolvedDecisionSymbols || [],
+        unlinkedExecutionSymbols: bot.ownership.unlinkedExecutionSymbols || [],
+        unresolvedDecisionRanking,
+        unlinkedExecutionRanking,
+        bestSymbol: bot.adaptationSummary?.bestSymbol || bot.performance.bestSymbol || null,
+        weakestSymbol: bot.adaptationSummary?.weakestSymbol || bot.performance.worstSymbol || null,
+        dispatchMode: latestDispatchEntry?.decision.executionIntentDispatchMode || null,
+        dispatchStatus: latestDispatchEntry?.decision.executionIntentDispatchStatus || null,
+        dispatchReason: latestDispatchEntry?.decision.executionIntentReason || null,
+        contentionActive: bot.readyContention?.isContended || false,
+        contentionPair: bot.readyContention?.pair || bot.workspaceSettings.primaryPair || null,
+        contentionPeerCount: bot.readyContention?.peerCount || 0,
+        contentionPeers: bot.readyContention?.peerNames || [],
+        contentionIsLeader: bot.readyContention?.isLeader || false,
+        contentionLeaderBotName: bot.readyContention?.leaderBotName || null,
+        contentionQueuePosition: bot.readyContention?.queuePosition || 0,
+        latestTimestamp: latestEntry
+          ? formatTimestamp(latestEntry.kind === "decision"
+            ? (latestEntry.linkedOrder?.updatedAt || latestEntry.decision.updatedAt || latestEntry.decision.createdAt)
+            : (latestEntry.order.updatedAt || latestEntry.order.createdAt))
+          : null,
+      };
+    });
+  }, [botScope, filteredLogs, readModel.attentionBots, readModel.botCards]);
 
   return (
     <div id="executionLogsView" className="view-panel active">
@@ -43,10 +496,40 @@ export function ExecutionLogsView() {
         </div>
 
         <div className="template-stats-grid">
-          <StatCard label="Total Executions" value={String(readModel.orders.length)} sub="Recent execution log entries" accentClass="accent-blue" />
+          <StatCard label="Total Executions" value={String(readModel.logs.length)} sub="Recent execution log entries" accentClass="accent-blue" />
           <StatCard label="Success Rate" value={`${readModel.successRate.toFixed(1)}%`} sub="Successful and completed entries" accentClass="accent-green" />
           <StatCard label="Failed Trades" value={String(readModel.failed)} sub="Entries that need attention" accentClass="accent-amber" />
           <StatCard label="Total Volume" value={formatUsd(readModel.totalVolume)} sub="Recent notional volume" accentClass="accent-emerald" />
+          <StatCard
+            label="Safe-Lane Stability"
+            value={formatSafeLaneStability(readModel.botSummary.safeLaneStabilityState)}
+            sub={`${Math.round(readModel.botSummary.safeLaneStabilityPct || 0)}% stable • ${readModel.botSummary.stableReadyBots || 0} stable ready bots`}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Operational Verdict"
+            value={formatOperationalVerdict(readModel.botSummary.operationalVerdictState)}
+            sub={readModel.botSummary.operationalVerdictNote || "The governed paper/demo lane is still forming its operational verdict."}
+            accentClass="accent-amber"
+          />
+          <StatCard
+            label="Governed Demo Gate"
+            value={formatGovernedDemoGate(readModel.botSummary.governedDemoGateState)}
+            sub={readModel.botSummary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}
+            accentClass="accent-blue"
+          />
+          <StatCard
+            label="Paper/Demo Status"
+            value={formatPaperDemoOperationalState(readModel.botSummary.paperDemoOperationalState)}
+            sub={readModel.botSummary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}
+            accentClass="accent-green"
+          />
+          <StatCard
+            label="Bots Operational Now"
+            value={formatBotsOperationalNow(readModel.botSummary.botsOperationalNowState)}
+            sub={readModel.botSummary.botsOperationalNowNote || "Bots are not operational in the governed paper/demo lane yet."}
+            accentClass="accent-green"
+          />
         </div>
 
         <SectionCard className="template-panel">
@@ -64,15 +547,187 @@ export function ExecutionLogsView() {
 
           <div className="template-toolbar template-toolbar-inline">
             <div className="template-search-shell">
-              <input type="text" value="" readOnly aria-label="Search logs" className="template-search-input" placeholder="Search by ID, pair, bot name, or message..." />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                aria-label="Search logs"
+                className="template-search-input"
+                placeholder="Search by ID, pair, bot name, or source..."
+              />
             </div>
             <div className="template-filter-row">
-              <button type="button" className="template-chip is-active">All Bots</button>
-              <button type="button" className="template-chip">All Status</button>
-              <button type="button" className="template-chip">Today</button>
-              <button type="button" className="template-chip">Clear</button>
+              <button type="button" className={`template-chip ${botScope === "all" ? "is-active" : ""}`.trim()} onClick={() => setBotScope("all")}>All Bots</button>
+              <button type="button" className={`template-chip ${botScope === "attention" ? "is-active" : ""}`.trim()} onClick={() => setBotScope("attention")}>Attention Bots</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "all" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("all")}>All Activity</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("linked")}>Linked Outcomes</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "decision-only" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("decision-only")}>Decision Only</button>
+              <button type="button" className={`template-chip ${ownershipFilter === "unlinked" ? "is-active" : ""}`.trim()} onClick={() => setOwnershipFilter("unlinked")}>Unlinked Orders</button>
+              <button type="button" className={`template-chip ${intentFilter === "queued" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("queued")}>Queued Intents</button>
+              <button type="button" className={`template-chip ${intentFilter === "dispatch-requested" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("dispatch-requested")}>Dispatch Requested</button>
+              <button type="button" className={`template-chip ${intentFilter === "dispatched" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("dispatched")}>Dispatched</button>
+              <button type="button" className={`template-chip ${intentFilter === "awaiting-approval" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("awaiting-approval")}>Awaiting Approval</button>
+              <button type="button" className={`template-chip ${intentFilter === "blocked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("blocked")}>Blocked Intents</button>
+              <button type="button" className={`template-chip ${intentFilter === "recovery" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("recovery")}>Recovery Governance</button>
+              <button type="button" className={`template-chip ${intentFilter === "contention" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("contention")}>Ready Contention</button>
+              <button type="button" className={`template-chip ${intentFilter === "auto-promoted" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("auto-promoted")}>Auto-Promoted</button>
+              <button type="button" className={`template-chip ${intentFilter === "linked" ? "is-active" : ""}`.trim()} onClick={() => setIntentFilter("linked")}>Linked Intents</button>
+              <button type="button" className="template-chip" onClick={() => { setBotScope("all"); setOwnershipFilter("all"); setIntentFilter("all"); setSearchQuery(""); setActiveTab("all"); }}>Clear</button>
             </div>
           </div>
+
+          {readModel.botSummary.operationalVerdictState ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              <article className="signalbot-insight-card">
+                <strong>Operational Verdict</strong>
+                <p>
+                  {formatOperationalVerdict(readModel.botSummary.operationalVerdictState)}
+                  {" • "}
+                  {formatSafeLaneStability(readModel.botSummary.safeLaneStabilityState)}
+                  {" • "}
+                  {readModel.botSummary.stableReadyBots || 0}
+                  {" "}
+                  stable ready bots
+                </p>
+                <p>{readModel.botSummary.operationalVerdictNote || "The governed paper/demo lane is still forming its operational verdict."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Governed Demo Gate</strong>
+                <p>{formatGovernedDemoGate(readModel.botSummary.governedDemoGateState)}</p>
+                <p>{readModel.botSummary.governedDemoGateNote || "Governed demo remains closed until the fleet reaches close."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Paper/Demo Operational Status</strong>
+                <p>{formatPaperDemoOperationalState(readModel.botSummary.paperDemoOperationalState)}</p>
+                <p>{readModel.botSummary.paperDemoOperationalNote || "The governed paper/demo lane is not operational yet."}</p>
+              </article>
+              <article className="signalbot-insight-card">
+                <strong>Bots Operational Now</strong>
+                <p>{formatBotsOperationalNow(readModel.botSummary.botsOperationalNowState)}</p>
+                <p>{readModel.botSummary.botsOperationalNowNote || "Bots are not operational in the governed paper/demo lane yet."}</p>
+              </article>
+            </div>
+          ) : null}
+
+          {readModel.readyContention.entries.length ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              <article className="signalbot-insight-card">
+                <strong>Ready Contention Review</strong>
+                <p>
+                  {readModel.readyContention.entries.slice(0, 4).map((entry) => `${entry.pair} (${entry.count})`).join(", ")}
+                </p>
+                <p>
+                  {readModel.readyContention.contendedReadyBots} ready bots are sharing
+                  {" "}
+                  {readModel.readyContention.contendedReadySymbols}
+                  {" "}
+                  safe-lane market slots right now.
+                </p>
+              </article>
+            </div>
+          ) : null}
+
+          {intentSummaries.length ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              {intentSummaries.map((bot) => (
+                <article key={`intent-${bot.id}`} className="signalbot-insight-card">
+                  <strong>{bot.name} · {bot.pair}</strong>
+                  <p>
+                    {bot.queuedCount} queued · {bot.dispatchRequestedCount} dispatch requested · {bot.previewedCount} preview flow · {bot.previewRecordedCount} preview recorded · {bot.previewExpiredCount} preview expired ({bot.previewFreshCount} fresh / {bot.previewStaleCount} stale) · {bot.executionSubmittedCount} demo submitted · {bot.awaitingApprovalCount} awaiting approval · {bot.blockedLaneCount} blocked · {bot.linkedCount} linked
+                  </p>
+                  <p>
+                    Recovery: {bot.previewExpiredCount} expired · {bot.previewPardonCount} pardons · {bot.previewManualClearCount} manual clears · {bot.previewHardResetCount} hard resets · {countRecoveryReviewRequired(botLogsFromBot(bot.id, filteredLogs))} manual review required
+                  </p>
+                  {bot.readyContentionAutoPromotionCount ? (
+                    <p>
+                      Queue auto-promotions: {bot.readyContentionAutoPromotionCount} across {bot.autoPromotedContentionIntentCount} intents
+                    </p>
+                  ) : null}
+                  {bot.latestGuardrailReason && bot.latestGuardrailReason.toLowerCase().includes("automatic promotion") ? (
+                    <p>Latest queue event: Auto-promoted back into dispatch review.</p>
+                  ) : null}
+                  {bot.latestDispatchMode || bot.latestDispatchStatus ? (
+                    <p>
+                      Dispatch: {formatDispatchMode(bot.latestDispatchMode)} · {formatDispatchStatus(bot.latestDispatchStatus)}
+                    </p>
+                  ) : null}
+                  <p>
+                    {bot.latestIntentSymbol
+                      ? `${formatIntentStatus(bot.latestIntentStatus)} • ${formatLaneStatus(bot.latestLaneStatus)} • ${bot.latestIntentSymbol}`
+                      : "No operational intent has been staged yet."}
+                  </p>
+                  {bot.topReadySymbols.length || bot.topBlockedSymbols.length ? (
+                    <p>
+                      {bot.topReadySymbols.length ? `Ready: ${formatSymbolRanking(bot.topReadySymbols)}` : "Ready: clear"}
+                      {" · "}
+                      {bot.topBlockedSymbols.length ? `Blocked: ${formatSymbolRanking(bot.topBlockedSymbols)}` : "Blocked: clear"}
+                    </p>
+                  ) : null}
+                  {bot.contentionActive ? (
+                    <p>
+                      Ready contention: {bot.contentionPair || bot.pair}
+                      {" · "}
+                      {bot.contentionIsLeader
+                        ? `leader ahead of ${bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}`
+                        : `queue #${bot.contentionQueuePosition || 2} behind ${bot.contentionLeaderBotName || bot.contentionPeers[0] || "another ready bot"}`}
+                    </p>
+                  ) : null}
+                  <p>{bot.latestGuardrailReason || "The shared intent lane is now available for paper/demo review."}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
+          {botSummaries.length ? (
+            <div className="signalbot-insight-stack" style={{ marginBottom: "1rem" }}>
+              {botSummaries.map((bot) => (
+                <article key={bot.id} className="signalbot-insight-card">
+                  <strong>{bot.name} · {bot.pair}</strong>
+                  <p>
+                    {bot.activityCount} entries in view · {bot.ownedOutcomeCount} owned outcomes · {bot.unresolvedOwnershipCount} unresolved · {formatOwnershipHealth(bot.healthLabel)} · {bot.adaptationConfidence} confidence
+                  </p>
+                  <p>
+                    {bot.linkedCount} linked / {bot.decisionOnlyCount} decision-only / {bot.unlinkedOrderCount} unlinked orders
+                    {bot.latestTimestamp ? ` · latest ${bot.latestTimestamp}` : ""}
+                  </p>
+                  {bot.unresolvedDecisionSymbols.length || bot.unlinkedExecutionSymbols.length ? (
+                    <p>
+                      {bot.unresolvedDecisionRanking.length
+                        ? `Decision backlog: ${formatSymbolRanking(bot.unresolvedDecisionRanking)}`
+                        : "Decision backlog: clear"}
+                      {" · "}
+                      {bot.unlinkedExecutionRanking.length
+                        ? `Execution backlog: ${formatSymbolRanking(bot.unlinkedExecutionRanking)}`
+                        : "Execution backlog: clear"}
+                    </p>
+                  ) : null}
+                  {bot.bestSymbol || bot.weakestSymbol ? (
+                    <p>
+                      {bot.bestSymbol ? `Best pocket: ${bot.bestSymbol}` : "Best pocket: forming"}
+                      {" · "}
+                      {bot.weakestSymbol ? `Weak pocket: ${bot.weakestSymbol}` : "Weak pocket: not clear"}
+                    </p>
+                  ) : null}
+                  {bot.contentionActive ? (
+                    <p>
+                      Ready contention: {bot.contentionPair || bot.pair}
+                      {" · "}
+                      {bot.contentionIsLeader
+                        ? `leader ahead of ${bot.contentionPeers.join(", ") || `${bot.contentionPeerCount} ready peers`}`
+                        : `queue #${bot.contentionQueuePosition || 2} behind ${bot.contentionLeaderBotName || bot.contentionPeers[0] || "another ready bot"}`}
+                    </p>
+                  ) : null}
+                  {bot.dispatchMode || bot.dispatchStatus ? (
+                    <p>
+                      Dispatch lane: {formatDispatchMode(bot.dispatchMode)} · {formatDispatchStatus(bot.dispatchStatus)}
+                      {bot.dispatchReason ? ` · ${bot.dispatchReason}` : ""}
+                    </p>
+                  ) : null}
+                  <p>{bot.attentionNote}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
 
           <div className="template-table-shell">
             <table className="template-table">
@@ -92,28 +747,80 @@ export function ExecutionLogsView() {
                 </tr>
               </thead>
               <tbody>
-                {visibleLogs.map((order) => (
-                  <tr key={order.id}>
-                    <td>{formatTimestamp(order.created_at)}</td>
-                    <td>#{order.id}</td>
-                    <td>{inferBotLabel(order)}</td>
-                    <td>{inferLogType(order)}</td>
-                    <td>{order.coin}</td>
-                    <td>{formatSide(order.side)}</td>
-                    <td>{formatAmount(order.quantity)}</td>
-                    <td>{formatUsd(Number(order.current_price || 0))}</td>
-                    <td>{formatStatus(order)}</td>
-                    <td className={Number(order.realized_pnl || 0) >= 0 ? "is-positive" : "is-negative"}>
-                      {formatUsd(Number(order.realized_pnl || 0))}
+                {visibleLogs.map((entry) => entry.kind === "order" ? (
+                  <tr key={`order-${entry.order.orderId}`}>
+                    <td>{formatTimestamp(entry.order.updatedAt || entry.order.createdAt)}</td>
+                    <td>#{entry.order.orderId}</td>
+                    <td>{getEntryBotName(entry, readModel.botNameById)}</td>
+                    <td>{inferLogType(entry.order)}</td>
+                    <td>{entry.order.symbol}</td>
+                    <td>{formatSide(entry.order.mode)}</td>
+                    <td>{formatAmount(entry.order.quantity)}</td>
+                    <td>{formatMaybeUsd(entry.order.entryPrice)}</td>
+                    <td>{formatStatus(entry.order)}</td>
+                    <td className={Number(entry.order.pnlUsd || 0) >= 0 ? "is-positive" : "is-negative"}>
+                      {formatUsd(Number(entry.order.pnlUsd || 0))}
                     </td>
                     <td>
                       <div className="template-table-actions">
-                        <button type="button" className="template-inline-link">View</button>
+                        <button type="button" className="template-inline-link">{entry.order.source || "View"}</button>
+                        <button type="button" className="template-inline-link">Copy</button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={`decision-${entry.decision.id}`}>
+                    <td>{formatTimestamp(entry.linkedOrder?.updatedAt || entry.decision.updatedAt || entry.decision.createdAt)}</td>
+                    <td>{entry.decision.id}</td>
+                    <td>{getEntryBotName(entry, readModel.botNameById)}</td>
+                    <td>{formatDecisionType(entry.decision)}</td>
+                    <td>{entry.decision.symbol}</td>
+                    <td>{entry.decision.action.toUpperCase()}</td>
+                    <td>{entry.decision.timeframe || "-"}</td>
+                    <td>{formatMaybeUsd(entry.linkedOrder?.entryPrice ?? entry.decision.entryPrice ?? null)}</td>
+                    <td>{formatDecisionStatus(entry.decision.status, entry.linkedOrder?.status, entry.decision.executionIntentLaneStatus)}</td>
+                    <td className={Number((entry.linkedOrder?.pnlUsd ?? entry.decision.pnlUsd ?? 0) || 0) >= 0 ? "is-positive" : "is-negative"}>
+                      {formatMaybeUsd(entry.linkedOrder?.pnlUsd ?? entry.decision.pnlUsd ?? null)}
+                    </td>
+                    <td>
+                      <div className="template-table-actions">
+                        {entry.decision.executionIntentLaneStatus === "awaiting-approval" ? (
+                          <>
+                            <button type="button" className="template-inline-link" onClick={() => void handleIntentReview(entry.decision, "approve")}>Approve</button>
+                            <button type="button" className="template-inline-link" onClick={() => void handleIntentReview(entry.decision, "reject")}>Reject</button>
+                          </>
+                        ) : entry.decision.executionIntentLaneStatus === "queued" ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleIntentDispatch(entry.decision)}>Dispatch</button>
+                        ) : isReadyContentionBlockedDecision(entry.decision) || isOperationalVerdictBlockedDecision(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleRetryReadyContention(entry.decision)}>Retry Dispatch</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnPardons(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handlePardonPreviewChurn(entry.decision)}>Pardon Churn</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnManualClears(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleManualClearPreviewChurn(entry.decision)}>Manual Clear</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) && hasRemainingPreviewChurnHardResets(entry.decision) ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleHardResetPreviewChurn(entry.decision)}>Hard Reset</button>
+                        ) : isPreviewChurnBlockedDecision(entry.decision) ? (
+                          <button type="button" className="template-inline-link">{hasReachedFinalPreviewRecoveryBoundary(entry.decision) ? "Final Review Only" : "Manual Review Required"}</button>
+                        ) : entry.decision.executionIntentLaneStatus === "preview-expired" ? (
+                          <button type="button" className="template-inline-link" onClick={() => void handleRefreshPreview(entry.decision)}>Refresh Preview</button>
+                        ) : (
+                          <button type="button" className="template-inline-link">{formatDecisionActionLink(entry.decision, entry.linkedOrder)}</button>
+                        )}
                         <button type="button" className="template-inline-link">Copy</button>
                       </div>
                     </td>
                   </tr>
                 ))}
+                {!visibleLogs.length ? (
+                  <tr>
+                    <td colSpan={11}>
+                      <div className="template-empty-state">
+                        <strong>No activity matches this view.</strong>
+                        <span>Try another tab, search term, or ownership filter.</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -123,29 +830,228 @@ export function ExecutionLogsView() {
   );
 }
 
-function matchesTab(order: ExecutionOrderRecord, tab: ExecutionLogsTab) {
+function matchesTab(entry: ActivityLogEntry, tab: ExecutionLogsTab) {
+  if (entry.kind === "decision") {
+    if (tab === "all") return true;
+    if (tab === "trades") return entry.decision.action === "execute" || entry.decision.action === "close";
+    if (tab === "signals") return entry.decision.action === "observe" || entry.decision.action === "block" || entry.decision.action === "accept";
+    if (tab === "errors") return isFailedDecision(entry.decision);
+    return entry.decision.source === "ai-supervisor" || entry.decision.source === "market-core";
+  }
+
+  const order = entry.order;
   if (tab === "all") return true;
-  if (tab === "trades") return order.mode === "execute";
+  if (tab === "trades") return order.mode === "execute" || order.mode === "demo" || order.mode === "real";
   if (tab === "signals") return order.mode !== "execute" && !isFailedOrder(order);
   if (tab === "errors") return isFailedOrder(order);
-  return order.origin === "system" || order.origin === "runtime";
+  return order.source === "system" || order.source === "runtime";
 }
 
-function isFailedOrder(order: ExecutionOrderRecord) {
-  const status = String(order.lifecycle_status || order.status || "").toLowerCase();
+function matchesOwnership(entry: ActivityLogEntry, filter: ActivityOwnershipFilter) {
+  if (filter === "all") return true;
+  if (filter === "linked") return entry.kind === "decision" && Boolean(entry.linkedOrder);
+  if (filter === "decision-only") return entry.kind === "decision" && !entry.linkedOrder;
+  return entry.kind === "order";
+}
+
+function matchesBotScope(entry: ActivityLogEntry, scope: ActivityBotScope, attentionBotIds: Set<string>) {
+  if (scope === "all") return true;
+  const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
+  return Boolean(botId && attentionBotIds.has(botId));
+}
+
+function matchesIntent(entry: ActivityLogEntry, filter: ActivityIntentFilter, contendedBotIds?: Set<string>) {
+  if (filter === "all") return true;
+  if (filter === "auto-promoted") {
+    return entry.kind === "decision"
+      && String(entry.decision.executionIntentReason || "").toLowerCase().includes("automatic promotion");
+  }
+  if (filter === "contention") {
+    const botId = entry.kind === "decision" ? entry.decision.botId : entry.order.botId;
+    return Boolean(botId && contendedBotIds?.has(botId));
+  }
+  if (entry.kind !== "decision") return false;
+  const laneStatus = String(entry.decision.executionIntentLaneStatus || "").trim();
+  if (!laneStatus) return false;
+  if (filter === "queued") return laneStatus === "queued";
+  if (filter === "dispatch-requested") return laneStatus === "dispatch-requested";
+  if (filter === "dispatched") return laneStatus === "previewed" || laneStatus === "preview-recorded" || laneStatus === "preview-expired" || laneStatus === "execution-submitted";
+  if (filter === "awaiting-approval") return laneStatus === "awaiting-approval";
+  if (filter === "blocked") return laneStatus === "blocked";
+  if (filter === "recovery") return matchesRecoveryGovernance(entry.decision);
+  return laneStatus === "linked";
+}
+
+function matchesSearch(entry: ActivityLogEntry, query: string, botNameById: Map<string, string>) {
+  const normalizedQuery = normalizeQuery(query);
+  if (!normalizedQuery) return true;
+
+  const botName = getEntryBotName(entry, botNameById);
+  const haystack = entry.kind === "order"
+    ? [
+        entry.order.orderId,
+        entry.order.symbol,
+        entry.order.source,
+        entry.order.mode,
+        entry.order.status,
+        botName,
+      ]
+    : [
+        entry.decision.id,
+        entry.decision.symbol,
+        entry.decision.source,
+        entry.decision.action,
+        entry.decision.status,
+        entry.decision.timeframe,
+        entry.decision.executionOrderId,
+        entry.decision.executionIntentDispatchStatus,
+        entry.decision.executionIntentDispatchMode,
+        botName,
+      ];
+
+  return haystack.some((value) => normalizeQuery(value).includes(normalizedQuery));
+}
+
+function latestSymbolFromBot(bot: {
+  activity: {
+    recentSymbols: string[];
+  };
+}) {
+  return bot.activity.recentSymbols[0] || null;
+}
+
+function formatOwnershipHealth(value: string) {
+  if (value === "needs-attention") return "Needs attention";
+  if (value === "watch") return "Watch";
+  if (value === "stable") return "Stable";
+  if (value === "healthy") return "Healthy";
+  return value;
+}
+
+function formatSafeLaneStability(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "stable") return "Stable";
+  if (normalized === "watch") return "Watch";
+  if (normalized === "fragile") return "Fragile";
+  return "Forming";
+}
+
+function formatOperationalVerdict(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (normalized === "close") return "Close";
+  if (normalized === "validating") return "Validating";
+  if (normalized === "not-ready") return "Not Ready";
+  return "Forming";
+}
+
+function formatGovernedDemoGate(value?: string | null) {
+  return String(value || "").trim() === "open" ? "Open" : "Closed";
+}
+
+function formatPaperDemoOperationalState(value?: string | null) {
+  return String(value || "").trim() === "operational" ? "Operational" : "Not Operational";
+}
+
+function formatBotsOperationalNow(value?: string | null) {
+  return String(value || "").trim() === "yes" ? "Yes" : "No";
+}
+
+function rankSymbols(symbols: Array<string | null | undefined>) {
+  const counts = new Map<string, number>();
+  symbols
+    .filter((value): value is string => Boolean(value))
+    .forEach((symbol) => {
+      counts.set(symbol, (counts.get(symbol) || 0) + 1);
+    });
+
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 3)
+    .map(([symbol, count]) => ({ symbol, count }));
+}
+
+function formatSymbolRanking(items: Array<{ symbol: string; count: number }>) {
+  return items.map((item) => `${item.symbol} (${item.count})`).join(", ");
+}
+
+function isFailedDecision(decision: { status: string }) {
+  return decision.status === "blocked" || decision.status === "dismissed";
+}
+
+function isPreviewChurnBlockedDecision(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
+    && String(decision.executionIntentReason || "").toLowerCase().includes("preview churn is severe");
+}
+
+function isReadyContentionBlockedDecision(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
+    && String(decision.executionIntentReason || "").toLowerCase().includes("ready contention is active");
+}
+
+function isOperationalVerdictBlockedDecision(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "blocked"
+    && String(decision.executionIntentReason || "").toLowerCase().includes("fleet operational verdict");
+}
+
+function hasRemainingPreviewChurnPardons(decision: DecisionLogEntry) {
+  return (Number(decision.executionIntentPreviewChurnPardonCount || 0) || 0) < MAX_PREVIEW_CHURN_PARDONS;
+}
+
+function hasRemainingPreviewChurnManualClears(decision: DecisionLogEntry) {
+  return (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) < MAX_PREVIEW_CHURN_MANUAL_CLEARS;
+}
+
+function hasRemainingPreviewChurnHardResets(decision: DecisionLogEntry) {
+  return (Number(decision.executionIntentPreviewChurnHardResetCount || 0) || 0) < MAX_PREVIEW_CHURN_HARD_RESETS;
+}
+
+function hasReachedPreviewChurnManualReview(decision: DecisionLogEntry) {
+  return isPreviewChurnBlockedDecision(decision)
+    && !hasRemainingPreviewChurnPardons(decision)
+    && !hasRemainingPreviewChurnManualClears(decision)
+    && !hasRemainingPreviewChurnHardResets(decision);
+}
+
+function hasReachedFinalPreviewRecoveryBoundary(decision: DecisionLogEntry) {
+  return hasReachedPreviewChurnManualReview(decision)
+    && (Number(decision.executionIntentPreviewChurnHardResetCount || 0) || 0) >= MAX_PREVIEW_CHURN_HARD_RESETS;
+}
+
+function matchesRecoveryGovernance(decision: DecisionLogEntry) {
+  return String(decision.executionIntentLaneStatus || "").trim() === "preview-expired"
+    || isPreviewChurnBlockedDecision(decision)
+    || (Number(decision.executionIntentPreviewChurnPardonCount || 0) || 0) > 0
+    || (Number(decision.executionIntentPreviewChurnManualClearCount || 0) || 0) > 0
+    || (Number(decision.executionIntentPreviewChurnHardResetCount || 0) || 0) > 0;
+}
+
+function countRecoveryReviewRequired(entries: ActivityLogEntry[]) {
+  return entries.filter((entry) => entry.kind === "decision" && hasReachedPreviewChurnManualReview(entry.decision)).length;
+}
+
+function isFailedOrder(order: ExecutionLogOrderEntry) {
+  const status = String(order.status || "").toLowerCase();
   return status.includes("fail") || status.includes("error") || status.includes("reject");
 }
 
-function inferBotLabel(order: ExecutionOrderRecord) {
-  if (String(order.strategy_name || "").toLowerCase().includes("signal")) return "Signal Bot";
-  if (String(order.strategy_name || "").toLowerCase().includes("dca")) return "DCA Bot";
-  if (String(order.strategy_name || "").toLowerCase().includes("arbitrage")) return "Arbitrage Bot";
-  return order.strategy_name || "System";
+function inferBotLabel(order: ExecutionLogOrderEntry) {
+  if (String(order.source || "").toLowerCase().includes("signal")) return "Signal Bot";
+  if (String(order.source || "").toLowerCase().includes("dca")) return "DCA Bot";
+  if (String(order.source || "").toLowerCase().includes("arbitrage")) return "Arbitrage Bot";
+  return "System";
 }
 
-function inferLogType(order: ExecutionOrderRecord) {
+function getEntryBotName(entry: ActivityLogEntry, botNameById: Map<string, string>) {
+  if (entry.kind === "order") {
+    return entry.order.botName || (entry.order.botId ? botNameById.get(entry.order.botId) : null) || inferBotLabel(entry.order);
+  }
+
+  return entry.decision.botName || botNameById.get(entry.decision.botId) || entry.decision.botId;
+}
+
+function inferLogType(order: ExecutionLogOrderEntry) {
   if (isFailedOrder(order)) return "Error";
-  if (order.mode === "execute") return "Trade";
+  if (order.mode === "execute" || order.mode === "demo" || order.mode === "real") return "Trade";
   if (order.mode === "observe") return "Signal";
   return "System";
 }
@@ -155,18 +1061,12 @@ function formatSide(value?: string) {
   return value.toUpperCase();
 }
 
-function formatStatus(order: ExecutionOrderRecord) {
-  const status = String(order.lifecycle_status || order.status || "").toLowerCase();
+function formatStatus(order: ExecutionLogOrderEntry) {
+  const status = String(order.status || "").toLowerCase();
   if (status.includes("fill") || status.includes("close") || status.includes("win")) return "Filled";
   if (status.includes("pending") || status.includes("open")) return "Pending";
   if (status.includes("fail") || status.includes("error") || status.includes("reject")) return "Failed";
   return "Success";
-}
-
-function calculateSuccessRate(orders: ExecutionOrderRecord[]) {
-  if (!orders.length) return 0;
-  const success = orders.filter((order) => !isFailedOrder(order)).length;
-  return (success / orders.length) * 100;
 }
 
 function formatUsd(value: number) {
@@ -181,6 +1081,100 @@ function formatAmount(value?: number) {
   return typeof value === "number" ? value.toFixed(4) : "-";
 }
 
+function formatDecisionType(decision: { action: string }) {
+  if (decision.action === "execute") return "Trade";
+  if (decision.action === "block") return "Filter";
+  if (decision.action === "observe") return "Signal Review";
+  if (decision.action === "assist") return "Assist";
+  return "Bot";
+}
+
+function formatDecisionStatus(status: string, linkedOrderStatus?: string | null, intentLaneStatus?: string | null) {
+  if (linkedOrderStatus) return formatStatus({ status: linkedOrderStatus } as ExecutionLogOrderEntry);
+  if (intentLaneStatus === "queued") return "Queued";
+  if (intentLaneStatus === "dispatch-requested") return "Dispatch Requested";
+  if (intentLaneStatus === "previewed") return "Previewed";
+  if (intentLaneStatus === "preview-recorded") return "Preview Recorded";
+  if (intentLaneStatus === "preview-expired") return "Preview Expired";
+  if (intentLaneStatus === "execution-submitted") return "Execution Submitted";
+  if (intentLaneStatus === "awaiting-approval") return "Awaiting Approval";
+  if (intentLaneStatus === "blocked") return "Intent Blocked";
+  if (intentLaneStatus === "linked") return "Linked";
+  if (status === "closed") return "Closed";
+  if (status === "approved") return "Reviewed";
+  if (status === "dismissed") return "Dismissed";
+  if (status === "executed") return "Executed";
+  if (status === "blocked") return "Blocked";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function formatDecisionActionLink(decision: DecisionLogEntry, linkedOrder?: ExecutionLogOrderEntry | null) {
+  if (linkedOrder?.orderId || decision.executionOrderId) {
+    const orderId = linkedOrder?.orderId || decision.executionOrderId;
+    const outcome = decision.executionOutcomeStatus || linkedOrder?.status;
+    return outcome ? `Order ${String(outcome).toLowerCase()}` : `Order #${orderId}`;
+  }
+  if (String(decision.executionIntentReason || "").toLowerCase().includes("automatic promotion")) {
+    return "Auto-promoted into dispatch";
+  }
+  if (decision.executionIntentLaneStatus === "blocked") {
+    return decision.executionIntentReason || decision.source || "Blocked intent";
+  }
+  if (decision.executionIntentLaneStatus === "previewed" || decision.executionIntentLaneStatus === "preview-recorded" || decision.executionIntentLaneStatus === "preview-expired" || decision.executionIntentLaneStatus === "execution-submitted") {
+    return `${formatDispatchMode(decision.executionIntentDispatchMode)} · ${formatDispatchStatus(decision.executionIntentDispatchStatus)}`;
+  }
+  if (decision.executionIntentLaneStatus) {
+    return `${formatLaneStatus(decision.executionIntentLaneStatus)} intent`;
+  }
+  return decision.source || "View";
+}
+
+function botLogsFromBot(botId: string, logs: ActivityLogEntry[]) {
+  return logs.filter((entry) => (entry.kind === "decision" ? entry.decision.botId : entry.order.botId) === botId);
+}
+
+function findLatestDispatchValue(logs: ActivityLogEntry[], field: "mode" | "status") {
+  const match = logs.find((entry): entry is Extract<ActivityLogEntry, { kind: "decision" }> => (
+    entry.kind === "decision"
+    && Boolean(field === "mode" ? entry.decision.executionIntentDispatchMode : entry.decision.executionIntentDispatchStatus)
+  ));
+  if (!match) return null;
+  return field === "mode" ? match.decision.executionIntentDispatchMode || null : match.decision.executionIntentDispatchStatus || null;
+}
+
+function formatDispatchMode(value?: string | null) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "preview") return "Paper Preview";
+  if (normalized === "execute") return "Demo Execute";
+  return normalized ? formatLaneStatus(normalized) : "Pending Dispatch";
+}
+
+function formatDispatchStatus(value?: string | null) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "Pending";
+  if (normalized === "submitted") return "Submitted";
+  if (normalized === "blocked") return "Blocked";
+  if (normalized === "failed") return "Failed";
+  return formatLaneStatus(normalized);
+}
+
+function formatIntentStatus(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Waiting";
+  return normalized.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function formatLaneStatus(value?: string | null) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return "Pending";
+  return normalized.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+
+function formatMaybeUsd(value: unknown) {
+  const nextValue = Number(value);
+  return Number.isFinite(nextValue) ? formatUsd(nextValue) : "-";
+}
+
 function formatTimestamp(value?: string) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en-US", {
@@ -189,4 +1183,23 @@ function formatTimestamp(value?: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function calculateSuccessRate(logs: ActivityLogEntry[], decisionCount: number) {
+  const total = logs.length || decisionCount;
+  if (!total) return 0;
+  const success = logs.filter((entry) => (
+    entry.kind === "order"
+      ? !isFailedOrder(entry.order)
+      : !isFailedDecision(entry.decision) && !entry.linkedOrder
+        ? true
+        : entry.linkedOrder
+          ? !isFailedOrder(entry.linkedOrder)
+          : !isFailedDecision(entry.decision)
+  )).length;
+  return (success / total) * 100;
+}
+
+function normalizeQuery(value: unknown) {
+  return String(value || "").trim().toLowerCase();
 }

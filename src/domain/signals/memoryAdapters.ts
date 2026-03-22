@@ -78,6 +78,16 @@ export function mapSignalSnapshotToPublishedSignal(
       isWatchlistSignal ? "watchlist" : "market-wide",
       ...(visibilityScore >= 65 ? ["high-confidence" as const] : []),
     ],
+    // Preserve decision/scorer metadata from signal memory so Signal Core
+    // can promote AI-prioritized and informational cohorts from real stored evidence.
+    intelligence: {
+      executionEligible: snapshot.signal_payload?.decision?.executionEligible === true,
+      decisionSource: snapshot.signal_payload?.decision?.source,
+      adaptiveScore: snapshot.signal_payload?.decision?.adaptiveScore,
+      scorerLabel: snapshot.signal_payload?.decision?.scorer?.label,
+      scorerConfidence: snapshot.signal_payload?.decision?.scorer?.confidence,
+      contextSignature: snapshot.signal_payload?.context?.contextSignature,
+    },
   };
 }
 

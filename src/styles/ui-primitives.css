@@ -196,6 +196,11 @@
   pointer-events: none;
 }
 
+.ui-input-shell.is-select svg {
+  left: auto;
+  right: 14px;
+}
+
 .ui-input-shell input,
 .ui-input-shell select,
 .ui-input-shell textarea {
@@ -207,6 +212,16 @@
   background: rgba(255, 255, 255, 0.88);
   color: #0f172a;
   font-size: 13px;
+}
+
+.ui-input-shell.is-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 40px;
+  cursor: pointer;
 }
 
 .ui-input-shell input::placeholder,

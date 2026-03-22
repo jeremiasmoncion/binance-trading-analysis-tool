@@ -5311,3 +5311,74 @@ Signal Bot feed/runtime closure pass
 
 - Hotfix status: `100% complete`
 - Remaining work for this specific regression: `0%`
+
+## 2026-03-22 - Parallel session stability hardening (certification pass)
+
+### What Changed
+
+- Further decoupled authenticated startup from workspace bootstrap in [src/hooks/useAuth.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useAuth.ts):
+  - post-auth bootstrap now runs in the background
+  - login/register/session restore no longer wait on the initial workspace load before releasing auth gating
+- Time-bounded the initial workspace bootstrap in [src/App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx):
+  - `runInitialWorkspaceLoad()` now races realtime bootstrap against a 4s ceiling
+  - if realtime/bootstrap is slow, the shell still opens and market fetch continues in the background
+
+### Why This Matters
+
+- The first deadlock fix removed the “stuck forever” state, but the app could still sit too long on `Preparando CRYPE` while waiting for realtime/bootstrap.
+- This pass turns startup into a resilient degrade path instead of a hard gate, which is especially important under multi-user / parallel-browser stress.
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+- `npm run test:e2e -- --project=chrome tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+
+### Notes
+
+- Local `webkit` still failed in this machine, but the failure is now clearly a Playwright/WebKit launch abort (`Abort trap: 6`) rather than an application-level isolation failure.
+- Chrome is the reliable regression gate right now for parallel multi-user stability.
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `80% complete`
+- Remaining work for this front: `20%`
+
+## 2026-03-22 - Multi-browser auth confirmation hardening
+
+### What Changed
+
+- Further hardened [src/hooks/useAuth.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useAuth.ts):
+  - login/register no longer assume the first `getSession()` call will immediately observe the new cookie
+  - added a bounded retry window (`8s`) with short polling (`250ms`) and short request timeouts (`1.5s`)
+- Updated [src/services/api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts) so `authService.getSession()` accepts a configurable timeout for these tighter auth-confirmation loops
+- Expanded [playwright.config.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/playwright.config.mjs) with an opt-in `firefox` project so multi-browser certification is now part of the repo setup instead of an ad-hoc run
+
+### Why This Matters
+
+- Firefox exposed a real race after login: the session cookie could land slightly later than the immediate follow-up `getSession()` call.
+- The result was the app staying on `Preparando acceso` even though credentials were valid.
+- This was a true browser-level robustness gap in the auth/bootstrap path.
+
+### Validation Snapshot
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+- Preview deployed for fullstack validation:
+  - [https://binance-trading-analysis-tool-5e69i2mr0.vercel.app](https://binance-trading-analysis-tool-5e69i2mr0.vercel.app)
+- `E2E_BASE_URL='https://binance-trading-analysis-tool-5e69i2mr0.vercel.app' npm run test:e2e -- --project=chrome tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+- `PLAYWRIGHT_ENABLE_FIREFOX=1 E2E_BASE_URL='https://binance-trading-analysis-tool-5e69i2mr0.vercel.app' npm run test:e2e -- --project=firefox tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+
+### Notes
+
+- Local static `vite preview` is not a valid fullstack certification target for auth because it does not provide the production `/api/*` routes.
+- Production-preview verification is now the reliable browser-certification path for login/session isolation.
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `95% complete`
+- Remaining work for this front: `5%`

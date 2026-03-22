@@ -21,6 +21,15 @@ if (process.env.PLAYWRIGHT_ENABLE_WEBKIT === "1") {
   });
 }
 
+if (process.env.PLAYWRIGHT_ENABLE_FIREFOX === "1") {
+  projects.push({
+    name: "firefox",
+    use: {
+      browserName: "firefox",
+    },
+  });
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,

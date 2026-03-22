@@ -482,10 +482,10 @@ export const authService = {
   logout() {
     return apiRequest("/api/auth/logout", { method: "POST" });
   },
-  async getSession() {
+  async getSession(timeoutMs = 8_000) {
     try {
       const payload = await apiRequest<{ user: UserSession }>("/api/auth/session", {
-        timeoutMs: 8_000,
+        timeoutMs,
       });
       return payload.user;
     } catch {

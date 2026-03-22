@@ -24,6 +24,8 @@ import { applyRealtimeCoreBootstrap } from "./realtime-core/bootstrap";
 import { applyRealtimeCoreEvent } from "./realtime-core/events";
 import type { StrategyRecommendationRecord } from "./types";
 
+const INITIAL_WORKSPACE_BOOTSTRAP_TIMEOUT_MS = 4_000;
+
 function isMobileViewport() {
   return typeof window !== "undefined" && window.innerWidth <= 1024;
 }
@@ -117,7 +119,16 @@ export function App() {
     try {
       // First paint only depends on a stable system bootstrap. Market analysis is
       // heavier and can continue in the background without forcing an empty shell.
-      await hydrateRealtimeBootstrap(coin, timeframe, period);
+      const bootstrapTask = hydrateRealtimeBootstrap(coin, timeframe, period).catch((error) => {
+        console.error("Initial realtime bootstrap failed", error);
+        return null;
+      });
+      await Promise.race([
+        bootstrapTask,
+        new Promise((resolve) => {
+          window.setTimeout(resolve, INITIAL_WORKSPACE_BOOTSTRAP_TIMEOUT_MS);
+        }),
+      ]);
       void market.fetchData(coin, timeframe);
     } finally {
       setStartupPending(false);

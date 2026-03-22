@@ -2722,3 +2722,76 @@ Keep the work phased.
 
 - Hotfix status: `100% complete`
 - Remaining work for this specific regression: `0%`
+
+## 2026-03-22 - Parallel session stability hardening (certification pass)
+
+### What Was Added / Changed
+
+- Updated [src/hooks/useAuth.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useAuth.ts) so authenticated startup callbacks run in the background instead of blocking login/session restore completion.
+- Updated [src/App.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/App.tsx) so the initial workspace bootstrap is time-bounded to 4 seconds before the shell is allowed to continue loading the rest in the background.
+
+### Why This Matters
+
+- The prior hotfix removed the infinite startup deadlock, but the app could still remain too long on `Preparando CRYPE` under slower realtime/bootstrap paths.
+- This pass makes startup tolerant to degraded realtime/bootstrap latency, which was the main remaining source of false-negative E2E failures in the multi-user certification phase.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+- `npm run test:e2e -- --project=chrome tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+
+### Notes For The Next Agent
+
+- Chrome now passes both:
+  - parallel dual-user isolation
+  - same-context user switching
+- Local WebKit still aborts at launch in this environment (`Abort trap: 6`), so treat that as a tooling/runtime issue unless a future run reproduces it in another environment.
+- The next best step in certification is either:
+  - browser-level verification in another WebKit-capable environment
+  - or moving to targeted performance/polish work now that the parallel Chrome gate is green
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `80% complete`
+- Remaining work for this front: `20%`
+
+## 2026-03-22 - Multi-browser auth confirmation hardening
+
+### What Was Added / Changed
+
+- Hardened [src/hooks/useAuth.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/hooks/useAuth.ts) so login/register confirm the authenticated session with a bounded retry loop instead of trusting a single immediate `getSession()` read.
+- Updated [src/services/api.ts](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/services/api.ts) so `authService.getSession()` accepts custom timeout values, allowing tighter auth confirmation retries without inheriting the default long session timeout.
+- Expanded [playwright.config.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/playwright.config.mjs) with an opt-in Firefox project for browser certification.
+
+### Why This Matters
+
+- Firefox revealed a real auth race where the login cookie could be written slightly after the first `getSession()` call.
+- That race left the shell on `Preparando acceso` even though the login succeeded.
+- The fix closes a true multi-browser startup gap rather than just masking a flaky test.
+
+### Validation
+
+- `npm run typecheck` -> pass
+- `npm run build` -> pass
+- `npm run test:backend` -> pass (`32/32`)
+- `npm run system-audit -- --env-file=/tmp/crype-bot-audit.env --users=jeremias,yeudy` -> pass (`findings: []`)
+- Preview used for fullstack browser verification:
+  - [https://binance-trading-analysis-tool-5e69i2mr0.vercel.app](https://binance-trading-analysis-tool-5e69i2mr0.vercel.app)
+- Chrome E2E on preview -> pass (`2/2`)
+- Firefox E2E on preview -> pass (`2/2`)
+
+### Notes For The Next Agent
+
+- Do not use local static `vite preview` as the final auth-certification target; it does not serve the production `/api/*` routes.
+- The current reliable certification path is:
+  - deploy a Vercel preview
+  - run Chrome + Firefox isolation tests against that preview
+- The remaining unclosed browser-certification gap is WebKit/Safari-level runtime verification.
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `95% complete`
+- Remaining work for this front: `5%`

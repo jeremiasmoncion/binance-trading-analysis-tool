@@ -2795,3 +2795,41 @@ Keep the work phased.
 
 - `Parallel Session Stability Hardening`: `95% complete`
 - Remaining work for this front: `5%`
+
+## 2026-03-22 - Auth startup regression gate
+
+### What Was Added / Changed
+
+- Added stable test selectors to [src/components/StartupOverlay.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/StartupOverlay.tsx)
+- Added [tests/e2e/auth-startup.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/auth-startup.spec.mjs) covering:
+  - authenticated reload without getting stuck on startup overlays
+  - failed login remaining recoverable and visible in the login overlay
+
+### Why This Matters
+
+- The startup/session fixes are now guarded by explicit browser-level regression, not only by ad-hoc smoke testing.
+- This substantially lowers the chance of reintroducing the exact startup deadlocks and auth-confirmation races we just cleaned up.
+
+### Validation
+
+- Preview used for certification:
+  - [https://binance-trading-analysis-tool-7umguji6x.vercel.app](https://binance-trading-analysis-tool-7umguji6x.vercel.app)
+- Chrome preview suite:
+  - `auth-startup.spec.mjs` -> pass (`2/2`)
+  - `multi-user-isolation.spec.mjs` -> pass (`2/2`)
+- Firefox preview suite:
+  - `auth-startup.spec.mjs` -> pass (`2/2`)
+  - `multi-user-isolation.spec.mjs` -> pass (`2/2`)
+
+### Notes For The Next Agent
+
+- Browser certification is now strong in Chrome + Firefox for:
+  - startup restore
+  - login recovery
+  - multi-user isolation
+- The remaining browser-certification gap is specifically WebKit/Safari runtime coverage.
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `98% complete`
+- Remaining work for this front: `2%`

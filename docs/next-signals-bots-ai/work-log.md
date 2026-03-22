@@ -5382,3 +5382,33 @@ Signal Bot feed/runtime closure pass
 
 - `Parallel Session Stability Hardening`: `95% complete`
 - Remaining work for this front: `5%`
+
+## 2026-03-22 - Auth startup regression gate
+
+### What Changed
+
+- Added stable startup overlay selectors in [src/components/StartupOverlay.tsx](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/src/components/StartupOverlay.tsx)
+- Added full E2E regression coverage in [tests/e2e/auth-startup.spec.mjs](/Users/jeremiasmoncion/Documents/New project/binance-trading-analysis-tool/tests/e2e/auth-startup.spec.mjs) for:
+  - authenticated session restore after reload
+  - failed login staying recoverable instead of hanging on startup gates
+
+### Why This Matters
+
+- The startup/auth hardening is now protected by browser-level regression instead of relying only on manual verification.
+- This closes the loop around the exact class of regressions that caused `Restaurando sesión` / `Preparando acceso` to get stuck.
+
+### Validation Snapshot
+
+- Preview used for fullstack browser certification:
+  - [https://binance-trading-analysis-tool-7umguji6x.vercel.app](https://binance-trading-analysis-tool-7umguji6x.vercel.app)
+- Chrome preview E2E:
+  - `tests/e2e/auth-startup.spec.mjs` -> pass (`2/2`)
+  - `tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+- Firefox preview E2E:
+  - `tests/e2e/auth-startup.spec.mjs` -> pass (`2/2`)
+  - `tests/e2e/multi-user-isolation.spec.mjs` -> pass (`2/2`)
+
+### Progress Estimate
+
+- `Parallel Session Stability Hardening`: `98% complete`
+- Remaining work for this front: `2%`
